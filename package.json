@@ -2,7 +2,8 @@
   "name": "anushka-kart-root",
   "private": true,
   "scripts": {
-    "build": "cd frontend && npm run build",
+    "install": "cd frontend && npm install",
+    "build": "cd frontend && npm install && npm run build",
     "dev": "cd frontend && npm run dev"
   }
 }
