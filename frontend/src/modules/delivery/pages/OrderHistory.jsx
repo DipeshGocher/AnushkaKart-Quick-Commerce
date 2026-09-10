@@ -187,7 +187,7 @@ const OrderHistory = () => {
               key={status}
               onClick={() => setFilter(status.toLowerCase())}
               className={`snap-start h-9 px-4 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${filter === status.toLowerCase()
-                ? "bg-primary text-primary-foreground border-transparent shadow-lg shadow-primary/25"
+                ? "bg-[#E60067] text-white border-transparent shadow-md font-black"
                 : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                 }`}
             >
@@ -229,20 +229,20 @@ const OrderHistory = () => {
                       openOrderDetail(order);
                     }
                   }}
-                  className="hover:shadow-md transition-shadow cursor-pointer group">
+                  className="card-left-pill-magenta hover:shadow-md transition-all cursor-pointer group rounded-2xl border border-slate-100 bg-white">
                   <div className="p-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start mb-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1 min-w-0 flex-wrap">
-                          <span className="font-bold text-gray-900 text-sm group-hover:text-primary transition-colors break-all">
+                          <span className="font-bold text-[#E60067] text-sm group-hover:text-[#C00052] transition-colors break-all">
                             #{order.orderId}
                           </span>
                           <span
                             className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${displayOrderStatus(order) === "delivered"
-                              ? "bg-brand-100 text-brand-700"
+                              ? "bg-pink-50 text-[#E60067] border border-pink-100"
                               : displayOrderStatus(order) === "cancelled"
-                                ? "bg-red-100 text-red-700"
-                                : "bg-brand-100 text-brand-700"
+                                ? "bg-red-50 text-red-600 border border-red-100"
+                                : "bg-pink-50 text-[#E60067] border border-pink-100"
                               }`}>
                             {displayOrderStatus(order)}
                           </span>
@@ -253,16 +253,16 @@ const OrderHistory = () => {
                         </div>
                       </div>
                       <div className="text-left sm:text-right shrink-0">
-                        <span className="block font-bold text-lg text-brand-600 whitespace-nowrap">
+                        <span className="block font-black text-lg text-slate-900 whitespace-nowrap">
                           ₹{getOrderEarnings(order)}
                         </span>
                         <span className="ds-caption text-gray-400">Earnings</span>
                       </div>
                     </div>
 
-                    <div className="border-t border-b border-gray-50 py-3 my-3 space-y-2">
+                    <div className="bg-white rounded-xl p-3 border border-pink-100/70 shadow-2xs my-3 space-y-2">
                       <div className="flex items-start">
-                        <div className="w-2 h-2 rounded-full bg-brand-500 mt-1.5 mr-2 flex-shrink-0 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
+                        <div className="w-2 h-2 rounded-full bg-[#E60067] mt-1.5 mr-2 flex-shrink-0 shadow-[0_0_8px_rgba(230,0,103,0.5)]"></div>
                         <div>
                           <p className="ds-caption text-gray-500 mb-0.5">Store</p>
                           <p className="text-sm font-medium text-gray-800 line-clamp-1">
@@ -270,8 +270,8 @@ const OrderHistory = () => {
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-start">
-                        <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 mr-2 flex-shrink-0 shadow-[0_0_8px_rgba(239,68,68,0.5)]"></div>
+                      <div className="flex items-start border-t border-pink-50 pt-2">
+                        <div className="w-2 h-2 rounded-full bg-[#FF3366] mt-1.5 mr-2 flex-shrink-0 shadow-[0_0_8px_rgba(255,51,102,0.5)]"></div>
                         <div>
                           <p className="ds-caption text-gray-500 mb-0.5">
                             Customer
@@ -294,7 +294,7 @@ const OrderHistory = () => {
                           min
                         </span>
                       </div>
-                      <div className="flex items-center text-primary font-bold group-hover:underline self-end sm:self-auto">
+                      <div className="flex items-center text-[#E60067] font-bold group-hover:underline self-end sm:self-auto">
                         View Details <ChevronRight size={14} className="ml-0.5" />
                       </div>
                     </div>

@@ -52,30 +52,12 @@ const BottomNav = () => {
 
     return (
         <div 
-            className="fixed bottom-0 left-0 right-0 z-[500] bg-white border-t border-slate-200/80 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] md:hidden pointer-events-auto"
-            style={{ paddingBottom: "calc(0.4rem + env(safe-area-inset-bottom, 0px))" }}
+            className="fixed left-3 right-3 max-w-md mx-auto z-[500] bg-[#18181b]/90 backdrop-blur-xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.5)] rounded-full px-2 py-1.5 md:hidden pointer-events-auto transition-all duration-300"
+            style={{ bottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}
         >
-            <div className="max-w-lg mx-auto px-2 pt-1.5 pb-1 flex items-center justify-between relative">
-
-                {/* Center Elevated Cart Button */}
-                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 z-20">
-                    <motion.button
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => navigate(cartCount > 0 ? '/checkout' : '/orders')}
-                        className="w-12 h-12 rounded-full bg-gradient-to-tr from-[#ff5500] to-[#ff7700] text-white flex items-center justify-center border-[3.5px] border-white shadow-[0_10px_25px_rgba(255,85,0,0.5)] transition-all cursor-pointer hover:scale-105 active:scale-95"
-                        title="View Cart"
-                    >
-                        <ShoppingCart size={19} className="text-white" strokeWidth={2.3} />
-                    </motion.button>
-                    {cartCount > 0 && (
-                        <div className="absolute -top-1 -right-1 bg-red-500 text-white font-black text-[9px] w-5 h-5 rounded-full border-2 border-white flex items-center justify-center shadow-md pointer-events-none animate-in zoom-in">
-                            {cartCount > 99 ? '99+' : cartCount}
-                        </div>
-                    )}
-                </div>
-
-                {/* 5 Icons */}
-                <div className="flex items-center justify-between w-full">
+            <div className="flex items-center justify-around relative w-full px-1">
+                {/* 5 Nav Icons - Spaced evenly across dark glass capsule */}
+                <div className="flex items-center justify-around w-full gap-1">
                     {[...leftNavItems, ...rightNavItems].map((item) => {
                         const isActive = isRouteActive(item.path, location.pathname);
 
@@ -84,27 +66,27 @@ const BottomNav = () => {
                                 key={item.path}
                                 to={item.path}
                                 className={cn(
-                                    "flex flex-col items-center justify-center gap-0.5 px-1 py-1 rounded-xl transition-all duration-200 flex-1 min-w-0",
+                                    "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-2xl transition-all duration-300 flex-1 min-w-[50px]",
                                     isActive
-                                        ? "text-[#ff5500] font-extrabold"
-                                        : "text-slate-500 hover:text-slate-700 font-medium"
+                                        ? "bg-white text-slate-900 shadow-md font-extrabold"
+                                        : "text-slate-300 hover:text-white font-medium"
                                 )}
                             >
                                 <motion.div
-                                    animate={{ scale: isActive ? 1.15 : 1, y: isActive ? -1 : 0 }}
+                                    animate={{ scale: isActive ? 1.1 : 1 }}
                                     transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                                    className={cn(
-                                        "flex items-center justify-center p-1 rounded-xl transition-colors",
-                                        isActive ? "bg-[#fff0e6]" : ""
-                                    )}
+                                    className="flex items-center justify-center shrink-0"
                                 >
                                     <item.icon
                                         size={18}
                                         strokeWidth={isActive ? 2.5 : 2}
-                                        className={cn("transition-colors shrink-0", isActive ? "text-[#ff5500]" : "text-slate-500")}
+                                        className={cn("transition-colors shrink-0", isActive ? "text-[var(--primary)]" : "text-slate-400")}
                                     />
                                 </motion.div>
-                                <span className={cn("text-[10px] whitespace-nowrap leading-none", isActive ? "text-[#ff5500] font-black" : "text-slate-500 font-medium")}>
+                                <span className={cn(
+                                    "text-[9.5px] whitespace-nowrap leading-none tracking-tight",
+                                    isActive ? "text-slate-900 font-black" : "text-slate-300 font-medium"
+                                )}>
                                     {item.label}
                                 </span>
                             </Link>

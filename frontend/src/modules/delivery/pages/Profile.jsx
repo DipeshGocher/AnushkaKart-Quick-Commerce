@@ -111,76 +111,74 @@ const Profile = () => {
         initial="hidden"
         animate="visible">
         
-        <div className="bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
-            <div className="divide-y divide-slate-100">
-                <MenuItem
-                    icon={User}
-                    label="Personal Details"
-                    sub="Name, Address, Email"
-                    path="/delivery/profile/personal-details"
-                    badgeBg="bg-blue-50/80 border-blue-100/70 text-blue-700"
-                />
-                <MenuItem
-                    icon={ClipboardCheck}
-                    label="Document Verification"
-                    sub="View and update your documents"
-                    path="/delivery/profile/documents"
-                    badgeBg="bg-purple-50/80 border-purple-100/70 text-purple-700"
-                />
-                <MenuItem
-                    icon={Truck}
-                    label="Vehicle Information"
-                    sub="Bike, License, Insurance"
-                    path="/delivery/profile/vehicle-info"
-                    badgeBg="bg-orange-50/80 border-orange-100/70 text-orange-700"
-                />
-                <MenuItem
-                    icon={CreditCard}
-                    label="Bank Account"
-                    sub="Manage your linked bank account"
-                    path="/delivery/profile/bank-account"
-                    badgeBg="bg-amber-50/80 border-amber-100/70 text-amber-700"
-                />
-                <MenuItem
-                    icon={Wallet}
-                    label="Money Request"
-                    sub="Withdraw your earnings"
-                    path="/delivery/profile/withdrawals"
-                    badgeBg="bg-teal-50/80 border-teal-100/70 text-teal-700"
-                />
-                <MenuItem
-                    icon={Banknote}
-                    label="COD Cash & Payments"
-                    sub="Cash in hand, collected payments & deposits"
-                    path="/delivery/cod-cash"
-                    badgeBg="bg-emerald-50/80 border-emerald-100/70 text-emerald-700"
-                />
-                <MenuItem
-                    icon={ShieldCheck}
-                    label="Safety & Privacy"
-                    sub="Emergency contacts, App permissions"
-                    path="/delivery/profile/safety-privacy"
-                    badgeBg="bg-red-50/80 border-red-100/70 text-red-700"
-                />
-                <MenuItem
-                    icon={Settings}
-                    label="Settings"
-                    sub="Notifications, Language, Theme"
-                    path="/delivery/profile/settings"
-                    badgeBg="bg-gray-50/80 border-gray-100/70 text-gray-700"
-                />
-                <MenuItem
-                    icon={LifeBuoy}
-                    label="Help & Support"
-                    sub="FAQs, Chat support"
-                    path="/delivery/profile/help-support"
-                    badgeBg="bg-emerald-50/80 border-emerald-100/70 text-emerald-700"
-                />
-            </div>
+        <div className="space-y-3">
+          <MenuItem
+              icon={User}
+              label="Personal Details"
+              sub="Name, Address, Email"
+              path="/delivery/profile/personal-details"
+              badgeBg="bg-pink-50/80 border-pink-100/70 text-[#E60067]"
+          />
+          <MenuItem
+              icon={ClipboardCheck}
+              label="Document Verification"
+              sub="View and update your documents"
+              path="/delivery/profile/documents"
+              badgeBg="bg-purple-50/80 border-purple-100/70 text-purple-700"
+          />
+          <MenuItem
+              icon={Truck}
+              label="Vehicle Information"
+              sub="Bike, License, Insurance"
+              path="/delivery/profile/vehicle-info"
+              badgeBg="bg-pink-50/80 border-pink-100/70 text-[#E60067]"
+          />
+          <MenuItem
+              icon={CreditCard}
+              label="Bank Account"
+              sub="Manage your linked bank account"
+              path="/delivery/profile/bank-account"
+              badgeBg="bg-amber-50/80 border-amber-100/70 text-amber-700"
+          />
+          <MenuItem
+              icon={Wallet}
+              label="Money Request"
+              sub="Withdraw your earnings"
+              path="/delivery/profile/withdrawals"
+              badgeBg="bg-teal-50/80 border-teal-100/70 text-teal-700"
+          />
+          <MenuItem
+              icon={Banknote}
+              label="COD Cash & Payments"
+              sub="Cash in hand, collected payments & deposits"
+              path="/delivery/cod-cash"
+              badgeBg="bg-emerald-50/80 border-emerald-100/70 text-emerald-700"
+          />
+          <MenuItem
+              icon={ShieldCheck}
+              label="Safety & Privacy"
+              sub="Emergency contacts, App permissions"
+              path="/delivery/profile/safety-privacy"
+              badgeBg="bg-red-50/80 border-red-100/70 text-red-700"
+          />
+          <MenuItem
+              icon={Settings}
+              label="Settings"
+              sub="Notifications, Language, Theme"
+              path="/delivery/profile/settings"
+              badgeBg="bg-gray-50/80 border-gray-100/70 text-gray-700"
+          />
+          <MenuItem
+              icon={LifeBuoy}
+              label="Help & Support"
+              sub="FAQs, Chat support"
+              path="/delivery/profile/help-support"
+              badgeBg="bg-emerald-50/80 border-emerald-100/70 text-emerald-700"
+          />
         </div>
 
         {/* FAQ Section */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 overflow-hidden">
+        <div className="card-left-pill-magenta rounded-2xl p-4 shadow-sm overflow-hidden">
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 px-2">Delivery Partner FAQs</p>
           <div className="divide-y divide-gray-50">
             {faqs.length > 0 ? (
@@ -274,9 +272,13 @@ const DeliveryFAQItem = ({ question, answer }) => {
 const MenuItem = ({ icon: Icon, label, sub, path, onClick = undefined, badgeBg }) => {
     const Component = onClick ? 'button' : Link;
     return (
-        <Component to={path || undefined} onClick={onClick} className="w-full text-left px-4 py-3.5 flex items-center justify-between hover:bg-slate-50/80 cursor-pointer transition-colors group">
-            <div className="flex items-center gap-4">
-                <div className={cn("w-10 h-10 rounded-full border flex items-center justify-center shadow-2xs group-hover:scale-108 transition-transform flex-shrink-0", badgeBg || "bg-slate-50 border-slate-100 text-slate-600")}>
+        <Component 
+            to={path || undefined} 
+            onClick={onClick} 
+            className="card-left-pill-magenta w-full text-left px-4 py-3.5 flex items-center justify-between shadow-[0_2px_8px_-2px_rgba(0,0,0,0.04)] hover:shadow-md cursor-pointer transition-all group"
+        >
+            <div className="flex items-center gap-3.5">
+                <div className={cn("w-10 h-10 rounded-full border flex items-center justify-center shadow-2xs group-hover:scale-108 transition-transform flex-shrink-0", badgeBg || "bg-pink-50 border-pink-100 text-[#E60067]")}>
                     <Icon size={18} strokeWidth={2.5} />
                 </div>
                 <div>

@@ -544,3 +544,18 @@
 .ds-hover-scale:hover {
   transform: scale(1.05);
 }
+
+/* Signature Left Curved Corner Bar Design (Magenta #E60067) */
+.card-left-bar-magenta,
+.card-left-pill-magenta {
+  position: relative;
+  overflow: hidden;
+  border: 1.5px solid rgba(230, 0, 103, 0.28) !important;
+  border-left: 5.5px solid #E60067 !important;
+  border-radius: 20px;
+  background-color: #FFF5F8 !important;
+  box-shadow: 0 4px 14px -2px rgba(230, 0, 103, 0.06);
+}
+
+
+

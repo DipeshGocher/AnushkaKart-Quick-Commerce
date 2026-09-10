@@ -35,7 +35,7 @@ const AboutPage = () => {
                 {/* Mission Card */}
                 <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
                     <div className="flex items-center gap-3.5 mb-3">
-                        <div className="w-11 h-11 rounded-full bg-blue-50/80 border border-blue-100 flex items-center justify-center text-blue-700 shadow-2xs shrink-0">
+                        <div className="w-11 h-11 rounded-full bg-pink-50/80 border border-pink-100 flex items-center justify-center text-[#E60067] shadow-2xs shrink-0">
                             <span className="text-lg">🚚</span>
                         </div>
                         <h3 className="text-base font-bold text-slate-800">Our Mission</h3>

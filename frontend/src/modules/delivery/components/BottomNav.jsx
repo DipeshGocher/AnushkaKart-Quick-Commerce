@@ -13,36 +13,38 @@ const BottomNav = () => {
 
   return (
     <div 
-      className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 pt-3 px-4 flex justify-between items-center z-40 max-w-md mx-auto"
-      style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}
+      className="fixed left-3 right-3 max-w-sm mx-auto bg-[#18181b]/90 backdrop-blur-xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.5)] rounded-full px-2 py-1.5 flex justify-around items-center z-40 transition-all duration-300 md:hidden"
+      style={{ bottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}
     >
       {navItems.map(({ path, label, icon: Icon, hasNotification }) => (
         <NavLink
           key={label}
           to={path}
           className={({ isActive }) =>
-            `relative flex flex-col items-center justify-center space-y-1 w-full h-10 transition-colors duration-200 ${
-              isActive ? "text-[#ff8200]" : "text-gray-500 hover:text-gray-700"
+            `relative flex flex-col items-center justify-center gap-0.5 transition-all duration-300 rounded-2xl py-1 px-3 flex-1 min-w-[55px] ${
+              isActive 
+                ? "bg-white text-slate-900 shadow-md font-extrabold" 
+                : "text-slate-300 hover:text-white font-medium"
             }`
-          }>
+          }
+        >
           {({ isActive }) => (
             <>
               <motion.div
-                className="relative"
-                animate={{ scale: isActive ? 1.1 : 1, y: isActive ? -1 : 0 }}
+                className="relative flex items-center justify-center shrink-0"
+                animate={{ scale: isActive ? 1.1 : 1 }}
                 transition={{ type: "spring", stiffness: 400, damping: 17 }}
               >
                 <Icon 
-                  size={24} 
+                  size={18} 
                   strokeWidth={isActive ? 2.5 : 2} 
-                  fill={isActive ? "currentColor" : "none"} 
+                  className={isActive ? "text-[#E60067]" : "text-slate-400"}
                 />
                 {hasNotification && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#ff5722] rounded-full border-2 border-white shadow-sm" />
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#E60067] rounded-full border border-slate-900 shadow-xs" />
                 )}
               </motion.div>
-              <span
-                className={`text-[10px] font-bold ${isActive ? "opacity-100 text-[#ff8200]" : "opacity-80"}`}>
+              <span className={`text-[10px] whitespace-nowrap leading-none tracking-tight ${isActive ? "font-black text-slate-900" : "font-medium text-slate-300"}`}>
                 {label}
               </span>
             </>

@@ -395,8 +395,8 @@ const MainLocationHeader = ({
                 className="flex items-center gap-3 cursor-pointer group shrink-0">
                 <div className="group-hover:scale-110 transition-all duration-300 drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)]">
                   <img
-                    src={logoUrl || null}
-                    alt={`${appName} Logo`}
+                    src={logoUrl || "/logo.png"}
+                    alt={`${appName || 'AnushkaKart'} Logo`}
                     loading="lazy"
                     className="h-14 w-auto object-contain"
                   />
@@ -405,8 +405,8 @@ const MainLocationHeader = ({
 
               {/* Weather Widget (Desktop) */}
               {weatherEnabled && (
-                <div className="flex items-center gap-1.5 bg-blue-50/80 border border-blue-100/50 px-3 py-1.5 rounded-full text-blue-700 font-bold text-sm shadow-sm">
-                    {ActiveWeatherIcon && <ActiveWeatherIcon size={16} className="fill-current text-blue-500" />}
+                <div className="flex items-center gap-1.5 bg-pink-50/80 border border-pink-100/50 px-3 py-1.5 rounded-full text-[#E60067] font-bold text-sm shadow-sm">
+                    {ActiveWeatherIcon && <ActiveWeatherIcon size={16} className="fill-current text-[#E60067]" />}
                     <span>{settings?.weather?.condition || 'Rain'}</span>
                 </div>
               )}
@@ -452,8 +452,8 @@ const MainLocationHeader = ({
                 onClick={handleSearchClick}
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
-                className="bg-white rounded-full px-4 h-11 border border-[#FF8200]/70 shadow-[0_0_10px_rgba(255,130,0,0.2)] flex items-center transition-all duration-200 focus-within:ring-2 focus-within:ring-[#FF8200]/40 cursor-pointer hover:shadow-[0_0_14px_rgba(255,130,0,0.3)]">
-                <SearchIcon sx={{ color: "#FF8200", fontSize: 20 }} />
+                className="bg-white rounded-full px-4 h-11 border border-primary/60 shadow-[0_0_10px_rgba(230,0,103,0.15)] flex items-center transition-all duration-200 focus-within:ring-2 focus-within:ring-primary/40 cursor-pointer hover:shadow-[0_0_14px_rgba(230,0,103,0.25)]">
+                <SearchIcon sx={{ color: "var(--primary)", fontSize: 20 }} />
                 <input
                   type="text"
                   placeholder={searchPlaceholder || "Search Products..."}
@@ -494,7 +494,7 @@ const MainLocationHeader = ({
                         className={cn(
                           "w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between",
                           language === lang.code
-                            ? "bg-orange-50 text-orange-600"
+                            ? "bg-brand-50 text-primary"
                             : "text-slate-600 hover:bg-slate-50"
                         )}
                       >
@@ -503,7 +503,7 @@ const MainLocationHeader = ({
                           <span>{lang.name}</span>
                         </span>
                         {language === lang.code && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary" />
                         )}
                       </button>
                     ))}
@@ -545,7 +545,7 @@ const MainLocationHeader = ({
               >
                 <ShoppingCartOutlinedIcon sx={{ fontSize: 24 }} />
                 {cartCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-yellow-400 text-brand-900 text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:-translate-y-0.5 animate-in zoom-in duration-300">
+                  <span className="absolute -top-1.5 -right-1.5 bg-primary text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:-translate-y-0.5 animate-in zoom-in duration-300">
                     {cartCount}
                   </span>
                 )}
@@ -575,67 +575,37 @@ const MainLocationHeader = ({
               className="flex flex-col gap-1.5"
             >
               <div className="flex items-center justify-between">
-              {/* Brand Logo & Name */}
-              <div onClick={() => navigate("/")} className="flex items-center gap-2.5 cursor-pointer">
+              {/* Brand Logo */}
+              <div onClick={() => navigate("/")} className="flex items-center gap-2 cursor-pointer">
                 <img
-                  src={logoUrl || null}
-                  alt="Orange Basket"
-                  className="h-14 w-auto object-contain shrink-0"
+                  src={logoUrl || "/logo.png"}
+                  alt="AnushkaKart Logo"
+                  className="h-11 w-auto object-contain shrink-0"
                 />
-                <div className="flex flex-col justify-center text-left">
-                  <span className="text-[18px] font-black text-[#FF8200] leading-none tracking-tight">Orange</span>
-                  <div className="flex items-center gap-2 mt-[1px]">
-                    <span className="text-[18px] font-black text-[#2E7D32] leading-none tracking-tight">Basket</span>
-                    {weatherEnabled && (
-                      <div className="flex items-center gap-1 bg-blue-50/80 border border-blue-100/50 px-1.5 py-0.5 rounded-full shadow-3xs">
-                        {ActiveWeatherIcon && <ActiveWeatherIcon size={12} className="text-blue-500" />}
-                        <span className="text-[9px] font-bold text-blue-700 leading-none">{settings?.weather?.condition || 'Rain'}</span>
-                      </div>
-                    )}
+                {weatherEnabled && (
+                  <div className="flex items-center gap-1 bg-pink-50/80 border border-pink-100/50 px-2 py-1 rounded-full shadow-3xs">
+                    {ActiveWeatherIcon && <ActiveWeatherIcon size={12} className="text-[#E60067]" />}
+                    <span className="text-[10px] font-bold text-[#E60067] leading-none">{settings?.weather?.condition || 'Rain'}</span>
                   </div>
-                  <span className="text-[11px] font-black text-[#5D7E68] tracking-wide mt-1 leading-none">
-                    Fresh. Fast. Reliable.
-                  </span>
-                </div>
+                )}
               </div>
 
-              {/* Right actions: Language Dropdown + Notification Bell Button */}
+              {/* Right actions: Cart Button (Replaces Language Icon) + Notification Bell Button */}
               <div className="flex items-center gap-2.5">
-                {/* Language Selector Dropdown (Mobile) */}
-                <div className="relative" ref={mobileLangDropdownRef}>
-                  <button
-                    type="button"
-                    onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
-                    className="w-10 h-10 rounded-full bg-white border border-slate-100 flex items-center justify-center relative cursor-pointer active:scale-95 transition-all text-slate-800 shadow-3xs"
-                  >
-                    <LanguageIcon sx={{ fontSize: 20 }} className="text-slate-500" />
-                  </button>
-
-                  {isLangDropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-36 bg-white rounded-2xl border border-slate-100 shadow-xl py-1.5 z-[250] animate-in fade-in slide-in-from-top-1 duration-150">
-                      {languages.map((lang) => (
-                        <button
-                          key={lang.code}
-                          onClick={() => {
-                            setLanguage(lang.code);
-                            setIsLangDropdownOpen(false);
-                          }}
-                          className={cn(
-                            "w-full text-left px-3.5 py-2 text-xs font-bold transition-colors flex items-center justify-between",
-                            language === lang.code
-                              ? "bg-orange-50 text-orange-600"
-                              : "text-slate-600 hover:bg-slate-50"
-                          )}
-                        >
-                          <span className="flex items-center gap-2">
-                            <span className="text-base">{lang.flag}</span>
-                            <span>{lang.name}</span>
-                          </span>
-                        </button>
-                      ))}
-                    </div>
+                {/* Mobile Cart Button */}
+                <button
+                  type="button"
+                  onClick={() => navigate(cartCount > 0 ? '/checkout' : '/orders')}
+                  className="w-10 h-10 rounded-full bg-white border border-slate-100 flex items-center justify-center relative cursor-pointer active:scale-95 transition-all text-slate-800 shadow-3xs"
+                  title="View Cart"
+                >
+                  <ShoppingCartOutlinedIcon sx={{ fontSize: 20 }} className="text-slate-700" />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-primary text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white shadow-xs animate-in zoom-in">
+                      {cartCount > 99 ? '99+' : cartCount}
+                    </span>
                   )}
-                </div>
+                </button>
 
                 {/* Notification Bell Button */}
                 <button
@@ -643,7 +613,7 @@ const MainLocationHeader = ({
                   className="w-10 h-10 rounded-full bg-white border border-slate-100 flex items-center justify-center relative cursor-pointer active:scale-95 transition-all text-slate-800 shadow-3xs"
                 >
                   <NotificationsNoneOutlinedIcon sx={{ fontSize: 22 }} />
-                  <span className="absolute -top-0.5 -right-0.5 bg-[#FF8200] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white">
+                  <span className="absolute -top-0.5 -right-0.5 bg-primary text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white">
                     3
                   </span>
                 </button>
@@ -656,7 +626,7 @@ const MainLocationHeader = ({
                 onClick={() => setIsLocationOpen(true)}
                 className="w-fit max-w-[90%] flex items-center gap-1.5 bg-white border border-slate-100 rounded-full py-1 px-3 cursor-pointer shadow-3xs active:scale-[0.99] transition-all"
               >
-                <LocationOnIcon sx={{ color: "#FF8200", fontSize: 18 }} className="shrink-0" />
+                <LocationOnIcon sx={{ color: "var(--primary)", fontSize: 18 }} className="shrink-0" />
                 <div className="flex flex-col text-left min-w-0">
                   <span className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wider leading-none">Deliver to</span>
                   <span className="text-[11.5px] font-black text-slate-800 truncate max-w-[190px] mt-0.5 leading-none">
@@ -671,9 +641,9 @@ const MainLocationHeader = ({
             {/* Bottom row: Unified Search Bar with Mic and Scanner SVG */}
             <div
               onClick={handleSearchClick}
-              className="w-full bg-white border border-[#FF8200]/70 rounded-full px-4 h-10 flex items-center shadow-[0_0_10px_rgba(255,130,0,0.2)] cursor-pointer hover:shadow-[0_0_14px_rgba(255,130,0,0.3)] transition-all"
+              className="w-full bg-white border border-primary/60 rounded-full px-4 h-10 flex items-center shadow-[0_0_10px_rgba(230,0,103,0.15)] cursor-pointer hover:shadow-[0_0_14px_rgba(230,0,103,0.25)] transition-all"
             >
-              <SearchIcon sx={{ color: "#FF8200", fontSize: 20 }} className="shrink-0" />
+              <SearchIcon sx={{ color: "var(--primary)", fontSize: 20 }} className="shrink-0" />
               <input
                 type="text"
                 placeholder='Search "Atta, Rice, Oil, Maggi..."'

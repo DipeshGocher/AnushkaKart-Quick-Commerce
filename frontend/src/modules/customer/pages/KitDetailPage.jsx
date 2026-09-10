@@ -133,7 +133,7 @@ const KitDetailPage = () => {
                     alt={kit.name}
                     className="w-full h-full object-cover"
                 />
-                <div className="absolute top-4 right-4 bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-black shadow-lg flex items-center gap-1">
+                <div className="absolute top-4 right-4 bg-primary text-white px-3 py-1 rounded-full text-xs font-black shadow-lg flex items-center gap-1">
                     <Sparkles className="h-3 w-3" />
                     PREMIUM KIT
                 </div>
@@ -158,9 +158,9 @@ const KitDetailPage = () => {
                     {kit.description || "A curated monthly basket of essentials delivered right to your door."}
                 </div>
 
-                <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100 mb-6">
-                    <h3 className="font-black text-orange-900 mb-3 flex items-center gap-2">
-                        <Package className="h-5 w-5 text-orange-500" />
+                <div className="bg-brand-50/70 rounded-2xl p-4 border border-brand-100 mb-6">
+                    <h3 className="font-black text-brand-900 mb-3 flex items-center gap-2">
+                        <Package className="h-5 w-5 text-primary" />
                         What's Included
                     </h3>
                     <ul className="space-y-2">
@@ -168,9 +168,9 @@ const KitDetailPage = () => {
                             ? kit.includedItems.map((item, i) => `${item.name}${item.quantity ? ` - ${item.quantity}` : ''}`)
                             : ['Premium Quality Groceries', 'Free Doorstep Delivery', 'Priority Support', 'Surprise Gift Included']
                         ).map((item, i) => (
-                            <li key={i} className="flex items-center gap-2 text-sm font-bold text-orange-800">
-                                <div className="h-5 w-5 rounded-full bg-orange-200 flex items-center justify-center flex-shrink-0">
-                                    <Check className="h-3 w-3 text-orange-600" />
+                            <li key={i} className="flex items-center gap-2 text-sm font-bold text-brand-800">
+                                <div className="h-5 w-5 rounded-full bg-brand-200/60 flex items-center justify-center flex-shrink-0">
+                                    <Check className="h-3 w-3 text-primary" />
                                 </div>
                                 {item}
                             </li>

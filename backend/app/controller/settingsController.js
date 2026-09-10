@@ -194,6 +194,15 @@ export const getPublicSettings = async (req, res) => {
       await invalidate("cache:platform:settings:*");
     }
 
+    if (settings) {
+      if (!settings.primaryColor || settings.primaryColor === "#0ea5e9" || settings.primaryColor === "#00AEEF" || settings.primaryColor === "#0284c7") {
+        settings.primaryColor = "#E60067";
+      }
+      if (!settings.secondaryColor || settings.secondaryColor === "#64748b") {
+        settings.secondaryColor = "#FF3366";
+      }
+    }
+
     settings.productApproval = normalizeProductApprovalConfig(settings || {});
 
     return handleResponse(res, 200, "Settings fetched successfully", settings);

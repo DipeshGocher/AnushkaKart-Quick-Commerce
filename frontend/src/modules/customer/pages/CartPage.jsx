@@ -83,7 +83,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                     <p className="text-gray-500 font-medium mb-8">Looks like you haven't added anything yet.</p>
                     <Link
                         to="/categories"
-                        className="bg-[#f97316] hover:bg-[#ea580c] transition-colors text-white font-bold py-3.5 px-8 rounded-xl"
+                        className="bg-primary hover:bg-brand-600 shadow-md shadow-primary/20 transition-colors text-white font-bold py-3.5 px-8 rounded-xl"
                     >
                         Start Shopping
                     </Link>
@@ -96,7 +96,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                     <Link
                         to="/checkout"
                         onClick={onClose}
-                        className="flex w-full items-center justify-center bg-[#f97316] hover:bg-[#ea580c] transition-colors text-white text-[17px] font-bold py-4 rounded-xl shadow-lg shadow-orange-500/20"
+                        className="flex w-full items-center justify-center bg-primary hover:bg-brand-600 transition-colors text-white text-[17px] font-bold py-4 rounded-xl shadow-lg shadow-primary/20"
                     >
                         Proceed to Checkout
                     </Link>

@@ -188,7 +188,7 @@ const WarehouseCheckin = () => {
       {/* Header */}
       <div style={S.header}>
         <div style={S.headerIcon}>
-          <Building2 size={48} color="#2563eb" />
+          <Building2 size={48} color="#E60067" />
         </div>
         <h1 style={S.title}>Warehouse Check-in</h1>
         <p style={S.sub}>Scan the warehouse QR code to join the delivery queue</p>
@@ -203,9 +203,9 @@ const WarehouseCheckin = () => {
       {step === "status" && !checkinStatus?.isCheckedIn && (
         <div style={S.card}>
           <div style={S.qrIcon}>
-            <QrCode size={40} color="#64748b" style={{display: 'inline', marginRight: 8}} />
-            <span style={{fontSize: 24, verticalAlign: 'middle', color: '#cbd5e1'}}>+</span>
-            <MapPin size={40} color="#64748b" style={{display: 'inline', marginLeft: 8}} />
+            <QrCode size={40} color="#E60067" style={{display: 'inline', marginRight: 8}} />
+            <span style={{fontSize: 24, verticalAlign: 'middle', color: '#f472b6'}}>+</span>
+            <MapPin size={40} color="#E60067" style={{display: 'inline', marginLeft: 8}} />
           </div>
           <h2 style={S.cardTitle}>Attendance Not Marked</h2>
           <p style={S.cardSub}>You must verify your live location AND scan the warehouse QR code to mark your attendance.</p>
@@ -231,7 +231,7 @@ const WarehouseCheckin = () => {
                     <div style={{fontWeight: 600, color: "#334155", fontSize: 13, textAlign: "left"}}>{d.toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'})}</div>
                     <div style={{color: "#64748b", fontSize: 12, marginTop: 2, textAlign: "left"}}>{h.warehouseId?.name || "Warehouse"}</div>
                   </div>
-                  <div style={{background: "#e0f2fe", color: "#0284c7", padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 700}}>
+                  <div style={{background: "#fff1f5", color: "#E60067", padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 700}}>
                     {d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                   </div>
                 </div>
@@ -346,21 +346,21 @@ const S = {
   qrIcon: { display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 },
   cardTitle: { fontSize: 20, fontWeight: 700, margin: "0 0 8px", color: "#1e293b" },
   cardSub: { color: "#64748b", fontSize: 14, margin: "0 0 20px", lineHeight: 1.6 },
-  btnPrimary: { display: "block", width: "100%", padding: "14px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#3b82f6,#2563eb)", color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 10 },
+  btnPrimary: { display: "block", width: "100%", padding: "14px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#E60067,#C00052)", color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 10 },
   btnSecondary: { display: "block", width: "100%", padding: "12px", borderRadius: 14, border: "1px solid rgba(0,0,0,0.1)", background: "transparent", color: "#475569", fontSize: 14, cursor: "pointer", marginTop: 8 },
   btnDanger: { display: "block", width: "100%", padding: "13px", borderRadius: 14, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#ef4444", fontSize: 15, fontWeight: 600, cursor: "pointer", marginTop: 16 },
   videoWrap: { position: "relative", borderRadius: 16, overflow: "hidden", background: "#000", marginBottom: 12 },
   video: { width: "100%", display: "block", maxHeight: 260, objectFit: "cover" },
   scanOverlay: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" },
-  scanCorner: { width: 160, height: 160, border: "3px solid #3b82f6", borderRadius: 16, boxShadow: "0 0 0 9999px rgba(0,0,0,0.45)" },
-  gpsTag: { background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 99, padding: "6px 14px", fontSize: 12, color: "#3b82f6", marginBottom: 12, display: "inline-block" },
+  scanCorner: { width: 160, height: 160, border: "3px solid #E60067", borderRadius: 16, boxShadow: "0 0 0 9999px rgba(0,0,0,0.45)" },
+  gpsTag: { background: "rgba(230,0,103,0.1)", border: "1px solid rgba(230,0,103,0.2)", borderRadius: 99, padding: "6px 14px", fontSize: 12, color: "#E60067", marginBottom: 12, display: "inline-block" },
   infoGrid: { background: "rgba(0,0,0,0.02)", borderRadius: 14, padding: "12px 16px", marginBottom: 4, textAlign: "left" },
   infoRow: { display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid rgba(0,0,0,0.04)" },
   infoLabel: { color: "#64748b", fontSize: 13 },
   infoVal: { color: "#334155", fontSize: 13, fontWeight: 500 },
   note: { color: "#64748b", fontSize: 12, marginTop: 12 },
-  stepPill: { background: "rgba(59,130,246,0.1)", color: "#3b82f6", display: "inline-block", padding: "4px 12px", borderRadius: 99, fontSize: 12, fontWeight: 600, marginBottom: 12 },
-  spinner: { width: 32, height: 32, border: "3px solid rgba(0,0,0,0.1)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto" },
+  stepPill: { background: "rgba(230,0,103,0.1)", color: "#E60067", display: "inline-block", padding: "4px 12px", borderRadius: 99, fontSize: 12, fontWeight: 600, marginBottom: 12 },
+  spinner: { width: 32, height: 32, border: "3px solid rgba(0,0,0,0.1)", borderTopColor: "#E60067", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto" },
 };
 
 export default WarehouseCheckin;

@@ -69,7 +69,7 @@ const EditProfilePage = () => {
                         <div className="h-28 w-28 rounded-full bg-slate-200 border-4 border-white shadow-md flex items-center justify-center overflow-hidden">
                             <User size={48} className="text-slate-400" />
                         </div>
-                        <button className="absolute bottom-0 right-0 p-2 bg-primary text-primary-foreground rounded-full border-2 border-white shadow-sm hover:bg-[#0a701a] transition-colors">
+                        <button className="absolute bottom-0 right-0 p-2 bg-primary text-primary-foreground rounded-full border-2 border-white shadow-sm hover:bg-[#C00052] transition-colors">
                             <Camera size={18} />
                         </button>
                     </div>
@@ -121,7 +121,7 @@ const EditProfilePage = () => {
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Email Address</label>
                             <div className="flex items-center gap-3 bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 transition-all">
-                                <div className="w-9 h-9 rounded-full bg-blue-50/80 border border-blue-100 flex items-center justify-center shrink-0">
+                                <div className="w-9 h-9 rounded-full bg-pink-50/80 border border-pink-100 flex items-center justify-center shrink-0">
                                     <span className="text-sm">✉️</span>
                                 </div>
                                 <input
@@ -156,7 +156,7 @@ const EditProfilePage = () => {
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full py-4 bg-[#f97316] text-white font-bold rounded-2xl shadow-lg hover:bg-orange-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                        className="w-full py-4 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/20 hover:bg-brand-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                         {isLoading ? (
                             <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

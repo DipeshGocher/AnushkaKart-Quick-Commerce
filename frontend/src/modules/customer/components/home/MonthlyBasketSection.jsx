@@ -93,8 +93,8 @@ const MonthlyBasketSection = () => {
                                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                             />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-50 to-orange-100">
-                                                <Package className="h-8 w-8 text-orange-400" />
+                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand-50 to-brand-100/60">
+                                                <Package className="h-8 w-8 text-primary/60" />
                                             </div>
                                         )}
                                         {/* Gradient overlay for text readability */}

@@ -41,7 +41,7 @@ const CheckoutCouponSection = React.memo(function CheckoutCouponSection({
       <motion.div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Tag size={20} className="text-orange-500" />
+            <Tag size={20} className="text-primary" />
             <h3 className="font-black text-slate-800">Available Coupons</h3>
           </div>
           <button
@@ -64,14 +64,14 @@ const CheckoutCouponSection = React.memo(function CheckoutCouponSection({
                   className={`flex-shrink-0 w-[200px] snap-start rounded-2xl border-2 border-dashed p-3 flex flex-col gap-2 transition-all ${
                     isApplied
                       ? "border-green-400 bg-green-50"
-                      : "border-orange-200 bg-gradient-to-br from-orange-50 to-yellow-50"
+                      : "border-brand-200 bg-gradient-to-br from-brand-50 to-pink-50/40"
                   }`}>
                   <div className="flex items-center justify-between">
                     <span
                       className={`text-xs font-black px-2 py-0.5 rounded-lg tracking-widest uppercase ${
                         isApplied
                           ? "bg-green-100 text-green-700"
-                          : "bg-orange-100 text-orange-600"
+                          : "bg-brand-100 text-primary"
                       }`}>
                       {coupon.code}
                     </span>
@@ -105,7 +105,7 @@ const CheckoutCouponSection = React.memo(function CheckoutCouponSection({
                   ) : (
                     <button
                       onClick={() => onApplyCoupon(coupon)}
-                      className="mt-auto w-full py-1.5 rounded-xl text-xs font-black bg-primary text-primary-foreground hover:bg-[var(--brand-400)] active:scale-95 transition-all">
+                      className="mt-auto w-full py-1.5 rounded-xl text-xs font-black bg-primary text-white hover:bg-brand-600 active:scale-95 transition-all">
                       Apply
                     </button>
                   )}
@@ -142,7 +142,7 @@ const CheckoutCouponSection = React.memo(function CheckoutCouponSection({
                     className={`p-3 rounded-2xl ${
                       selectedCoupon?.code === coupon.code
                         ? "bg-primary/10 text-primary"
-                        : "bg-orange-50 text-orange-500"
+                        : "bg-brand-50 text-primary"
                     }`}>
                     <Tag size={20} />
                   </div>

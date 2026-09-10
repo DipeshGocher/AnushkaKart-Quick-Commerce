@@ -311,7 +311,7 @@ const AddressesPage = () => {
                         </div>
                     ) : addresses.length === 0 ? (
                         <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm text-center">
-                            <div className="w-12 h-12 rounded-full bg-blue-50/80 border border-blue-100 flex items-center justify-center text-blue-700 mx-auto mb-3">
+                            <div className="w-12 h-12 rounded-full bg-pink-50/80 border border-pink-100 flex items-center justify-center text-[#E60067] mx-auto mb-3">
                                 <span className="text-xl">📍</span>
                             </div>
                             <p className="text-slate-700 font-semibold mb-1">No saved addresses</p>
@@ -326,7 +326,7 @@ const AddressesPage = () => {
                             )}
 
                             <div className="flex items-start gap-3.5">
-                                <div className={`w-11 h-11 rounded-full border flex items-center justify-center shadow-2xs flex-shrink-0 ${addr.type === 'Home' ? 'bg-blue-50/80 border-blue-100 text-blue-700' :
+                                <div className={`w-11 h-11 rounded-full border flex items-center justify-center shadow-2xs flex-shrink-0 ${addr.type === 'Home' ? 'bg-pink-50/80 border-pink-100 text-[#E60067]' :
                                         addr.type === 'Work' ? 'bg-purple-50/80 border-purple-100 text-purple-700' :
                                             'bg-emerald-50/80 border-emerald-100 text-emerald-700'
                                     }`}>

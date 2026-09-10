@@ -79,7 +79,7 @@ const BankAccount = () => {
         {/* Change Request Form */}
         <div className="pt-4">
           <h3 className="ds-h4 text-gray-900 mb-4">Request Change</h3>
-          <div className="space-y-4">
+          <div className="space-y-4 bg-white p-4 rounded-xl border border-gray-100 card-left-pill-magenta">
             <Input 
               label="New Account Number" 
               placeholder="Enter account number" 

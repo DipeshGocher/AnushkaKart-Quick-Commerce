@@ -282,7 +282,7 @@ const ProductDetailPage = () => {
                                 </span>
                             )}
 
-                            <div className="flex items-center gap-1 text-orange-500 font-bold bg-orange-50 px-3 py-0.5 rounded-full text-xs">
+                            <div className="flex items-center gap-1 text-primary font-bold bg-brand-50 px-3 py-0.5 rounded-full text-xs">
                                 <Star size={12} fill="currentColor" /> 4.8 ({reviews.length > 0 ? reviews.length : '120+'})
                             </div>
                         </div>
@@ -401,7 +401,7 @@ const ProductDetailPage = () => {
                                                     onClick={() => setNewReview({ ...newReview, rating: star })}
                                                     className={cn(
                                                         "h-12 w-12 rounded-xl flex items-center justify-center transition-all",
-                                                        newReview.rating >= star ? "bg-orange-50 text-orange-500" : "bg-slate-50 text-slate-300"
+                                                        newReview.rating >= star ? "bg-brand-50 text-primary" : "bg-slate-50 text-slate-300"
                                                     )}
                                                 >
                                                     <Star className={cn("h-6 w-6", newReview.rating >= star && "fill-current")} />

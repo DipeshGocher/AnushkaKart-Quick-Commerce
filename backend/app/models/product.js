@@ -92,27 +92,27 @@ const productSchema = new mongoose.Schema(
             type: String, // Array of Cloudinary URLs
         }],
         headerId: {
-            type: mongoose.Schema.Types.ObjectId,
+            type: mongoose.Schema?.Types?.ObjectId || String,
             ref: "Category",
             required: true,
         },
         categoryId: {
-            type: mongoose.Schema.Types.ObjectId,
+            type: mongoose.Schema?.Types?.ObjectId || String,
             ref: "Category",
             required: true,
         },
         subcategoryId: {
-            type: mongoose.Schema.Types.ObjectId,
+            type: mongoose.Schema?.Types?.ObjectId || String,
             ref: "Category",
             required: true,
         },
         sellerId: {
-            type: mongoose.Schema.Types.ObjectId,
+            type: mongoose.Schema?.Types?.ObjectId || String,
             ref: "Seller",
             required: function () { return !this.isMonthlyKit && !this.warehouseId; }
         },
         warehouseId: {
-            type: mongoose.Schema.Types.ObjectId,
+            type: mongoose.Schema?.Types?.ObjectId || String,
             ref: "Warehouse",
             required: function () { return this.isMonthlyKit; }
         },
@@ -139,7 +139,7 @@ const productSchema = new mongoose.Schema(
             default: null,
         },
         approvalReviewedBy: {
-            type: mongoose.Schema.Types.ObjectId,
+            type: mongoose.Schema?.Types?.ObjectId || String,
             ref: "Admin",
             default: null,
         },

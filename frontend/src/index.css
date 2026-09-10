@@ -5,8 +5,10 @@
 
 :root {
   /* Brand colors: overridden at runtime by SettingsContext from API (settings.primaryColor, settings.secondaryColor) */
-  --primary: #0284c7; /* Default brand blue */
-  --primary-color: #0284c7;
+  --primary: #E60067; /* AnushkaKart Magenta Pink */
+  --primary-color: #E60067;
+  --secondary: #FF3366; /* AnushkaKart Rose Accent */
+  --secondary-color: #FF3366;
   
   /* Dynamic Brand Shades based on primary */
   --brand-50: color-mix(in srgb, var(--primary), white 95%);
@@ -30,8 +32,6 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.15 0.02 260);
   --primary-foreground: #FFFFFF;
-  --secondary: oklch(0.96 0.01 260);
-  --secondary-color: var(--secondary);
   --secondary-foreground: oklch(0.2 0.03 260);
   --muted: oklch(0.96 0.01 260);
   --muted-foreground: oklch(0.5 0.02 260);
@@ -43,18 +43,19 @@
   --ring: oklch(0.6 0.15 260);
 
   /* Additional UI Variables */
-  --sidebar-dark: oklch(0.18 0.03 260);
+  --sidebar-dark: #0F172A;
   --glass-bg: rgba(255, 255, 255, 0.7);
   --glass-border: rgba(255, 255, 255, 0.4);
-
-  /* Cart pill fill — overridden on Home by MainLocationHeader */
-  --customer-mini-cart-color: #0284c7;
 
   /* Safe area inset variables */
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-left: env(safe-area-inset-left, 0px);
   --safe-area-right: env(safe-area-inset-right, 0px);
+
+  /* Cart pill fill & Brand gradient */
+  --customer-mini-cart-color: #E60067;
+  --brand-gradient: linear-gradient(135deg, #E60067 0%, #FF3366 100%);
 }
 
 body {
@@ -121,6 +122,17 @@ body {
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+  --color-brand-950: var(--brand-950);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);

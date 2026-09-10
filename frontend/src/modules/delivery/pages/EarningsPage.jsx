@@ -146,7 +146,7 @@ const EarningsPage = () => {
               onClick={() => setActiveTab(tab)}
               className={`flex-1 py-2 text-sm font-bold rounded-full transition-all capitalize ${
                 activeTab === tab
-                  ? "bg-[#ff8200] text-white shadow-sm"
+                  ? "bg-[#E60067] text-white shadow-sm"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >

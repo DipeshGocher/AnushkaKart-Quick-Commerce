@@ -800,7 +800,7 @@ const OrderDetailPage = () => {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_b0PSRa7kNhbHj3",
         amount: amountPaise,
         currency: "INR",
-        name: "Appzeto",
+        name: "Anushka Kart",
         description: `Payment for Order ${paymentRef}`,
         order_id: razorpayOrderId,
         handler: function (response) {
@@ -940,11 +940,11 @@ const OrderDetailPage = () => {
                 <p className="text-xs text-slate-500 mt-0.5 font-medium">On the way to you</p>
               </div>
               <div className="flex items-center gap-2">
-                <a href={`sms:${order.deliveryBoy?.phone || ''}`} className="h-10 w-10 rounded-full bg-orange-50 flex items-center justify-center hover:bg-orange-100 transition-colors border border-orange-100">
-                  <MessageSquare size={18} className="text-orange-600" />
+                <a href={`sms:${order.deliveryBoy?.phone || ''}`} className="h-10 w-10 rounded-full bg-brand-50 flex items-center justify-center hover:bg-brand-100 transition-colors border border-brand-100">
+                  <MessageSquare size={18} className="text-primary" />
                 </a>
-                <a href={`tel:${order.deliveryBoy?.phone || ''}`} className="h-10 w-10 rounded-full bg-orange-50 flex items-center justify-center hover:bg-orange-100 transition-colors border border-orange-100">
-                  <Phone size={18} className="text-orange-600" />
+                <a href={`tel:${order.deliveryBoy?.phone || ''}`} className="h-10 w-10 rounded-full bg-brand-50 flex items-center justify-center hover:bg-brand-100 transition-colors border border-brand-100">
+                  <Phone size={18} className="text-primary" />
                 </a>
               </div>
             </div>
@@ -959,12 +959,12 @@ const OrderDetailPage = () => {
           className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"
         >
           <div className="flex items-start gap-4">
-            <div className="h-12 w-12 rounded-2xl bg-orange-50 flex items-center justify-center flex-shrink-0">
-              <Store size={24} className="text-orange-600" />
+            <div className="h-12 w-12 rounded-2xl bg-brand-50 flex items-center justify-center flex-shrink-0">
+              <Store size={24} className="text-primary" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <p className="text-xs font-bold text-orange-600 uppercase tracking-wider">Pickup Location</p>
+                <p className="text-xs font-bold text-primary uppercase tracking-wider">Pickup Location</p>
               </div>
               <h4 className="font-bold text-slate-900 text-base mb-1">{order.seller?.shopName || order.warehouseId?.name || "Store Location"}</h4>
               <p className="text-sm text-slate-500 leading-relaxed">

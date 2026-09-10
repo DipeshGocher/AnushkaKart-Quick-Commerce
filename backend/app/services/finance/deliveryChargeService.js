@@ -6,14 +6,15 @@
  * @param {Object} params.settings - The delivery settings (from Setting model)
  * @returns {number} The calculated customer delivery charge
  */
-export const calculateCustomerDeliveryCharge = ({ distanceKm, settings }) => {
-  if (settings.customerPricingType === "fixed") {
-    return settings.customerFixedCharge || 0;
+export const calculateCustomerDeliveryCharge = ({ distanceKm, settings = {} }) => {
+  const isFixed = settings.customerPricingType === "fixed" || settings.deliveryPricingMode === "fixed_price";
+  if (isFixed) {
+    return Number(settings.fixedDeliveryFee ?? settings.customerFixedCharge ?? 0);
   }
 
-  const baseDistance = settings.customerBaseDistance || 0;
-  const baseCharge = settings.customerBaseCharge || 0;
-  const extraPerKm = settings.customerExtraPerKm || 0;
+  const baseDistance = Number(settings.customerBaseDistance ?? settings.baseDistanceCapacityKm ?? 0);
+  const baseCharge = Number(settings.customerBaseCharge ?? settings.customerBaseDeliveryFee ?? 0);
+  const extraPerKm = Number(settings.customerExtraPerKm ?? settings.incrementalKmSurcharge ?? 0);
 
   if (distanceKm <= baseDistance) {
     return baseCharge;

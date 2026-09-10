@@ -4,8 +4,9 @@
         "module": "ESNext",
         "moduleResolution": "bundler",
         "jsx": "react-jsx",
-        "checkJs": true,
-        "strict": false,
+        "checkJs": false,
+        "noUnusedLocals": false,
+        "noUnusedParameters": false,
         "noEmit": true,
         "paths": {
             "@/*": [

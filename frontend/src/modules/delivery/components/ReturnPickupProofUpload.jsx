@@ -5,7 +5,7 @@ import { deliveryApi } from "../services/deliveryApi";
 
 const CONDITIONS = [
   { value: "good", label: "Good Condition", color: "bg-green-100 text-green-800 border-green-300", icon: "✅" },
-  { value: "damaged", label: "Damaged", color: "bg-orange-100 text-orange-800 border-orange-300", icon: "⚠️" },
+  { value: "damaged", label: "Damaged", color: "bg-amber-100 text-amber-800 border-amber-300", icon: "⚠️" },
   { value: "suspicious", label: "Suspicious", color: "bg-red-100 text-red-800 border-red-300", icon: "🚨" },
 ];
 

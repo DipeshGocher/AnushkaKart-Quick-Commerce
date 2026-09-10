@@ -160,7 +160,7 @@ const CodCash = () => {
                   It is calculated after your delivery commission.
                 </p>
               </div>
-              <div className="p-3 rounded-xl bg-orange-50 text-orange-600">
+              <div className="p-3 rounded-xl bg-pink-50 text-[#E60067]">
                 <IndianRupee size={22} />
               </div>
             </div>
@@ -183,11 +183,11 @@ const CodCash = () => {
               </div>
             </div>
 
-            <div className="mt-4 rounded-xl bg-orange-50 border border-orange-100 p-4">
+            <div className="mt-4 rounded-xl bg-pink-50/70 border border-pink-100 p-4">
               <div className="flex flex-col gap-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[11px] font-bold text-orange-700 uppercase">
+                    <p className="text-[11px] font-bold text-[#E60067] uppercase">
                       Ready To Pay Now
                     </p>
                     <p className="text-xl font-extrabold text-gray-900 mt-1">
@@ -201,11 +201,11 @@ const CodCash = () => {
                 </div>
 
                 <div>
-                  <p className="text-[11px] font-bold text-orange-700 uppercase">
+                  <p className="text-[11px] font-bold text-[#E60067] uppercase">
                     Enter Amount
                   </p>
                   <div className="mt-2 flex items-center gap-3">
-                    <div className="flex-1 rounded-xl border border-orange-200 bg-white px-4 py-3">
+                    <div className="flex-1 rounded-xl border border-pink-200 bg-white px-4 py-3">
                       <label className="text-[11px] font-bold text-gray-500 uppercase block mb-1">
                         Amount To Pay
                       </label>
@@ -236,7 +236,7 @@ const CodCash = () => {
                     {safeMoney(payableNowAmount).toLocaleString()}
                   </p>
                   {payableNowAmount <= 0 && (
-                    <p className="text-xs text-orange-700 mt-1">
+                    <p className="text-xs text-amber-700 mt-1">
                       You can pay after COD cash is marked as collected.
                     </p>
                   )}
@@ -257,7 +257,7 @@ const CodCash = () => {
               {(Array.isArray(data.toCollect) ? data.toCollect : []).slice(0, 20).map((row) => (
                 <div
                   key={`collect-${row.orderId}`}
-                  className="flex items-center justify-between rounded-xl border border-orange-100 bg-orange-50/40 p-3"
+                  className="flex items-center justify-between rounded-xl border border-pink-100 bg-pink-50/40 p-3"
                 >
                   <div>
                     <p className="text-sm font-bold text-gray-900">Order #{row.orderId}</p>
@@ -266,7 +266,7 @@ const CodCash = () => {
                       {safeMoney(row.amountGross).toLocaleString()} (gross)
                     </p>
                   </div>
-                  <p className="text-sm font-extrabold text-orange-700">
+                  <p className="text-sm font-extrabold text-[#E60067]">
                     {RUPEE}
                     {safeMoney(row.amountNetExpected).toLocaleString()}
                   </p>

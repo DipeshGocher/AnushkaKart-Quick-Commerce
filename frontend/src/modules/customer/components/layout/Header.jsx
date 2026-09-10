@@ -114,14 +114,14 @@ const Header = () => {
                 <div className="px-4 md:px-8 h-18 bg-white/95 backdrop-blur-sm rounded-full shadow-2xl flex items-center justify-between border border-white/20">
                     {/* Logo */}
                     <div className="flex items-center gap-6 mr-4 md:mr-12">
-                        <Link to="/" className="flex items-center gap-1">
-                            <span className="text-2xl md:text-3xl font-black tracking-tight" style={{ color: settings?.primaryColor || 'var(--primary)' }}>{settings?.appName || 'App'}</span>
+                        <Link to="/" className="flex items-center gap-2">
+                            <img src={settings?.logoUrl || "/logo.png"} alt={settings?.appName || "AnushkaKart"} className="h-10 md:h-12 w-auto object-contain" />
                         </Link>
 
                         {/* Weather Widget */}
                         {weatherEnabled && (
-                            <div className="hidden md:flex items-center gap-1.5 bg-blue-50/80 border border-blue-100/50 px-3 py-1.5 rounded-full text-blue-700 font-bold text-sm shadow-sm">
-                                {ActiveWeatherIcon && <ActiveWeatherIcon size={16} className="fill-current text-blue-500" />}
+                            <div className="hidden md:flex items-center gap-1.5 bg-pink-50/80 border border-pink-100/50 px-3 py-1.5 rounded-full text-[#E60067] font-bold text-sm shadow-sm">
+                                {ActiveWeatherIcon && <ActiveWeatherIcon size={16} className="fill-current text-[#E60067]" />}
                                 <span>{settings?.weather?.condition || 'Rain'}</span>
                             </div>
                         )}

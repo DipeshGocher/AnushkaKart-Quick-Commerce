@@ -64,7 +64,7 @@ const Auth = () => {
   const { settings } = useSettings();
   const navigate = useNavigate();
   const appName = settings?.appName || "App";
-  const logoUrl = settings?.logoUrl || "";
+  const logoUrl = settings?.logoUrl || "/logo.png";
   const [verifications, setVerifications] = useState(() => {
     const saved = sessionStorage.getItem("warehouse_verifications");
     if (saved) {
@@ -548,40 +548,68 @@ const Auth = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-start sm:justify-center bg-white px-4 pt-4 pb-8 sm:py-8 font-['Outfit']">
-      <div className="w-full max-w-md space-y-8">
-        <div className="sticky top-0 bg-white z-50 pt-2 pb-4 -mx-4 px-4 sm:-mx-0 sm:px-0 border-b border-gray-100 sm:border-0 shadow-sm sm:shadow-none mb-6">
-          <div className="flex flex-col items-center justify-center mb-6">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50/50 px-4 py-8 font-['Outfit']">
+      <div className="bg-white text-slate-900 border border-slate-200/80 shadow-2xl rounded-3xl p-6 sm:p-8 max-w-md w-full mx-auto relative overflow-hidden">
+        {/* Background Accents */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-pink-100/40 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-rose-100/30 rounded-full blur-2xl -ml-16 -mb-16 pointer-events-none" />
+
+        {/* Header */}
+        <div className="text-center mb-6 relative z-10">
+          <div className="flex flex-col items-center justify-center mb-4">
             {logoUrl ? (
-              <img src={logoUrl} alt={`${appName} logo`} className="h-24 sm:h-32 w-auto object-contain" />
+              <img src={logoUrl} alt={`${appName} logo`} className="h-20 sm:h-24 w-auto object-contain" />
             ) : (
-              <Store size={64} className="text-slate-700" />
+              <Store size={48} className="text-[#E60067]" />
             )}
           </div>
-          
-          <div className="text-left space-y-2">
-            <span className="inline-block px-4 py-1 bg-slate-100 text-slate-800 rounded-full text-[10px] font-black uppercase tracking-widest border border-slate-200">
-              {isLogin
-                ? "Welcome Back"
-                : `New Partnership - Step ${signupStep} of 3`}
-            </span>
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter">
-              Warehouse{" "}
-              <span className="text-slate-900">
-                {isLogin ? "Login" : "Signup"}
-              </span>
-            </h1>
-            <p className="text-slate-600 font-medium text-sm sm:text-base leading-relaxed hidden sm:block">
-              {isLogin
-                ? "Access your unified Warehouse Dashboard and manage orders."
-                : signupStep === 1
-                  ? "Register your store and Start Operating instantly."
-                  : signupStep === 2
-                    ? "Set your shop address and service area precisely."
-                    : "Upload verification documents to complete your application."}
-            </p>
-          </div>
+          <h2 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">
+            {isLogin ? "Welcome Back" : `Warehouse Signup (${signupStep}/3)`}
+          </h2>
+          <p className="text-slate-500 text-xs font-medium">
+            {isLogin
+              ? "Access your unified Warehouse Dashboard and manage orders."
+              : signupStep === 1
+                ? "Register your store and Start Operating instantly."
+                : signupStep === 2
+                  ? "Set your shop address and service area precisely."
+                  : "Upload verification documents to complete your application."}
+          </p>
         </div>
+
+        {/* Mode Toggle Tabs */}
+        {forgotPasswordStep === 0 && (
+          <div className="flex bg-slate-100/90 p-1.5 rounded-2xl mb-6 border border-slate-200/50 relative z-10">
+            <button
+              onClick={() => {
+                setIsLogin(true);
+                setSignupStep(1);
+              }}
+              className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
+                isLogin
+                  ? "bg-white text-[#E60067] shadow-sm"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+              type="button"
+            >
+              Login
+            </button>
+            <button
+              onClick={() => {
+                setIsLogin(false);
+                setSignupStep(1);
+              }}
+              className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
+                !isLogin
+                  ? "bg-white text-[#E60067] shadow-sm"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+              type="button"
+            >
+              Sign Up
+            </button>
+          </div>
+        )}
 
                             {forgotPasswordStep > 0 ? (
                 <div className="space-y-4">
@@ -1104,14 +1132,14 @@ const Auth = () => {
                     <button
                       type="button"
                       onClick={() => setSignupStep((prev) => Math.max(1, prev - 1))}
-                      className="w-1/3 bg-slate-100 text-slate-600 rounded-lg py-4 text-sm font-black tracking-[2px] transition-all hover:bg-slate-200">
+                      className="w-1/3 bg-slate-100 text-slate-600 rounded-xl py-3.5 text-xs font-bold transition-all hover:bg-slate-200">
                       BACK
                     </button>
                   )}
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className={`${!isLogin && signupStep > 1 ? "w-2/3" : "w-full"} bg-slate-900 text-white rounded-lg py-4 text-sm font-black tracking-[2px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.3)] hover:bg-black transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3 group`}>
+                    className={`${!isLogin && signupStep > 1 ? "w-2/3" : "w-full"} relative bg-gradient-to-r from-[#E60067] to-[#FF3366] text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-lg hover:from-[#C00052] hover:to-[#E60067] focus:outline-none focus:ring-2 focus:ring-[#E60067]/20 active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 group`}>
                     {isLoading
                       ? "WORKING..."
                       : isLogin
@@ -1120,18 +1148,19 @@ const Auth = () => {
                           ? "NEXT STEP"
                           : "SUBMIT APPLICATION"}
                     <ArrowRight
-                      className="group-hover:translate-x-2 transition-transform"
-                      size={20}
+                      className="group-hover:translate-x-1 transition-transform"
+                      size={18}
                     />
                   </button>
                 </div>
               </form>
               )}
 
-              <div className="pt-1 border-t border-slate-50 flex flex-col items-center gap-1">
-                <p className="text-slate-600 font-bold text-sm">
-                  {isLogin ? "New to the platform?" : "Already part of us?"}{" "}
+              <div className="mt-6 text-center">
+                <p className="text-slate-500 text-xs font-medium">
+                  {isLogin ? "New to the platform? " : "Already part of us? "}
                   <button
+                    type="button"
                     onClick={() => {
                       setIsLogin(!isLogin);
                       setSignupStep(1);
@@ -1140,7 +1169,7 @@ const Auth = () => {
                         phone: createInitialVerificationState(),
                       });
                     }}
-                    className="text-slate-900 hover:text-black transition-colors px-2">
+                    className="text-[#E60067] hover:text-[#C00052] font-bold transition-colors">
                     {isLogin ? "Register Store" : "Sign In"}
                   </button>
                 </p>

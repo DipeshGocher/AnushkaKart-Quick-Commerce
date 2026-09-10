@@ -50,7 +50,7 @@ const QuickCategorySlider = ({ categories, onCategoryClick }) => {
                   />
                 </div>
                 {/* Label text */}
-                <span className="block text-[11px] md:text-[13px] font-bold text-slate-700 leading-tight tracking-wide group-hover/item:text-[#FF8200] transition-colors line-clamp-2 max-w-[84px] md:max-w-[100px]">
+                <span className="block text-[11px] md:text-[13px] font-bold text-slate-700 leading-tight tracking-wide group-hover/item:text-primary transition-colors line-clamp-2 max-w-[84px] md:max-w-[100px]">
                   {cat.name}
                 </span>
               </div>

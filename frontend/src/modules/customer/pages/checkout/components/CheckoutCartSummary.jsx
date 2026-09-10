@@ -103,9 +103,9 @@ const CheckoutCartSummary = React.memo(function CheckoutCartSummary({
         
         {/* Render Kit Addons if any */}
         {item.kitAddons && Array.isArray(item.kitAddons) && item.kitAddons.length > 0 && (
-          <div className="ml-[92px] -mt-2 mb-4 bg-orange-50/50 rounded-xl p-3 border border-orange-100">
-            <h5 className="text-[10px] font-black text-orange-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <Plus size={10} className="text-orange-500" /> Included Add-ons
+          <div className="ml-[92px] -mt-2 mb-4 bg-brand-50/50 rounded-xl p-3 border border-brand-100">
+            <h5 className="text-[10px] font-black text-brand-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <Plus size={10} className="text-primary" /> Included Add-ons
             </h5>
             <div className="space-y-1.5">
               {item.kitAddons.map((addon) => (

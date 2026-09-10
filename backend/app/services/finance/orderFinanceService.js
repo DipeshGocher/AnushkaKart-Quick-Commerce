@@ -483,7 +483,9 @@ export async function handleCodOrderFinance(
     order.paymentBreakdown.codPendingAmount = roundCurrency(
       order.paymentBreakdown.codCollectedAmount - order.paymentBreakdown.codRemittedAmount,
     );
-    order.markModified("paymentBreakdown");
+    if (typeof order.markModified === "function") {
+      order.markModified("paymentBreakdown");
+    }
 
     order.paymentStatus = ORDER_PAYMENT_STATUS.CASH_COLLECTED;
     order.payment = {
@@ -708,7 +710,9 @@ export async function reconcileCodCash(
     order.paymentBreakdown.codCollectedAmount = codCollected;
     order.paymentBreakdown.codRemittedAmount = nextRemitted;
     order.paymentBreakdown.codPendingAmount = nextPending;
-    order.markModified("paymentBreakdown");
+    if (typeof order.markModified === "function") {
+      order.markModified("paymentBreakdown");
+    }
 
     order.paymentStatus =
       nextPending <= 0

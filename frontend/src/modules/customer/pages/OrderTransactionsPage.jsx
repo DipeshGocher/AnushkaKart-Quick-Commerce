@@ -46,7 +46,7 @@ const OrderTransactionsPage = () => {
                                 Based on your recent orders
                             </p>
                         </div>
-                        <div className="w-10 h-10 rounded-full bg-orange-50/80 border border-orange-100 flex items-center justify-center text-orange-700 shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center text-primary shrink-0">
                             <span className="text-lg">💳</span>
                         </div>
                     </div>
@@ -81,7 +81,7 @@ const OrderTransactionsPage = () => {
                                                 className={`w-11 h-11 rounded-full border flex items-center justify-center shadow-2xs shrink-0 ${
                                                     isRefund
                                                         ? 'bg-amber-50/80 border-amber-100 text-amber-700'
-                                                        : 'bg-orange-50/80 border-orange-100 text-orange-700'
+                                                        : 'bg-brand-50 border-brand-100 text-primary'
                                                 }`}
                                             >
                                                 <span className="text-lg">{isRefund ? '↩️' : '💳'}</span>

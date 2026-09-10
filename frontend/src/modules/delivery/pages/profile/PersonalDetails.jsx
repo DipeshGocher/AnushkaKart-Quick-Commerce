@@ -90,7 +90,7 @@ const PersonalDetails = () => {
         </div>
 
         {/* Form Fields */}
-        <div className="space-y-4 bg-white p-4 rounded-xl shadow-sm">
+        <div className="space-y-4 bg-white p-4 rounded-xl shadow-sm card-left-pill-magenta">
           <Input
             label="Full Name"
             value={formData.fullName}

@@ -1,7 +1,7 @@
 {
-  "name": "quick-commerce-backend",
+  "name": "anushka-kart-backend",
   "version": "1.0.0",
-  "description": "Quick Commerce Platform - Backend API",
+  "description": "Anushka Kart - Backend API",
   "main": "index.js",
   "type": "module",
   "scripts": {

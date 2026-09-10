@@ -99,7 +99,7 @@ const SupportPage = () => {
                         sub="Formal Request"
                         onClick={() => setIsTicketModalOpen(true)}
                     />
-                    <ContactCard emoji="📞" badgeBg="bg-blue-50/80 border-blue-100 text-blue-700" label="Call Us" sub="+91 98765..." />
+                    <ContactCard emoji="📞" badgeBg="bg-pink-50/80 border-pink-100 text-[#E60067]" label="Call Us" sub="+91 98765..." />
                     <ContactCard emoji="✉️" badgeBg="bg-purple-50/80 border-purple-100 text-purple-700" label="Email Us" sub={supportEmailShort} />
                 </div>
 
@@ -218,7 +218,7 @@ const SupportPage = () => {
                                     <button
                                         type="submit"
                                         disabled={ticketLoading}
-                                        className="flex-1 py-3 bg-[#f97316] text-white font-bold rounded-xl hover:bg-orange-600 transition-colors flex items-center justify-center gap-2 text-sm shadow-md"
+                                        className="flex-1 py-3 bg-primary text-white font-bold rounded-xl hover:bg-brand-600 transition-colors flex items-center justify-center gap-2 text-sm shadow-md shadow-primary/20"
                                     >
                                         {ticketLoading ? (
                                             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

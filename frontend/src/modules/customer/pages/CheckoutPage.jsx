@@ -866,7 +866,7 @@ const CheckoutPage = () => {
                   contact: user?.phone || orderAddress.phone || "",
                 },
                 theme: {
-                  color: "#f97316", // orange-500
+                  color: "#E60067", // AnushkaKart Primary Magenta
                 },
                 modal: {
                   ondismiss: function() {

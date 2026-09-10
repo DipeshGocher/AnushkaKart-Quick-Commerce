@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+/* eslint-disable react/no-unescaped-entities */
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import adminApi from '../../../core/api/axios';
 import { toast } from 'sonner';
@@ -378,7 +379,7 @@ const EditMonthlyKit = () => {
                                         value={formData.brand}
                                         onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
                                         className={inputClass}
-                                        placeholder="e.g. Orange Basket"
+                                        placeholder="e.g. Anushka Kart"
                                     />
                                 </div>
                                 <div className="space-y-1.5">

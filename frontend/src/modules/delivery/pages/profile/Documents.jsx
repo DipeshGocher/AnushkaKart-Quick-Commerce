@@ -92,7 +92,7 @@ const Documents = () => {
 
       <div className="p-4 max-w-lg mx-auto space-y-4">
         {docs.map((doc) => (
-          <Card key={doc.id} className="p-4 border border-gray-100">
+          <Card key={doc.id} className="p-4 border border-gray-100 card-left-pill-magenta">
             <div className="flex justify-between items-start mb-2">
               <h4 className="font-bold text-gray-800">{doc.title}</h4>
               {getStatusBadge(doc.status)}

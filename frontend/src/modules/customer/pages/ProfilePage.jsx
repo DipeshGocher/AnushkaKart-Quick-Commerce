@@ -125,7 +125,7 @@ const ProfilePage = () => {
                             onClick={() => navigate('/addresses')}
                             className="flex flex-col items-center text-center group py-1"
                         >
-                            <div className="w-12 h-12 rounded-full bg-blue-50/80 border border-blue-100 text-blue-700 flex items-center justify-center shadow-2xs mb-1.5 group-hover:scale-108 transition-transform">
+                            <div className="w-12 h-12 rounded-full bg-pink-50/80 border border-pink-100 text-[#E60067] flex items-center justify-center shadow-2xs mb-1.5 group-hover:scale-108 transition-transform">
                                 <MapPinned size={22} strokeWidth={2.5} />
                             </div>
                             <span className="text-[11px] font-bold text-slate-700 leading-tight">{t('savedAddresses')}</span>
@@ -146,7 +146,7 @@ const ProfilePage = () => {
                                 label={t('myCart')}
                                 sub={t('viewAdded')}
                                 onClick={() => setIsCartOpen(true)}
-                                badgeBg="bg-amber-50/80 border-amber-100/70 text-amber-700"
+                                badgeBg="bg-brand-50/80 border-brand-100/70 text-primary"
                             />
                             <MenuItem
                                 icon={CalendarCheck}
@@ -160,7 +160,7 @@ const ProfilePage = () => {
                                 label={t('transactions')}
                                 sub={t('viewPayments')}
                                 path="/transactions"
-                                badgeBg="bg-orange-50/80 border-orange-100/70 text-orange-700"
+                                badgeBg="bg-rose-50/80 border-rose-100/70 text-primary"
                             />
                             <MenuItem
                                 icon={Wallet}
@@ -174,14 +174,14 @@ const ProfilePage = () => {
                                 label={t('wishlist')}
                                 sub={t('savedItems')}
                                 path="/wishlist"
-                                badgeBg="bg-rose-50/80 border-rose-100/70 text-rose-700"
+                                badgeBg="bg-pink-50/80 border-pink-100/70 text-primary"
                             />
                             <MenuItem
                                 icon={MapPinned}
                                 label={t('savedAddresses')}
                                 sub={t('manageLocations')}
                                 path="/addresses"
-                                badgeBg="bg-blue-50/80 border-blue-100/70 text-blue-700"
+                                badgeBg="bg-pink-50/80 border-pink-100/70 text-[#E60067]"
                             />
                         </div>
                     </div>
@@ -199,7 +199,7 @@ const ProfilePage = () => {
                                     className="w-full text-left px-4 py-3.5 flex items-center justify-between hover:bg-slate-50/80 cursor-pointer transition-colors group"
                                 >
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-full border bg-orange-50/80 border-orange-100/70 text-orange-600 flex items-center justify-center shadow-2xs group-hover:scale-108 transition-transform flex-shrink-0">
+                                        <div className="w-10 h-10 rounded-full border bg-brand-50/80 border-brand-100/70 text-primary flex items-center justify-center shadow-2xs group-hover:scale-108 transition-transform flex-shrink-0">
                                             <Globe size={18} strokeWidth={2.5} />
                                         </div>
                                         <div>
@@ -229,13 +229,13 @@ const ProfilePage = () => {
                                                 <div className="flex items-center gap-3">
                                                     <span className="text-lg leading-none">{lang.flag}</span>
                                                     <span className={`text-xs font-bold transition-colors ${
-                                                        language === lang.code ? 'text-orange-500' : 'text-slate-600'
+                                                        language === lang.code ? 'text-primary font-black' : 'text-slate-600'
                                                     }`}>
                                                         {lang.name}
                                                     </span>
                                                 </div>
                                                 {language === lang.code && (
-                                                    <div className="w-2 h-2 rounded-full bg-orange-500 shadow-xs" />
+                                                    <div className="w-2 h-2 rounded-full bg-primary shadow-xs" />
                                                 )}
                                             </button>
                                         ))}
@@ -259,7 +259,7 @@ const ProfilePage = () => {
                                 icon={Info}
                                 label={t('aboutUs')}
                                 path="/about"
-                                badgeBg="bg-cyan-50/80 border-cyan-100/70 text-cyan-700"
+                                badgeBg="bg-pink-50/80 border-pink-100/70 text-[#E60067]"
                             />
                         </div>
                     </div>

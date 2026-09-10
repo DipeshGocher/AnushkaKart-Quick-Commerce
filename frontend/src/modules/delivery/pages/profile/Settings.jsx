@@ -51,7 +51,7 @@ const Settings = () => {
         {/* Notifications */}
         <section>
           <h2 className="text-sm uppercase font-bold text-gray-500 mb-3 tracking-wider ml-1">{t('notificationsCap') || "Notifications"}</h2>
-          <Card className="divide-y divide-gray-100">
+          <Card className="divide-y divide-gray-100 card-left-pill-magenta">
             <div className="p-4 flex justify-between items-center cursor-pointer" onClick={() => toggleSetting('pushNotifications')}>
               <div className="flex items-center">
                 <Bell size={20} className="text-gray-400 mr-3" />
@@ -81,7 +81,7 @@ const Settings = () => {
         {/* General */}
         <section>
           <h2 className="text-sm uppercase font-bold text-gray-500 mb-3 tracking-wider ml-1">{t('generalCap') || "General"}</h2>
-          <Card className="divide-y divide-gray-100">
+          <Card className="divide-y divide-gray-100 card-left-pill-magenta">
             <div>
               <div className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => setIsLangExpanded(!isLangExpanded)}>
                 <div className="flex items-center">
@@ -108,13 +108,13 @@ const Settings = () => {
                               <div className="flex items-center gap-3">
                                   <span className="text-lg leading-none">{lang.flag}</span>
                                   <span className={`text-xs font-bold transition-colors ${
-                                      draftLanguage === lang.code ? 'text-orange-500' : 'text-slate-600'
+                                      draftLanguage === lang.code ? 'text-primary' : 'text-slate-600'
                                   }`}>
                                       {lang.name}
                                   </span>
                               </div>
                               {draftLanguage === lang.code && (
-                                  <div className="w-2 h-2 rounded-full bg-orange-500 shadow-xs" />
+                                  <div className="w-2 h-2 rounded-full bg-primary shadow-xs" />
                               )}
                           </button>
                       ))}

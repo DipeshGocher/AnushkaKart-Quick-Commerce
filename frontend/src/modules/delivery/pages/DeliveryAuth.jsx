@@ -50,8 +50,8 @@ const VEHICLE_TYPES = [
 const DeliveryAuth = () => {
   const navigate = useNavigate();
   const { settings } = useSettings();
-  const appName = settings?.appName || "App";
-  const logoUrl = settings?.logoUrl || "";
+  const appName = settings?.appName || "AnushkaKart";
+  const logoUrl = settings?.logoUrl || "/logo.png";
   const { login } = useAuth();
 
   const [touched, setTouched] = useState({
@@ -285,17 +285,17 @@ const DeliveryAuth = () => {
         checked={signupAgreed}
         onChange={(e) => setSignupAgreed(e.target.checked)}
         disabled={!hasClickedTerms}
-        className="mt-0.5 h-4 w-4 accent-[#f97316] cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-0.5 h-4 w-4 accent-[#E60067] cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
       />
       <div className={`text-xs leading-relaxed ${!hasClickedTerms ? 'text-gray-400' : 'text-gray-500'}`}>
         <label htmlFor={`signupTerms-${signupStep}`} className={`cursor-pointer ${!hasClickedTerms ? 'cursor-not-allowed' : ''}`}>I agree to the </label>
         <span 
           onClick={() => { setHasClickedTerms(true); navigate('/delivery/support'); }}
-          className="text-[#f97316] font-bold hover:underline cursor-pointer"
+          className="text-[#E60067] font-bold hover:underline cursor-pointer"
         >Terms of Service</span> &amp;{" "}
         <span 
           onClick={() => { setHasClickedTerms(true); navigate('/delivery/privacy'); }}
-          className="text-[#f97316] font-bold hover:underline cursor-pointer"
+          className="text-[#E60067] font-bold hover:underline cursor-pointer"
         >Privacy Policy</span>.
         {!hasClickedTerms && <span className="block text-[10px] text-rose-500 mt-1 font-semibold">* Please click on the links to read them before agreeing.</span>}
       </div>
@@ -304,48 +304,80 @@ const DeliveryAuth = () => {
 
   return (
     <>
-    <div className="flex min-h-screen flex-col items-center justify-start sm:justify-center bg-white px-4 pt-4 pb-8 sm:py-8 font-['Outfit',_sans-serif]">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50/50 px-4 py-8 font-['Outfit',_sans-serif]">
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-[380px] bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-50 relative z-10"
+        className="bg-white text-slate-900 border border-slate-200/80 shadow-2xl rounded-3xl p-6 sm:p-8 max-w-md w-full mx-auto relative overflow-hidden z-10"
       >
-        <div className="sticky top-0 bg-white z-50 pt-6 pb-2 -mt-6 -mx-6 px-6 rounded-t-3xl">
+        {/* Background Accents */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-pink-100/40 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-rose-100/30 rounded-full blur-2xl -ml-16 -mb-16 pointer-events-none" />
+
+        <div className="relative z-10">
           {/* Logo */}
           <div className="flex flex-col items-center justify-center mb-6">
             <img
-              src="/image.png"
-              alt="Logo"
-              className="h-28 w-auto object-contain"
+              src={logoUrl}
+              alt="AnushkaKart Logo"
+              className="h-20 sm:h-24 w-auto object-contain"
             />
           </div>
 
           {step === "form" && (
-            <div className="text-left mb-6">
-              <h2 className="text-xl font-bold text-gray-900">
-                Login / Signup
-              </h2>
-              <p className="mt-1 text-sm text-gray-500">
-                {mode === "login" ? 'Enter your mobile number' : `Partner Registration - Step ${signupStep} of 4`}
-              </p>
-            </div>
+            <>
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">
+                  {mode === "login" ? 'Welcome Back' : `Delivery Partner Registration (${signupStep}/4)`}
+                </h2>
+                <p className="text-slate-500 text-xs font-medium">
+                  {mode === "login" ? 'Enter your mobile number to sign in' : `Step ${signupStep} of 4`}
+                </p>
+              </div>
+
+              {/* Mode Toggle Tabs */}
+              <div className="flex bg-slate-100/90 p-1.5 rounded-2xl mb-6 border border-slate-200/50 relative z-10">
+                <button
+                  type="button"
+                  onClick={() => switchMode('login')}
+                  className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
+                    mode === 'login'
+                      ? "bg-white text-[#E60067] shadow-sm"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  Login
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchMode('signup')}
+                  className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
+                    mode === 'signup'
+                      ? "bg-white text-[#E60067] shadow-sm"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  Sign Up
+                </button>
+              </div>
+            </>
           )}
 
           {step === "otp" && (
-            <div className="text-left mb-6">
-              <div className="flex items-center gap-3 mb-1">
+            <div className="text-center mb-6">
+              <div className="flex items-center justify-center gap-2 mb-1">
                 <button
                   onClick={() => setStep("form")}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   <ChevronLeft size={20} />
                 </button>
-                <h2 className="text-xl font-bold text-gray-900">
+                <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
                   Verify OTP
                 </h2>
               </div>
-              <p className="mt-1 text-sm text-gray-500 ml-8">
+              <p className="text-slate-500 text-xs font-medium">
                 Sent to +91 {mode === "login" ? loginPhone : signupPhone}
               </p>
             </div>
@@ -567,7 +599,7 @@ const DeliveryAuth = () => {
                             }
                             setSignupStep(2);
                           }}
-                          className="w-full mt-2 text-white bg-[#f97316] hover:bg-orange-600 py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all"
+                          className="w-full mt-2 text-white bg-[#E60067] hover:bg-[#C00052] py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all"
                         >
                           Next Step
                         </button>
@@ -720,7 +752,7 @@ const DeliveryAuth = () => {
                               
                               setSignupStep(3);
                             }}
-                            className="flex-[2] mt-2 text-white bg-[#f97316] hover:bg-orange-600 py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all"
+                            className="flex-[2] mt-2 text-white bg-[#E60067] hover:bg-[#C00052] py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all"
                           >
                             Next Step
                           </button>
@@ -915,7 +947,7 @@ const DeliveryAuth = () => {
                               }
                               setSignupStep(4);
                             }}
-                            className="flex-[2] mt-2 text-white bg-[#f97316] hover:bg-orange-600 py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all"
+                            className="flex-[2] mt-2 text-white bg-[#E60067] hover:bg-[#C00052] py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all"
                           >
                             Next Step
                           </button>
@@ -999,7 +1031,7 @@ const DeliveryAuth = () => {
                           <button
                             onClick={handleSendOtp}
                             disabled={loading || (signupVehicle !== "cycle" && !dlFile) || !panFile || !aadharFile}
-                            className="flex-[2] mt-2 text-white bg-[#f97316] hover:bg-orange-600 py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex-[2] mt-2 text-white bg-[#E60067] hover:bg-[#C00052] py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             {loading ? (
                               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1060,7 +1092,7 @@ const DeliveryAuth = () => {
                     <button
                       onClick={handleSendOtp}
                       disabled={loading}
-                      className="w-full mt-2 text-white bg-[#f97316] hover:bg-orange-600 py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center gap-3 transition-all disabled:opacity-60"
+                      className="w-full mt-2 relative bg-gradient-to-r from-[#E60067] to-[#FF3366] text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-lg hover:from-[#C00052] hover:to-[#E60067] focus:outline-none focus:ring-2 focus:ring-[#E60067]/20 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {loading ? (
                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1074,7 +1106,7 @@ const DeliveryAuth = () => {
                 <div className="mt-6 text-center">
                   <button
                     onClick={() => switchMode(mode === 'login' ? 'signup' : 'login')}
-                    className="text-sm font-semibold text-gray-500 hover:text-[#f97316] transition-colors"
+                    className="text-xs font-semibold text-slate-500 hover:text-[#E60067] transition-colors"
                   >
                     {mode === 'login' ? "New partner? Register now" : "Already registered? Login"}
                   </button>
@@ -1150,7 +1182,7 @@ const DeliveryAuth = () => {
                 <button
                   onClick={handleVerifyOtp}
                   disabled={!agreed || otp.some((d) => !d) || loading}
-                  className="w-full mt-2 text-white bg-[#f97316] hover:bg-orange-600 py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full mt-2 text-white bg-[#E60067] hover:bg-[#C00052] py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {loading ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

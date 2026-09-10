@@ -67,7 +67,7 @@ const HIGHLIGHT_ICON_MAP = {
     avocado: { emoji: "🥑", bg: "bg-emerald-50/80 border-emerald-100/70 text-emerald-700" },
     zap: { emoji: "⚡", bg: "bg-orange-50/80 border-orange-100/70 text-orange-700" },
     sprout: { emoji: "🌱", bg: "bg-teal-50/80 border-teal-100/70 text-teal-700" },
-    shield: { emoji: "🛡️", bg: "bg-blue-50/80 border-blue-100/70 text-blue-700" },
+    shield: { emoji: "🛡️", bg: "bg-pink-50/80 border-pink-100/70 text-[#E60067]" },
     heart: { emoji: "❤️", bg: "bg-rose-50/80 border-rose-100/70 text-rose-700" },
     star: { emoji: "⭐", bg: "bg-yellow-50/80 border-yellow-100/70 text-yellow-700" },
     truck: { emoji: "🚚", bg: "bg-indigo-50/80 border-indigo-100/70 text-indigo-700" },
@@ -745,11 +745,11 @@ const ProductDetailSheet = () => {
                                             initial={{ opacity: 0, x: -10 }}
                                             animate={{ opacity: 1, x: 0 }}
                                             transition={{ delay: 0.2 }}
-                                            className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-600 rounded-lg text-[10px] font-[700] border border-orange-100/50"
+                                            className="flex items-center gap-1 px-2.5 py-1.5 bg-brand-50 text-primary rounded-lg text-[10px] font-[700] border border-brand-100/50"
                                         >
                                             <Star size={10} fill="currentColor" />
                                             {reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : '4.8'}
-                                            <span className="text-orange-400 font-medium">({reviews.length > 0 ? reviews.length : '120+'})</span>
+                                            <span className="text-primary/70 font-medium">({reviews.length > 0 ? reviews.length : '120+'})</span>
                                         </motion.div>
                                     </div>
 
@@ -1459,7 +1459,7 @@ const ProductDetailSheet = () => {
                                 >
                                     <ShoppingCart size={22} className="text-slate-800" />
                                     {cartCount > 0 && (
-                                        <div className="absolute -top-1.5 -right-1.5 bg-[#FF8200] text-white text-[11px] font-black w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center shadow-md animate-in zoom-in duration-200">
+                                        <div className="absolute -top-1.5 -right-1.5 bg-primary text-white text-[11px] font-black w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center shadow-md animate-in zoom-in duration-200">
                                             {cartCount}
                                         </div>
                                     )}
@@ -1467,7 +1467,7 @@ const ProductDetailSheet = () => {
 
                                 {/* Right Side: Add to Cart / Quantity Pill Button */}
                                 {quantity > 0 ? (
-                                    <div className="flex-1 bg-[#FF8200] text-white h-14 rounded-[20px] flex items-center justify-between px-2 shadow-xl shadow-brand-100 border border-white/20">
+                                    <div className="flex-1 bg-primary text-white h-14 rounded-[20px] flex items-center justify-between px-2 shadow-xl shadow-brand-100 border border-white/20">
                                         <motion.button
                                             whileTap={{ scale: 0.8 }}
                                             onClick={handleDecrement}
@@ -1502,7 +1502,7 @@ const ProductDetailSheet = () => {
                                         whileHover={{ scale: 1.01 }}
                                         whileTap={{ scale: 0.97 }}
                                         onClick={handleAddToCart}
-                                        className="flex-1 bg-[#FF8200] text-white h-14 rounded-[20px] font-bold text-sm flex items-center justify-between px-6 shadow-xl shadow-brand-100 transition-all border border-white/20"
+                                        className="flex-1 bg-primary text-white h-14 rounded-[20px] font-bold text-sm flex items-center justify-between px-6 shadow-xl shadow-brand-100 transition-all border border-white/20"
                                     >
                                         <span className="uppercase tracking-wider font-extrabold text-[13px]">Add to Cart</span>
                                         <span className="text-sm font-black">₹{displayPrice}</span>

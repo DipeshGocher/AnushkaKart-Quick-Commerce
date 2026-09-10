@@ -34,19 +34,19 @@ const LowestPriceSection = ({ products, onSeeAll }) => {
         <div className="container mx-auto px-4 md:px-8 lg:px-[50px] relative z-10">
           <div className="flex justify-between items-center mb-6 md:mb-10 px-1">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-orange-50 flex items-center justify-center text-[#FF8200] shrink-0">
+              <div className="w-6 h-6 rounded-full bg-brand-50 flex items-center justify-center text-primary shrink-0">
                 <ShoppingBag size={14} className="fill-current" />
               </div>
               <h3 className="text-sm md:text-base font-black text-[#1A1A1A] tracking-tight leading-none">
                 Today's Deals
               </h3>
-              <div className="bg-[#FFF7F0] text-slate-800 text-[10px] md:text-xs font-extrabold px-2.5 py-1 rounded-full flex items-center justify-center tracking-wide leading-none border border-orange-50/50 select-none ml-1.5 tabular-nums">
+              <div className="bg-brand-50/60 text-slate-800 text-[10px] md:text-xs font-extrabold px-2.5 py-1 rounded-full flex items-center justify-center tracking-wide leading-none border border-brand-100/50 select-none ml-1.5 tabular-nums">
                 {timeLeft}
               </div>
             </div>
             <button
               onClick={onSeeAll}
-              className="flex items-center gap-0.5 text-[#FF8200] hover:text-orange-600 font-bold text-xs md:text-sm transition-colors whitespace-nowrap cursor-pointer">
+              className="flex items-center gap-0.5 text-primary hover:text-brand-600 font-bold text-xs md:text-sm transition-colors whitespace-nowrap cursor-pointer">
               See All
               <ChevronRight size={13} strokeWidth={3} />
             </button>

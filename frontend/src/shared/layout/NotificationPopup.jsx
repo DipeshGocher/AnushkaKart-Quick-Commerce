@@ -1,8 +1,6 @@
-import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { HiOutlineBell, HiOutlineCheckCircle, HiOutlineExclamationCircle, HiOutlineClock } from 'react-icons/hi2';
 import { cn } from '@/lib/utils';
-import Button from '@shared/components/ui/Button';
 
 const NotificationPopup = ({ notifications, onMarkAsRead, onMarkAllAsRead, onClose }) => {
     return (
@@ -86,7 +84,7 @@ const NotificationPopup = ({ notifications, onMarkAsRead, onMarkAllAsRead, onClo
                             <HiOutlineBell className="h-8 w-8 text-slate-300" />
                         </div>
                         <p className="text-sm font-black text-slate-900 mb-1">No New Notifications</p>
-                        <p className="text-xs text-slate-400 font-medium">We'll alert you when something happens.</p>
+                        <p className="text-xs text-slate-400 font-medium">We&apos;ll alert you when something happens.</p>
                     </div>
                 )}
             </div>

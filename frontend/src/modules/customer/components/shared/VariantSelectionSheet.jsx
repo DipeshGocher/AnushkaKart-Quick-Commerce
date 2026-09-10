@@ -169,7 +169,7 @@ const VariantSelectionSheet = () => {
                                                 {/* Quantity Control */}
                                                 <div className="shrink-0">
                                                     {qty > 0 ? (
-                                                        <div className="flex items-center bg-[#FF8200] rounded-full p-1 shadow-md">
+                                                        <div className="flex items-center bg-primary rounded-full p-1 shadow-md shadow-primary/20">
                                                             <button
                                                                 onClick={() => handleDecrement(variant)}
                                                                 className="w-7 h-7 flex items-center justify-center text-white hover:bg-white/20 rounded-full transition-colors"
@@ -189,7 +189,7 @@ const VariantSelectionSheet = () => {
                                                     ) : (
                                                         <button
                                                             onClick={() => handleIncrement(variant)}
-                                                            className="px-5 py-2.5 rounded-full bg-orange-50 text-[#FF8200] border border-orange-200 hover:bg-[#FF8200] hover:text-white flex items-center justify-center font-extrabold text-sm transition-all shadow-sm"
+                                                            className="px-5 py-2.5 rounded-full bg-brand-50 text-primary border border-brand-200 hover:bg-primary hover:text-white flex items-center justify-center font-extrabold text-sm transition-all shadow-xs"
                                                         >
                                                             ADD
                                                         </button>
@@ -213,7 +213,7 @@ const VariantSelectionSheet = () => {
                                 }}
                                 className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
                                     totalSelectedVariants > 0
-                                        ? "bg-[#FF8200] hover:bg-orange-600 text-white shadow-md"
+                                        ? "bg-primary hover:bg-brand-600 text-white shadow-md shadow-primary/20"
                                         : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                                 }`}
                             >

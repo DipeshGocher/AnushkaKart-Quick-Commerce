@@ -220,9 +220,9 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
 
         {/* Top Image Section */}
         <div className={cn("relative w-full overflow-hidden flex items-center justify-center p-0.5", layout === "list" ? "w-[90px] h-[90px] shrink-0" : "aspect-square")}>
-          {/* Discount Badge (Top-Left Orange Speech Bubble) */}
+          {/* Discount Badge (Top-Left Speech Bubble) */}
           {discountText && (
-            <div className="absolute top-0 left-0 z-10 bg-[#FF8200] text-white font-black text-[9.5px] px-2.5 py-1 rounded-[10px_10px_10px_0px] shadow-3xs tracking-tight leading-none select-none">
+            <div className="absolute top-0 left-0 z-10 bg-primary text-white font-black text-[9.5px] px-2.5 py-1 rounded-[10px_10px_10px_0px] shadow-3xs tracking-tight leading-none select-none">
               {discountText}
             </div>
           )}
@@ -284,12 +284,12 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
             <div className="shrink-0 ml-auto">
               {quantity > 0 ? (
                 <div 
-                  className="h-8 min-w-[68px] flex items-center justify-between rounded-sm bg-[#FF8200] text-white shadow-sm"
+                  className="h-8 min-w-[68px] flex items-center justify-between rounded-sm bg-primary text-white shadow-sm"
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
                 >
                   <button 
                     onClick={handleDecrement} 
-                    className="w-7 h-full flex items-center justify-center active:bg-orange-600 rounded-l-sm transition-colors"
+                    className="w-7 h-full flex items-center justify-center active:bg-pink-700 rounded-l-sm transition-colors"
                   >
                     <Minus size={15} strokeWidth={2.5} />
                   </button>
@@ -298,7 +298,7 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
                   </span>
                   <button 
                     onClick={handleIncrement} 
-                    className="w-7 h-full flex items-center justify-center active:bg-orange-600 rounded-r-sm transition-colors"
+                    className="w-7 h-full flex items-center justify-center active:bg-pink-700 rounded-r-sm transition-colors"
                   >
                     <Plus size={15} strokeWidth={2.5} />
                   </button>
@@ -306,7 +306,7 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
               ) : (
                 <button
                   onClick={handleAddToCart}
-                  className="h-8 min-w-[68px] px-4 rounded-sm border border-[#FF8200] bg-transparent text-[#FF8200] flex items-center justify-center font-bold text-[13px] uppercase active:scale-95 transition-all hover:bg-orange-50"
+                  className="h-8 min-w-[68px] px-4 rounded-sm border border-primary bg-transparent text-primary flex items-center justify-center font-bold text-[13px] uppercase active:scale-95 transition-all hover:bg-pink-50"
                   title="Add to Cart"
                 >
                   ADD

@@ -6,14 +6,15 @@
  * @param {Object} params.settings - The delivery settings (from Setting model)
  * @returns {number} The calculated rider earning
  */
-export const calculateRiderEarning = ({ distanceKm, settings }) => {
-  if (settings.riderEarningType === "fixed") {
-    return settings.riderFixedEarning || 0;
+export const calculateRiderEarning = ({ distanceKm, settings = {} }) => {
+  const isFixed = settings.riderEarningType === "fixed" || settings.deliveryPricingMode === "fixed_price";
+  if (isFixed) {
+    return Number(settings.fixedRiderPayout ?? settings.riderFixedEarning ?? 0);
   }
 
-  const baseDistance = settings.riderBaseDistance || 0;
-  const baseEarning = settings.riderBaseEarning || 0;
-  const extraPerKm = settings.riderExtraPerKm || 0;
+  const baseDistance = Number(settings.riderBaseDistance ?? settings.baseDistanceCapacityKm ?? 0);
+  const baseEarning = Number(settings.riderBaseEarning ?? settings.riderBasePayout ?? 0);
+  const extraPerKm = Number(settings.riderExtraPerKm ?? settings.deliveryPartnerRatePerKm ?? 0);
 
   if (distanceKm <= baseDistance) {
     return baseEarning;

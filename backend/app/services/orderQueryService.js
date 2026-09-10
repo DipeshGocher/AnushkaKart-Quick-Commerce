@@ -80,7 +80,8 @@ export function buildSellerOrdersQuery({
   startDate,
   endDate,
 }) {
-  const base = role === "admin" ? {} : role === "warehouse" ? { warehouseId: new mongoose.Types.ObjectId(userId) } : { seller: new mongoose.Types.ObjectId(userId) };
+  const targetId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
+  const base = role === "admin" ? {} : role === "warehouse" ? { warehouseId: targetId } : { seller: targetId };
   const withStatus = {
     ...base,
     ...normalizeSellerStatusFilter(statusParam),
@@ -284,19 +285,19 @@ export async function fetchAvailableOrdersForDelivery({
   const deliveryPartner = await Delivery.findById(userId);
   const hasLocation = deliveryPartner && deliveryPartner.location && Array.isArray(deliveryPartner.location.coordinates);
 
+  if (!hasLocation) {
+    return {
+      orders: assignedReturnPickups,
+      requiresLocation: true,
+    };
+  }
+
   let sellerIds = [];
   let usedFallback = false;
 
-  if (hasLocation) {
-    const result = await resolveNearbySellerIds(deliveryPartner, userId);
-    sellerIds = result.sellerIds;
-    usedFallback = result.usedFallback;
-  } else {
-    // If no location, fallback to all sellers so they can see returns/deliveries in dev or as a fallback
-    const allSellers = await Seller.find({}).select("_id");
-    sellerIds = allSellers.map((seller) => seller._id);
-    usedFallback = true;
-  }
+  const result = await resolveNearbySellerIds(deliveryPartner, userId);
+  sellerIds = result.sellerIds;
+  usedFallback = result.usedFallback;
 
   let v2Orders = [];
   if (showDeliveries) {

@@ -81,22 +81,22 @@ const VehicleInfo = () => {
           <h3 className="ds-h4 text-gray-900 mb-3 px-1">Vehicle Documents</h3>
           <div className="space-y-3">
             {documents.map((doc, index) => (
-              <Card key={index} className="p-4 border border-gray-100">
+              <Card key={index} className="p-4 border border-gray-100 card-left-pill-magenta">
                 <div className="flex justify-between items-start">
                   <div className="flex items-start">
-                    <div className={`p-2 rounded-lg mr-3 ${doc.alert ? 'bg-orange-50 text-orange-600' : 'bg-brand-50 text-brand-600'}`}>
+                    <div className={`p-2 rounded-lg mr-3 ${doc.alert ? 'bg-amber-50 text-amber-600' : 'bg-brand-50 text-brand-600'}`}>
                       <FileText size={20} />
                     </div>
                     <div>
                       <h4 className="font-bold text-gray-800 text-sm">{doc.title}</h4>
                       <p className="text-xs text-gray-500 mt-0.5">{doc.number}</p>
-                      <p className={`text-xs mt-1 ${doc.alert ? 'text-orange-600 font-medium' : 'text-gray-400'}`}>
+                      <p className={`text-xs mt-1 ${doc.alert ? 'text-amber-600 font-medium' : 'text-gray-400'}`}>
                         Expires: {doc.expiry}
                       </p>
                     </div>
                   </div>
                   {doc.alert ? (
-                    <Button size="sm" variant="outline" className="h-7 text-xs border-orange-200 text-orange-600 bg-orange-50 hover:bg-orange-100">
+                    <Button size="sm" variant="outline" className="h-7 text-xs border-amber-200 text-amber-600 bg-amber-50 hover:bg-amber-100">
                       Renew
                     </Button>
                   ) : (

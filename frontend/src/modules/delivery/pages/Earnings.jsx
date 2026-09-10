@@ -104,7 +104,7 @@ const Earnings = () => {
               onClick={() => setActiveTab(tab)}
               className={`flex-1 py-2 text-sm font-bold rounded-full transition-all capitalize ${
                 activeTab === tab
-                  ? "bg-[#ff8200] text-white shadow-sm"
+                  ? "bg-[#E60067] text-white shadow-sm"
                   : "text-slate-500 hover:text-slate-800"
               }`}>
               {tab}
@@ -141,8 +141,8 @@ const Earnings = () => {
             </div>
             
             <div className="flex items-center mt-3 mb-6 text-[13px] font-bold">
-              <ArrowUpRight size={16} className="text-[#4ade80] mr-1" strokeWidth={3} />
-              <span className="text-[#4ade80] mr-1">12%</span>
+              <ArrowUpRight size={16} className="text-[#E60067] mr-1" strokeWidth={3} />
+              <span className="text-[#E60067] mr-1">12%</span>
               <span className="text-slate-400 font-medium">vs yesterday</span>
             </div>
 
@@ -190,13 +190,13 @@ const Earnings = () => {
                   />
                   <Bar
                     dataKey="earnings"
-                    fill="#dcfce7"
+                    fill="#E60067"
                     radius={[0, 0, 4, 4]}
                     stackId="a"
                   />
                   <Bar
                     dataKey="incentives"
-                    fill="#86efac"
+                    fill="#FF3366"
                     radius={[4, 4, 0, 0]}
                     stackId="a"
                   />
@@ -204,7 +204,7 @@ const Earnings = () => {
               </ResponsiveContainer>
             </div>
 
-            <button className="text-[#22c55e] font-bold text-[14px] flex items-center justify-center">
+            <button className="text-[#E60067] font-bold text-[14px] flex items-center justify-center">
               View Detailed Breakdown <ChevronRight size={16} className="ml-1" strokeWidth={2.5} />
             </button>
           </div>

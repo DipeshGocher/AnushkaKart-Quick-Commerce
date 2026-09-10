@@ -231,35 +231,48 @@ export function calculateHandlingFee(cartItems, options = {}) {
   };
 }
 
-export function calculateCustomerDeliveryFee(distanceKm, deliverySettings) {
+export function calculateCustomerDeliveryFee(distanceKm, deliverySettings = {}) {
   const actualDistance = Number(distanceKm || 0);
   const normalizedDistance = Number.isFinite(actualDistance) ? Math.max(actualDistance, 0) : 0;
   
+  const baseDistance = Number(deliverySettings.customerBaseDistance ?? deliverySettings.baseDistanceCapacityKm ?? 0);
+  const baseCharge = Number(deliverySettings.customerBaseCharge ?? deliverySettings.customerBaseDeliveryFee ?? 0);
+  const extraPerKm = Number(deliverySettings.customerExtraPerKm ?? deliverySettings.incrementalKmSurcharge ?? 0);
+
+  const isFixed = deliverySettings.customerPricingType === "fixed" || deliverySettings.deliveryPricingMode === "fixed_price";
+  const roundedExtraKm = isFixed ? 0 : (normalizedDistance > baseDistance ? Math.ceil(normalizedDistance - baseDistance) : 0);
+  const extraFee = roundedExtraKm * extraPerKm;
   const charge = calculateCustomerDeliveryCharge({ distanceKm: normalizedDistance, settings: deliverySettings });
   
   return {
     deliveryFeeCharged: charge,
     distanceKmActual: normalizedDistance,
-    distanceKmRounded: roundCurrency(normalizedDistance),
-    roundedExtraKm: 0,
-    mode: deliverySettings.customerPricingType || "distance",
-    baseFee: charge,
-    extraFee: 0,
+    distanceKmRounded: roundedExtraKm > 0 ? baseDistance + roundedExtraKm : roundCurrency(normalizedDistance),
+    roundedExtraKm,
+    mode: deliverySettings.customerPricingType || deliverySettings.deliveryPricingMode || "distance",
+    baseFee: baseCharge,
+    extraFee,
   };
 }
 
-export function calculateRiderPayout(distanceKm, deliverySettings) {
+export function calculateRiderPayout(distanceKm, deliverySettings = {}) {
   const actualDistance = Number(distanceKm || 0);
   const normalizedDistance = Number.isFinite(actualDistance) ? Math.max(actualDistance, 0) : 0;
 
+  const baseDistance = Number(deliverySettings.riderBaseDistance ?? deliverySettings.baseDistanceCapacityKm ?? 0);
+  const basePayout = Number(deliverySettings.riderBaseEarning ?? deliverySettings.riderBasePayout ?? 0);
+  const extraPerKm = Number(deliverySettings.riderExtraPerKm ?? deliverySettings.deliveryPartnerRatePerKm ?? 0);
+
+  const roundedExtraKm = normalizedDistance > baseDistance ? Math.ceil(normalizedDistance - baseDistance) : 0;
+  const riderPayoutDistance = roundedExtraKm * extraPerKm;
   const payout = calculateRiderEarning({ distanceKm: normalizedDistance, settings: deliverySettings });
 
   return {
-    riderPayoutBase: payout,
-    riderPayoutDistance: 0,
+    riderPayoutBase: basePayout,
+    riderPayoutDistance,
     riderPayoutBonus: 0,
     riderPayoutTotal: payout,
-    roundedExtraKm: 0,
+    roundedExtraKm,
   };
 }
 

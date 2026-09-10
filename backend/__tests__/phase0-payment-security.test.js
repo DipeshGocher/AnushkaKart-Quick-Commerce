@@ -52,6 +52,33 @@ jest.unstable_mockModule("../app/services/orderWorkflowService.js", () => ({
   afterPlaceOrderV2: mockAfterPlaceOrderV2,
 }));
 
+jest.unstable_mockModule("../app/services/payment/providers/razorpay.adapter.js", () => ({
+  RazorpayAdapter: class {
+    get providerName() { return "RAZORPAY"; }
+    async initiatePayment(params) {
+      mockPhonePePay(params);
+      return {
+        redirectUrl: "https://pay.test/checkout",
+        gatewayResponse: { razorpayOrderId: "order_gateway_1" },
+      };
+    }
+    async validateWebhook() {
+      return true;
+    }
+    async decodeWebhookPayload() {
+      return {
+        eventId: "event-duplicate-1",
+        merchantOrderId: "gateway-order-1",
+        status: "COMPLETED",
+        raw: { status: "COMPLETED" },
+      };
+    }
+    async verifyPaymentStatus() {
+      return { status: "COMPLETED" };
+    }
+  },
+}));
+
 jest.unstable_mockModule("../app/services/stockService.js", () => ({
   releaseReservedStockForOrder: mockReleaseReservedStockForOrder,
 }));
@@ -84,22 +111,31 @@ jest.unstable_mockModule("@phonepe-pg/pg-sdk-node", () => ({
           request.redirectUrl = value;
           return this;
         },
+        callbackUrl(value) {
+          request.callbackUrl = value;
+          return this;
+        },
+        mobileNumber(value) {
+          request.mobileNumber = value;
+          return this;
+        },
         build() {
           return request;
         },
       };
     }),
   },
-}));
+}), { virtual: true });
 
 const {
   createPaymentOrderForOrderRef,
-  processPhonePeWebhook,
+  processGatewayWebhook,
 } = await import("../app/services/paymentService.js");
 
 describe("Phase 0 payment hardening", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.PAYMENT_PROVIDER = "RAZORPAY";
     process.env.RAZORPAY_KEY_ID = "rzp_test_key";
     process.env.RAZORPAY_KEY_SECRET = "rzp_test_secret";
     process.env.RAZORPAY_WEBHOOK_SECRET = "rzp_wh_secret";
@@ -156,7 +192,7 @@ describe("Phase 0 payment hardening", () => {
 
     expect(mockPhonePePay).toHaveBeenCalledWith(
       expect.objectContaining({
-        amount: 49900,
+        amountPaise: 49900,
       }),
     );
     expect(result.payment.amount).toBe(49900);
@@ -214,7 +250,7 @@ describe("Phase 0 payment hardening", () => {
     const payload = Buffer.from(JSON.stringify({ response: callbackPayload }));
     mockPhonePeValidateCallback.mockResolvedValue(true);
 
-    const result = await processPhonePeWebhook({
+    const result = await processGatewayWebhook({
       rawBody: payload,
       authorization: "phonepe-auth",
       eventId: "event-duplicate-1",
