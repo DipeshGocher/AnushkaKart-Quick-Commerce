@@ -3,7 +3,7 @@ import { translateText } from '../services/translationService';
 
 const LanguageContext = createContext(null);
 
-const languages = [
+export const languages = [
     { code: 'en', name: 'English', flag: '🇬🇧' },
     { code: 'hi', name: 'हिन्दी', flag: '🇮🇳' },
     { code: 'mr', name: 'मराठी', flag: '🇮🇳' }

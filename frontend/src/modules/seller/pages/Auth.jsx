@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@core/context/AuthContext";
 import { useSettings } from "@core/context/SettingsContext";
 import { UserRole } from "@core/constants/roles";
+import SignInCard2 from "@/components/ui/sign-in-card-2";
 import {
   Mail,
   Lock,
@@ -593,34 +594,20 @@ const Auth = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50/50 px-4 py-8 font-['Outfit']">
-      <div className="bg-white text-slate-900 border border-slate-200/80 shadow-2xl rounded-3xl p-6 sm:p-8 max-w-md w-full mx-auto relative overflow-hidden">
-        {/* Background Accents */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-pink-100/40 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-rose-100/30 rounded-full blur-2xl -ml-16 -mb-16 pointer-events-none" />
-
-        {/* Header */}
-        <div className="text-center mb-6 relative z-10">
-          <div className="flex flex-col items-center justify-center mb-4">
-            {logoUrl ? (
-              <img src={logoUrl} alt={`${appName} logo`} className="h-20 sm:h-24 w-auto object-contain" />
-            ) : (
-              <Store size={48} className="text-[#E60067]" />
-            )}
-          </div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">
-            {isLogin ? "Welcome Back" : `Seller Signup (${signupStep}/3)`}
-          </h2>
-          <p className="text-slate-500 text-xs font-medium">
-            {isLogin
-              ? "Access your unified Seller Dashboard and manage orders."
-              : signupStep === 1
-                ? "Register your store and Start Operating instantly."
-                : signupStep === 2
-                  ? "Set your shop address and service area precisely."
-                  : "Upload verification documents to complete your application."}
-          </p>
-        </div>
+    <SignInCard2
+      title={isLogin ? "Welcome Back" : `Seller Signup (${signupStep}/3)`}
+      subtitle={
+        isLogin
+          ? "Access your unified Seller Dashboard and manage orders."
+          : signupStep === 1
+            ? "Register your store and Start Operating instantly."
+            : signupStep === 2
+              ? "Set your shop address and service area precisely."
+              : "Upload verification documents to complete your application."
+      }
+      logoUrl={logoUrl || "/logo.png"}
+      appName={appName}
+    >
 
         {/* Mode Toggle Tabs */}
         {forgotPasswordStep === 0 && (
@@ -1355,9 +1342,6 @@ const Auth = () => {
                   </button>
                 </p>
               </div>
-        </div>
-
-
 
       {isMapOpen && (
         <MapPicker
@@ -1371,7 +1355,7 @@ const Auth = () => {
           initialRadius={formData.radius}
         />
       )}
-    </div>
+    </SignInCard2>
   );
 };
 

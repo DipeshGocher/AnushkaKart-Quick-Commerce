@@ -24,6 +24,7 @@ import deliveryRiding from "@/assets/lottie/Delivery Riding.json";
 import { deliveryApi } from "../services/deliveryApi";
 import { useAuth } from "@core/context/AuthContext";
 import { useSettings } from "@core/context/SettingsContext";
+import SignInCard2 from "@/components/ui/sign-in-card-2";
 import { toast } from "sonner";
 import DynamicLegalPage from "@/shared/components/DynamicLegalPage";
 
@@ -304,26 +305,12 @@ const DeliveryAuth = () => {
 
   return (
     <>
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50/50 px-4 py-8 font-['Outfit',_sans-serif]">
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="bg-white text-slate-900 border border-slate-200/80 shadow-2xl rounded-3xl p-6 sm:p-8 max-w-md w-full mx-auto relative overflow-hidden z-10"
-      >
-        {/* Background Accents */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-pink-100/40 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-rose-100/30 rounded-full blur-2xl -ml-16 -mb-16 pointer-events-none" />
-
-        <div className="relative z-10">
-          {/* Logo */}
-          <div className="flex flex-col items-center justify-center mb-6">
-            <img
-              src={logoUrl}
-              alt="AnushkaStore Logo"
-              className="h-20 sm:h-24 w-auto object-contain"
-            />
-          </div>
+    <SignInCard2
+      title={step === "form" ? (mode === "login" ? 'Welcome Back' : `Delivery Partner Registration (${signupStep}/4)`) : step === "otp" ? 'Verify Mobile Number' : 'Application Status'}
+      subtitle={step === "form" ? (mode === "login" ? 'Enter your mobile number to sign in' : `Step ${signupStep} of 4`) : step === "otp" ? `Sent 6-digit code to +91 ${loginPhone}` : ''}
+      logoUrl={logoUrl || "/logo.png"}
+      appName={appName}
+    >
 
           {step === "form" && (
             <>
@@ -382,7 +369,6 @@ const DeliveryAuth = () => {
               </p>
             </div>
           )}
-        </div>
 
         <div>
           <AnimatePresence mode="wait">
@@ -1203,11 +1189,7 @@ const DeliveryAuth = () => {
           </AnimatePresence>
         </div>
 
-        {/* Footer */}
-
-      </motion.div>
-    </div>
-
+    </SignInCard2>
     </>
   );
 };
