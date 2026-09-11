@@ -111,7 +111,7 @@ const CustomerAuth = () => {
                     <div className="flex flex-col items-center justify-center mb-6">
                         <img 
                             src={settings?.logoUrl || "/logo.png"} 
-                            alt="AnushkaKart Logo" 
+                            alt="AnushkaStore Logo" 
                             className="h-20 sm:h-24 w-auto object-contain" 
                         />
                     </div>

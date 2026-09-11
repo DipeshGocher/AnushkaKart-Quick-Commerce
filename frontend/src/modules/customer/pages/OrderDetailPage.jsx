@@ -800,7 +800,7 @@ const OrderDetailPage = () => {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_b0PSRa7kNhbHj3",
         amount: amountPaise,
         currency: "INR",
-        name: "Anushka Kart",
+        name: "Anushka Store",
         description: `Payment for Order ${paymentRef}`,
         order_id: razorpayOrderId,
         handler: function (response) {

@@ -1,7 +1,7 @@
 {
-  "name": "anushka-kart-backend",
+  "name": "anushka-Store-backend",
   "version": "1.0.0",
-  "description": "Anushka Kart - Backend API",
+  "description": "Anushka Store - Backend API",
   "main": "index.js",
   "type": "module",
   "scripts": {

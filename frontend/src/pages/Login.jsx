@@ -36,7 +36,7 @@ const Login = () => {
                     <div className="flex flex-col items-center justify-center mb-4">
                         <img 
                             src="/logo.png" 
-                            alt="AnushkaKart Logo" 
+                            alt="AnushkaStore Logo" 
                             className="h-20 sm:h-24 w-auto object-contain" 
                         />
                     </div>

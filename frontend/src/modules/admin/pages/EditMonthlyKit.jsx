@@ -379,7 +379,7 @@ const EditMonthlyKit = () => {
                                         value={formData.brand}
                                         onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
                                         className={inputClass}
-                                        placeholder="e.g. Anushka Kart"
+                                        placeholder="e.g. Anushka Store"
                                     />
                                 </div>
                                 <div className="space-y-1.5">

@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 const DeliveryFooter = () => {
     return (
         <div className="mt-12 pt-8 flex flex-col items-center justify-center text-center overflow-visible -mb-24">
@@ -6,7 +7,7 @@ const DeliveryFooter = () => {
                     India's last<br/>minute app <span className="inline-block relative top-1">❤️</span>
                 </h3>
                 <p className="text-[22px] font-black text-[#d0dbe3] tracking-tighter mt-2">
-                    Anushka Kart
+                    Anushka Store
                 </p>
             </div>
             

@@ -396,7 +396,7 @@ const MainLocationHeader = ({
                 <div className="group-hover:scale-110 transition-all duration-300 drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)]">
                   <img
                     src={logoUrl || "/logo.png"}
-                    alt={`${appName || 'AnushkaKart'} Logo`}
+                    alt={`${appName || 'AnushkaStore'} Logo`}
                     loading="lazy"
                     className="h-14 w-auto object-contain"
                   />
@@ -579,7 +579,7 @@ const MainLocationHeader = ({
               <div onClick={() => navigate("/")} className="flex items-center gap-2 cursor-pointer">
                 <img
                   src={logoUrl || "/logo.png"}
-                  alt="AnushkaKart Logo"
+                  alt="AnushkaStore Logo"
                   className="h-11 w-auto object-contain shrink-0"
                 />
                 {weatherEnabled && (

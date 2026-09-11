@@ -50,7 +50,7 @@ const VEHICLE_TYPES = [
 const DeliveryAuth = () => {
   const navigate = useNavigate();
   const { settings } = useSettings();
-  const appName = settings?.appName || "AnushkaKart";
+  const appName = settings?.appName || "AnushkaStore";
   const logoUrl = settings?.logoUrl || "/logo.png";
   const { login } = useAuth();
 
@@ -320,7 +320,7 @@ const DeliveryAuth = () => {
           <div className="flex flex-col items-center justify-center mb-6">
             <img
               src={logoUrl}
-              alt="AnushkaKart Logo"
+              alt="AnushkaStore Logo"
               className="h-20 sm:h-24 w-auto object-contain"
             />
           </div>
