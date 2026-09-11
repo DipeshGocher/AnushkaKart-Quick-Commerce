@@ -1,27 +1,29 @@
 import React, { useState, useEffect } from 'react';
 
 const SplashScreen = ({ children }) => {
-    const [showSplash, setShowSplash] = useState(true);
+    const [showSplash, setShowSplash] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        try {
+            const hasSeenSplash = sessionStorage.getItem('hasSeenSplash');
+            const isMobile = window.innerWidth <= 768;
+            return isMobile && !hasSeenSplash;
+        } catch {
+            return false;
+        }
+    });
 
     useEffect(() => {
-        // Only show once per session
-        const hasSeenSplash = sessionStorage.getItem('hasSeenSplash');
-        
-        // We also want to check if it's mobile view. A simple check:
-        const isMobile = window.innerWidth <= 768;
-
-        if (hasSeenSplash || !isMobile) {
-            setShowSplash(false);
-            return;
-        }
+        if (!showSplash) return;
 
         const timer = setTimeout(() => {
             setShowSplash(false);
-            sessionStorage.setItem('hasSeenSplash', 'true');
+            try {
+                sessionStorage.setItem('hasSeenSplash', 'true');
+            } catch (err) {}
         }, 4000); // 4 seconds
 
         return () => clearTimeout(timer);
-    }, []);
+    }, [showSplash]);
 
     if (showSplash) {
         let splashImage = "/init page .png";
