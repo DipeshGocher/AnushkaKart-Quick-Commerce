@@ -63,7 +63,7 @@ const SubCategories = () => {
   const fetchCategories = async () => {
     setIsLoading(true);
     try {
-      const res = await adminApi.getCategories();
+      const res = await adminApi.getCategories({ catalogType: "grocery" });
       if (res.data.success) {
         const payload = res.data.result;
         const results = res.data.results;
@@ -74,9 +74,10 @@ const SubCategories = () => {
             : Array.isArray(payload?.items)
               ? payload.items
               : [];
-        setCategories(allCats.filter((c) => c.type === "subcategory"));
-        setLevel2Categories(allCats.filter((c) => c.type === "category"));
-        setHeaderCategories(allCats.filter((c) => c.type === "header"));
+        const groceryCats = allCats.filter((c) => c.catalogType !== "refurbished");
+        setCategories(groceryCats.filter((c) => c.type === "subcategory"));
+        setLevel2Categories(groceryCats.filter((c) => c.type === "category"));
+        setHeaderCategories(groceryCats.filter((c) => c.type === "header"));
       }
     } catch (error) {
       toast.error("Failed to fetch categories");
@@ -193,6 +194,8 @@ const SubCategories = () => {
         // If no new file is chosen, but we have a preview URL that isn't a local blob,
         // it means we have an existing image URL or a string.
         data.append("image", previewUrl);
+      } else {
+        data.append("image", "");
       }
 
       if (editingItem) {
@@ -496,7 +499,7 @@ const SubCategories = () => {
       {/* Add/Edit Modal */}
       <AnimatePresence>
         {isAddModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -516,25 +519,53 @@ const SubCategories = () => {
               <div className="p-6 space-y-4">
                 {/* Image Upload */}
                 <div className="flex flex-col items-center justify-center gap-1">
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-24 h-24 rounded-full bg-gray-50 border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-brand-500 overflow-hidden transition-colors">
-                    {previewUrl ? (
-                      <img
-                        src={previewUrl}
-                        alt="Preview"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="text-center">
-                        <Image className="w-8 h-8 text-gray-400 mx-auto" />
-                        <span className="text-xs text-gray-500 mt-1 block">
-                          Upload
-                        </span>
-                      </div>
+                  <div className="relative">
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-24 h-24 rounded-full bg-gray-50 border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-brand-500 overflow-hidden transition-colors">
+                      {previewUrl ? (
+                        <img
+                          src={previewUrl}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="text-center">
+                          <Image className="w-8 h-8 text-gray-400 mx-auto" />
+                          <span className="text-xs text-gray-500 mt-1 block">
+                            Upload
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {previewUrl && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setImageFile(null);
+                          setPreviewUrl(null);
+                        }}
+                        className="absolute -top-1 -right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-md"
+                        title="Remove Image">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     )}
                   </div>
-                  <span className="text-[10px] font-semibold text-gray-400 mt-1">Recommended: 400 × 400 px (1:1)</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[10px] font-semibold text-gray-400">Recommended: 400 × 400 px (1:1)</span>
+                    {previewUrl && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImageFile(null);
+                          setPreviewUrl(null);
+                        }}
+                        className="text-xs text-red-600 hover:underline font-semibold">
+                        Remove Image
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="file"
                     ref={fileInputRef}
@@ -635,7 +666,7 @@ const SubCategories = () => {
       {/* Delete Confirmation Modal */}
       <AnimatePresence>
         {isDeleteModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}

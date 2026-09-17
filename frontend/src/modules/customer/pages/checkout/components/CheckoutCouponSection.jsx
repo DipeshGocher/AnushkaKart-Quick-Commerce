@@ -64,7 +64,7 @@ const CheckoutCouponSection = React.memo(function CheckoutCouponSection({
                   className={`flex-shrink-0 w-[200px] snap-start rounded-2xl border-2 border-dashed p-3 flex flex-col gap-2 transition-all ${
                     isApplied
                       ? "border-green-400 bg-green-50"
-                      : "border-brand-200 bg-gradient-to-br from-brand-50 to-pink-50/40"
+                      : "border-brand-200 bg-gradient-to-br from-brand-50 to-orange-50/40"
                   }`}>
                   <div className="flex items-center justify-between">
                     <span
@@ -159,7 +159,7 @@ const CheckoutCouponSection = React.memo(function CheckoutCouponSection({
                       className={`w-full py-2.5 rounded-xl font-bold text-sm transition-all ${
                         selectedCoupon?.code === coupon.code
                           ? "bg-white text-primary border-2 border-primary cursor-default"
-                          : "bg-primary text-primary-foreground hover:bg-[#0b721b]"
+                          : "bg-primary text-primary-foreground hover:bg-orange-600"
                       }`}>
                       {selectedCoupon?.code === coupon.code ? "Applied" : "Apply Now"}
                     </button>

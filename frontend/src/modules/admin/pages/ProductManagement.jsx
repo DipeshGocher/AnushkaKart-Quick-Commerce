@@ -149,8 +149,15 @@ const ProductManagement = () => {
             return toast.error('Only product editing is allowed for admins');
         }
 
-        if (!formData.name || !formData.header || !formData.categoryId || !formData.subcategoryId) {
+        const selectedHeader = categories.find((h) => String(h._id || h.id) === String(formData.header));
+        const selectedCategory = selectedHeader?.children?.find((c) => String(c._id || c.id) === String(formData.categoryId));
+        const availableSubcategories = selectedCategory?.children || [];
+
+        if (!formData.name || !formData.header || !formData.categoryId) {
             return toast.error('Please fill all required fields, including categories');
+        }
+        if (availableSubcategories.length > 0 && !formData.subcategoryId) {
+            return toast.error('Please select a Sub-Category');
         }
 
         const firstVariant = (formData.variants && formData.variants.length > 0) ? formData.variants[0] : null;
@@ -177,9 +184,9 @@ const ProductManagement = () => {
             data.append('stock', String(firstVariant.stock));
             data.append('lowStockAlert', String(Number(formData.lowStockAlert) || 5));
             data.append('unit', formData.unit);
-            data.append('headerId', formData.header);
-            data.append('categoryId', formData.categoryId);
-            data.append('subcategoryId', formData.subcategoryId);
+            if (formData.header) data.append('headerId', formData.header);
+            if (formData.categoryId) data.append('categoryId', formData.categoryId);
+            if (formData.subcategoryId) data.append('subcategoryId', formData.subcategoryId);
             data.append('status', formData.status);
             data.append('isFeatured', String(formData.isFeatured));
             data.append('brand', formData.brand);
@@ -189,6 +196,28 @@ const ProductManagement = () => {
             data.append('countryOfOrigin', formData.countryOfOrigin);
             data.append('fssaiLicense', formData.fssaiLicense);
             data.append('variants', JSON.stringify(formData.variants));
+            // Highlights
+            const cleanedHighlights = (formData.highlights || [])
+                .filter((h) => h && ((typeof h.label === "string" && h.label.trim().length > 0) || (typeof h.icon === "string" && h.icon.trim().length > 0)))
+                .map((h) => ({
+                    icon: typeof h.icon === "string" ? h.icon.trim() : "",
+                    label: typeof h.label === "string" ? h.label.trim() : "",
+                }));
+            data.append("highlights", JSON.stringify(cleanedHighlights));
+
+            if (formData.mainImage) {
+                if (formData.mainImage instanceof File) {
+                    data.append('mainImage', formData.mainImage);
+                } else if (typeof formData.mainImage === 'string') {
+                    data.append('mainImage', formData.mainImage);
+                }
+            }
+            if (Array.isArray(formData.galleryImages)) {
+                const stringUrls = formData.galleryImages.filter(img => typeof img === 'string');
+                if (stringUrls.length > 0) {
+                    data.append('galleryImages', JSON.stringify(stringUrls));
+                }
+            }
 
             // Append variant image files
             Object.keys(variantImageFiles).forEach((vIndex) => {
@@ -276,6 +305,18 @@ const ProductManagement = () => {
 
 
     const openModal = (item = null) => {
+        let rawHL = item?.highlights || [];
+        if (typeof rawHL === "string") {
+            try { rawHL = JSON.parse(rawHL); } catch (e) { rawHL = []; }
+        }
+        if (!Array.isArray(rawHL)) rawHL = [];
+        const freshHighlights = [0, 1, 2, 3].map((i) => {
+            const h = rawHL[i];
+            if (!h) return { icon: "", label: "" };
+            if (typeof h === "string") return { icon: "", label: h };
+            return { icon: h.icon || h.id || "", label: h.label || h.name || h.title || "" };
+        });
+
         if (item) {
             setFormData({
                 name: item.name || '',
@@ -300,6 +341,7 @@ const ProductManagement = () => {
                 fssaiLicense: item.fssaiLicense || '',
                 mainImage: item.mainImage || null,
                 galleryImages: item.galleryImages || item.images || [],
+                highlights: freshHighlights,
                 variants: (item.variants && item.variants.length > 0) ? item.variants.map(v => ({ ...v, id: v._id || Date.now() })) : [
                     {
                         id: Date.now(),
@@ -320,6 +362,7 @@ const ProductManagement = () => {
                 isFeatured: false, tags: '', weight: '', brand: '',
                 shelfLife: '', countryOfOrigin: '', fssaiLicense: '',
                 mainImage: null, galleryImages: [],
+                highlights: [0, 1, 2, 3].map(() => ({ icon: "", label: "" })),
                 variants: [
                     { id: Date.now(), name: 'Default', price: '', salePrice: '', stock: '', sku: '' }
                 ]
@@ -675,7 +718,7 @@ const ProductManagement = () => {
             <AnimatePresence>
                 {isProductModalOpen && (
                     <div
-                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 lg:p-12 overflow-hidden overscroll-contain touch-pan-y"
+                        className="fixed inset-0 z-[2000] flex items-center justify-center p-4 lg:p-12 overflow-hidden overscroll-contain touch-pan-y"
                         onWheelCapture={(e) => e.stopPropagation()}
                     >
                         <motion.div
@@ -874,26 +917,51 @@ const ProductManagement = () => {
                                                         className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-bold outline-none cursor-pointer disabled:opacity-50"
                                                     >
                                                         <option value="">Select Category</option>
-                                                        {categories.find(h => h._id === formData.header)?.children?.map(c => (
-                                                            <option key={c._id} value={c._id}>{c.name}</option>
+                                                        {categories.find(h => String(h._id || h.id) === String(formData.header))?.children?.map(c => (
+                                                            <option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>
                                                         ))}
                                                     </select>
                                                 </div>
                                             </div>
                                             <div className="space-y-1.5 flex flex-col">
-                                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Sub-Category <span className="text-rose-500">*</span></label>
-                                                <select
-                                                    value={formData.subcategoryId}
-                                                    onChange={(e) => setFormData({ ...formData, subcategoryId: e.target.value })}
-                                                    disabled={!formData.categoryId}
-                                                    className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-bold outline-none cursor-pointer disabled:opacity-50"
-                                                >
-                                                    <option value="">Select Sub-Category</option>
-                                                    {categories.find(h => h._id === formData.header)?.children?.find(c => c._id === formData.categoryId)?.children?.map(sc => (
-                                                        <option key={sc._id} value={sc._id}>{sc.name}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
+                                             <div className="space-y-1.5 flex flex-col">
+                                                 <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">
+                                                     Sub-Category {(() => {
+                                                         const hObj = categories.find((h) => String(h._id || h.id) === String(formData.header));
+                                                         const cObj = hObj?.children?.find((c) => String(c._id || c.id) === String(formData.categoryId));
+                                                         const subList = cObj?.children || [];
+                                                         return subList.length > 0 ? (
+                                                             <span className="text-rose-500">*</span>
+                                                         ) : (
+                                                             <span className="text-slate-400 font-normal lowercase">(Optional - None available)</span>
+                                                         );
+                                                     })()}
+                                                 </label>
+                                                 <select
+                                                     value={formData.subcategoryId}
+                                                     onChange={(e) => setFormData({ ...formData, subcategoryId: e.target.value })}
+                                                     disabled={!formData.categoryId}
+                                                     className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-bold outline-none cursor-pointer disabled:opacity-50"
+                                                 >
+                                                     {(() => {
+                                                         const hObj = categories.find((h) => String(h._id || h.id) === String(formData.header));
+                                                         const cObj = hObj?.children?.find((c) => String(c._id || c.id) === String(formData.categoryId));
+                                                         const subList = cObj?.children || [];
+                                                         if (!formData.categoryId) return <option value="">Select Category First</option>;
+                                                         if (subList.length === 0) return <option value="">No Sub-Category for this Category</option>;
+                                                         return (
+                                                             <>
+                                                                 <option value="">Select Sub-Category</option>
+                                                                 {subList.map((sc) => (
+                                                                     <option key={sc._id || sc.id} value={sc._id || sc.id}>
+                                                                         {sc.name}
+                                                                     </option>
+                                                                 ))}
+                                                             </>
+                                                         );
+                                                     })()}
+                                                 </select>
+                                             </div></div>
                                         </div>
                                     )}
 
@@ -1023,6 +1091,108 @@ const ProductManagement = () => {
                                                         </div>
                                                     </div>
                                                 ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {modalTab === 'media' && (
+                                        <div className="ds-section-spacing animate-in fade-in slide-in-from-right-2 duration-300">
+                                            <div className="space-y-6">
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-slate-900 mb-1">Product Images</h4>
+                                                    <p className="text-xs text-slate-500 font-medium">
+                                                        Upload or paste the main product image and gallery images.
+                                                    </p>
+                                                </div>
+
+                                                {/* Main Product Image Section */}
+                                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+                                                    <label className="text-[10px] font-extrabold uppercase text-slate-500 tracking-wider block">
+                                                        Main Product Image URL / File
+                                                    </label>
+                                                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                                                        <div className="h-28 w-28 shrink-0 rounded-2xl border-2 border-dashed border-slate-200 bg-white overflow-hidden flex items-center justify-center relative p-1 shadow-sm">
+                                                            {formData.mainImage ? (
+                                                                <img
+                                                                    src={typeof formData.mainImage === 'string' ? formData.mainImage : URL.createObjectURL(formData.mainImage)}
+                                                                    alt="Main Product"
+                                                                    className="w-full h-full object-contain"
+                                                                />
+                                                            ) : (
+                                                                <div className="text-center p-2 text-slate-400">
+                                                                    <HiOutlinePhotograph className="h-8 w-8 mx-auto text-slate-300" />
+                                                                    <span className="text-[9px] font-bold">No Image</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex-1 space-y-2 w-full">
+                                                            <input
+                                                                type="text"
+                                                                value={typeof formData.mainImage === 'string' ? formData.mainImage : ''}
+                                                                onChange={(e) => setFormData({ ...formData, mainImage: e.target.value })}
+                                                                placeholder="Paste image URL (https://...)"
+                                                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/10"
+                                                            />
+                                                            <div className="relative">
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*"
+                                                                    onChange={(e) => {
+                                                                        if (e.target.files?.[0]) {
+                                                                            setFormData({ ...formData, mainImage: e.target.files[0] });
+                                                                        }
+                                                                    }}
+                                                                    className="text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-900 file:text-white hover:file:bg-slate-800 cursor-pointer"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Gallery Images Section */}
+                                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+                                                    <label className="text-[10px] font-extrabold uppercase text-slate-500 tracking-wider block">
+                                                        Gallery Images
+                                                    </label>
+                                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                                        {(formData.galleryImages || []).map((imgUrl, idx) => (
+                                                            <div key={idx} className="relative h-24 rounded-xl border border-slate-200 bg-white overflow-hidden p-1 group">
+                                                                <img
+                                                                    src={typeof imgUrl === 'string' ? imgUrl : URL.createObjectURL(imgUrl)}
+                                                                    alt={`Gallery ${idx + 1}`}
+                                                                    className="w-full h-full object-contain"
+                                                                />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const nextG = formData.galleryImages.filter((_, i) => i !== idx);
+                                                                        setFormData({ ...formData, galleryImages: nextG });
+                                                                    }}
+                                                                    className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                >
+                                                                    <HiOutlineXMark className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <div className="pt-2">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Add gallery image URL (press enter to add)"
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter' && e.target.value.trim()) {
+                                                                    e.preventDefault();
+                                                                    setFormData({
+                                                                        ...formData,
+                                                                        galleryImages: [...(formData.galleryImages || []), e.target.value.trim()]
+                                                                    });
+                                                                    e.target.value = '';
+                                                                }
+                                                            }}
+                                                            className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none"
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     )}

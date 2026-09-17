@@ -170,7 +170,7 @@ const ShopByStorePage = () => {
         <section className="mb-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
           {/* Left: big summer–style hero */}
           <div className="lg:col-span-5">
-            <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-100 via-amber-50 to-rose-50 border border-slate-100 shadow-xl h-full flex flex-col">
+            <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-100 via-amber-50 to-orange-50 border border-slate-100 shadow-xl h-full flex flex-col">
               <div className="p-6 md:p-8 flex-1 flex flex-col justify-between relative z-10">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.3em] text-brand-500 mb-2">

@@ -32,6 +32,7 @@ export const signupCustomer = async (req, res) => {
             name: payload.name,
             rawPhone: payload.phone,
             flow: "signup",
+            avatar: payload.avatar || payload.profileImage || "",
             referralCode: payload.referralCode,
             ipAddress: req.ip,
         });
@@ -108,7 +109,7 @@ export const getCustomerProfile = async (req, res) => {
 ================================ */
 export const updateCustomerProfile = async (req, res) => {
     try {
-        const { name, email, phone, bio, addresses } = req.body;
+        const { name, email, phone, bio, addresses, avatar, profileImage } = req.body;
 
         const customer = await Customer.findById(req.user.id);
         if (!customer) {
@@ -118,6 +119,11 @@ export const updateCustomerProfile = async (req, res) => {
         if (name) customer.name = name;
         if (email !== undefined) customer.email = email;
         if (bio !== undefined) customer.bio = bio;
+        const newAvatar = avatar !== undefined ? avatar : profileImage;
+        if (newAvatar !== undefined) {
+            customer.avatar = newAvatar;
+            customer.profileImage = newAvatar;
+        }
         if (addresses) customer.addresses = addresses;
 
         if (phone && phone !== customer.phone) {

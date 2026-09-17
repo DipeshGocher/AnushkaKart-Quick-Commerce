@@ -18,8 +18,8 @@ function normalizeUrl(value) {
   return normalized;
 }
 
-function categoryCacheKey({ tree = false, type = "all" } = {}) {
-  return buildKey("catalog", "categories", `${tree ? "tree" : "flat"}:${type || "all"}`);
+function categoryCacheKey({ tree = false, type = "all", catalogType = "all" } = {}) {
+  return buildKey("catalog", "categories", `${tree ? "tree" : "flat"}:${type || "all"}:${catalogType || "all"}`);
 }
 
 function normalizeParentId(parentId) {
@@ -53,23 +53,40 @@ async function validateParentForType(type, parentId) {
  ================================ */
 export const getCategories = async (req, res) => {
   try {
-    const { flat, tree, type } = req.query;
+    const { flat, tree, type, catalogType } = req.query;
 
     if (tree === "true") {
-      const cacheKey = categoryCacheKey({ tree: true, type: "header" });
+      const cacheKey = categoryCacheKey({ tree: true, type: "header", catalogType: catalogType || "grocery" });
       const categories = await getOrSet(
         cacheKey,
         async () => {
-          const selectFields = "name slug image iconId type parentId headerColor headerFontColor headerIconColor sortOrder";
-          const rawCategories = await Category.find({ type: "header" })
+          const selectFields = "name slug image iconId type parentId headerColor headerFontColor headerIconColor sortOrder catalogType";
+          const matchQuery = { type: "header" };
+          if (catalogType === "refurbished") {
+            matchQuery.catalogType = "refurbished";
+          } else if (catalogType === "all") {
+            // no catalogType filter
+          } else {
+            matchQuery.catalogType = { $ne: "refurbished" };
+          }
+
+          const childMatch = catalogType === "refurbished"
+            ? { catalogType: "refurbished" }
+            : catalogType === "all"
+              ? {}
+              : { catalogType: { $ne: "refurbished" } };
+
+          const rawCategories = await Category.find(matchQuery)
             .select(selectFields)
             .populate({
               path: "children",
               select: selectFields,
+              match: childMatch,
               options: { sort: { sortOrder: 1, name: 1 } },
               populate: {
                 path: "children",
                 select: selectFields,
+                match: childMatch,
                 options: { sort: { sortOrder: 1, name: 1 } },
               },
             })
@@ -113,6 +130,13 @@ export const getCategories = async (req, res) => {
       const query = {};
       if (type === "header" || type === "category" || type === "subcategory") {
         query.type = type;
+      }
+      if (catalogType === "refurbished") {
+        query.catalogType = "refurbished";
+      } else if (catalogType === "all") {
+        // no catalogType filter
+      } else {
+        query.catalogType = { $ne: "refurbished" };
       }
       const search = (req.query.search || "").trim();
       const parentId = req.query.parentId || req.query.parentId; // Support both naming variants
@@ -163,7 +187,14 @@ export const getCategories = async (req, res) => {
     if (type === "header" || type === "category" || type === "subcategory") {
       query.type = type;
     }
-    const cacheKey = categoryCacheKey({ tree: false, type: query.type || "all" });
+    if (catalogType === "refurbished") {
+      query.catalogType = "refurbished";
+    } else if (catalogType === "all") {
+      // no catalogType filter
+    } else {
+      query.catalogType = { $ne: "refurbished" };
+    }
+    const cacheKey = categoryCacheKey({ tree: false, type: query.type || "all", catalogType: catalogType || "grocery" });
     const categories = await getOrSet(
       cacheKey,
       async () => {
@@ -204,7 +235,7 @@ export const getCategories = async (req, res) => {
 export const createCategory = async (req, res) => {
   try {
     const categoryData = {};
-    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isKitCategory", "sortOrder"];
+    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isKitCategory", "sortOrder", "catalogType"];
     
     // Strict Whitelisting and Sanitization
     for (const key of allowedKeys) {
@@ -229,8 +260,8 @@ export const createCategory = async (req, res) => {
       } catch (err) {
         console.error("Cloudinary upload failed for category:", err);
       }
-    } else if (typeof req.body.image === 'string' && req.body.image.startsWith('http')) {
-      categoryData.image = req.body.image;
+    } else if (typeof req.body.image === 'string' && req.body.image.trim() !== '') {
+      categoryData.image = req.body.image.trim();
     } else {
        // FORCED FIX: Ensure no phantom object remains
        delete categoryData.image; 
@@ -260,6 +291,14 @@ export const createCategory = async (req, res) => {
         return handleResponse(res, 400, "The URL Slug already exists; please use a unique name");
     }
 
+    // Inherit catalogType from parent if parentId exists and catalogType not provided
+    if (categoryData.parentId && !categoryData.catalogType) {
+      const parentCat = await Category.findById(categoryData.parentId).select("catalogType").lean();
+      if (parentCat && parentCat.catalogType) {
+        categoryData.catalogType = parentCat.catalogType;
+      }
+    }
+
     const category = await Category.create(categoryData);
     
     invalidate("cache:catalog:categories:*").catch(err => {
@@ -285,7 +324,7 @@ export const updateCategory = async (req, res) => {
     }
 
     const categoryData = {};
-    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "sortOrder"];
+    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "sortOrder", "catalogType"];
     
     for (const key of allowedKeys) {
       if (Object.prototype.hasOwnProperty.call(req.body, key)) {
@@ -308,8 +347,8 @@ export const updateCategory = async (req, res) => {
         console.error("Cloudinary upload failed for category update:", err);
         return handleResponse(res, 400, `Image update failed: ${err.message}`);
       }
-    } else if (typeof req.body.image === 'string' && req.body.image.startsWith('http')) {
-      categoryData.image = req.body.image;
+    } else if (typeof req.body.image === 'string' && req.body.image.trim() !== '') {
+      categoryData.image = req.body.image.trim();
     } else if (req.body.image === "") {
         categoryData.image = "";
     } else {

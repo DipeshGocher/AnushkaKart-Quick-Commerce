@@ -866,7 +866,7 @@ const CheckoutPage = () => {
                   contact: user?.phone || orderAddress.phone || "",
                 },
                 theme: {
-                  color: "#E60067", // AnushkaKart Primary Magenta
+                  color: "#FF5722", // AnushkaStore Primary Orange
                 },
                 modal: {
                   ondismiss: function() {
@@ -1029,7 +1029,7 @@ const CheckoutPage = () => {
 
   // ─── Main checkout return ────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-white pb-32 font-sans">
+    <div className="min-h-screen bg-[#f1f4f8] pb-32 font-sans">
       {/* Order Success Overlay */}
       <CheckoutOrderSuccess orderId={orderId} show={showSuccess} />
 
@@ -1289,7 +1289,7 @@ const CheckoutPage = () => {
               </Button>
               <Button
                 onClick={handleSaveEditedAddress}
-                className="bg-primary hover:bg-[#0b721b] text-white font-bold">
+                className="bg-primary hover:bg-orange-600 text-white font-bold">
                 Save changes
               </Button>
             </DialogFooter>

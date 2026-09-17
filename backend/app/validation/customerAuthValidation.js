@@ -3,6 +3,8 @@ import Joi from "joi";
 export const sendSignupOtpSchema = Joi.object({
   name: Joi.string().trim().min(2).max(80).required(),
   phone: Joi.string().trim().min(7).max(24).required(),
+  avatar: Joi.string().trim().optional().allow(''),
+  profileImage: Joi.string().trim().optional().allow(''),
   referralCode: Joi.string().trim().uppercase().optional().allow(''),
 });
 

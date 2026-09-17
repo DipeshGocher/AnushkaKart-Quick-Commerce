@@ -241,9 +241,9 @@ const OrderDetails = () => {
           id: 2,
           label: "At Customer",
           action: "UPLOAD PROOF & OTP",
-          color: "bg-[#E60067]",
-          bg: "bg-pink-50",
-          text: "text-[#E60067]",
+          color: "bg-[#FF5722]",
+          bg: "bg-orange-50",
+          text: "text-[#FF5722]",
         },
         {
           id: 3,
@@ -286,9 +286,9 @@ const OrderDetails = () => {
         id: 2,
         label: isWarehouse ? "At Warehouse" : "At Store",
         action: "PICKED UP ORDER",
-        color: "bg-[#E60067]",
-        bg: "bg-pink-50",
-        text: "text-[#E60067]",
+        color: "bg-[#FF5722]",
+        bg: "bg-orange-50",
+        text: "text-[#FF5722]",
       },
       {
         id: 3,
@@ -587,7 +587,11 @@ const OrderDetails = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white pb-28 font-sans">
       {/* Header */}
-      <div className="bg-white/85 backdrop-blur-md sticky top-0 z-30 px-4 pt-12 pb-3 flex items-center justify-between border-b border-slate-100">
+      <div 
+        style={{
+          background: "linear-gradient(180deg, rgba(255, 87, 34, 0.90) 0%, rgba(255, 112, 67, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%)"
+        }}
+        className="backdrop-blur-md sticky top-0 z-30 px-4 pt-12 pb-3 flex items-center justify-between border-b border-orange-200/50 shadow-2xs">
         <div className="flex items-center">
           <Button
             variant="ghost"
@@ -622,7 +626,7 @@ const OrderDetails = () => {
             order.payment?.method?.toLowerCase() === "cod") &&
             !isReturn &&
             step < 4 && (
-              <span className={`mt-1 text-white text-[10px] font-black px-2 py-0.5 rounded shadow-sm animate-pulse bg-[#E60067]`}>
+              <span className={`mt-1 text-white text-[10px] font-black px-2 py-0.5 rounded shadow-sm animate-pulse bg-[#FF5722]`}>
                 COLLECT CASH: ₹{Math.max(0, (order.pricing?.total || 0) - (order.pricing?.walletAmount || 0))}
               </span>
             )}
@@ -841,21 +845,21 @@ const OrderDetails = () => {
               animate="visible"
               exit={{ opacity: 0, height: 0 }}
             >
-              <Card className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden card-left-pill-magenta">
-                <div className="p-4 border-b border-gray-100 bg-pink-50/50 flex items-center justify-between">
+              <Card className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden card-left-pill-orange">
+                <div className="p-4 border-b border-gray-100 bg-orange-50/50 flex items-center justify-between">
                   <div className="flex items-center">
                     <div className="p-2 bg-white rounded-full shadow-sm mr-3">
                       {isReturn ? (
-                        <User className="text-[#E60067]" size={20} />
+                        <User className="text-[#FF5722]" size={20} />
                       ) : (
-                        <Store className="text-[#E60067]" size={20} />
+                        <Store className="text-[#FF5722]" size={20} />
                       )}
                     </div>
                     <div>
                       <h2 className="font-bold text-gray-800">
                         {isReturn ? "Customer Pickup" : (order?.warehouseId && !order?.seller ? "Warehouse Pickup" : "Pickup Location")}
                       </h2>
-                      <p className="text-xs text-[#E60067] font-medium">
+                      <p className="text-xs text-[#FF5722] font-medium">
                         {isReturn ? "Customer Address" : (order?.warehouseId && !order?.seller ? "Warehouse Location" : "Store Location")}
                       </p>
                     </div>
@@ -903,7 +907,7 @@ const OrderDetails = () => {
               initial="hidden"
               animate="visible"
             >
-              <Card className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden card-left-pill-magenta">
+              <Card className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden card-left-pill-orange">
                 <div className="p-4 border-b border-gray-100 bg-brand-50/50 flex items-center justify-between">
                   <div className="flex items-center">
                     <div className="p-2 bg-white rounded-full shadow-sm mr-3">
@@ -978,7 +982,7 @@ const OrderDetails = () => {
           )}
         </AnimatePresence>
 
-        <Card className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden card-left-pill-magenta">
+        <Card className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden card-left-pill-orange">
           <motion.div
             className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors"
             onClick={() => setItemsExpanded(!itemsExpanded)}
@@ -1052,8 +1056,8 @@ const OrderDetails = () => {
                   onSuccess={handleOtpGenerated}
                   onError={handleOtpGenerationError}
                   isReturn={true}
-                  bgColor="bg-[#E60067]"
-                  bgColorLight="bg-pink-50"
+                  bgColor="bg-[#FF5722]"
+                  bgColorLight="bg-orange-50"
                   label="SLIDE TO SEND CUSTOMER OTP"
                 />
               </Card>

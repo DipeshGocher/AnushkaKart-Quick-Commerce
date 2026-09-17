@@ -80,7 +80,7 @@ import fs from "fs/promises";
 import path from "path";
 
 function getBackendPublicUrl() {
-  const configuredUrl = process.env.BACKEND_PUBLIC_URL || process.env.API_BASE_URL;
+  const configuredUrl = process.env.BACKEND_PUBLIC_URL;
   if (configuredUrl) {
     return configuredUrl.replace(/\/+$/, "");
   }
@@ -90,7 +90,18 @@ function getBackendPublicUrl() {
 }
 
 function storageProvider() {
-  return String(process.env.STORAGE_PROVIDER || "local").trim().toLowerCase();
+  const provider = String(process.env.STORAGE_PROVIDER || "").trim().toLowerCase();
+  if (provider === "cloudinary" || provider === "local") {
+    return provider;
+  }
+  if (
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET
+  ) {
+    return "cloudinary";
+  }
+  return "local";
 }
 
 function validateStorageConfig() {

@@ -24,9 +24,6 @@ const ProtectedRoute = ({ children }) => {
         if (location.pathname.startsWith('/delivery')) {
             return <Navigate to="/delivery/auth" state={{ from: location }} replace />;
         }
-        if (location.pathname.startsWith('/warehouse')) {
-            return <Navigate to="/warehouse/auth" state={{ from: location }} replace />;
-        }
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
@@ -43,30 +40,6 @@ const ProtectedRoute = ({ children }) => {
             return (
                 <Navigate
                     to="/seller/pending-approval"
-                    state={{
-                        approvalRequired: true,
-                        applicationStatus,
-                        rejectionReason: user?.rejectionReason || '',
-                    }}
-                    replace
-                />
-            );
-        }
-    }
-
-    if (location.pathname.startsWith('/warehouse')) {
-        const applicationStatus =
-            user?.applicationStatus || (user?.isVerified ? 'approved' : 'pending');
-        const isApprovedWarehouse =
-            Boolean(user) &&
-            user.isVerified === true &&
-            user.isActive === true &&
-            applicationStatus === 'approved';
-
-        if (!isApprovedWarehouse) {
-            return (
-                <Navigate
-                    to="/warehouse/pending-approval"
                     state={{
                         approvalRequired: true,
                         applicationStatus,

@@ -289,7 +289,7 @@ const PendingSellers = () => {
             {/* Review Modal */}
             <AnimatePresence>
                 {isReviewModalOpen && viewingSeller && (
-                    <div className="fixed inset-0 z-[100] overflow-y-auto">
+                    <div className="fixed inset-0 z-[2000] overflow-y-auto">
                         <div className="min-h-full flex items-center justify-center p-4 lg:p-4">
                             <motion.div
                                 initial={{ opacity: 0 }}

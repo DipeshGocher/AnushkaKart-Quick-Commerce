@@ -104,7 +104,8 @@ const productSchema = new mongoose.Schema(
         subcategoryId: {
             type: mongoose.Schema?.Types?.ObjectId || String,
             ref: "Category",
-            required: true,
+            required: false,
+            default: null,
         },
         sellerId: {
             type: mongoose.Schema?.Types?.ObjectId || String,
@@ -170,6 +171,51 @@ const productSchema = new mongoose.Schema(
         isFeatured: {
             type: Boolean,
             default: false,
+        },
+        conditionType: {
+            type: String,
+            enum: ["new", "refurbished"],
+            default: "new",
+        },
+        refurbishedDetails: {
+            grade: {
+                type: String,
+                enum: [
+                    "Grade A (Superb)",
+                    "Grade B (Good)",
+                    "Grade C (Fair)",
+                    "Like New (Superb)",
+                    "Excellent (Grade A)",
+                    "Good (Grade B)",
+                    "Fair (Grade C)",
+                    ""
+                ],
+                default: "Grade A (Superb)",
+            },
+            batteryHealth: {
+                type: Number,
+                default: 100,
+            },
+            warrantyMonths: {
+                type: Number,
+                default: 0,
+            },
+            imeiNumber: {
+                type: String,
+                trim: true,
+                default: "",
+            },
+            qcPassed: {
+                type: Boolean,
+                default: true,
+            },
+            boxItems: [{
+                type: String,
+                trim: true,
+            }],
+            refurbishedImages: [{
+                type: String,
+            }],
         }
     },
     { timestamps: true }
@@ -179,6 +225,7 @@ const productSchema = new mongoose.Schema(
 productSchema.index({ status: 1, isFeatured: 1, createdAt: -1 });
 productSchema.index({ status: 1, createdAt: -1, _id: -1 });
 productSchema.index({ approvalStatus: 1, status: 1, createdAt: -1 });
+productSchema.index({ status: 1, conditionType: 1, createdAt: -1 });
 productSchema.index({ headerId: 1, status: 1 });
 productSchema.index({ categoryId: 1, status: 1 });
 productSchema.index({ subcategoryId: 1, status: 1 });

@@ -76,7 +76,7 @@ const Documents = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white pb-24">
+    <div className="min-h-screen bg-[#f1f4f8] pb-24">
       {/* Header */}
       <div className="bg-white shadow-sm sticky top-0 z-10">
         <div className="flex items-center p-4">
@@ -92,7 +92,7 @@ const Documents = () => {
 
       <div className="p-4 max-w-lg mx-auto space-y-4">
         {docs.map((doc) => (
-          <Card key={doc.id} className="p-4 border border-gray-100 card-left-pill-magenta">
+          <Card key={doc.id} className="p-4 border border-gray-100 card-left-pill-orange">
             <div className="flex justify-between items-start mb-2">
               <h4 className="font-bold text-gray-800">{doc.title}</h4>
               {getStatusBadge(doc.status)}

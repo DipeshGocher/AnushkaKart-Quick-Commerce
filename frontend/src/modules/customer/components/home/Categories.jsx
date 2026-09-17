@@ -8,7 +8,7 @@ const categories = [
     { id: 4, name: 'Meat', image: 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?q=80&w=200&auto=format&fit=crop', color: 'bg-orange-50' },
     { id: 5, name: 'Bakery', image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=200&auto=format&fit=crop', color: 'bg-yellow-50' },
     { id: 6, name: 'Drinks', image: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?q=80&w=200&auto=format&fit=crop', color: 'bg-purple-50' },
-    { id: 7, name: 'Snacks', image: 'https://images.unsplash.com/photo-1621939514649-28b12e81658b?q=80&w=200&auto=format&fit=crop', color: 'bg-pink-50' },
+    { id: 7, name: 'Snacks', image: 'https://images.unsplash.com/photo-1621939514649-28b12e81658b?q=80&w=200&auto=format&fit=crop', color: 'bg-orange-50' },
     { id: 8, name: 'Personal Care', image: 'https://images.unsplash.com/photo-1556228578-8d84f5ae1d41?q=80&w=200&auto=format&fit=crop', color: 'bg-teal-50' },
     { id: 9, name: 'Baby Care', image: 'https://images.unsplash.com/photo-1519689680058-324335c77eba?q=80&w=200&auto=format&fit=crop', color: 'bg-brand-50' },
     { id: 10, name: 'Pet Food', image: 'https://images.unsplash.com/photo-1589924691195-41432c84c161?q=80&w=200&auto=format&fit=crop', color: 'bg-amber-50' },

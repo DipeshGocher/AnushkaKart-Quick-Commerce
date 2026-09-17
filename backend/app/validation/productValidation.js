@@ -39,6 +39,16 @@ export const createProductSchema = Joi.object({
       })
     )
     .optional(),
+  conditionType: trimmedString.valid("new", "refurbished").optional(),
+  refurbishedDetails: Joi.object({
+    grade: trimmedString.allow("").optional(),
+    batteryHealth: Joi.number().min(0).max(100).optional(),
+    warrantyMonths: Joi.number().min(0).optional(),
+    imeiNumber: trimmedString.allow("").optional(),
+    qcPassed: Joi.boolean().optional(),
+    boxItems: Joi.array().items(trimmedString).optional(),
+    refurbishedImages: Joi.array().items(trimmedString).optional(),
+  }).optional(),
 }).unknown(true); // images may arrive via multer in a different field
 
 export const updateProductSchema = createProductSchema.fork(

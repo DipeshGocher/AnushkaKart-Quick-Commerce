@@ -7,10 +7,26 @@ const CLOUDINARY_UPLOAD_SEGMENT_REGEX = /\/upload\/([^/]+)\//i;
 export function resolveMediaUrl(url) {
   if (!url || typeof url !== "string") return url || "";
   
-  // If relative path: /uploads/...
-  if (url.startsWith("/uploads/")) {
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://anushkakart.in";
-    return `${origin}${url}`;
+  // If URL contains erroneous phonepe.com/uploads/ from past uploads
+  if (url.includes("phonepe.com/uploads/")) {
+    const relative = url.substring(url.indexOf("/uploads/"));
+    if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+      return `http://localhost:5000${relative}`;
+    }
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return `${origin}${relative}`;
+  }
+
+  // If relative path: /uploads/... or uploads/...
+  if (url.startsWith("/uploads/") || url.startsWith("uploads/")) {
+    const cleanUrl = url.startsWith("/") ? url : `/${url}`;
+    if (typeof window !== "undefined") {
+      if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+        return `http://localhost:5000${cleanUrl}`;
+      }
+      return `${window.location.origin}${cleanUrl}`;
+    }
+    return `http://localhost:5000${cleanUrl}`;
   }
   
   // If it has localhost:5000 but user is on production domain (anushkakart.in), map it to current domain

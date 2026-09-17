@@ -33,7 +33,7 @@ const Settings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white pb-24">
+    <div className="min-h-screen bg-[#f1f4f8] pb-24">
       {/* Header */}
       <div className="bg-white shadow-sm sticky top-0 z-10">
         <div className="flex items-center p-4">
@@ -51,7 +51,7 @@ const Settings = () => {
         {/* Notifications */}
         <section>
           <h2 className="text-sm uppercase font-bold text-gray-500 mb-3 tracking-wider ml-1">{t('notificationsCap') || "Notifications"}</h2>
-          <Card className="divide-y divide-gray-100 card-left-pill-magenta">
+          <Card className="divide-y divide-gray-100 card-left-pill-orange">
             <div className="p-4 flex justify-between items-center cursor-pointer" onClick={() => toggleSetting('pushNotifications')}>
               <div className="flex items-center">
                 <Bell size={20} className="text-gray-400 mr-3" />
@@ -81,7 +81,7 @@ const Settings = () => {
         {/* General */}
         <section>
           <h2 className="text-sm uppercase font-bold text-gray-500 mb-3 tracking-wider ml-1">{t('generalCap') || "General"}</h2>
-          <Card className="divide-y divide-gray-100 card-left-pill-magenta">
+          <Card className="divide-y divide-gray-100 card-left-pill-orange">
             <div>
               <div className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => setIsLangExpanded(!isLangExpanded)}>
                 <div className="flex items-center">

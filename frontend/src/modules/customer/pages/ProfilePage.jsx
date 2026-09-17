@@ -48,7 +48,7 @@ const ProfilePage = () => {
 
     return (
         <>
-            <div className="min-h-screen bg-slate-50/50 pb-20 font-['Outfit',_sans-serif]">
+            <div className="min-h-screen bg-[#f1f4f8] pb-20 font-['Outfit',_sans-serif]">
             <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 pt-4 pb-3 border-b border-slate-100 mb-4 flex items-center gap-2 shadow-2xs">
                 <button
                     onClick={() => navigate(-1)}
@@ -74,13 +74,21 @@ const ProfilePage = () => {
                 {/* User Identity Card */}
                 <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex items-center justify-between">
                     <div className="flex items-center gap-3.5">
-                        <div className="h-14 w-14 rounded-full bg-gradient-to-tr from-brand-50 to-brand-100/60 border border-brand-200/50 flex items-center justify-center p-0.5 shadow-sm">
+                        <div className="h-14 w-14 rounded-full bg-gradient-to-tr from-[#FF5722] via-[#FF6D00] to-[#0F172A] border-2 border-orange-400/60 flex items-center justify-center p-0.5 shadow-sm shrink-0">
                             <div className="h-full w-full rounded-full bg-white flex items-center justify-center overflow-hidden">
-                                <User size={26} className="text-primary" />
+                                {user?.avatar || user?.profileImage ? (
+                                    <img 
+                                        src={user.avatar || user.profileImage} 
+                                        alt={user?.name || 'Customer'} 
+                                        className="w-full h-full object-cover rounded-full" 
+                                    />
+                                ) : (
+                                    <User size={26} className="text-[#0F172A]" />
+                                )}
                             </div>
                         </div>
                         <div>
-                            <h2 className="text-base leading-tight font-bold text-slate-900">{user?.name || 'Customer'}</h2>
+                            <h2 className="text-base leading-tight font-bold text-[#0F172A]">{user?.name || 'Customer'}</h2>
                             <p className="text-slate-500 text-xs font-semibold flex items-center gap-1 mt-1">
                                 <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase">India</span> +91 {formatIndiaPhone(user?.phone)}
                             </p>
@@ -116,7 +124,7 @@ const ProfilePage = () => {
                             onClick={() => navigate('/wishlist')}
                             className="flex flex-col items-center text-center group py-1"
                         >
-                            <div className="w-12 h-12 rounded-full bg-rose-50/80 border border-rose-100 text-rose-700 flex items-center justify-center shadow-2xs mb-1.5 group-hover:scale-108 transition-transform">
+                            <div className="w-12 h-12 rounded-full bg-orange-50/80 border border-orange-100 text-orange-600 flex items-center justify-center shadow-2xs mb-1.5 group-hover:scale-108 transition-transform">
                                 <BadgePercent size={22} strokeWidth={2.5} />
                             </div>
                             <span className="text-[11px] font-bold text-slate-700 leading-tight">{t('wishlist')}</span>
@@ -125,7 +133,7 @@ const ProfilePage = () => {
                             onClick={() => navigate('/addresses')}
                             className="flex flex-col items-center text-center group py-1"
                         >
-                            <div className="w-12 h-12 rounded-full bg-pink-50/80 border border-pink-100 text-[#E60067] flex items-center justify-center shadow-2xs mb-1.5 group-hover:scale-108 transition-transform">
+                            <div className="w-12 h-12 rounded-full bg-orange-50/80 border border-orange-100 text-orange-600 flex items-center justify-center shadow-2xs mb-1.5 group-hover:scale-108 transition-transform">
                                 <MapPinned size={22} strokeWidth={2.5} />
                             </div>
                             <span className="text-[11px] font-bold text-slate-700 leading-tight">{t('savedAddresses')}</span>
@@ -146,7 +154,7 @@ const ProfilePage = () => {
                                 label={t('myCart')}
                                 sub={t('viewAdded')}
                                 onClick={() => setIsCartOpen(true)}
-                                badgeBg="bg-brand-50/80 border-brand-100/70 text-primary"
+                                badgeBg="bg-orange-50/80 border-orange-100/70 text-orange-600"
                             />
                             <MenuItem
                                 icon={CalendarCheck}
@@ -160,7 +168,7 @@ const ProfilePage = () => {
                                 label={t('transactions')}
                                 sub={t('viewPayments')}
                                 path="/transactions"
-                                badgeBg="bg-rose-50/80 border-rose-100/70 text-primary"
+                                badgeBg="bg-amber-50/80 border-amber-100/70 text-amber-600"
                             />
                             <MenuItem
                                 icon={Wallet}
@@ -174,14 +182,14 @@ const ProfilePage = () => {
                                 label={t('wishlist')}
                                 sub={t('savedItems')}
                                 path="/wishlist"
-                                badgeBg="bg-pink-50/80 border-pink-100/70 text-primary"
+                                badgeBg="bg-orange-50/80 border-orange-100/70 text-orange-600"
                             />
                             <MenuItem
                                 icon={MapPinned}
                                 label={t('savedAddresses')}
                                 sub={t('manageLocations')}
                                 path="/addresses"
-                                badgeBg="bg-pink-50/80 border-pink-100/70 text-[#E60067]"
+                                badgeBg="bg-orange-50/80 border-orange-100/70 text-orange-600"
                             />
                         </div>
                     </div>
@@ -259,7 +267,7 @@ const ProfilePage = () => {
                                 icon={Info}
                                 label={t('aboutUs')}
                                 path="/about"
-                                badgeBg="bg-pink-50/80 border-pink-100/70 text-[#E60067]"
+                                badgeBg="bg-orange-50/80 border-orange-100/70 text-orange-600"
                             />
                         </div>
                     </div>

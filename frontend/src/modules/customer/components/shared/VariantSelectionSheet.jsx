@@ -125,8 +125,10 @@ const VariantSelectionSheet = () => {
                         </button>
 
                         <div className="flex-1 overflow-y-auto" ref={scrollRef}>
-                            {/* Lottie Animation Header */}
-                            <div className="w-full bg-orange-50/50 flex flex-col items-center justify-center pt-2 pb-6 px-4">
+                            {/* Lottie Animation / Header */}
+                            <div className={`w-full flex flex-col items-center justify-center pt-2 pb-6 px-4 ${
+                                isRefurbished ? 'bg-blue-50/70' : 'bg-orange-50/50'
+                            }`}>
                                 <div className="w-40 h-40 md:w-48 md:h-48">
                                     <Lottie animationData={fruitBasketAnimation} loop={true} />
                                 </div>
@@ -169,7 +171,11 @@ const VariantSelectionSheet = () => {
                                                 {/* Quantity Control */}
                                                 <div className="shrink-0">
                                                     {qty > 0 ? (
-                                                        <div className="flex items-center bg-primary rounded-full p-1 shadow-md shadow-primary/20">
+                                                        <div className={`flex items-center rounded-full p-1 shadow-md ${
+                                                            isRefurbished
+                                                                ? 'bg-blue-600 shadow-blue-500/20 text-white'
+                                                                : 'bg-primary shadow-primary/20 text-white'
+                                                        }`}>
                                                             <button
                                                                 onClick={() => handleDecrement(variant)}
                                                                 className="w-7 h-7 flex items-center justify-center text-white hover:bg-white/20 rounded-full transition-colors"
@@ -189,7 +195,11 @@ const VariantSelectionSheet = () => {
                                                     ) : (
                                                         <button
                                                             onClick={() => handleIncrement(variant)}
-                                                            className="px-5 py-2.5 rounded-full bg-brand-50 text-primary border border-brand-200 hover:bg-primary hover:text-white flex items-center justify-center font-extrabold text-sm transition-all shadow-xs"
+                                                            className={`px-5 py-2.5 rounded-full border flex items-center justify-center font-extrabold text-sm transition-all shadow-xs cursor-pointer ${
+                                                                isRefurbished
+                                                                    ? 'bg-blue-50 text-blue-600 border-blue-300 hover:bg-blue-600 hover:text-white'
+                                                                    : 'bg-brand-50 text-primary border-brand-200 hover:bg-primary hover:text-white'
+                                                            }`}
                                                         >
                                                             ADD
                                                         </button>
@@ -208,12 +218,14 @@ const VariantSelectionSheet = () => {
                                 onClick={() => {
                                     closeVariantSelection();
                                     if (totalSelectedVariants > 0) {
-                                        navigate('/checkout');
+                                        navigate(isRefurbished ? '/refurbished/cart' : '/checkout');
                                     }
                                 }}
-                                className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                                className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
                                     totalSelectedVariants > 0
-                                        ? "bg-primary hover:bg-brand-600 text-white shadow-md shadow-primary/20"
+                                        ? isRefurbished
+                                            ? "bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20"
+                                            : "bg-primary hover:bg-brand-600 text-white shadow-md shadow-primary/20"
                                         : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                                 }`}
                             >

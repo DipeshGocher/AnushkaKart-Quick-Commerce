@@ -34,6 +34,9 @@ const translations = {
         enterValidPhone: "Enter valid 10-digit number",
         enterFullName: "Please enter your full name",
         otpSent: "OTP sent!",
+        otpSentSuccess: "OTP sent successfully!",
+        otpSendFailed: "Failed to send OTP. Please check your number or try again.",
+        enterValid4DigitOtp: "Please enter a valid 4-digit OTP",
         loggedInSuccess: "Successfully Logged In!",
         invalidOtp: "Invalid OTP",
 

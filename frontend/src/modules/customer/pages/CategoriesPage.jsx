@@ -89,24 +89,24 @@ const CategoriesBannerCarousel = ({ banners, fallbackImage }) => {
 };
 
 const CATEGORY_THEMES = [
-    { bg: 'bg-pink-50/70', border: 'border-pink-100', iconBg: 'bg-[#E60067]', iconColor: 'text-white', arrowColor: 'text-[#E60067]', icon: ShoppingBasket },
-    { bg: 'bg-green-50/70', border: 'border-green-100', iconBg: 'bg-green-500', iconColor: 'text-white', arrowColor: 'text-green-500', icon: Leaf },
-    { bg: 'bg-pink-50/70', border: 'border-pink-100', iconBg: 'bg-[#E60067]', iconColor: 'text-white', arrowColor: 'text-[#E60067]', icon: Milk },
-    { bg: 'bg-amber-50/70', border: 'border-amber-100', iconBg: 'bg-amber-600', iconColor: 'text-white', arrowColor: 'text-amber-600', icon: Wheat },
-    { bg: 'bg-red-50/70', border: 'border-red-100', iconBg: 'bg-red-500', iconColor: 'text-white', arrowColor: 'text-red-500', icon: CookingPot },
-    { bg: 'bg-purple-50/70', border: 'border-purple-100', iconBg: 'bg-purple-500', iconColor: 'text-white', arrowColor: 'text-purple-500', icon: Cookie },
-    { bg: 'bg-teal-50/70', border: 'border-teal-100', iconBg: 'bg-teal-500', iconColor: 'text-white', arrowColor: 'text-teal-500', icon: CupSoda },
-    { bg: 'bg-rose-50/70', border: 'border-rose-100', iconBg: 'bg-[#FF3366]', iconColor: 'text-white', arrowColor: 'text-[#FF3366]', icon: UtensilsCrossed },
-    { bg: 'bg-pink-50/70', border: 'border-pink-100', iconBg: 'bg-[#E60067]', iconColor: 'text-white', arrowColor: 'text-[#E60067]', icon: Droplets },
-    { bg: 'bg-emerald-50/70', border: 'border-emerald-100', iconBg: 'bg-emerald-500', iconColor: 'text-white', arrowColor: 'text-emerald-500', icon: SprayCan },
-    { bg: 'bg-pink-50/70', border: 'border-pink-100', iconBg: 'bg-[#FF3366]', iconColor: 'text-white', arrowColor: 'text-[#FF3366]', icon: Baby },
-    { bg: 'bg-rose-50/70', border: 'border-rose-100', iconBg: 'bg-[#E60067]', iconColor: 'text-white', arrowColor: 'text-[#E60067]', icon: Snowflake },
-    { bg: 'bg-fuchsia-50/70', border: 'border-fuchsia-100', iconBg: 'bg-fuchsia-500', iconColor: 'text-white', arrowColor: 'text-fuchsia-500', icon: Sparkles },
-    { bg: 'bg-amber-100/70', border: 'border-amber-200', iconBg: 'bg-amber-500', iconColor: 'text-white', arrowColor: 'text-amber-500', icon: Dog },
-    { bg: 'bg-lime-50/70', border: 'border-lime-100', iconBg: 'bg-lime-500', iconColor: 'text-white', arrowColor: 'text-lime-500', icon: Activity },
+    { bg: 'bg-[#FFF0F5]', border: 'border-pink-200/70', iconBg: 'bg-[#E91E63]', iconColor: 'text-white', arrowColor: 'text-[#E91E63]', icon: ShoppingBasket },
+    { bg: 'bg-[#ECFDF5]', border: 'border-emerald-200/70', iconBg: 'bg-[#10B981]', iconColor: 'text-white', arrowColor: 'text-[#10B981]', icon: Leaf },
+    { bg: 'bg-[#FDF2F8]', border: 'border-rose-200/70', iconBg: 'bg-[#D81B60]', iconColor: 'text-white', arrowColor: 'text-[#D81B60]', icon: Milk },
+    { bg: 'bg-[#FFFBEB]', border: 'border-amber-200/70', iconBg: 'bg-[#F59E0B]', iconColor: 'text-white', arrowColor: 'text-[#D97706]', icon: Wheat },
+    { bg: 'bg-[#FEF2F2]', border: 'border-red-200/70', iconBg: 'bg-[#EF4444]', iconColor: 'text-white', arrowColor: 'text-[#EF4444]', icon: CookingPot },
+    { bg: 'bg-[#F3E8FF]', border: 'border-purple-200/70', iconBg: 'bg-[#9333EA]', iconColor: 'text-white', arrowColor: 'text-[#9333EA]', icon: Cookie },
+    { bg: 'bg-[#E0F2FE]', border: 'border-cyan-200/70', iconBg: 'bg-[#06B6D4]', iconColor: 'text-white', arrowColor: 'text-[#06B6D4]', icon: CupSoda },
+    { bg: 'bg-[#FFF3E0]', border: 'border-orange-200/70', iconBg: 'bg-[#FF6D00]', iconColor: 'text-white', arrowColor: 'text-[#FF6D00]', icon: UtensilsCrossed },
+    { bg: 'bg-[#EEF2FF]', border: 'border-indigo-200/70', iconBg: 'bg-[#4F46E5]', iconColor: 'text-white', arrowColor: 'text-[#4F46E5]', icon: Droplets },
+    { bg: 'bg-[#F7FEE7]', border: 'border-lime-200/70', iconBg: 'bg-[#84CC16]', iconColor: 'text-white', arrowColor: 'text-[#65A30D]', icon: SprayCan },
+    { bg: 'bg-[#FFF0F5]', border: 'border-pink-200/70', iconBg: 'bg-[#C2185B]', iconColor: 'text-white', arrowColor: 'text-[#C2185B]', icon: Baby },
+    { bg: 'bg-[#F0F9FF]', border: 'border-sky-200/70', iconBg: 'bg-[#0284C7]', iconColor: 'text-white', arrowColor: 'text-[#0284C7]', icon: Snowflake },
+    { bg: 'bg-[#FAF5FF]', border: 'border-purple-200/70', iconBg: 'bg-[#A855F7]', iconColor: 'text-white', arrowColor: 'text-[#A855F7]', icon: Sparkles },
+    { bg: 'bg-[#ECFDF5]', border: 'border-teal-200/70', iconBg: 'bg-[#14B8A6]', iconColor: 'text-white', arrowColor: 'text-[#14B8A6]', icon: Dog },
+    { bg: 'bg-[#FFFBEB]', border: 'border-yellow-200/70', iconBg: 'bg-[#EAB308]', iconColor: 'text-white', arrowColor: 'text-[#EAB308]', icon: Activity },
 ];
 
-const DEFAULT_THEME = { bg: 'bg-slate-50', border: 'border-slate-100', iconBg: 'bg-slate-500', iconColor: 'text-white', arrowColor: 'text-slate-500', icon: LayoutGrid };
+const DEFAULT_THEME = { bg: 'bg-[#FFF0F5]', border: 'border-pink-200/70', iconBg: 'bg-[#E91E63]', iconColor: 'text-white', arrowColor: 'text-[#E91E63]', icon: LayoutGrid };
 
 const getCategoryTheme = (index) => {
     return CATEGORY_THEMES[index % CATEGORY_THEMES.length] || DEFAULT_THEME;
@@ -199,7 +199,7 @@ const CategoriesPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-white pb-16 md:pt-[80px] font-sans">
+        <div className="min-h-screen bg-[#f1f4f8] pb-16 md:pt-[80px] font-sans">
             {/* Header Area */}
             <div className="sticky top-0 z-30 bg-white px-5 py-3 flex items-center justify-between border-b border-gray-100">
                 <button

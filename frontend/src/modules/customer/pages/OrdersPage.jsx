@@ -50,7 +50,7 @@ const OrdersPage = () => {
     }
 
     return (
-        <div className="min-h-screen bg-white pb-24 font-['Outfit',_sans-serif]">
+        <div className="min-h-screen bg-[#f1f4f8] pb-24 font-['Outfit',_sans-serif]">
             <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 pt-4 pb-3 border-b border-slate-100 mb-4 flex items-center gap-2">
                 <button
                     onClick={() => navigate(-1)}
@@ -69,7 +69,7 @@ const OrdersPage = () => {
                         <p className="text-slate-500 text-sm mb-6 max-w-[260px]">
                             When you place an order, it will appear here so you can track it easily.
                         </p>
-                        <Link to="/" className="bg-primary hover:bg-[#0a6d19] text-white px-7 py-2.5 rounded-full font-semibold text-sm shadow-sm transition-colors">
+                        <Link to="/" className="bg-primary hover:bg-orange-600 text-white px-7 py-2.5 rounded-full font-semibold text-sm shadow-sm transition-colors">
                             Start Shopping
                         </Link>
                     </div>
@@ -113,16 +113,20 @@ const OrdersPage = () => {
                                     <div className="flex flex-col items-end gap-1 shrink-0 text-right">
                                         <span
                                             className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${legacy === 'cancelled'
-                                                ? 'bg-rose-50 text-rose-600 border-rose-200'
-                                                : 'bg-brand-50 text-primary border-brand-100'
+                                                ? 'bg-red-50 text-red-600 border-red-200'
+                                                : legacy === 'confirmed' || legacy === 'delivered'
+                                                ? 'bg-orange-50 text-orange-600 border-orange-200'
+                                                : 'bg-amber-50 text-amber-600 border-amber-200'
                                                 }`}
                                         >
                                             <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white/80">
                                                 <CheckCircle
                                                     size={9}
                                                     className={`${legacy === 'cancelled'
-                                                        ? 'text-rose-500'
-                                                        : 'text-primary'
+                                                        ? 'text-red-500'
+                                                        : legacy === 'confirmed' || legacy === 'delivered'
+                                                        ? 'text-orange-500'
+                                                        : 'text-amber-500'
                                                         }`}
                                                 />
                                             </span>

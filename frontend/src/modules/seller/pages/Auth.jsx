@@ -619,8 +619,8 @@ const Auth = () => {
               }}
               className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
                 isLogin
-                  ? "bg-white text-[#E60067] shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
+                  ? "bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500 text-white shadow-md font-bold"
+                  : "text-slate-500 hover:text-slate-800 font-semibold"
               }`}
               type="button"
             >
@@ -633,8 +633,8 @@ const Auth = () => {
               }}
               className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
                 !isLogin
-                  ? "bg-white text-[#E60067] shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
+                  ? "bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500 text-white shadow-md font-bold"
+                  : "text-slate-500 hover:text-slate-800 font-semibold"
               }`}
               type="button"
             >
@@ -1307,7 +1307,7 @@ const Auth = () => {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className={`${!isLogin && signupStep > 1 ? "w-2/3" : "w-full"} relative bg-gradient-to-r from-[#E60067] to-[#FF3366] text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-lg hover:from-[#C00052] hover:to-[#E60067] focus:outline-none focus:ring-2 focus:ring-[#E60067]/20 active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 group`}>
+                    className={`${!isLogin && signupStep > 1 ? "w-2/3" : "w-full"} relative bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md shadow-orange-500/25 focus:outline-none focus:ring-2 focus:ring-orange-500/30 active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 group`}>
                     {isLoading
                       ? "WORKING..."
                       : isLogin
@@ -1337,7 +1337,7 @@ const Auth = () => {
                         phone: createInitialVerificationState(),
                       });
                     }}
-                    className="text-[#E60067] hover:text-[#C00052] font-bold transition-colors">
+                    className="text-orange-600 hover:underline font-bold transition-colors">
                     {isLogin ? "Register Store" : "Sign In"}
                   </button>
                 </p>

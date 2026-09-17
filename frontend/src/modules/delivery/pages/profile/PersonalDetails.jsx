@@ -39,7 +39,7 @@ const PersonalDetails = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white pb-24">
+    <div className="min-h-screen bg-[#f1f4f8] pb-24">
       {/* Header */}
       <div className="bg-white shadow-sm sticky top-0 z-10">
         <div className="flex items-center p-4">
@@ -90,7 +90,7 @@ const PersonalDetails = () => {
         </div>
 
         {/* Form Fields */}
-        <div className="space-y-4 bg-white p-4 rounded-xl shadow-sm card-left-pill-magenta">
+        <div className="space-y-4 bg-white p-4 rounded-xl shadow-sm card-left-pill-orange">
           <Input
             label="Full Name"
             value={formData.fullName}

@@ -42,6 +42,18 @@ const SubCategories = React.lazy(
 const CategoryHierarchy = React.lazy(
   () => import("../pages/categories/CategoryHierarchy"),
 );
+const RefurbishedHeaderCategories = React.lazy(
+  () => import("../pages/categories/RefurbishedHeaderCategories"),
+);
+const RefurbishedLevel2Categories = React.lazy(
+  () => import("../pages/categories/RefurbishedLevel2Categories"),
+);
+const RefurbishedSubCategories = React.lazy(
+  () => import("../pages/categories/RefurbishedSubCategories"),
+);
+const RefurbishedCategoryHierarchy = React.lazy(
+  () => import("../pages/categories/RefurbishedCategoryHierarchy"),
+);
 const ProductManagement = React.lazy(
   () => import("../pages/ProductManagement"),
 );
@@ -127,6 +139,16 @@ const navItems = [
       { label: "Sub-Categories", path: "/admin/categories/sub" },
     ],
   },
+  {
+    label: "Refurbished Categories",
+    icon: Sparkles,
+    color: "indigo",
+    children: [
+      { label: "Refurbished Explorer", path: "/admin/refurbished-categories/hierarchy" },
+      { label: "Device Types (Headers)", path: "/admin/refurbished-categories/header" },
+      { label: "Brands (Main Categories)", path: "/admin/refurbished-categories/level2" },
+    ],
+  },
   { label: "Products", path: "/admin/products", icon: Box, color: "amber" },
   {
     label: "Marketing Tools",
@@ -157,16 +179,6 @@ const navItems = [
       { label: "Active Sellers", path: "/admin/sellers/active" },
       { label: "Waiting for Review", path: "/admin/sellers/pending" },
       { label: "Seller Locations", path: "/admin/seller-locations" },
-    ],
-  },
-  {
-    label: "Warehouses",
-    icon: Building2,
-    color: "teal",
-    children: [
-      { label: "Active Warehouses", path: "/admin/warehouses/active" },
-      { label: "Waiting for Review", path: "/admin/warehouses/pending" },
-      { label: "Queue Monitor", path: "/admin/warehouse-queues" },
     ],
   },
   {
@@ -286,6 +298,14 @@ const AdminRoutes = () => {
         <Route path="/categories/level2" element={<Level2Categories />} />
         <Route path="/categories/sub" element={<SubCategories />} />
         <Route path="/categories/hierarchy" element={<CategoryHierarchy />} />
+        {/* Refurbished Categories routes */}
+        <Route
+          path="/refurbished-categories"
+          element={<Navigate to="/admin/refurbished-categories/header" replace />}
+        />
+        <Route path="/refurbished-categories/header" element={<RefurbishedHeaderCategories />} />
+        <Route path="/refurbished-categories/level2" element={<RefurbishedLevel2Categories />} />
+        <Route path="/refurbished-categories/hierarchy" element={<RefurbishedCategoryHierarchy />} />
         <Route path="/products" element={<ProductManagement />} />
         <Route path="/sellers/active" element={<ActiveSellers />} />
         <Route path="/sellers/active/:id" element={<SellerDetail />} />

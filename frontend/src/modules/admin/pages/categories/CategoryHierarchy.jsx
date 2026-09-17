@@ -51,9 +51,10 @@ const CategoryHierarchy = () => {
   const fetchCategories = async () => {
     setIsLoading(true);
     try {
-      const res = await adminApi.getCategoryTree();
+      const res = await adminApi.getCategoryTree({ catalogType: "grocery" });
       if (res.data.success) {
-        setCategories(res.data.results || res.data.result || []);
+        const tree = res.data.results || res.data.result || [];
+        setCategories(tree.filter((c) => c.catalogType !== "refurbished"));
       }
     } catch (error) {
       toast.error("Failed to fetch category hierarchy");

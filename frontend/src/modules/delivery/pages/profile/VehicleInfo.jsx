@@ -36,7 +36,7 @@ const VehicleInfo = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-white pb-24">
+    <div className="min-h-screen bg-[#f1f4f8] pb-24">
       {/* Header */}
       <div className="bg-white shadow-sm sticky top-0 z-10">
         <div className="flex items-center p-4">
@@ -81,7 +81,7 @@ const VehicleInfo = () => {
           <h3 className="ds-h4 text-gray-900 mb-3 px-1">Vehicle Documents</h3>
           <div className="space-y-3">
             {documents.map((doc, index) => (
-              <Card key={index} className="p-4 border border-gray-100 card-left-pill-magenta">
+              <Card key={index} className="p-4 border border-gray-100 card-left-pill-orange">
                 <div className="flex justify-between items-start">
                   <div className="flex items-start">
                     <div className={`p-2 rounded-lg mr-3 ${doc.alert ? 'bg-amber-50 text-amber-600' : 'bg-brand-50 text-brand-600'}`}>

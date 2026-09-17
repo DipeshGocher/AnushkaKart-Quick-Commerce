@@ -37,11 +37,11 @@ const settingSchema = new mongoose.Schema(
         faviconUrl: String,
         primaryColor: {
             type: String,
-            default: "#E60067",
+            default: "#FF5722",
         },
         secondaryColor: {
             type: String,
-            default: "#FF3366",
+            default: "#0047AB",
         },
 
         // Legal

@@ -76,7 +76,7 @@ const DeliveryAuth = () => {
 
   const getDeliveryFieldBorderClass = (fieldName, value, isValid) => {
     if (!touched[fieldName] || !value) {
-      return "border-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400";
+      return "border-slate-200/90 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500";
     }
     return isValid
       ? "border-emerald-500 bg-emerald-50/20 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
@@ -279,24 +279,24 @@ const DeliveryAuth = () => {
   };
 
   const renderTermsCheckbox = () => (
-    <div className="flex items-start gap-3 bg-gray-50 rounded-2xl p-4 border border-gray-100 mt-4 mb-2">
+    <div className="flex items-start gap-3 bg-slate-50 rounded-2xl p-4 border border-slate-200/90 mt-4 mb-2">
       <input
         id={`signupTerms-${signupStep}`}
         type="checkbox"
         checked={signupAgreed}
         onChange={(e) => setSignupAgreed(e.target.checked)}
         disabled={!hasClickedTerms}
-        className="mt-0.5 h-4 w-4 accent-[#E60067] cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-0.5 h-4 w-4 accent-orange-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
       />
-      <div className={`text-xs leading-relaxed ${!hasClickedTerms ? 'text-gray-400' : 'text-gray-500'}`}>
+      <div className={`text-xs leading-relaxed ${!hasClickedTerms ? 'text-slate-400' : 'text-slate-500'}`}>
         <label htmlFor={`signupTerms-${signupStep}`} className={`cursor-pointer ${!hasClickedTerms ? 'cursor-not-allowed' : ''}`}>I agree to the </label>
         <span 
           onClick={() => { setHasClickedTerms(true); navigate('/delivery/support'); }}
-          className="text-[#E60067] font-bold hover:underline cursor-pointer"
+          className="text-orange-600 font-bold hover:underline cursor-pointer"
         >Terms of Service</span> &amp;{" "}
         <span 
           onClick={() => { setHasClickedTerms(true); navigate('/delivery/privacy'); }}
-          className="text-[#E60067] font-bold hover:underline cursor-pointer"
+          className="text-orange-600 font-bold hover:underline cursor-pointer"
         >Privacy Policy</span>.
         {!hasClickedTerms && <span className="block text-[10px] text-rose-500 mt-1 font-semibold">* Please click on the links to read them before agreeing.</span>}
       </div>
@@ -306,50 +306,28 @@ const DeliveryAuth = () => {
   return (
     <>
     <SignInCard2
-      title={step === "form" ? (mode === "login" ? 'Welcome Back' : `Delivery Partner Registration (${signupStep}/4)`) : step === "otp" ? 'Verify Mobile Number' : 'Application Status'}
-      subtitle={step === "form" ? (mode === "login" ? 'Enter your mobile number to sign in' : `Step ${signupStep} of 4`) : step === "otp" ? `Sent 6-digit code to +91 ${loginPhone}` : ''}
+      icon={step === "otp" ? ShieldCheck : (mode === "signup" ? User : Bike)}
+      iconBg="bg-gradient-to-tr from-orange-500 via-amber-500 to-orange-400 text-white"
+      iconColor="text-white"
+      title={step === "form" ? (mode === "login" ? 'Welcome Back' : `Delivery Partner Registration (${signupStep}/4)`) : step === "otp" ? 'Verify Security Code' : 'Application Status'}
+      subtitle={step === "form" ? (mode === "login" ? 'Login to access your orders & deliveries' : `Step ${signupStep} of 4`) : step === "otp" ? `Sent code to +91 ${mode === "login" ? loginPhone : signupPhone}` : ''}
       logoUrl={logoUrl || "/logo.png"}
       appName={appName}
+      footer={
+        step === "form" ? (
+          <p className="text-xs font-semibold text-slate-500">
+            {mode === 'login' ? "Don't have a partner account? " : "Already registered? "}
+            <button
+              type="button"
+              onClick={() => switchMode(mode === 'login' ? 'signup' : 'login')}
+              className="text-orange-600 font-bold hover:underline transition-colors ml-0.5"
+            >
+              {mode === 'login' ? 'Register' : 'Login'}
+            </button>
+          </p>
+        ) : null
+      }
     >
-
-          {step === "form" && (
-            <>
-              <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">
-                  {mode === "login" ? 'Welcome Back' : `Delivery Partner Registration (${signupStep}/4)`}
-                </h2>
-                <p className="text-slate-500 text-xs font-medium">
-                  {mode === "login" ? 'Enter your mobile number to sign in' : `Step ${signupStep} of 4`}
-                </p>
-              </div>
-
-              {/* Mode Toggle Tabs */}
-              <div className="flex bg-slate-100/90 p-1.5 rounded-2xl mb-6 border border-slate-200/50 relative z-10">
-                <button
-                  type="button"
-                  onClick={() => switchMode('login')}
-                  className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
-                    mode === 'login'
-                      ? "bg-white text-[#E60067] shadow-sm"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  Login
-                </button>
-                <button
-                  type="button"
-                  onClick={() => switchMode('signup')}
-                  className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
-                    mode === 'signup'
-                      ? "bg-white text-[#E60067] shadow-sm"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  Sign Up
-                </button>
-              </div>
-            </>
-          )}
 
           {step === "otp" && (
             <div className="text-center mb-6">
@@ -393,7 +371,7 @@ const DeliveryAuth = () => {
                       >
                         {/* Profile Photo Capture */}
                         <div className="flex flex-col items-center justify-center py-2">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 self-start ml-1">Profile Photo</label>
+                          <label className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-3 self-start ml-1">Profile Photo</label>
                           <div className="relative group">
                             <div className="w-24 h-24 rounded-3xl bg-brand-50 border-2 border-dashed border-brand-200 flex items-center justify-center overflow-hidden transition-all group-hover:border-brand-400">
                               {profileImagePreview ? (
@@ -427,9 +405,9 @@ const DeliveryAuth = () => {
                         </div>
 
                         <div className="space-y-1.5">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Full Name</label>
+                          <label className="text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">Full Name</label>
                           <div className="relative">
-                            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 w-4 h-4" />
+                            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                             <input
                               type="text"
                               value={signupName}
@@ -438,8 +416,8 @@ const DeliveryAuth = () => {
                                 markTouched("signupName");
                               }}
                               onBlur={() => markTouched("signupName")}
-                              className={`w-full pl-11 pr-4 py-3.5 bg-gray-50 border rounded-2xl text-sm font-bold text-gray-900 transition-all ${getDeliveryFieldBorderClass("signupName", signupName, isValidName(signupName))}`}
-                              placeholder="Enter your full name"
+                              className={`w-full pl-11 pr-4 py-3.5 bg-slate-50 border rounded-2xl text-sm font-semibold text-slate-900 transition-all placeholder:text-slate-400 ${getDeliveryFieldBorderClass("signupName", signupName, isValidName(signupName))}`}
+                              placeholder="Enter Full Name"
                             />
                           </div>
                           {touched.signupName && signupName && (
@@ -458,10 +436,10 @@ const DeliveryAuth = () => {
                         </div>
 
                         <div className="space-y-1.5">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Phone Number</label>
+                          <label className="text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">Phone Number</label>
                           <div className="relative">
-                            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 w-4 h-4" />
-                            <span className="absolute left-10 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm border-r border-gray-200 pr-2.5">+91</span>
+                            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                            <span className="absolute left-10 top-1/2 -translate-y-1/2 text-slate-700 font-bold text-sm border-r border-slate-200 pr-2.5">+91</span>
                             <input
                               type="tel"
                               value={signupPhone}
@@ -471,8 +449,8 @@ const DeliveryAuth = () => {
                               }}
                               onBlur={() => markTouched("signupPhone")}
                               maxLength={10}
-                              className={`w-full pl-24 pr-4 py-3.5 bg-gray-50 border rounded-2xl text-sm font-bold text-gray-900 transition-all ${getDeliveryFieldBorderClass("signupPhone", signupPhone, isValidPhone(signupPhone))}`}
-                              placeholder="00000 00000"
+                              className={`w-full pl-24 pr-4 py-3.5 bg-slate-50 border rounded-2xl text-sm font-semibold text-slate-900 transition-all placeholder:text-slate-400 ${getDeliveryFieldBorderClass("signupPhone", signupPhone, isValidPhone(signupPhone))}`}
+                              placeholder="Enter Phone Number"
                             />
                           </div>
                           {touched.signupPhone && signupPhone && (
@@ -491,9 +469,9 @@ const DeliveryAuth = () => {
                         </div>
 
                         <div className="space-y-1.5">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Email Address</label>
+                          <label className="text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">Email Address</label>
                           <div className="relative">
-                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 w-4 h-4" />
+                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                             <input
                               type="email"
                               value={signupEmail}
@@ -502,8 +480,8 @@ const DeliveryAuth = () => {
                                 markTouched("signupEmail");
                               }}
                               onBlur={() => markTouched("signupEmail")}
-                              className={`w-full pl-11 pr-4 py-3.5 bg-gray-50 border rounded-2xl text-sm font-bold text-gray-900 transition-all ${getDeliveryFieldBorderClass("signupEmail", signupEmail, isValidEmail(signupEmail))}`}
-                              placeholder="example@gmail.com"
+                              className={`w-full pl-11 pr-4 py-3.5 bg-slate-50 border rounded-2xl text-sm font-semibold text-slate-900 transition-all placeholder:text-slate-400 ${getDeliveryFieldBorderClass("signupEmail", signupEmail, isValidEmail(signupEmail))}`}
+                              placeholder="Enter Email Address"
                             />
                           </div>
                           {touched.signupEmail && signupEmail && (
@@ -522,9 +500,9 @@ const DeliveryAuth = () => {
                         </div>
 
                         <div className="space-y-1.5">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Permanent Address</label>
+                          <label className="text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">Permanent Address</label>
                           <div className="relative">
-                            <MapPin className="absolute left-4 top-4 text-gray-300 w-4 h-4" />
+                            <MapPin className="absolute left-4 top-4 text-slate-400 w-4 h-4" />
                             <textarea
                               value={signupAddress}
                               onChange={(e) => {
@@ -532,8 +510,8 @@ const DeliveryAuth = () => {
                                 markTouched("signupAddress");
                               }}
                               onBlur={() => markTouched("signupAddress")}
-                              className={`w-full pl-11 pr-4 py-3.5 bg-gray-50 border rounded-2xl text-sm font-bold text-gray-900 transition-all resize-none h-24 ${getDeliveryFieldBorderClass("signupAddress", signupAddress, isValidAddress(signupAddress))}`}
-                              placeholder="Complete building address..."
+                              className={`w-full pl-11 pr-4 py-3.5 bg-slate-50 border rounded-2xl text-sm font-semibold text-slate-900 transition-all resize-none h-24 placeholder:text-slate-400 ${getDeliveryFieldBorderClass("signupAddress", signupAddress, isValidAddress(signupAddress))}`}
+                              placeholder="Enter Complete Address"
                             />
                           </div>
                           {touched.signupAddress && signupAddress && (
@@ -585,7 +563,7 @@ const DeliveryAuth = () => {
                             }
                             setSignupStep(2);
                           }}
-                          className="w-full mt-2 text-white bg-[#E60067] hover:bg-[#C00052] py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all"
+                          className="w-full mt-2 text-white bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 active:scale-[0.99] py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all shadow-md shadow-orange-500/25"
                         >
                           Next Step
                         </button>
@@ -600,30 +578,30 @@ const DeliveryAuth = () => {
                         className="space-y-4"
                       >
                         <div className="space-y-1.5">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Vehicle Type</label>
+                          <label className="text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">Vehicle Type</label>
                           <div className="relative">
-                            <Bike className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 w-4 h-4" />
+                            <Bike className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                             <button
                               type="button"
                               onClick={() => setShowVehicleDropdown(!showVehicleDropdown)}
-                              className="w-full pl-11 pr-10 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold text-gray-900 focus:outline-none text-left"
+                              className="w-full pl-11 pr-10 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-900 focus:outline-none text-left"
                             >
                               {VEHICLE_TYPES.find((v) => v.value === signupVehicle)?.label}
                             </button>
-                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
                             <AnimatePresence>
                               {showVehicleDropdown && (
                                 <motion.div
                                   initial={{ opacity: 0, y: -8 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   exit={{ opacity: 0, y: -8 }}
-                                  className="absolute top-full left-0 w-full bg-white border border-gray-100 rounded-2xl shadow-lg mt-2 overflow-hidden z-20"
+                                  className="absolute top-full left-0 w-full bg-white border border-slate-200 rounded-2xl shadow-lg mt-2 overflow-hidden z-20"
                                 >
                                   {VEHICLE_TYPES.map((v) => (
                                     <button
                                       key={v.value}
                                       onClick={() => { setSignupVehicle(v.value); setShowVehicleDropdown(false); }}
-                                      className="w-full px-4 py-3 text-sm font-bold text-left hover:bg-brand-50 transition-colors"
+                                      className="w-full px-4 py-3 text-sm font-bold text-left hover:bg-orange-50 transition-colors text-slate-900"
                                     >
                                       {v.label}
                                     </button>
@@ -637,9 +615,9 @@ const DeliveryAuth = () => {
                         {signupVehicle !== "cycle" && (
                           <>
                             <div className="space-y-1.5">
-                              <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Vehicle Plate Number</label>
+                              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">Vehicle Plate Number</label>
                               <div className="relative">
-                                <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 w-4 h-4" />
+                                <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                                 <input
                                   type="text"
                                   value={signupVehicleNumber}
@@ -648,8 +626,8 @@ const DeliveryAuth = () => {
                                     markTouched("signupVehicleNumber");
                                   }}
                                   onBlur={() => markTouched("signupVehicleNumber")}
-                                  className={`w-full pl-11 pr-4 py-3.5 bg-gray-50 border rounded-2xl text-sm font-bold text-gray-900 transition-all ${getDeliveryFieldBorderClass("signupVehicleNumber", signupVehicleNumber, isValidVehicleNumber(signupVehicleNumber))}`}
-                                  placeholder="KA 05 MN 8921"
+                                  className={`w-full pl-11 pr-4 py-3.5 bg-slate-50 border rounded-2xl text-sm font-semibold text-slate-900 transition-all placeholder:text-slate-400 ${getDeliveryFieldBorderClass("signupVehicleNumber", signupVehicleNumber, isValidVehicleNumber(signupVehicleNumber))}`}
+                                  placeholder="Enter Vehicle Plate Number"
                                 />
                               </div>
                               {touched.signupVehicleNumber && signupVehicleNumber && (
@@ -668,9 +646,9 @@ const DeliveryAuth = () => {
                             </div>
 
                             <div className="space-y-1.5">
-                              <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Driving License Number</label>
+                              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">Driving License Number</label>
                               <div className="relative">
-                                <FileText className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 w-4 h-4" />
+                                <FileText className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                                 <input
                                   type="text"
                                   value={signupDLNumber}
@@ -679,8 +657,8 @@ const DeliveryAuth = () => {
                                     markTouched("signupDLNumber");
                                   }}
                                   onBlur={() => markTouched("signupDLNumber")}
-                                  className={`w-full pl-11 pr-4 py-3.5 bg-gray-50 border rounded-2xl text-sm font-bold text-gray-900 transition-all ${getDeliveryFieldBorderClass("signupDLNumber", signupDLNumber, isValidDL(signupDLNumber))}`}
-                                  placeholder="DL-1420110012345"
+                                  className={`w-full pl-11 pr-4 py-3.5 bg-slate-50 border rounded-2xl text-sm font-semibold text-slate-900 transition-all placeholder:text-slate-400 ${getDeliveryFieldBorderClass("signupDLNumber", signupDLNumber, isValidDL(signupDLNumber))}`}
+                                  placeholder="Enter Driving License Number"
                                 />
                               </div>
                               {touched.signupDLNumber && signupDLNumber && (
@@ -738,7 +716,7 @@ const DeliveryAuth = () => {
                               
                               setSignupStep(3);
                             }}
-                            className="flex-[2] mt-2 text-white bg-[#E60067] hover:bg-[#C00052] py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all"
+                            className="flex-[2] mt-2 text-white bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 active:scale-[0.99] py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all shadow-md shadow-orange-500/25"
                           >
                             Next Step
                           </button>
@@ -754,7 +732,7 @@ const DeliveryAuth = () => {
                         className="space-y-4"
                       >
                         <div className="space-y-1.5">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Aadhar Number</label>
+                          <label className="text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">Aadhar Number</label>
                           <input
                             type="text"
                             value={signupAadharNumber}
@@ -763,8 +741,8 @@ const DeliveryAuth = () => {
                               markTouched("signupAadharNumber");
                             }}
                             onBlur={() => markTouched("signupAadharNumber")}
-                            className={`w-full px-4 py-3.5 bg-gray-50 border rounded-2xl text-sm font-bold text-gray-900 transition-all font-mono ${getDeliveryFieldBorderClass("signupAadharNumber", signupAadharNumber, isValidAadhar(signupAadharNumber))}`}
-                            placeholder="0000 0000 0000"
+                            className={`w-full px-4 py-3.5 bg-slate-50 border rounded-2xl text-sm font-semibold text-slate-900 transition-all font-mono placeholder:text-slate-400 ${getDeliveryFieldBorderClass("signupAadharNumber", signupAadharNumber, isValidAadhar(signupAadharNumber))}`}
+                            placeholder="Enter 12-Digit Aadhar Number"
                           />
                           {touched.signupAadharNumber && signupAadharNumber && (
                             <div className="mt-1 px-1 text-xs font-semibold">
@@ -782,7 +760,7 @@ const DeliveryAuth = () => {
                         </div>
 
                         <div className="space-y-1.5">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">PAN Card Number</label>
+                          <label className="text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">PAN Card Number</label>
                           <input
                             type="text"
                             value={signupPanNumber}
@@ -791,8 +769,8 @@ const DeliveryAuth = () => {
                               markTouched("signupPanNumber");
                             }}
                             onBlur={() => markTouched("signupPanNumber")}
-                            className={`w-full px-4 py-3.5 bg-gray-50 border rounded-2xl text-sm font-bold text-gray-900 transition-all font-mono ${getDeliveryFieldBorderClass("signupPanNumber", signupPanNumber, isValidPan(signupPanNumber))}`}
-                            placeholder="ABCDE1234F"
+                            className={`w-full px-4 py-3.5 bg-slate-50 border rounded-2xl text-sm font-semibold text-slate-900 transition-all font-mono placeholder:text-slate-400 ${getDeliveryFieldBorderClass("signupPanNumber", signupPanNumber, isValidPan(signupPanNumber))}`}
+                            placeholder="Enter 10-Character PAN Number"
                           />
                           {touched.signupPanNumber && signupPanNumber && (
                             <div className="mt-1 px-1 text-xs font-semibold">
@@ -810,7 +788,7 @@ const DeliveryAuth = () => {
                         </div>
 
                         <div className="space-y-1.5">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Account Holder Name</label>
+                          <label className="text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">Account Holder Name</label>
                           <input
                             type="text"
                             value={signupAccountHolder}
@@ -819,8 +797,8 @@ const DeliveryAuth = () => {
                               markTouched("signupAccountHolder");
                             }}
                             onBlur={() => markTouched("signupAccountHolder")}
-                            className={`w-full px-4 py-3.5 bg-gray-50 border rounded-2xl text-sm font-bold text-gray-900 transition-all ${getDeliveryFieldBorderClass("signupAccountHolder", signupAccountHolder, isValidAccountHolder(signupAccountHolder))}`}
-                            placeholder="AS PER BANK RECORDS"
+                            className={`w-full px-4 py-3.5 bg-slate-50 border rounded-2xl text-sm font-semibold text-slate-900 transition-all placeholder:text-slate-400 ${getDeliveryFieldBorderClass("signupAccountHolder", signupAccountHolder, isValidAccountHolder(signupAccountHolder))}`}
+                            placeholder="Enter Account Holder Name"
                           />
                           {touched.signupAccountHolder && signupAccountHolder && (
                             <div className="mt-1 px-1 text-xs font-semibold">
@@ -838,7 +816,7 @@ const DeliveryAuth = () => {
                         </div>
 
                         <div className="space-y-1.5">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Account Number</label>
+                          <label className="text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">Account Number</label>
                           <input
                             type="text"
                             value={signupAccountNumber}
@@ -847,8 +825,8 @@ const DeliveryAuth = () => {
                               markTouched("signupAccountNumber");
                             }}
                             onBlur={() => markTouched("signupAccountNumber")}
-                            className={`w-full px-4 py-3.5 bg-gray-50 border rounded-2xl text-sm font-bold text-gray-900 transition-all ${getDeliveryFieldBorderClass("signupAccountNumber", signupAccountNumber, isValidAccountNumber(signupAccountNumber))}`}
-                            placeholder="000000000000"
+                            className={`w-full px-4 py-3.5 bg-slate-50 border rounded-2xl text-sm font-semibold text-slate-900 transition-all placeholder:text-slate-400 ${getDeliveryFieldBorderClass("signupAccountNumber", signupAccountNumber, isValidAccountNumber(signupAccountNumber))}`}
+                            placeholder="Enter Bank Account Number"
                           />
                           {touched.signupAccountNumber && signupAccountNumber && (
                             <div className="mt-1 px-1 text-xs font-semibold">
@@ -866,7 +844,7 @@ const DeliveryAuth = () => {
                         </div>
 
                         <div className="space-y-1.5">
-                          <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">IFSC Code</label>
+                          <label className="text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">IFSC Code</label>
                           <input
                             type="text"
                             value={signupIfsc}
@@ -875,8 +853,8 @@ const DeliveryAuth = () => {
                               markTouched("signupIfsc");
                             }}
                             onBlur={() => markTouched("signupIfsc")}
-                            className={`w-full px-4 py-3.5 bg-gray-50 border rounded-2xl text-sm font-bold text-gray-900 transition-all ${getDeliveryFieldBorderClass("signupIfsc", signupIfsc, isValidIfsc(signupIfsc))}`}
-                            placeholder="HDFC0001234"
+                            className={`w-full px-4 py-3.5 bg-slate-50 border rounded-2xl text-sm font-semibold text-slate-900 transition-all placeholder:text-slate-400 ${getDeliveryFieldBorderClass("signupIfsc", signupIfsc, isValidIfsc(signupIfsc))}`}
+                            placeholder="Enter IFSC Code"
                           />
                           {touched.signupIfsc && signupIfsc && (
                             <div className="mt-1 px-1 text-xs font-semibold">
@@ -933,7 +911,7 @@ const DeliveryAuth = () => {
                               }
                               setSignupStep(4);
                             }}
-                            className="flex-[2] mt-2 text-white bg-[#E60067] hover:bg-[#C00052] py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all"
+                            className="flex-[2] mt-2 text-white bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 active:scale-[0.99] py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all shadow-md shadow-orange-500/25"
                           >
                             Next Step
                           </button>
@@ -1017,7 +995,7 @@ const DeliveryAuth = () => {
                           <button
                             onClick={handleSendOtp}
                             disabled={loading || (signupVehicle !== "cycle" && !dlFile) || !panFile || !aadharFile}
-                            className="flex-[2] mt-2 text-white bg-[#E60067] hover:bg-[#C00052] py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex-[2] mt-2 text-white bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 active:scale-[0.99] py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all shadow-md shadow-orange-500/25 disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             {loading ? (
                               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1038,12 +1016,12 @@ const DeliveryAuth = () => {
                   <div className="space-y-4">
                     {/* Phone */}
                     <div className="space-y-1.5">
-                      <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">
+                      <label className="text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">
                         Phone Number
                       </label>
                       <div className="relative">
-                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 w-4 h-4" />
-                        <span className="absolute left-10 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm border-r border-gray-200 pr-2.5">
+                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                        <span className="absolute left-10 top-1/2 -translate-y-1/2 text-slate-700 font-bold text-sm border-r border-slate-200 pr-2.5">
                           +91
                         </span>
                         <input
@@ -1056,8 +1034,8 @@ const DeliveryAuth = () => {
                           }}
                           onBlur={() => markTouched("loginPhone")}
                           maxLength={10}
-                          className={`w-full pl-24 pr-4 py-3.5 bg-gray-50 border rounded-2xl text-sm font-bold text-gray-900 transition-all placeholder:text-gray-300 ${getDeliveryFieldBorderClass("loginPhone", loginPhone, isValidPhone(loginPhone))}`}
-                          placeholder="00000 00000"
+                          className={`w-full pl-24 pr-4 py-3.5 bg-slate-50 border rounded-2xl text-sm font-bold text-slate-900 transition-all placeholder:text-slate-400 ${getDeliveryFieldBorderClass("loginPhone", loginPhone, isValidPhone(loginPhone))}`}
+                          placeholder="Enter Phone Number"
                         />
                       </div>
                       {touched.loginPhone && loginPhone && (
@@ -1078,7 +1056,7 @@ const DeliveryAuth = () => {
                     <button
                       onClick={handleSendOtp}
                       disabled={loading}
-                      className="w-full mt-2 relative bg-gradient-to-r from-[#E60067] to-[#FF3366] text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-lg hover:from-[#C00052] hover:to-[#E60067] focus:outline-none focus:ring-2 focus:ring-[#E60067]/20 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      className="w-full mt-2 relative bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md shadow-orange-500/25 focus:outline-none active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {loading ? (
                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1092,7 +1070,7 @@ const DeliveryAuth = () => {
                 <div className="mt-6 text-center">
                   <button
                     onClick={() => switchMode(mode === 'login' ? 'signup' : 'login')}
-                    className="text-xs font-semibold text-slate-500 hover:text-[#E60067] transition-colors"
+                    className="text-xs font-semibold text-slate-500 hover:text-orange-600 transition-colors"
                   >
                     {mode === 'login' ? "New partner? Register now" : "Already registered? Login"}
                   </button>
@@ -1113,7 +1091,7 @@ const DeliveryAuth = () => {
               >
                 {/* OTP Boxes */}
                 <div className="space-y-2 text-center">
-                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-widest">
                     Enter Security Code
                   </label>
                   <div className="flex justify-center gap-3 pt-1">
@@ -1168,7 +1146,7 @@ const DeliveryAuth = () => {
                 <button
                   onClick={handleVerifyOtp}
                   disabled={!agreed || otp.some((d) => !d) || loading}
-                  className="w-full mt-2 text-white bg-[#E60067] hover:bg-[#C00052] py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full mt-2 text-white bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all shadow-md shadow-orange-500/25 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {loading ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

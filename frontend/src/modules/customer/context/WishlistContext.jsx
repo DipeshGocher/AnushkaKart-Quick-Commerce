@@ -172,8 +172,13 @@ export const WishlistProvider = ({ children }) => {
     setWishlist([]);
   };
 
+  const groceryWishlist = useMemo(() => wishlist.filter((item) => item.conditionType !== 'refurbished' && item.catalogType !== 'refurbished'), [wishlist]);
+  const refurbishedWishlist = useMemo(() => wishlist.filter((item) => item.conditionType === 'refurbished' || item.catalogType === 'refurbished'), [wishlist]);
+
   const wishlistValue = useMemo(() => ({
     wishlist,
+    groceryWishlist,
+    refurbishedWishlist,
     addToWishlist,
     removeFromWishlist,
     toggleWishlist,
@@ -182,9 +187,11 @@ export const WishlistProvider = ({ children }) => {
     fetchFullWishlist,
     isFullDataFetched,
     count: wishlist.length,
+    groceryWishlistCount: groceryWishlist.length,
+    refurbishedWishlistCount: refurbishedWishlist.length,
     loading,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [wishlist, isFullDataFetched, loading]);
+  }), [wishlist, groceryWishlist, refurbishedWishlist, isFullDataFetched, loading]);
 
   return (
     <WishlistContext.Provider value={wishlistValue}>

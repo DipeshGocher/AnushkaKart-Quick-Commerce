@@ -156,8 +156,9 @@ const ProductManagement = () => {
     const container = event.currentTarget;
     if (container.scrollHeight <= container.clientHeight) return;
     container.scrollTop += event.deltaY;
-    event.preventDefault();
-    event.stopPropagation();
+    if (event.cancelable) {
+      event.preventDefault();
+    }
   };
 
   React.useEffect(() => {
@@ -321,8 +322,16 @@ const ProductManagement = () => {
 
   const handleSave = async () => {
     try {
-      if (!formData.name || !formData.header || !formData.category || !formData.subcategory) {
+      const selectedHeader = categories.find((h) => String(h._id || h.id) === String(formData.header));
+      const selectedCategory = selectedHeader?.children?.find((c) => String(c._id || c.id) === String(formData.category));
+      const availableSubcategories = selectedCategory?.children || [];
+
+      if (!formData.name || !formData.header || !formData.category) {
         toast.error("Please fill all required fields, including categories");
+        return;
+      }
+      if (availableSubcategories.length > 0 && !formData.subcategory) {
+        toast.error("Please select a Sub-Category");
         return;
       }
 
@@ -348,9 +357,9 @@ const ProductManagement = () => {
       data.append("price", firstVariant.price);
       data.append("salePrice", firstVariant.salePrice || 0);
       data.append("stock", firstVariant.stock);
-      data.append("headerId", formData.header);
-      data.append("categoryId", formData.category);
-      data.append("subcategoryId", formData.subcategory);
+      if (formData.header) data.append("headerId", formData.header);
+      if (formData.category) data.append("categoryId", formData.category);
+      if (formData.subcategory) data.append("subcategoryId", formData.subcategory);
       data.append("status", formData.status);
       data.append("brand", formData.brand);
       data.append("weight", formData.weight);
@@ -359,7 +368,28 @@ const ProductManagement = () => {
       data.append("countryOfOrigin", formData.countryOfOrigin);
       data.append("fssaiLicense", formData.fssaiLicense);
       data.append("variants", JSON.stringify(formData.variants));
-      data.append("highlights", JSON.stringify(formData.highlights || []));
+      // Highlights
+      const cleanedHighlights = (formData.highlights || [])
+        .filter((h) => h && ((typeof h.label === "string" && h.label.trim().length > 0) || (typeof h.icon === "string" && h.icon.trim().length > 0)))
+        .map((h) => ({
+          icon: typeof h.icon === "string" ? h.icon.trim() : "",
+          label: typeof h.label === "string" ? h.label.trim() : "",
+        }));
+      data.append("highlights", JSON.stringify(cleanedHighlights));
+
+      // Append main image file or string URL
+      if (formData.mainImageFile) {
+        data.append("mainImage", formData.mainImageFile);
+      } else if (typeof formData.mainImage === "string" && formData.mainImage.trim()) {
+        data.append("mainImage", formData.mainImage.trim());
+      }
+
+      // Append gallery image files
+      if (Array.isArray(formData.galleryFiles) && formData.galleryFiles.length > 0) {
+        formData.galleryFiles.forEach((file) => {
+          if (file) data.append("galleryImages", file);
+        });
+      }
 
       // Append variant image files
       Object.keys(variantImageFiles).forEach((vIndex) => {
@@ -442,49 +472,67 @@ const ProductManagement = () => {
     }
   };
 
-  const openEditModal = (item = null) => {
+  const openEditModal = async (item = null) => {
     if (item) {
+      let freshItem = { ...item };
+      try {
+        const itemId = item._id || item.id;
+        if (itemId) {
+          const res = await warehouseApi.get(`/products/${itemId}`);
+          if (res?.data?.result) {
+            freshItem = res.data.result;
+          }
+        }
+      } catch (err) {
+        // Fallback to item
+      }
+
+      let rawHL = freshItem.highlights || item?.highlights || [];
+      if (typeof rawHL === "string") {
+        try { rawHL = JSON.parse(rawHL); } catch (e) { rawHL = []; }
+      }
+      if (!Array.isArray(rawHL)) rawHL = [];
+      const freshHighlights = [0, 1, 2, 3].map((i) => {
+        const h = rawHL[i];
+        if (!h) return { icon: "", label: "" };
+        if (typeof h === "string") return { icon: "", label: h };
+        return { icon: h.icon || h.id || "", label: h.label || h.name || h.title || "" };
+      });
+
       setFormData({
-        name: item.name || "",
-        slug: item.slug || "",
-        sku: item.sku || "",
-        description: item.description || "",
-        price: item.price || "",
-        salePrice: item.salePrice || "",
-        stock: item.stock || "",
-        lowStockAlert: item.lowStockAlert || 5,
-        header: item.headerId?._id || item.headerId || "",
-        category: item.categoryId?._id || item.categoryId || "",
-        subcategory: item.subcategoryId?._id || item.subcategoryId || "",
-        status: item.status || "active",
-        tags: Array.isArray(item.tags) ? item.tags.join(", ") : item.tags || "",
-        weight: item.weight || "",
-        brand: item.brand || "",
-        shelfLife: item.shelfLife || "",
-        countryOfOrigin: item.countryOfOrigin || "",
-        fssaiLicense: item.fssaiLicense || "",
-        mainImage: item.mainImage || null,
-        galleryImages: item.galleryImages || [],
-        highlights: (Array.isArray(item.highlights) && item.highlights.length > 0)
-          ? item.highlights
-          : [
-              { icon: "leaf", label: "100% Natural" },
-              { icon: "avocado", label: "Farm Fresh" },
-              { icon: "zap", label: "High Protein" },
-              { icon: "sprout", label: "Source of Fiber" },
-            ],
-        variants: (item.variants && item.variants.length > 0) ? item.variants.map(v => ({ ...v, id: v._id || Date.now() })) : [
+        name: freshItem.name || "",
+        slug: freshItem.slug || "",
+        sku: freshItem.sku || "",
+        description: freshItem.description || "",
+        price: freshItem.price || "",
+        salePrice: freshItem.salePrice || "",
+        stock: freshItem.stock || "",
+        lowStockAlert: freshItem.lowStockAlert || 5,
+        header: freshItem.headerId?._id || freshItem.headerId || "",
+        category: freshItem.categoryId?._id || freshItem.categoryId || "",
+        subcategory: freshItem.subcategoryId?._id || freshItem.subcategoryId || "",
+        status: freshItem.status || "active",
+        tags: Array.isArray(freshItem.tags) ? freshItem.tags.join(", ") : freshItem.tags || "",
+        weight: freshItem.weight || "",
+        brand: freshItem.brand || "",
+        shelfLife: freshItem.shelfLife || "",
+        countryOfOrigin: freshItem.countryOfOrigin || "",
+        fssaiLicense: freshItem.fssaiLicense || "",
+        mainImage: freshItem.mainImage || null,
+        galleryImages: freshItem.galleryImages || [],
+        highlights: freshHighlights,
+        variants: (freshItem.variants && freshItem.variants.length > 0) ? freshItem.variants.map(v => ({ ...v, id: v._id || Date.now() })) : [
           {
             id: Date.now(),
             name: "",
-            price: item.price || "",
-            salePrice: item.salePrice || "",
-            stock: item.stock || "",
-            sku: item.sku || "",
+            price: freshItem.price || "",
+            salePrice: freshItem.salePrice || "",
+            stock: freshItem.stock || "",
+            sku: freshItem.sku || "",
           },
         ],
       });
-      setEditingItem(item);
+      setEditingItem(freshItem);
       setVariantImageFiles({});
     } else {
       setFormData({
@@ -544,7 +592,13 @@ const ProductManagement = () => {
             Manage your inventory, prices, variants and product approvals.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => navigate("/warehouse/products/add-refurbished")}
+            className="flex items-center space-x-2 bg-gradient-to-r from-orange-500 to-amber-600 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-orange-500/20 hover:brightness-110 transition-all active:scale-95 cursor-pointer">
+            <HiOutlineSparkles className="h-4 w-4 text-amber-200" />
+            <span>+ ADD REFURBISHED / 2ND HAND</span>
+          </button>
           <button
             onClick={() => navigate("/warehouse/products/add")}
             className="flex items-center space-x-2 bg-primary text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:bg-primary-600 transition-all active:scale-95 cursor-pointer">
@@ -737,9 +791,16 @@ const ProductManagement = () => {
                         />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-slate-900">
-                          {p.name}
-                        </p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="text-sm font-medium text-slate-900">
+                            {p.name}
+                          </p>
+                          {p.conditionType === 'refurbished' && (
+                            <span className="bg-gradient-to-r from-orange-500 to-amber-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-2xs">
+                              Refurbished {p.refurbishedDetails?.grade ? `(${p.refurbishedDetails.grade.split(' ')[0]})` : ''}
+                            </span>
+                          )}
+                        </div>
                         {String(p.approvalStatus || "").toLowerCase() === "pending" ? (
                           <p className="text-[10px] font-medium text-amber-600">
                             Hidden from customers until admin approval.
@@ -843,7 +904,7 @@ const ProductManagement = () => {
       {/* Add / Edit Product Modal */}
       <AnimatePresence>
         {isProductModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -1106,7 +1167,7 @@ const ProductManagement = () => {
                             className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-bold outline-none cursor-pointer disabled:opacity-50">
                             <option value="">Select Category</option>
                             {categories
-                              .find((h) => (h._id || h.id) === formData.header)
+                              .find((h) => String(h._id || h.id) === String(formData.header))
                               ?.children?.map((c) => (
                                 <option key={c._id || c.id} value={c._id || c.id}>
                                   {c.name}
@@ -1117,7 +1178,16 @@ const ProductManagement = () => {
                       </div>
                       <div className="space-y-1.5 flex flex-col">
                         <label className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">
-                          Sub-Category <span className="text-rose-500">*</span>
+                          Sub-Category {(() => {
+                            const hObj = categories.find((h) => String(h._id || h.id) === String(formData.header));
+                            const cObj = hObj?.children?.find((c) => String(c._id || c.id) === String(formData.category));
+                            const subList = cObj?.children || [];
+                            return subList.length > 0 ? (
+                              <span className="text-rose-500">*</span>
+                            ) : (
+                              <span className="text-slate-400 font-normal lowercase">(Optional - None available)</span>
+                            );
+                          })()}
                         </label>
                         <select
                           value={formData.subcategory}
@@ -1126,15 +1196,23 @@ const ProductManagement = () => {
                           }
                           disabled={!formData.category}
                           className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-bold outline-none cursor-pointer disabled:opacity-50">
-                          <option value="">Select Sub-Category</option>
-                          {categories
-                            .find((h) => (h._id || h.id) === formData.header)
-                            ?.children?.find((c) => (c._id || c.id) === formData.category)
-                            ?.children?.map((sc) => (
-                              <option key={sc._id || sc.id} value={sc._id || sc.id}>
-                                {sc.name}
-                              </option>
-                            ))}
+                          {(() => {
+                            const hObj = categories.find((h) => String(h._id || h.id) === String(formData.header));
+                            const cObj = hObj?.children?.find((c) => String(c._id || c.id) === String(formData.category));
+                            const subList = cObj?.children || [];
+                            if (!formData.category) return <option value="">Select Category First</option>;
+                            if (subList.length === 0) return <option value="">No Sub-Category for this Category</option>;
+                            return (
+                              <>
+                                <option value="">Select Sub-Category</option>
+                                {subList.map((sc) => (
+                                  <option key={sc._id || sc.id} value={sc._id || sc.id}>
+                                    {sc.name}
+                                  </option>
+                                ))}
+                              </>
+                            );
+                          })()}
                         </select>
                       </div>
                     </div>
@@ -1310,44 +1388,68 @@ const ProductManagement = () => {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {[0, 1, 2, 3].map((slotIdx) => {
-                          const currentHighlight = formData.highlights?.[slotIdx] || { icon: "leaf", label: "" };
+                          const currentHighlight = formData.highlights?.[slotIdx] || { icon: "", label: "" };
+                          const selectedPreset = PRESET_HIGHLIGHT_ICONS.find((i) => i.id === currentHighlight.icon);
                           return (
                             <div key={slotIdx} className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100 space-y-3">
                               <div className="flex items-center justify-between">
                                 <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                                   Highlight #{slotIdx + 1}
                                 </span>
-                                <span className="text-xl">
-                                  {PRESET_HIGHLIGHT_ICONS.find((i) => i.id === currentHighlight.icon)?.emoji || "🌿"}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  {(currentHighlight.icon || currentHighlight.label) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const nextHL = [...(formData.highlights || [])];
+                                        nextHL[slotIdx] = { icon: "", label: "" };
+                                        setFormData({ ...formData, highlights: nextHL });
+                                      }}
+                                      className="text-[11px] font-bold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded-md transition-colors"
+                                    >
+                                      Remove
+                                    </button>
+                                  )}
+                                  <span className="text-xl">
+                                    {selectedPreset?.emoji || "✨"}
+                                  </span>
+                                </div>
                               </div>
 
                               {/* Icon Selector Grid */}
                               <div>
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
-                                  Select Icon
+                                  Select Icon (Clicking sets icon & title)
                                 </label>
                                 <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1.5 bg-white rounded-xl border border-slate-200">
-                                  {PRESET_HIGHLIGHT_ICONS.map((ic) => (
-                                    <button
-                                      key={ic.id}
-                                      type="button"
-                                      onClick={() => {
-                                        const nextHL = [...(formData.highlights || [])];
-                                        nextHL[slotIdx] = { ...currentHighlight, icon: ic.id };
-                                        setFormData({ ...formData, highlights: nextHL });
-                                      }}
-                                      className={cn(
-                                        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border",
-                                        currentHighlight.icon === ic.id
-                                          ? "bg-brand-50 border-primary text-primary shadow-xs"
-                                          : "bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100"
-                                      )}
-                                    >
-                                      <span>{ic.emoji}</span>
-                                      <span className="text-[10px]">{ic.name}</span>
-                                    </button>
-                                  ))}
+                                  {PRESET_HIGHLIGHT_ICONS.map((ic) => {
+                                    const isSelected = currentHighlight.icon === ic.id;
+                                    return (
+                                      <button
+                                        key={ic.id}
+                                        type="button"
+                                        onClick={() => {
+                                          const nextHL = [...(formData.highlights || [])];
+                                          if (isSelected) {
+                                            nextHL[slotIdx] = { icon: "", label: "" };
+                                          } else {
+                                            nextHL[slotIdx] = { icon: ic.id, label: ic.name };
+                                          }
+                                          setFormData({ ...formData, highlights: nextHL });
+                                        }}
+                                        className={cn(
+                                          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border",
+                                          isSelected
+                                            ? "bg-amber-500 border-amber-600 text-white shadow-xs ring-2 ring-amber-300"
+                                            : "bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100"
+                                        )}
+                                      >
+                                        <span>{ic.emoji}</span>
+                                        <span className="text-[10px]">{ic.name}</span>
+                                        {isSelected && <span className="text-[10px] ml-0.5 font-black">✓</span>}
+                                      </button>
+                                    );
+                                  })}
                                 </div>
                               </div>
 
@@ -1364,7 +1466,7 @@ const ProductManagement = () => {
                                     nextHL[slotIdx] = { ...currentHighlight, label: e.target.value };
                                     setFormData({ ...formData, highlights: nextHL });
                                   }}
-                                  placeholder="e.g. 100% Natural"
+                                  placeholder="e.g. Dermatologically Tested"
                                   className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-primary/10"
                                 />
                               </div>

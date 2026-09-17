@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Heart, Plus, Minus, Star, ShieldCheck, Clock, ArrowLeft, MessageSquare, Store, Building2 } from 'lucide-react';
+import { Heart, Plus, Minus, Star, ShieldCheck, Clock, ArrowLeft, MessageSquare, Store, Building2, Smartphone, BatteryCharging, CheckCircle2, PackageCheck } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useToast } from '@shared/components/ui/Toast';
@@ -210,18 +210,18 @@ const ProductDetailPage = () => {
 
             <div className="flex flex-col lg:flex-row gap-10 xl:gap-16">
                 <div className="lg:w-[45%] xl:w-[40%] space-y-4">
-                    <div className="relative aspect-square rounded-[2rem] overflow-hidden bg-white border border-slate-100 shadow-sm transition-all hover:shadow-xl group">
+                    <div className="relative aspect-square rounded-[2.5rem] overflow-hidden bg-gradient-to-b from-[#FFF2E8] via-[#FFF7F2] to-white border border-orange-200/70 shadow-sm transition-all hover:shadow-xl group">
                         <img
                             src={applyCloudinaryTransform(activeImage, "f_auto,q_auto,w_800")}
                             alt={product.name}
                             loading="lazy"
-                            className="w-full h-full object-contain p-2 md:p-4 transition-transform duration-700 group-hover:scale-105"
+                            className="w-full h-full object-contain p-4 md:p-6 transition-transform duration-700 group-hover:scale-105 mix-blend-multiply"
                         />
                         <button
                             onClick={handleToggleWishlist}
                             className={cn(
-                                "absolute top-5 right-5 p-3.5 rounded-full shadow-2xl transition-all duration-300 hover:scale-110",
-                                isWishlisted ? "bg-red-50 text-red-500" : "bg-white text-slate-400"
+                                "absolute top-5 right-5 p-3.5 rounded-full shadow-md transition-all duration-300 hover:scale-110 border border-orange-100",
+                                isWishlisted ? "bg-red-50 text-red-500" : "bg-white/90 text-slate-400 backdrop-blur-md"
                             )}
                         >
                             <ParticleBurst isActive={showHeartPopup} />
@@ -256,10 +256,10 @@ const ProductDetailPage = () => {
                                 onClick={() => setActiveImage(img)}
                                 className={cn(
                                     "relative h-20 w-20 md:h-24 md:w-24 rounded-2xl overflow-hidden flex-shrink-0 transition-all border-2",
-                                    activeImage === img ? "border-primary shadow-lg scale-95" : "border-transparent opacity-70 hover:opacity-100"
+                                    activeImage === img ? "border-[#FF5722] shadow-lg scale-95 ring-2 ring-orange-100" : "border-slate-200 opacity-70 hover:opacity-100"
                                 )}
                             >
-                                <img src={applyCloudinaryTransform(img, "f_auto,q_auto,w_150")} alt={`Angle ${idx}`} loading="lazy" className="w-full h-full object-contain p-1" />
+                                <img src={applyCloudinaryTransform(img, "f_auto,q_auto,w_150")} alt={`Angle ${idx}`} loading="lazy" className="w-full h-full object-contain p-1 mix-blend-multiply" />
                             </button>
                         ))}
                     </div>
@@ -268,36 +268,36 @@ const ProductDetailPage = () => {
                 <div className="lg:w-[55%] xl:w-[60%] space-y-6 md:space-y-8">
                     <div>
                         <div className="flex items-center gap-3 mb-4 flex-wrap">
-                            <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-primary/20">
+                            <span className="bg-[#0F172A] text-white px-3.5 py-1.5 rounded-full text-[10.5px] font-black uppercase tracking-wider shadow-2xs">
                                 {product.categoryId?.name || 'Essential'}
                             </span>
 
                             {(product.sellerId?.shopName || product.warehouseId?.name) && (
-                                <span className="bg-slate-100 text-slate-600 flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-slate-200">
+                                <span className="bg-[#EEF2FF] text-[#1E3A8A] border border-[#C7D2FE] flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[10.5px] font-black uppercase tracking-wider">
                                     {product.sellerId?.shopName ? (
-                                        <><Store size={12} className="text-slate-500" /> {product.sellerId.shopName}</>
+                                        <><Store size={13} className="text-[#1E3A8A]" /> {product.sellerId.shopName}</>
                                     ) : (
-                                        <><Building2 size={12} className="text-slate-500" /> {product.warehouseId?.name}</>
+                                        <><Building2 size={13} className="text-[#1E3A8A]" /> {product.warehouseId?.name}</>
                                     )}
                                 </span>
                             )}
 
-                            <div className="flex items-center gap-1 text-primary font-bold bg-brand-50 px-3 py-0.5 rounded-full text-xs">
-                                <Star size={12} fill="currentColor" /> 4.8 ({reviews.length > 0 ? reviews.length : '120+'})
+                            <div className="flex items-center gap-1 text-[#FF5722] font-black bg-[#FFF0E6] border border-[#FFD0B5] px-3.5 py-1 rounded-full text-xs">
+                                <Star size={13} fill="currentColor" /> 4.8 ({reviews.length > 0 ? reviews.length : '120+'})
                             </div>
                         </div>
 
-                        <h1 className="text-3xl md:text-4xl font-black text-slate-800 leading-tight mb-3">
+                        <h1 className="text-3xl md:text-4xl font-extrabold text-[#0F172A] leading-tight mb-3">
                             {product.name}
                         </h1>
 
                         <div className="flex items-baseline gap-4 mb-5">
-                            <span className="text-4xl font-black text-primary">₹{product.salePrice || product.price}</span>
+                            <span className="text-4xl font-black text-[#0F172A]">₹{product.salePrice || product.price}</span>
                             {(product.salePrice && product.salePrice < product.price) && (
                                 <span className="text-lg text-slate-400 line-through font-bold">₹{product.price}</span>
                             )}
                             {product.salePrice && product.salePrice < product.price && (
-                                <span className="text-xs bg-red-50 text-red-500 px-2 py-1 rounded-lg font-black uppercase">
+                                <span className="text-xs bg-[#FFF0E6] text-[#FF5722] border border-orange-200 px-2.5 py-1 rounded-xl font-black uppercase tracking-wider">
                                     {Math.round(((product.price - product.salePrice) / product.price) * 100)}% OFF
                                 </span>
                             )}
@@ -306,11 +306,76 @@ const ProductDetailPage = () => {
                         <p className="text-slate-600 text-lg leading-relaxed mb-6 font-medium max-w-2xl">
                             {product.description || "Fresh and premium quality product sourced directly from local vendors."}
                         </p>
+
+                        {product.conditionType === 'refurbished' && (
+                            <div className="bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-slate-900/5 rounded-3xl p-5 border border-orange-200/80 shadow-sm space-y-4 mb-6">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-9 h-9 rounded-xl bg-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-500/30">
+                                            <Smartphone size={20} />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-extrabold text-slate-900">Verified Refurbished Device</h3>
+                                            <p className="text-[11px] text-slate-500 font-semibold">Inspected & certified by experts</p>
+                                        </div>
+                                    </div>
+                                    {product.refurbishedDetails?.grade && (
+                                        <span className="bg-slate-900 text-white text-xs font-black px-3 py-1 rounded-full shadow">
+                                            {product.refurbishedDetails.grade}
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
+                                    <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+                                        <div className="flex items-center gap-1.5 text-orange-600 text-[10.5px] font-extrabold uppercase tracking-wider mb-0.5">
+                                            <BatteryCharging size={14} /> Battery Health
+                                        </div>
+                                        <div className="text-sm font-black text-slate-900">
+                                            {product.refurbishedDetails?.batteryHealth || 85}% Peak Performance
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+                                        <div className="flex items-center gap-1.5 text-emerald-600 text-[10.5px] font-extrabold uppercase tracking-wider mb-0.5">
+                                            <ShieldCheck size={14} /> Seller Warranty
+                                        </div>
+                                        <div className="text-sm font-black text-slate-900">
+                                            {product.refurbishedDetails?.warrantyMonths || 6} Months Covered
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs col-span-2 sm:col-span-1">
+                                        <div className="flex items-center gap-1.5 text-blue-600 text-[10.5px] font-extrabold uppercase tracking-wider mb-0.5">
+                                            <CheckCircle2 size={14} /> QC Status
+                                        </div>
+                                        <div className="text-sm font-black text-slate-900">
+                                            32+ Hardware Checks Passed
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {Array.isArray(product.refurbishedDetails?.boxItems) && product.refurbishedDetails.boxItems.length > 0 && (
+                                    <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80">
+                                        <div className="text-xs font-extrabold text-slate-800 mb-1.5 flex items-center gap-1.5">
+                                            <PackageCheck size={15} className="text-orange-500" /> What's Included in Box:
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {product.refurbishedDetails.boxItems.map((item, idx) => (
+                                                <span key={idx} className="bg-slate-100 text-slate-700 text-xs font-semibold px-2.5 py-1 rounded-lg border border-slate-200">
+                                                    ✓ {item}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-center gap-6 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100">
+                    <div className="flex flex-col sm:flex-row items-center gap-6 p-6 bg-gradient-to-r from-[#FFF5EE] to-[#EEF2FF] rounded-[2.5rem] border border-orange-100">
                         {quantity > 0 ? (
-                            <div className="flex items-center bg-primary text-primary-foreground rounded-2xl h-16 w-full sm:w-auto px-2 shadow-xl shadow-brand-100">
+                            <div className="flex items-center bg-gradient-to-r from-[#FF5722] to-[#FF6D00] text-white rounded-2xl h-16 w-full sm:w-auto px-2 shadow-xl shadow-orange-500/25">
                                 <motion.button
                                     whileTap={{ scale: 0.9 }}
                                     onClick={() => updateQuantity(product.id, -1, "")}
@@ -346,34 +411,34 @@ const ProductDetailPage = () => {
                                     addToCart(product);
                                     showToast(`${product.name} added to cart`, 'success');
                                 }}
-                                className="h-16 w-full sm:w-64 bg-primary hover:bg-[var(--brand-400)] text-white text-lg font-black rounded-2xl shadow-xl transition-all hover:-translate-y-1"
+                                className="h-16 w-full sm:w-64 bg-gradient-to-r from-[#FF5722] to-[#FF6D00] text-white text-lg font-black rounded-2xl shadow-xl shadow-orange-500/25 transition-all hover:opacity-95 active:scale-95"
                             >
                                 <Plus className="mr-2" size={24} strokeWidth={3} /> ADD TO CART
                             </Button>
                         )}
 
                         <div className="flex flex-col gap-1 text-center sm:text-left">
-                            <span className="text-xs font-black text-primary uppercase tracking-widest flex items-center justify-center sm:justify-start gap-1">
-                                <ShieldCheck size={14} /> Quality Guaranteed
+                            <span className="text-xs font-black text-[#FF5722] uppercase tracking-widest flex items-center justify-center sm:justify-start gap-1">
+                                <ShieldCheck size={15} /> Quality Guaranteed
                             </span>
-                            <span className="text-sm font-bold text-slate-400 flex items-center justify-center sm:justify-start gap-1">
-                                <Clock size={14} /> Delivered in 10-15 mins
+                            <span className="text-sm font-bold text-[#0F172A] flex items-center justify-center sm:justify-start gap-1">
+                                <Clock size={15} className="text-[#FF5722]" /> Delivered in 10-15 mins
                             </span>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-3 gap-4">
-                        <div className="bg-white p-4 rounded-2xl border border-slate-100 text-center shadow-sm">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Weight</p>
-                            <p className="text-sm font-black text-slate-800">{product.weight || '1 unit'}</p>
+                        <div className="bg-[#FFF0E6] p-4 rounded-2xl border border-[#FFD0B5] text-center shadow-2xs">
+                            <p className="text-[10px] font-black text-[#D9480F] uppercase tracking-widest mb-1">Weight</p>
+                            <p className="text-sm font-black text-[#0F172A]">{product.weight || '1 unit'}</p>
                         </div>
-                        <div className="bg-white p-4 rounded-2xl border border-slate-100 text-center shadow-sm">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Stock</p>
-                            <p className="text-sm font-black text-slate-800">{product.stock > 0 ? 'In Stock' : 'Out of Stock'}</p>
+                        <div className="bg-[#EEF2FF] p-4 rounded-2xl border border-[#C7D2FE] text-center shadow-2xs">
+                            <p className="text-[10px] font-black text-[#1E3A8A] uppercase tracking-widest mb-1">Stock</p>
+                            <p className="text-sm font-black text-[#0F172A]">{product.stock > 0 ? 'In Stock' : 'Out of Stock'}</p>
                         </div>
-                        <div className="bg-white p-4 rounded-2xl border border-slate-100 text-center shadow-sm">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Brand</p>
-                            <p className="text-sm font-black text-slate-800">{product.brand || 'Premium'}</p>
+                        <div className="bg-[#FFF4EC] p-4 rounded-2xl border border-[#FFE4D6] text-center shadow-2xs">
+                            <p className="text-[10px] font-black text-[#E65100] uppercase tracking-widest mb-1">Brand</p>
+                            <p className="text-sm font-black text-[#0F172A]">{product.brand || 'Premium'}</p>
                         </div>
                     </div>
                 </div>

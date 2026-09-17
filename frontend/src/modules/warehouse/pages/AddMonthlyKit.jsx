@@ -9,18 +9,58 @@ import {
 } from 'lucide-react';
 
 const PRESET_HIGHLIGHT_ICONS = [
+    // Organic & Food
     { id: "leaf", emoji: "🌿", name: "Natural / Organic" },
     { id: "avocado", emoji: "🥑", name: "Farm Fresh" },
     { id: "zap", emoji: "⚡", name: "High Protein" },
     { id: "sprout", emoji: "🌱", name: "Source of Fiber" },
-    { id: "shield", emoji: "🛡️", name: "Quality / Certified" },
-    { id: "heart", emoji: "❤️", name: "Healthy / Low Fat" },
-    { id: "star", emoji: "⭐", name: "Premium Quality" },
-    { id: "truck", emoji: "🚚", name: "Fast Express Delivery" },
     { id: "wheat", emoji: "🌾", name: "Whole Grain / Pure" },
     { id: "sugarfree", emoji: "🍬", name: "Sugar Free" },
     { id: "sun", emoji: "☀️", name: "Sun Dried" },
-    { id: "smile", emoji: "😊", name: "Chemical Free" },
+    { id: "smile", emoji: "🚫", name: "Chemical Free" },
+    { id: "apple", emoji: "🍎", name: "100% Fresh Produce" },
+    { id: "milk", emoji: "🥛", name: "Pure Dairy" },
+
+    // Beauty & Personal Care
+    { id: "sparkles", emoji: "✨", name: "Dermatologically Tested" },
+    { id: "droplet", emoji: "💧", name: "100% Hydrating" },
+    { id: "flower", emoji: "🌸", name: "Cruelty & Paraben Free" },
+    { id: "lotion", emoji: "🧴", name: "UV Protection" },
+    { id: "mirror", emoji: "🪞", name: "Glow & Radiance" },
+    { id: "leaf2", emoji: "🍃", name: "100% Herbal" },
+
+    // Trust & Quality
+    { id: "shield", emoji: "🛡️", name: "100% Original / Authentic" },
+    { id: "star", emoji: "⭐", name: "Premium Quality" },
+    { id: "heart", emoji: "❤️", name: "Healthy / Low Fat" },
+    { id: "trophy", emoji: "🏆", name: "Best Seller / Top Rated" },
+    { id: "badge", emoji: "🏅", name: "Certified Quality" },
+
+    // Delivery & Service
+    { id: "truck", emoji: "🚚", name: "Fast Express Delivery" },
+    { id: "repeat", emoji: "🔄", name: "Easy Returns / Warranty" },
+    { id: "gift", emoji: "🎁", name: "Gift Pack Eligible" },
+
+    // Electronics & Tech
+    { id: "battery", emoji: "🔋", name: "Long Battery Life" },
+    { id: "wireless", emoji: "📶", name: "Bluetooth / Wireless" },
+    { id: "cpu", emoji: "💻", name: "High Speed Performance" },
+    { id: "plug", emoji: "🔌", name: "Fast Charging" },
+    { id: "snowflake", emoji: "❄️", name: "Energy Efficient" },
+    { id: "volume", emoji: "🔊", name: "Premium Sound" },
+
+    // Fashion & Apparel
+    { id: "cotton", emoji: "🧵", name: "100% Pure Fabric" },
+    { id: "shirt", emoji: "👕", name: "Breathable Material" },
+    { id: "scissors", emoji: "✂️", name: "Custom Tailored" },
+    { id: "wash", emoji: "🧼", name: "Color Fast & Washable" },
+
+    // Sports & Fitness
+    { id: "fitness", emoji: "🏋️", name: "Durable / Pro Grade" },
+    { id: "fire", emoji: "🔥", name: "High Energy Boost" },
+    { id: "water", emoji: "💧", name: "Sweat & Water Resistant" },
+
+    // Monthly Kits & Packs
     { id: "box", emoji: "📦", name: "Monthly Supply" },
     { id: "family", emoji: "👨‍👩‍👧‍👦", name: "Family Pack" },
     { id: "value", emoji: "💰", name: "Best Value" },
@@ -63,10 +103,10 @@ const AddMonthlyKit = () => {
         galleryImages: [],
         galleryFiles: [],
         highlights: [
-            { icon: "box", label: "Monthly Supply" },
-            { icon: "truck", label: "Free Delivery" },
-            { icon: "star", label: "Premium Quality" },
-            { icon: "value", label: "Best Value" },
+            { icon: "", label: "" },
+            { icon: "", label: "" },
+            { icon: "", label: "" },
+            { icon: "", label: "" },
         ],
         includedItems: [
             { id: Date.now(), name: '', quantity: '' }
@@ -594,43 +634,67 @@ const AddMonthlyKit = () => {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {[0, 1, 2, 3].map((slotIdx) => {
-                                    const currentHighlight = formData.highlights?.[slotIdx] || { icon: "leaf", label: "" };
+                                    const currentHighlight = formData.highlights?.[slotIdx] || { icon: "", label: "" };
+                                    const selectedPreset = PRESET_HIGHLIGHT_ICONS.find(i => i.id === currentHighlight.icon);
                                     return (
                                         <div key={slotIdx} className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100 space-y-3">
                                             <div className="flex items-center justify-between">
                                                 <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                                                     Highlight #{slotIdx + 1}
                                                 </span>
-                                                <span className="text-xl">
-                                                    {PRESET_HIGHLIGHT_ICONS.find(i => i.id === currentHighlight.icon)?.emoji || "🌿"}
-                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    {(currentHighlight.icon || currentHighlight.label) && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const nextHL = [...(formData.highlights || [])];
+                                                                nextHL[slotIdx] = { icon: "", label: "" };
+                                                                setFormData({ ...formData, highlights: nextHL });
+                                                            }}
+                                                            className="text-[11px] font-bold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded-md transition-colors"
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    )}
+                                                    <span className="text-xl">
+                                                        {selectedPreset?.emoji || "✨"}
+                                                    </span>
+                                                </div>
                                             </div>
 
                                             <div>
                                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
-                                                    Select Icon
+                                                    Select Icon (Clicking sets icon & title)
                                                 </label>
                                                 <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1.5 bg-white rounded-xl border border-slate-200">
-                                                    {PRESET_HIGHLIGHT_ICONS.map(ic => (
-                                                        <button
-                                                            key={ic.id}
-                                                            type="button"
-                                                            onClick={() => {
-                                                                const nextHL = [...(formData.highlights || [])];
-                                                                nextHL[slotIdx] = { ...currentHighlight, icon: ic.id };
-                                                                setFormData({ ...formData, highlights: nextHL });
-                                                            }}
-                                                            className={cn(
-                                                                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border",
-                                                                currentHighlight.icon === ic.id
-                                                                    ? "bg-orange-50 border-primary text-primary shadow-xs"
-                                                                    : "bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100"
-                                                            )}
-                                                        >
-                                                            <span>{ic.emoji}</span>
-                                                            <span className="text-[10px] hidden md:inline">{ic.name}</span>
-                                                        </button>
-                                                    ))}
+                                                    {PRESET_HIGHLIGHT_ICONS.map(ic => {
+                                                        const isSelected = currentHighlight.icon === ic.id;
+                                                        return (
+                                                            <button
+                                                                key={ic.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const nextHL = [...(formData.highlights || [])];
+                                                                    if (isSelected) {
+                                                                        nextHL[slotIdx] = { icon: "", label: "" };
+                                                                    } else {
+                                                                        nextHL[slotIdx] = { icon: ic.id, label: ic.name };
+                                                                    }
+                                                                    setFormData({ ...formData, highlights: nextHL });
+                                                                }}
+                                                                className={cn(
+                                                                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border",
+                                                                    isSelected
+                                                                        ? "bg-amber-500 border-amber-600 text-white shadow-xs ring-2 ring-amber-300"
+                                                                        : "bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100"
+                                                                )}
+                                                            >
+                                                                <span>{ic.emoji}</span>
+                                                                <span className="text-[10px]">{ic.name}</span>
+                                                                {isSelected && <span className="text-[10px] ml-0.5 font-black">✓</span>}
+                                                            </button>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
 

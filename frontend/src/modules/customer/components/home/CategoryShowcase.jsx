@@ -2,22 +2,27 @@ import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 
-const CategoryShowcase = ({ categoryMap, subcategoryMap }) => {
+const CategoryShowcase = ({ categoryMap, subcategoryMap, activeHeaderId }) => {
   const navigate = useNavigate();
 
   // Group subcategories by their parentId (main category id)
   const categoriesWithSubcategories = useMemo(() => {
-    const mainCategories = Object.values(categoryMap).filter(cat => cat.type === 'category' && cat._id !== 'all' && cat.name?.toLowerCase() !== 'all');
+    let mainCategories = Object.values(categoryMap).filter(cat => cat.type === 'category' && cat._id !== 'all' && cat.name?.toLowerCase() !== 'all');
+
+    if (activeHeaderId && activeHeaderId !== 'all') {
+      mainCategories = mainCategories.filter(cat => String(cat.parentId || cat.headerId) === String(activeHeaderId));
+    }
+
     const subcategories = Object.values(subcategoryMap).filter(sub => sub.type === 'subcategory');
 
     return mainCategories.map(mainCat => {
-      const children = subcategories.filter(sub => sub.parentId === mainCat._id);
+      const children = subcategories.filter(sub => String(sub.parentId?._id || sub.parentId) === String(mainCat._id));
       return {
         ...mainCat,
         children
       };
     }).filter(cat => cat.children.length > 0); // Only show categories that have subcategories
-  }, [categoryMap, subcategoryMap]);
+  }, [categoryMap, subcategoryMap, activeHeaderId]);
 
   if (categoriesWithSubcategories.length === 0) {
     return null;
@@ -45,7 +50,7 @@ const CategoryShowcase = ({ categoryMap, subcategoryMap }) => {
                 onClick={() => handleSubcategoryClick(category._id, sub._id)}
                 className="flex flex-col items-center gap-1.5 cursor-pointer group"
               >
-                <div className="w-full aspect-[4/5] rounded-[14px] bg-[#eff6f5] flex items-center justify-center p-2 transition-all relative overflow-hidden">
+                <div className="w-full aspect-[4/5] rounded-[14px] bg-[#FFF0E6] border border-orange-100/60 flex items-center justify-center p-2 transition-all relative overflow-hidden">
                   <img
                     src={applyCloudinaryTransform(sub.image || "https://cdn-icons-png.flaticon.com/128/2321/2321801.png")}
                     alt={sub.name}

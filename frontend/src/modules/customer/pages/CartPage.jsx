@@ -1,32 +1,49 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ShoppingBag, Smartphone } from 'lucide-react';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import EmptyRefurbishedCartAnimation from '../components/shared/EmptyRefurbishedCartAnimation';
 
 const CartPage = ({ asOverlay = false, onClose }) => {
-    const { cart, cartTotal } = useCart();
+    const { groceryCart, refurbishedCart, groceryCartTotal, refurbishedCartTotal } = useCart();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    const isRefurbished = location.pathname.startsWith('/refurbished');
+    const activeCart = isRefurbished ? refurbishedCart : groceryCart;
+    const activeTotal = isRefurbished ? refurbishedCartTotal : groceryCartTotal;
 
     return (
-        <div className={`bg-white font-sans ${asOverlay ? 'h-full overflow-y-auto relative pb-28' : 'min-h-screen pb-28'}`}>
+        <div className={`bg-[#f1f4f8] font-sans ${asOverlay ? 'h-full overflow-y-auto relative pb-28' : 'min-h-screen pb-44 md:pb-28'}`}>
             {/* Header */}
-            <div className="sticky top-0 z-30 bg-white px-4 py-4 flex items-center border-b border-gray-100/50">
+            <div className={`sticky top-0 z-30 px-4 py-4 flex items-center border-b ${
+                isRefurbished 
+                    ? 'bg-gradient-to-r from-blue-100/95 via-sky-50 to-[#EFF6FF] border-blue-200/60 text-slate-900' 
+                    : 'bg-white border-gray-100/50 text-gray-900'
+            }`}>
                 <button
-                    onClick={() => (asOverlay && onClose ? onClose() : navigate(-1))}
-                    className="p-1 -ml-1 hover:bg-gray-100 rounded-full transition-colors"
+                    onClick={() => (asOverlay && onClose ? onClose() : (isRefurbished ? navigate('/refurbished') : navigate(-1)))}
+                    className="p-1 -ml-1 hover:bg-black/5 rounded-full transition-colors"
                 >
                     <ChevronLeft size={24} className="text-gray-900" />
                 </button>
-                <h1 className="flex-1 text-center text-[18px] font-bold text-gray-900 mr-6">
-                    My Cart
+                <h1 className="flex-1 text-center text-[18px] font-bold leading-tight mr-6 flex items-center justify-center gap-1.5">
+                    {isRefurbished ? (
+                        <>
+                            <Smartphone size={18} className="text-blue-600" />
+                            <span>Refurbished Cart</span>
+                        </>
+                    ) : (
+                        'My Cart'
+                    )}
                 </h1>
             </div>
 
             {/* Cart Items */}
-            {cart.length > 0 ? (
+            {activeCart.length > 0 ? (
                 <div className="px-5 pt-2 space-y-8">
-                    {cart.map((item) => (
+                    {activeCart.map((item) => (
                         <div key={`${item.id}-${item.variantSku || ''}`} className="flex items-center">
                             {/* Image */}
                             <div className="w-[72px] h-[72px] flex-shrink-0 flex items-center justify-center mr-5">
@@ -44,7 +61,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                                     {item.name}
                                 </h3>
                                 <p className="text-[14px] text-gray-500 font-medium mt-1">
-                                    {item.weight || '1 kg'} {item.quantity > 1 ? `(x${item.quantity})` : ''}
+                                    {item.weight || item.refurbishedDetails?.grade || '1 Unit'} {item.quantity > 1 ? `(x${item.quantity})` : ''}
                                 </p>
                             </div>
 
@@ -70,36 +87,35 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                         {/* Total */}
                         <div className="flex items-center justify-between py-6 mt-2">
                             <span className="text-[22px] font-black text-gray-900">Total</span>
-                            <span className="text-[22px] font-black text-gray-900">₹{cartTotal}</span>
+                            <span className="text-[22px] font-black text-gray-900">₹{activeTotal}</span>
                         </div>
                     </div>
                 </div>
             ) : (
-                <div className="flex flex-col items-center justify-center pt-32 px-4 text-center">
-                    <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-                        <span className="text-4xl">🛒</span>
-                    </div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Your cart is empty</h2>
-                    <p className="text-gray-500 font-medium mb-8">Looks like you haven't added anything yet.</p>
-                    <Link
-                        to="/categories"
-                        className="bg-primary hover:bg-brand-600 shadow-md shadow-primary/20 transition-colors text-white font-bold py-3.5 px-8 rounded-xl"
-                    >
-                        Start Shopping
-                    </Link>
-                </div>
+                <EmptyRefurbishedCartAnimation
+                    isRefurbished={isRefurbished}
+                    onActionClick={() => {
+                        if (asOverlay && onClose) onClose();
+                    }}
+                />
             )}
 
             {/* Bottom Fixed Checkout Button */}
-            {cart.length > 0 && (
-                <div className={`${asOverlay ? 'absolute' : 'fixed'} bottom-0 left-0 right-0 p-4 bg-white z-40 border-t border-gray-100`}>
-                    <Link
-                        to="/checkout"
-                        onClick={onClose}
-                        className="flex w-full items-center justify-center bg-primary hover:bg-brand-600 transition-colors text-white text-[17px] font-bold py-4 rounded-xl shadow-lg shadow-primary/20"
-                    >
-                        Proceed to Checkout
-                    </Link>
+            {activeCart.length > 0 && (
+                <div className={`${asOverlay ? 'absolute bottom-0' : 'fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-0'} left-0 right-0 p-3.5 bg-white/95 backdrop-blur-md z-40 border-t border-slate-100 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]`}>
+                    <div className="max-w-md mx-auto">
+                        <Link
+                            to="/checkout"
+                            onClick={onClose}
+                            className={`flex w-full items-center justify-center transition-all text-white text-[16px] font-black py-3.5 px-6 rounded-2xl shadow-lg active:scale-[0.99] ${
+                                isRefurbished 
+                                    ? 'bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 shadow-blue-600/30'
+                                    : 'bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 shadow-orange-500/30'
+                            }`}
+                        >
+                            Proceed to Checkout
+                        </Link>
+                    </div>
                 </div>
             )}
         </div>

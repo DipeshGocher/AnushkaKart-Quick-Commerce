@@ -41,9 +41,9 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
   return (
     <>
       {/* Tip for Partner */}
-      <motion.div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-2xl p-4 border border-pink-100">
+      <motion.div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl p-4 border border-orange-100">
         <div className="flex items-center gap-2 mb-3">
-          <Heart size={18} className="text-pink-500 fill-pink-500" />
+          <Heart size={18} className="text-orange-500 fill-orange-500" />
           <h3 className="font-black text-slate-800">Tip your delivery partner</h3>
         </div>
         <p className="text-xs text-slate-600 mb-3">100% of the tip goes to them</p>
@@ -54,8 +54,8 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
               onClick={() => onSelectTip(tip.value)}
               className={`py-2 rounded-xl border-2 transition-all font-bold text-sm ${
                 selectedTip === tip.value
-                  ? "border-pink-500 bg-pink-100 text-pink-700"
-                  : "border-pink-200 bg-white text-slate-700 hover:border-pink-300"
+                  ? "border-orange-500 bg-orange-100 text-orange-700"
+                  : "border-orange-200 bg-white text-slate-700 hover:border-orange-300"
               }`}>
               {tip.label}
             </button>
@@ -145,12 +145,12 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
           )}
 
           {tipAmount > 0 && (
-            <div className="flex justify-between items-center px-3 py-2 bg-pink-50 rounded-xl border border-pink-100 italic">
-              <span className="text-pink-600 font-bold text-xs flex items-center gap-2">
-                <Heart size={14} className="fill-pink-500" />
+            <div className="flex justify-between items-center px-3 py-2 bg-orange-50 rounded-xl border border-orange-100 italic">
+              <span className="text-orange-600 font-bold text-xs flex items-center gap-2">
+                <Heart size={14} className="fill-orange-500" />
                 Partner Support
               </span>
-              <span className="font-black text-pink-600">₹{tipAmount}</span>
+              <span className="font-black text-orange-600">₹{tipAmount}</span>
             </div>
           )}
 

@@ -40,6 +40,11 @@ const categorySchema = new mongoose.Schema(
       enum: ["header", "category", "subcategory"],
       required: [true, "Category type is required"],
     },
+    catalogType: {
+      type: String,
+      enum: ["grocery", "refurbished"],
+      default: "grocery",
+    },
     isKitCategory: {
       type: Boolean,
       default: false,
@@ -237,6 +242,7 @@ categorySchema.pre("findOneAndUpdate", function syncLegacyFinanceFieldsOnUpdate(
 });
 
 // Indexes for common queries
+categorySchema.index({ catalogType: 1, type: 1, status: 1 });
 categorySchema.index({ type: 1, status: 1 });
 categorySchema.index({ parentId: 1, status: 1 });
 categorySchema.index({ name: 1 });

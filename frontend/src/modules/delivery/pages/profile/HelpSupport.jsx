@@ -45,7 +45,7 @@ const HelpSupport = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white pb-24">
+    <div className="min-h-screen bg-[#f1f4f8] pb-24">
       {/* Header */}
       <div className="bg-white shadow-sm sticky top-0 z-10">
         <div className="flex items-center p-4">
@@ -61,14 +61,14 @@ const HelpSupport = () => {
       <div className="p-4 max-w-lg mx-auto space-y-6">
         {/* Support Channels */}
         <section className="grid grid-cols-2 gap-4">
-          <Card className="p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:shadow-md transition-shadow card-left-pill-magenta">
+          <Card className="p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:shadow-md transition-shadow card-left-pill-orange">
             <div className="w-12 h-12 bg-brand-100 rounded-full flex items-center justify-center text-brand-600 mb-3">
               <MessageCircle size={24} />
             </div>
             <h4 className="font-bold text-gray-800">Chat Support</h4>
             <p className="text-xs text-gray-500 mt-1">Wait time: ~2 mins</p>
           </Card>
-          <Card className="p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:shadow-md transition-shadow card-left-pill-magenta">
+          <Card className="p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:shadow-md transition-shadow card-left-pill-orange">
             <div className="w-12 h-12 bg-brand-100 rounded-full flex items-center justify-center text-brand-600 mb-3">
               <Phone size={24} />
             </div>
@@ -87,7 +87,7 @@ const HelpSupport = () => {
             {faqs.map((faq, index) => (
               <Card
                 key={index}
-                className="overflow-hidden cursor-pointer card-left-pill-magenta"
+                className="overflow-hidden cursor-pointer card-left-pill-orange"
                 onClick={() => toggleAccordion(index)}>
                 <div className="p-4 flex justify-between items-center bg-white">
                   <h4 className="font-medium text-gray-800 text-sm pr-4">

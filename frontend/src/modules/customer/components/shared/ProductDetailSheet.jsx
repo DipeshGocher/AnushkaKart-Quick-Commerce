@@ -19,28 +19,28 @@ import ParticleBurst from './ParticleBurst';
 const AccordionItem = ({ title, children, id, icon, expandedSections, toggleSection }) => {
     const isOpen = expandedSections.includes(id);
     return (
-        <div className="border-b border-slate-100 last:border-0">
+        <div className="border-b border-orange-100/80 last:border-0 py-1">
             <button
                 onClick={() => toggleSection(id)}
-                className="w-full py-2.5 flex items-center justify-between transition-all hover:bg-slate-50/50 rounded-lg group px-2"
+                className="w-full py-3 flex items-center justify-between transition-all hover:bg-orange-50/60 rounded-xl group px-2"
             >
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-3">
                     <div className={cn(
-                        "w-7 h-7 rounded-lg flex items-center justify-center transition-all",
-                        isOpen ? "bg-brand-50 text-primary" : "bg-slate-50 text-slate-400 group-hover:bg-slate-100"
+                        "w-8 h-8 rounded-xl flex items-center justify-center transition-all shadow-2xs",
+                        isOpen ? "bg-[#FF5722] text-white" : "bg-[#FFF0E6] text-[#FF5722] group-hover:bg-[#FFE0D1]"
                     )}>
                         {icon}
                     </div>
                     <span className={cn(
-                        "font-bold text-[12px] uppercase tracking-wider",
-                        isOpen ? "text-[#1A1A1A]" : "text-slate-500"
+                        "font-extrabold text-[12.5px] uppercase tracking-wider",
+                        isOpen ? "text-[#0F172A]" : "text-slate-700"
                     )}>{title}</span>
                 </div>
                 <motion.div
                     animate={{ rotate: isOpen ? 180 : 0 }}
-                    className={cn("transition-colors", isOpen ? "text-primary" : "text-slate-300")}
+                    className={cn("transition-colors", isOpen ? "text-[#FF5722]" : "text-slate-400")}
                 >
-                    <ChevronDown size={16} strokeWidth={3} />
+                    <ChevronDown size={18} strokeWidth={3} />
                 </motion.div>
             </button>
             <AnimatePresence initial={false}>
@@ -52,7 +52,7 @@ const AccordionItem = ({ title, children, id, icon, expandedSections, toggleSect
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                     >
-                        <div className="pt-1 pb-3 px-2">
+                        <div className="pt-2 pb-4 px-2">
                             {children}
                         </div>
                     </motion.div>
@@ -63,18 +63,57 @@ const AccordionItem = ({ title, children, id, icon, expandedSections, toggleSect
 };
 
 const HIGHLIGHT_ICON_MAP = {
-    leaf: { emoji: "🌿", bg: "bg-amber-50/80 border-amber-100/70 text-amber-700" },
-    avocado: { emoji: "🥑", bg: "bg-emerald-50/80 border-emerald-100/70 text-emerald-700" },
-    zap: { emoji: "⚡", bg: "bg-orange-50/80 border-orange-100/70 text-orange-700" },
-    sprout: { emoji: "🌱", bg: "bg-teal-50/80 border-teal-100/70 text-teal-700" },
-    shield: { emoji: "🛡️", bg: "bg-pink-50/80 border-pink-100/70 text-[#E60067]" },
-    heart: { emoji: "❤️", bg: "bg-rose-50/80 border-rose-100/70 text-rose-700" },
-    star: { emoji: "⭐", bg: "bg-yellow-50/80 border-yellow-100/70 text-yellow-700" },
-    truck: { emoji: "🚚", bg: "bg-indigo-50/80 border-indigo-100/70 text-indigo-700" },
-    wheat: { emoji: "🌾", bg: "bg-amber-50/80 border-amber-100/70 text-amber-800" },
-    sugarfree: { emoji: "🍬", bg: "bg-purple-50/80 border-purple-100/70 text-purple-700" },
-    sun: { emoji: "☀️", bg: "bg-orange-50/80 border-orange-100/70 text-orange-700" },
-    smile: { emoji: "😊", bg: "bg-green-50/80 border-green-100/70 text-green-700" },
+    // Grocery & Food
+    leaf: { emoji: "🌿", bg: "bg-[#FFF0E6] border-[#FFD0B5] text-[#D9480F]" },
+    avocado: { emoji: "🥑", bg: "bg-[#EEF2FF] border-[#C7D2FE] text-[#1E3A8A]" },
+    zap: { emoji: "⚡", bg: "bg-[#FFF4EC] border-[#FFE4D6] text-[#E65100]" },
+    sprout: { emoji: "🌱", bg: "bg-[#E0F2FE] border-[#BAE6FD] text-[#0369A1]" },
+    wheat: { emoji: "🌾", bg: "bg-[#FFF0E6] border-[#FFD0B5] text-[#D9480F]" },
+    sugarfree: { emoji: "🍬", bg: "bg-[#F3E8FF] border-[#E9D5FF] text-[#6B21A8]" },
+    sun: { emoji: "☀️", bg: "bg-[#FFF4EC] border-[#FFE4D6] text-[#E65100]" },
+    smile: { emoji: "🚫", bg: "bg-[#E0F2FE] border-[#BAE6FD] text-[#0369A1]" },
+    apple: { emoji: "🍎", bg: "bg-[#FFE4E6] border-[#FECDD3] text-[#E11D48]" },
+    milk: { emoji: "🥛", bg: "bg-[#F0F9FF] border-[#BAE6FD] text-[#0284C7]" },
+
+    // Beauty & Personal Care
+    sparkles: { emoji: "✨", bg: "bg-[#FDF2F8] border-[#FBCFE8] text-[#DB2777]" },
+    droplet: { emoji: "💧", bg: "bg-[#E0F2FE] border-[#BAE6FD] text-[#0284C7]" },
+    flower: { emoji: "🌸", bg: "bg-[#FCE7F3] border-[#FBCFE8] text-[#BE185D]" },
+    lotion: { emoji: "🧴", bg: "bg-[#FFF1F2] border-[#FECDD3] text-[#E11D48]" },
+    mirror: { emoji: "🪞", bg: "bg-[#FAF5FF] border-[#E9D5FF] text-[#7E22CE]" },
+    leaf2: { emoji: "🍃", bg: "bg-[#ECFDF5] border-[#A7F3D0] text-[#047857]" },
+
+    // Electronics & Tech
+    battery: { emoji: "🔋", bg: "bg-[#ECFDF5] border-[#A7F3D0] text-[#059669]" },
+    wireless: { emoji: "📶", bg: "bg-[#EFF6FF] border-[#BFDBFE] text-[#1D4ED8]" },
+    cpu: { emoji: "💻", bg: "bg-[#F3E8FF] border-[#E9D5FF] text-[#7E22CE]" },
+    plug: { emoji: "🔌", bg: "bg-[#FEF3C7] border-[#FDE68A] text-[#D97706]" },
+    snowflake: { emoji: "❄️", bg: "bg-[#E0F2FE] border-[#BAE6FD] text-[#0284C7]" },
+    volume: { emoji: "🔊", bg: "bg-[#EEF2FF] border-[#C7D2FE] text-[#4338CA]" },
+
+    // Fashion & Apparel
+    cotton: { emoji: "🧵", bg: "bg-[#F5F5F4] border-[#E7E5E4] text-[#44403C]" },
+    shirt: { emoji: "👕", bg: "bg-[#EFF6FF] border-[#BFDBFE] text-[#2563EB]" },
+    scissors: { emoji: "✂️", bg: "bg-[#FAF5FF] border-[#E9D5FF] text-[#6B21A8]" },
+    wash: { emoji: "🧼", bg: "bg-[#E0F2FE] border-[#BAE6FD] text-[#0369A1]" },
+
+    // Sports & Fitness
+    fitness: { emoji: "🏋️", bg: "bg-[#FEF2F2] border-[#FECACA] text-[#DC2626]" },
+    fire: { emoji: "🔥", bg: "bg-[#FFF7ED] border-[#FFEDD5] text-[#EA580C]" },
+    trophy: { emoji: "🏆", bg: "bg-[#FEF3C7] border-[#FDE68A] text-[#B45309]" },
+    water: { emoji: "💧", bg: "bg-[#E0F2FE] border-[#BAE6FD] text-[#0284C7]" },
+
+    // Trust, Service & Kits
+    shield: { emoji: "🛡️", bg: "bg-[#EEF2FF] border-[#C7D2FE] text-[#1E3A8A]" },
+    heart: { emoji: "❤️", bg: "bg-[#FFF0E6] border-[#FFD0B5] text-[#D9480F]" },
+    star: { emoji: "⭐", bg: "bg-[#FEF3C7] border-[#FDE68A] text-[#B45309]" },
+    truck: { emoji: "🚚", bg: "bg-[#EEF2FF] border-[#C7D2FE] text-[#1E3A8A]" },
+    repeat: { emoji: "🔄", bg: "bg-[#F0FDF4] border-[#BBF7D0] text-[#15803D]" },
+    gift: { emoji: "🎁", bg: "bg-[#FDF2F8] border-[#FBCFE8] text-[#BE185D]" },
+    badge: { emoji: "🏅", bg: "bg-[#FEF3C7] border-[#FDE68A] text-[#B45309]" },
+    box: { emoji: "📦", bg: "bg-[#FFF7ED] border-[#FFEDD5] text-[#C2410C]" },
+    family: { emoji: "👨‍👩‍👧‍👦", bg: "bg-[#FAF5FF] border-[#E9D5FF] text-[#7E22CE]" },
+    value: { emoji: "💰", bg: "bg-[#ECFDF5] border-[#A7F3D0] text-[#047857]" },
 };
 
 const ProductDetailSheet = () => {
@@ -141,13 +180,20 @@ const ProductDetailSheet = () => {
             });
         }
 
-        // Deduplicate
-        const uniqueImages = [...new Set(images)];
+        // Filter valid images and deduplicate
+        const validImages = images.filter(
+            (img) =>
+                img &&
+                typeof img === "string" &&
+                img.trim().length > 0 &&
+                !img.includes("api-preprod.phonepe.com")
+        );
+        const uniqueImages = [...new Set(validImages)];
 
         return uniqueImages.length > 0
             ? uniqueImages
             : [
-                "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=400&h=400",
+                selectedProduct.mainImage || selectedProduct.image || "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=400&h=400",
             ];
     }, [selectedProduct]);
 
@@ -167,16 +213,12 @@ const ProductDetailSheet = () => {
     };
 
     const displayHighlights = useMemo(() => {
-        if (Array.isArray(selectedProduct?.highlights) && selectedProduct.highlights.length > 0) {
-            return selectedProduct.highlights.slice(0, 4);
-        }
-        return [
-            { icon: "leaf", label: "100% Natural" },
-            { icon: "avocado", label: "Farm Fresh" },
-            { icon: "zap", label: "High Protein" },
-            { icon: "sprout", label: "Source of Fiber" },
-        ];
-    }, [selectedProduct]);
+        const targetProduct = extendedProduct || selectedProduct;
+        const raw = Array.isArray(targetProduct?.highlights) ? targetProduct.highlights : [];
+        return raw.filter(
+            (h) => h && typeof h.label === "string" && h.label.trim().length > 0
+        );
+    }, [selectedProduct, extendedProduct]);
 
     // Update variant when product changes
     useEffect(() => {
@@ -1145,7 +1187,7 @@ const ProductDetailSheet = () => {
                             onWheel={handleWheel}
                         >
                             {/* Product Image Carousel */}
-                            <div className="relative w-full bg-gradient-to-b from-[#F5F7F8] to-white pt-12 pb-8 h-[380px] sm:h-[480px]">
+                            <div className="relative w-full bg-gradient-to-b from-[#FFF2E8] via-[#FFF7F2] to-white pt-12 pb-8 h-[380px] sm:h-[480px] border-b border-orange-100/60">
                                 <div
                                     ref={scrollRef}
                                     className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar h-full w-full"
@@ -1173,7 +1215,7 @@ const ProductDetailSheet = () => {
                                                 key={i}
                                                 className={cn(
                                                     "h-1.5 rounded-full transition-all duration-300",
-                                                    i === activeImageIndex ? "w-6 bg-primary" : "w-1.5 bg-gray-300"
+                                                    i === activeImageIndex ? "w-6 bg-[#FF5722]" : "w-1.5 bg-orange-200"
                                                 )}
                                             />
                                         ))}
@@ -1199,8 +1241,8 @@ const ProductDetailSheet = () => {
                                                 className={cn(
                                                     "w-[65px] h-[65px] flex-shrink-0 rounded-2xl overflow-hidden transition-all duration-300 border-2",
                                                     i === activeImageIndex
-                                                        ? "border-primary shadow-md shadow-brand-100 ring-2 ring-brand-50 bg-white scale-95"
-                                                        : "border-slate-200 bg-slate-50 hover:border-primary/50"
+                                                        ? "border-[#FF5722] shadow-md shadow-orange-100 ring-2 ring-orange-100 bg-white scale-95"
+                                                        : "border-slate-200 bg-slate-50 hover:border-[#FF5722]/50"
                                                 )}
                                             >
                                                 <img src={applyCloudinaryTransform(img, "f_auto,q_auto:best,w_150")} alt="" className="w-full h-full object-contain p-1.5 mix-blend-multiply" />
@@ -1212,34 +1254,39 @@ const ProductDetailSheet = () => {
 
                             {/* Product Info Container */}
                             <div className="px-5 pt-3 pb-3 space-y-3">
-                                {/* Delivery Time Badge */}
-                                <div className="inline-flex items-center gap-1.5 bg-[#F0FDF4] border border-brand-100 text-primary px-2.5 py-1 rounded-lg text-[10px] font-black uppercase">
-                                    <Clock size={12} strokeWidth={3} />
-                                    {selectedProduct.deliveryTime || "8 Mins"}
+                                {/* Delivery Time & Navy/Orange Badges Row */}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="inline-flex items-center gap-1.5 bg-[#0F172A] text-white px-3 py-1.5 rounded-full text-[10.5px] font-black uppercase tracking-wider shadow-2xs">
+                                        <Clock size={13} strokeWidth={2.5} className="text-[#FF7043]" />
+                                        {selectedProduct.deliveryTime || "8-15 MINS"}
+                                    </div>
+                                    <div className="inline-flex items-center gap-1 bg-[#FFF0E6] text-[#D9480F] border border-[#FFD0B5] px-2.5 py-1 rounded-full text-[10.5px] font-black uppercase">
+                                        ✨ Quality Fresh
+                                    </div>
                                 </div>
 
                                 {/* Title & Weight */}
                                 <div>
-                                    <h2 className="text-xl font-bold text-slate-900 leading-snug tracking-tight">
+                                    <h2 className="text-xl font-extrabold text-[#0F172A] leading-snug tracking-tight">
                                         {selectedProduct.name}
                                     </h2>
-                                    <p className="text-xs text-slate-500 font-semibold mt-1">
+                                    <p className="text-xs text-slate-500 font-bold mt-1">
                                         {selectedVariant?.name || selectedProduct.weight || "1 kg"}
                                     </p>
                                 </div>
 
                                 {/* Price Row */}
                                 <div className="flex items-baseline gap-2.5 pt-0.5">
-                                    <span className="text-2xl font-extrabold text-slate-900 tracking-tight">
+                                    <span className="text-2xl font-black text-[#0F172A] tracking-tight">
                                         ₹{selectedVariant?.salePrice || selectedVariant?.price || selectedProduct.price}
                                     </span>
                                     {((selectedVariant?.salePrice && selectedVariant.salePrice < selectedVariant.price) ||
                                         (!selectedVariant && selectedProduct.originalPrice > selectedProduct.price)) && (
                                             <>
-                                                <span className="text-sm font-semibold text-slate-400 line-through">
+                                                <span className="text-sm font-bold text-slate-400 line-through">
                                                     ₹{selectedVariant?.price || selectedProduct.originalPrice}
                                                 </span>
-                                                <span className="text-xs font-bold text-orange-500 uppercase tracking-wide">
+                                                <span className="text-xs font-black bg-[#FFF0E6] text-[#FF5722] border border-orange-200/80 px-2 py-0.5 rounded-lg uppercase tracking-wide">
                                                     {selectedVariant
                                                         ? Math.round(((selectedVariant.price - selectedVariant.salePrice) / selectedVariant.price) * 100)
                                                         : Math.round(((selectedProduct.originalPrice - selectedProduct.price) / selectedProduct.originalPrice) * 100)}% OFF
@@ -1248,22 +1295,36 @@ const ProductDetailSheet = () => {
                                         )}
                                 </div>
 
-                                {/* Key Feature Highlights Row (Dynamic Seller Badges) */}
-                                <div className="grid grid-cols-4 gap-2 pt-2 pb-1 border-t border-b border-slate-100/80 my-2">
-                                    {displayHighlights.map((hl, idx) => {
-                                        const iconConfig = HIGHLIGHT_ICON_MAP[hl.icon] || HIGHLIGHT_ICON_MAP.leaf;
-                                        return (
-                                            <div key={idx} className="flex flex-col items-center text-center group py-1">
-                                                <div className={cn("w-11 h-11 rounded-full border flex items-center justify-center shadow-xs mb-1.5 group-hover:scale-105 transition-transform", iconConfig.bg)}>
-                                                    <span className="text-lg">{iconConfig.emoji}</span>
+                                {/* Key Feature Highlights Row (Light Orange & Navy Blue Combos) */}
+                                {displayHighlights.length > 0 && (
+                                    <div className={cn(
+                                        "grid gap-2 pt-2.5 pb-1.5 border-t border-b border-orange-100/90 my-2",
+                                        displayHighlights.length === 1 ? "grid-cols-1 max-w-[180px] mx-auto" :
+                                        displayHighlights.length === 2 ? "grid-cols-2 max-w-[320px] mx-auto" :
+                                        displayHighlights.length === 3 ? "grid-cols-3" : "grid-cols-4"
+                                    )}>
+                                        {displayHighlights.map((hl, idx) => {
+                                            const themeStyles = [
+                                                "bg-[#FFF0E6] border-[#FFD0B5] text-[#D9480F]",
+                                                "bg-[#EEF2FF] border-[#C7D2FE] text-[#1E3A8A]",
+                                                "bg-[#FFF4EC] border-[#FFE4D6] text-[#E65100]",
+                                                "bg-[#E0F2FE] border-[#BAE6FD] text-[#0369A1]"
+                                            ];
+                                            const iconConfig = HIGHLIGHT_ICON_MAP[hl.icon] || { emoji: "✨", bg: themeStyles[idx % themeStyles.length] };
+                                            const bgStyle = themeStyles[idx % themeStyles.length];
+                                            return (
+                                                <div key={idx} className="flex flex-col items-center text-center group py-1">
+                                                    <div className={cn("w-11 h-11 rounded-2xl border flex items-center justify-center shadow-2xs mb-1.5 group-hover:scale-105 transition-transform", bgStyle)}>
+                                                        <span className="text-lg">{iconConfig.emoji}</span>
+                                                    </div>
+                                                    <span className="text-[11px] font-extrabold text-[#0F172A] leading-tight whitespace-pre-line">
+                                                        {hl.label || "Highlight"}
+                                                    </span>
                                                 </div>
-                                                <span className="text-[11px] font-bold text-slate-700 leading-tight whitespace-pre-line">
-                                                    {hl.label || "Highlight"}
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
 
                                 {isExpanded ? (
                                     <>
@@ -1449,17 +1510,18 @@ const ProductDetailSheet = () => {
                         </div>
 
                         {/* Sticky Bottom Action Bar */}
-                        <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100/80 p-4 pb-7 shadow-[0_-10px_40px_rgba(0,0,0,0.06)] z-50 rounded-t-3xl">
-                            <div className="flex items-center gap-4">
+                        <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-orange-100 p-4 pb-7 shadow-[0_-10px_40px_rgba(0,0,0,0.08)] z-50 rounded-t-3xl">
+                            <div className="flex items-center gap-3.5">
                                 {/* Left Side: Cart Icon with Badge */}
                                 <Link
                                     to="/checkout"
                                     onClick={closeProduct}
-                                    className="relative w-14 h-14 bg-white border border-slate-100 rounded-[20px] shadow-sm flex items-center justify-center text-slate-700 hover:bg-slate-50 transition-all flex-shrink-0"
+                                    className="relative w-14 h-14 bg-[#EEF2FF] border border-[#C7D2FE] rounded-2xl shadow-xs flex items-center justify-center text-[#1E3A8A] hover:bg-[#E0E7FF] active:scale-95 transition-all shrink-0"
+                                    title="View Cart"
                                 >
-                                    <ShoppingCart size={22} className="text-slate-800" />
+                                    <ShoppingCart size={22} className="text-[#1E3A8A]" />
                                     {cartCount > 0 && (
-                                        <div className="absolute -top-1.5 -right-1.5 bg-primary text-white text-[11px] font-black w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center shadow-md animate-in zoom-in duration-200">
+                                        <div className="absolute -top-1.5 -right-1.5 bg-[#FF5722] text-white text-[11px] font-black w-5 h-5 rounded-full flex shrink-0 items-center justify-center shadow-md animate-in zoom-in duration-200">
                                             {cartCount}
                                         </div>
                                     )}
@@ -1467,11 +1529,11 @@ const ProductDetailSheet = () => {
 
                                 {/* Right Side: Add to Cart / Quantity Pill Button */}
                                 {quantity > 0 ? (
-                                    <div className="flex-1 bg-primary text-white h-14 rounded-[20px] flex items-center justify-between px-2 shadow-xl shadow-brand-100 border border-white/20">
+                                    <div className="flex-1 bg-gradient-to-r from-[#FF5722] to-[#FF7043] text-white h-14 rounded-2xl flex items-center justify-between px-2 shadow-lg shadow-orange-500/25 border border-white/20">
                                         <motion.button
                                             whileTap={{ scale: 0.8 }}
                                             onClick={handleDecrement}
-                                            className="w-10 h-10 rounded-full flex items-center justify-center text-white hover:bg-white/10 transition-colors"
+                                            className="w-10 h-10 rounded-xl flex items-center justify-center text-white hover:bg-white/10 transition-colors"
                                         >
                                             <Minus size={18} strokeWidth={3.5} />
                                         </motion.button>
@@ -1483,7 +1545,7 @@ const ProductDetailSheet = () => {
                                                     animate={{ y: 0, opacity: 1 }}
                                                     exit={{ y: -15, opacity: 0 }}
                                                     transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                                                    className="font-[1000] text-sm uppercase tracking-wider absolute"
+                                                    className="font-black text-sm uppercase tracking-wider absolute"
                                                 >
                                                     {quantity} in cart
                                                 </motion.span>
@@ -1492,7 +1554,7 @@ const ProductDetailSheet = () => {
                                         <motion.button
                                             whileTap={{ scale: 0.8 }}
                                             onClick={handleIncrement}
-                                            className="w-10 h-10 rounded-full flex items-center justify-center text-white hover:bg-white/10 transition-colors"
+                                            className="w-10 h-10 rounded-xl flex items-center justify-center text-white hover:bg-white/10 transition-colors"
                                         >
                                             <Plus size={18} strokeWidth={3.5} />
                                         </motion.button>
@@ -1502,10 +1564,10 @@ const ProductDetailSheet = () => {
                                         whileHover={{ scale: 1.01 }}
                                         whileTap={{ scale: 0.97 }}
                                         onClick={handleAddToCart}
-                                        className="flex-1 bg-primary text-white h-14 rounded-[20px] font-bold text-sm flex items-center justify-between px-6 shadow-xl shadow-brand-100 transition-all border border-white/20"
+                                        className="flex-1 bg-gradient-to-r from-[#FF5722] to-[#FF6D00] text-white h-14 rounded-2xl font-black text-sm flex items-center justify-between px-6 shadow-xl shadow-orange-500/25 transition-all border border-white/20 active:opacity-90"
                                     >
-                                        <span className="uppercase tracking-wider font-extrabold text-[13px]">Add to Cart</span>
-                                        <span className="text-sm font-black">₹{displayPrice}</span>
+                                        <span className="uppercase tracking-wider font-black text-[13px]">ADD TO CART</span>
+                                        <span className="text-sm font-black bg-[#0F172A] text-white px-3 py-1 rounded-xl shadow-xs">₹{displayPrice}</span>
                                     </motion.button>
                                 )}
                             </div>

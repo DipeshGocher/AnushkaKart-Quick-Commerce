@@ -38,10 +38,10 @@ const BottomNav = () => {
                 <Icon 
                   size={18} 
                   strokeWidth={isActive ? 2.5 : 2} 
-                  className={isActive ? "text-[#E60067]" : "text-slate-400"}
+                  className={isActive ? "text-[#FF5722]" : "text-slate-400"}
                 />
                 {hasNotification && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#E60067] rounded-full border border-slate-900 shadow-xs" />
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#FF5722] rounded-full border border-slate-900 shadow-xs" />
                 )}
               </motion.div>
               <span className={`text-[10px] whitespace-nowrap leading-none tracking-tight ${isActive ? "font-black text-slate-900" : "font-medium text-slate-300"}`}>

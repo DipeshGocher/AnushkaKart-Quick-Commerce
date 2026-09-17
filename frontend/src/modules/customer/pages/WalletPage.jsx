@@ -60,7 +60,7 @@ const WalletPage = () => {
     }, []);
 
     return (
-        <div className="min-h-screen bg-white pb-16 font-['Outfit',_sans-serif]">
+        <div className="min-h-screen bg-[#f1f4f8] pb-16 font-['Outfit',_sans-serif]">
             <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 pt-4 pb-2 border-b border-slate-100 mb-2 flex items-center gap-2">
                 <button
                     onClick={() => navigate(-1)}

@@ -158,9 +158,13 @@ const OrderHistory = () => {
   };
 
   return (
-    <div className="bg-gray-50/50 min-h-screen pb-24">
+    <div className="bg-[#f1f4f8] min-h-screen pb-24">
       {/* Header */}
-      <div className="bg-white shadow-sm p-4 sticky top-0 z-30 backdrop-blur-md bg-white/90">
+      <div 
+        style={{
+          background: "linear-gradient(180deg, rgba(255, 87, 34, 0.90) 0%, rgba(255, 112, 67, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%)"
+        }}
+        className="p-4 sticky top-0 z-30 backdrop-blur-md border-b border-orange-200/50 shadow-2xs">
         <h1 className="ds-h2 text-gray-900 mb-4">Order History</h1>
 
         {/* Search & Filter */}
@@ -187,7 +191,7 @@ const OrderHistory = () => {
               key={status}
               onClick={() => setFilter(status.toLowerCase())}
               className={`snap-start h-9 px-4 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${filter === status.toLowerCase()
-                ? "bg-[#E60067] text-white border-transparent shadow-md font-black"
+                ? "bg-[#FF5722] text-white border-transparent shadow-md font-black"
                 : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                 }`}
             >
@@ -229,20 +233,20 @@ const OrderHistory = () => {
                       openOrderDetail(order);
                     }
                   }}
-                  className="card-left-pill-magenta hover:shadow-md transition-all cursor-pointer group rounded-2xl border border-slate-100 bg-white">
+                  className="card-left-pill-orange hover:shadow-md transition-all cursor-pointer group rounded-2xl border border-slate-100 bg-white">
                   <div className="p-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start mb-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1 min-w-0 flex-wrap">
-                          <span className="font-bold text-[#E60067] text-sm group-hover:text-[#C00052] transition-colors break-all">
+                          <span className="font-bold text-[#FF5722] text-sm group-hover:text-[#EA580C] transition-colors break-all">
                             #{order.orderId}
                           </span>
                           <span
                             className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${displayOrderStatus(order) === "delivered"
-                              ? "bg-pink-50 text-[#E60067] border border-pink-100"
+                              ? "bg-orange-50 text-[#FF5722] border border-orange-100"
                               : displayOrderStatus(order) === "cancelled"
                                 ? "bg-red-50 text-red-600 border border-red-100"
-                                : "bg-pink-50 text-[#E60067] border border-pink-100"
+                                : "bg-orange-50 text-[#FF5722] border border-orange-100"
                               }`}>
                             {displayOrderStatus(order)}
                           </span>
@@ -260,9 +264,9 @@ const OrderHistory = () => {
                       </div>
                     </div>
 
-                    <div className="bg-white rounded-xl p-3 border border-pink-100/70 shadow-2xs my-3 space-y-2">
+                    <div className="bg-white rounded-xl p-3 border border-orange-100/70 shadow-2xs my-3 space-y-2">
                       <div className="flex items-start">
-                        <div className="w-2 h-2 rounded-full bg-[#E60067] mt-1.5 mr-2 flex-shrink-0 shadow-[0_0_8px_rgba(230,0,103,0.5)]"></div>
+                        <div className="w-2 h-2 rounded-full bg-[#FF5722] mt-1.5 mr-2 flex-shrink-0 shadow-[0_0_8px_rgba(255,87,34,0.5)]"></div>
                         <div>
                           <p className="ds-caption text-gray-500 mb-0.5">Store</p>
                           <p className="text-sm font-medium text-gray-800 line-clamp-1">
@@ -270,8 +274,8 @@ const OrderHistory = () => {
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-start border-t border-pink-50 pt-2">
-                        <div className="w-2 h-2 rounded-full bg-[#FF3366] mt-1.5 mr-2 flex-shrink-0 shadow-[0_0_8px_rgba(255,51,102,0.5)]"></div>
+                      <div className="flex items-start border-t border-orange-50 pt-2">
+                        <div className="w-2 h-2 rounded-full bg-[#EA580C] mt-1.5 mr-2 flex-shrink-0 shadow-[0_0_8px_rgba(234,88,12,0.5)]"></div>
                         <div>
                           <p className="ds-caption text-gray-500 mb-0.5">
                             Customer
@@ -294,7 +298,7 @@ const OrderHistory = () => {
                           min
                         </span>
                       </div>
-                      <div className="flex items-center text-[#E60067] font-bold group-hover:underline self-end sm:self-auto">
+                      <div className="flex items-center text-[#FF5722] font-bold group-hover:underline self-end sm:self-auto">
                         View Details <ChevronRight size={14} className="ml-0.5" />
                       </div>
                     </div>

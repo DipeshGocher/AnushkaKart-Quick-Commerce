@@ -20,7 +20,7 @@ const SplashScreen = ({ children }) => {
             try {
                 sessionStorage.setItem('hasSeenSplash', 'true');
             } catch (err) {}
-        }, 4000); // 4 seconds
+        }, 2500); // 2.5 seconds
 
         return () => clearTimeout(timer);
     }, [showSplash]);

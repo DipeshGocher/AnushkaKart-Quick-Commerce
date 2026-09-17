@@ -172,18 +172,18 @@ function createApp() {
 
   // Static uploads directory for server-side local media storage
   const uploadsDir = path.join(__dirname, "public", "uploads");
-  app.use(
-    "/uploads",
-    express.static(uploadsDir, {
-      maxAge: "30d",
-      immutable: true,
-      setHeaders: (res) => {
-        res.setHeader("X-Content-Type-Options", "nosniff");
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-      },
-    }),
-  );
+  const rootUploadsDir = path.join(__dirname, "uploads");
+  const staticOptions = {
+    maxAge: "30d",
+    immutable: true,
+    setHeaders: (res) => {
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    },
+  };
+  app.use("/uploads", express.static(uploadsDir, staticOptions));
+  app.use("/uploads", express.static(rootUploadsDir, staticOptions));
 
   // Razorpay webhook needs raw body for signature verification
   app.use(
@@ -194,8 +194,8 @@ function createApp() {
     }),
   );
 
-  app.use(express.json({ limit: process.env.API_JSON_LIMIT || "1mb" }));
-  app.use(express.urlencoded({ limit: process.env.API_URLENCODED_LIMIT || "1mb", extended: true }));
+  app.use(express.json({ limit: process.env.API_JSON_LIMIT || "10mb" }));
+  app.use(express.urlencoded({ limit: process.env.API_URLENCODED_LIMIT || "10mb", extended: true }));
 
   // Root endpoint
   app.get("/", (req, res) => {

@@ -21,6 +21,7 @@ const ProductManagement = React.lazy(
 );
 const StockManagement = React.lazy(() => import("../pages/StockManagement"));
 const AddProduct = React.lazy(() => import("../pages/AddProduct"));
+const AddRefurbishedProduct = React.lazy(() => import("../pages/AddRefurbishedProduct"));
 // Note: Orders is imported eagerly above to avoid dynamic import issues
 const Returns = React.lazy(() => import("../pages/Returns"));
 const Earnings = React.lazy(() => import("../pages/Earnings"));
@@ -71,6 +72,7 @@ const SellerRoutes = () => {
         <Route path="/" element={<Dashboard />} />
         <Route path="/products" element={<ProductManagement />} />
         <Route path="/products/add" element={<AddProduct />} />
+        <Route path="/products/add-refurbished" element={<AddRefurbishedProduct />} />
         <Route path="/inventory" element={<StockManagement />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/returns" element={<Returns />} />

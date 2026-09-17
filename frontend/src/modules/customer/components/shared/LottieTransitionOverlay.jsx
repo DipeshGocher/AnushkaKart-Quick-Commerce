@@ -8,10 +8,20 @@ const LottieTransitionOverlay = ({ isVisible, isNetworkLoading, onComplete }) =>
 
     React.useEffect(() => {
         if (lottieRef.current) {
-            // Adjust the speed as necessary, 1.5 means 1.5x speed
-            lottieRef.current.setSpeed(1.5);
+            // 2.2x speed ensures animation completes in ~2.1 seconds
+            lottieRef.current.setSpeed(2.2);
         }
     }, [isVisible]);
+
+    // Cap transition display time to ~2.2s so it never takes too long
+    React.useEffect(() => {
+        if (!isVisible) return;
+        const timer = setTimeout(() => {
+            if (onComplete) onComplete();
+        }, 2200);
+
+        return () => clearTimeout(timer);
+    }, [isVisible, onComplete]);
 
     return (
         <AnimatePresence>

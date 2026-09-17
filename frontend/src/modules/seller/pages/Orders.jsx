@@ -680,7 +680,7 @@ const Orders = () => {
                     {/* Quick View Summary Modal */}
                     <AnimatePresence>
                         {isQuickViewModalOpen && (
-                            <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4">
+                            <div className="fixed inset-0 z-[2000] flex items-center justify-center p-3 sm:p-4">
                                 <motion.div
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
@@ -740,7 +740,7 @@ const Orders = () => {
                     </AnimatePresence>
                     <AnimatePresence>
                         {isDetailsModalOpen && selectedOrder && (
-                            <div className="fixed inset-0 z-[100] flex items-stretch sm:items-center justify-center p-3 sm:p-6 lg:p-12">
+                            <div className="fixed inset-0 z-[2000] flex items-stretch sm:items-center justify-center p-3 sm:p-6 lg:p-12">
                                 <motion.div
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}

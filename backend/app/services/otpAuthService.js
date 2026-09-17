@@ -94,11 +94,14 @@ export async function issueCustomerOtp({
   name = "",
   rawPhone,
   flow,
+  avatar = "",
+  profileImage = "",
   referralCode,
   ipAddress = "unknown",
 }) {
   const phone = normalizeAndValidatePhone(rawPhone);
   const now = new Date();
+  const chosenAvatar = avatar || profileImage || "";
 
   const sendAllowed = await incrementWindowCounter(`otp:send:phone:${phone}`, {
     limit: OTP_SEND_LIMIT_PER_WINDOW(),
@@ -130,11 +133,19 @@ export async function issueCustomerOtp({
     customer = await Customer.create({
       name: name || "Customer",
       phone,
+      avatar: chosenAvatar,
+      profileImage: chosenAvatar,
       isVerified: false,
     });
     customer = await Customer.findById(customer._id).select(
       "+otpHash +otpExpiresAt +otpFailedAttempts +otpLockedUntil +otpLastSentAt +otpSessionVersion +otp +otpExpiry",
     );
+  } else if (chosenAvatar || name) {
+    if (chosenAvatar) {
+      customer.avatar = chosenAvatar;
+      customer.profileImage = chosenAvatar;
+    }
+    if (name && name !== "Customer") customer.name = name;
   }
 
   if (referralCode && !customer.referredBy) {

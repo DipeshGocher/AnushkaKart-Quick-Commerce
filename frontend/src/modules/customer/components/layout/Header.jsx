@@ -120,8 +120,8 @@ const Header = () => {
 
                         {/* Weather Widget */}
                         {weatherEnabled && (
-                            <div className="hidden md:flex items-center gap-1.5 bg-pink-50/80 border border-pink-100/50 px-3 py-1.5 rounded-full text-[#E60067] font-bold text-sm shadow-sm">
-                                {ActiveWeatherIcon && <ActiveWeatherIcon size={16} className="fill-current text-[#E60067]" />}
+                            <div className="hidden md:flex items-center gap-1.5 bg-orange-50/80 border border-orange-100/50 px-3 py-1.5 rounded-full text-orange-600 font-bold text-sm shadow-sm">
+                                {ActiveWeatherIcon && <ActiveWeatherIcon size={16} className="fill-current text-orange-600" />}
                                 <span>{settings?.weather?.condition || 'Rain'}</span>
                             </div>
                         )}
@@ -172,16 +172,7 @@ const Header = () => {
 
                     {/* Desktop Right Icons */}
                     <div className="hidden md:flex items-center gap-4">
-                        <Link to="/wishlist" className="relative flex items-center justify-center p-2 hover:bg-slate-50 rounded-full transition-colors group">
-                            <Heart className="h-6 w-6 text-slate-600 group-hover:text-[var(--primary)] transition-colors" />
-                            {wishlistCount > 0 && (
-                                <span className="absolute top-0 right-0 h-5 w-5 rounded-full bg-primary text-[10px] font-bold text-white flex items-center justify-center border-2 border-white shadow-sm animate-in zoom-in duration-300">
-                                    {wishlistCount}
-                                </span>
-                            )}
-                        </Link>
-
-                        <Link to="/checkout" id="header-cart-icon" className="relative flex items-center justify-center p-2 hover:bg-slate-50 rounded-full transition-colors group">
+                        <Link to="/cart" className="relative flex items-center justify-center p-2 hover:bg-slate-50 rounded-full transition-colors group" title="My Cart">
                             <ShoppingCart className="h-6 w-6 text-slate-600 group-hover:text-[var(--primary)] transition-colors" />
                             {cartCount > 0 && (
                                 <span className="absolute top-0 right-0 h-5 w-5 rounded-full bg-primary text-[10px] font-bold text-white flex items-center justify-center border-2 border-white shadow-sm animate-in zoom-in duration-300">
@@ -190,7 +181,16 @@ const Header = () => {
                             )}
                         </Link>
 
-                        <Link to="/profile" className="flex items-center justify-center">
+                        <Link to="/wishlist" className="relative flex items-center justify-center p-2 hover:bg-slate-50 rounded-full transition-colors group" title="Wishlist">
+                            <Heart className="h-6 w-6 text-slate-600 group-hover:text-[var(--primary)] transition-colors" />
+                            {wishlistCount > 0 && (
+                                <span className="absolute top-0 right-0 h-5 w-5 rounded-full bg-primary text-[10px] font-bold text-white flex items-center justify-center border-2 border-white shadow-sm animate-in zoom-in duration-300">
+                                    {wishlistCount}
+                                </span>
+                            )}
+                        </Link>
+
+                        <Link to="/profile" className="flex items-center justify-center" title="Profile">
                             <User className="h-6 w-6 text-slate-600 hover:text-[var(--primary)] transition-colors" />
                         </Link>
                     </div>

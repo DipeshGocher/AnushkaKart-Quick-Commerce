@@ -18,7 +18,15 @@ const NotificationsPage = () => {
         try {
             setLoading(true);
             const response = await customerApi.getNotifications();
-            const fetchedNotifications = response.data?.data?.notifications || [];
+            const resData = response.data;
+            const fetchedNotifications =
+                resData?.result?.items ||
+                resData?.result?.notifications ||
+                resData?.data?.notifications ||
+                resData?.data?.items ||
+                (Array.isArray(resData?.results) ? resData.results : []) ||
+                (Array.isArray(resData?.result) ? resData.result : []) ||
+                [];
             setNotifications(fetchedNotifications);
 
             // Auto mark as read if there are unread ones
@@ -46,7 +54,9 @@ const NotificationsPage = () => {
     };
 
     const timeAgo = (date) => {
+        if (!date) return "";
         const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+        if (isNaN(seconds) || seconds < 0) return "Just now";
         let interval = seconds / 31536000;
         if (interval > 1) return Math.floor(interval) + " years ago";
         interval = seconds / 2592000;
@@ -69,7 +79,7 @@ const NotificationsPage = () => {
     }
 
     return (
-        <div className="min-h-screen bg-white pb-24 font-['Outfit',_sans-serif]">
+        <div className="min-h-screen bg-[#f1f4f8] pb-24 font-['Outfit',_sans-serif]">
             <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-sm px-4 pt-4 pb-3 border-b border-slate-200/60 mb-4 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <button
@@ -92,7 +102,7 @@ const NotificationsPage = () => {
                 {notifications.length > 0 ? (
                     notifications.map((notification) => (
                         <div
-                            key={notification.id}
+                            key={notification.id || notification._id}
                             className={`p-4 rounded-2xl border flex gap-4 ${notification.isRead
                                     ? "bg-white border-slate-100"
                                     : "bg-primary/5 border-primary/20"
@@ -108,11 +118,11 @@ const NotificationsPage = () => {
                                         {notification.title}
                                     </h3>
                                     <span className="text-[10px] text-slate-400 whitespace-nowrap pt-1">
-                                        {timeAgo(notification.createdAt)}
+                                        {timeAgo(notification.createdAt || notification.sentAt)}
                                     </span>
                                 </div>
                                 <p className={`mt-1 text-sm ${notification.isRead ? "text-slate-500" : "text-slate-700"}`}>
-                                    {notification.message}
+                                    {notification.body || notification.message}
                                 </p>
                             </div>
                         </div>

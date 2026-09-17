@@ -280,7 +280,7 @@ const AddressesPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-white pb-24 font-['Outfit',_sans-serif]">
+        <div className="min-h-screen bg-[#f1f4f8] pb-24 font-['Outfit',_sans-serif]">
             <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 pt-4 pb-3 border-b border-slate-100 mb-4 flex items-center gap-2">
                 <button
                     onClick={() => navigate(-1)}
@@ -311,7 +311,7 @@ const AddressesPage = () => {
                         </div>
                     ) : addresses.length === 0 ? (
                         <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm text-center">
-                            <div className="w-12 h-12 rounded-full bg-pink-50/80 border border-pink-100 flex items-center justify-center text-[#E60067] mx-auto mb-3">
+                            <div className="w-12 h-12 rounded-full bg-orange-50/80 border border-orange-100 flex items-center justify-center text-orange-600 mx-auto mb-3">
                                 <span className="text-xl">📍</span>
                             </div>
                             <p className="text-slate-700 font-semibold mb-1">No saved addresses</p>
@@ -326,7 +326,7 @@ const AddressesPage = () => {
                             )}
 
                             <div className="flex items-start gap-3.5">
-                                <div className={`w-11 h-11 rounded-full border flex items-center justify-center shadow-2xs flex-shrink-0 ${addr.type === 'Home' ? 'bg-pink-50/80 border-pink-100 text-[#E60067]' :
+                                <div className={`w-11 h-11 rounded-full border flex items-center justify-center shadow-2xs flex-shrink-0 ${addr.type === 'Home' ? 'bg-orange-50/80 border-orange-100 text-orange-600' :
                                         addr.type === 'Work' ? 'bg-purple-50/80 border-purple-100 text-purple-700' :
                                             'bg-emerald-50/80 border-emerald-100 text-emerald-700'
                                     }`}>
@@ -418,7 +418,7 @@ const AddressesPage = () => {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsAddOpen(false)} disabled={saving}>Cancel</Button>
-                        <Button className="bg-primary hover:bg-[#0b721b]" onClick={handleSaveNewAddress} disabled={saving}>{saving ? 'Saving...' : 'Save Address'}</Button>
+                        <Button className="bg-primary hover:bg-orange-600" onClick={handleSaveNewAddress} disabled={saving}>{saving ? 'Saving...' : 'Save Address'}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -479,7 +479,7 @@ const AddressesPage = () => {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsEditOpen(false)} disabled={updating}>Cancel</Button>
-                        <Button className="bg-primary hover:bg-[#0b721b]" onClick={handleUpdateAddress} disabled={updating}>{updating ? 'Updating...' : 'Update Address'}</Button>
+                        <Button className="bg-primary hover:bg-orange-600" onClick={handleUpdateAddress} disabled={updating}>{updating ? 'Updating...' : 'Update Address'}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

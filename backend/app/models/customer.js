@@ -42,6 +42,16 @@ const userSchema = new mongoose.Schema(
             trim: true,
         },
 
+        avatar: {
+            type: String,
+            trim: true,
+        },
+
+        profileImage: {
+            type: String,
+            trim: true,
+        },
+
         phone: {
             type: String,
             required: true,

@@ -179,7 +179,7 @@ const KitAddonManagement = () => {
 
             {/* Form Modal */}
             {showForm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
                         <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-100 rounded-t-3xl flex items-center justify-between">
                             <h2 className="text-xl font-black text-slate-900">

@@ -18,8 +18,8 @@ export const warehouseApi = {
     deleteProduct: (id) => axiosInstance.delete(`/products/${id}`),
 
     // Categories (Public)
-    getCategories: () => axiosInstance.get('/admin/categories'),
-    getCategoryTree: () => axiosInstance.get('/admin/categories?tree=true'),
+    getCategories: (params) => axiosInstance.get('/admin/categories', { params }),
+    getCategoryTree: (params) => axiosInstance.get('/admin/categories?tree=true', { params }),
 
     // Dashboard & Stats
     getStats: (range) => axiosInstance.get('/warehouse/stats', { params: { range } }),

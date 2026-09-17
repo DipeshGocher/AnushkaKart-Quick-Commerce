@@ -20,7 +20,7 @@ export function shiftHex(hex, amount) {
     .join("")}`;
 }
 
-const DEFAULT_BASE = "#E60067";
+const DEFAULT_BASE = "#FF5722";
 
 /** Blend hex toward white (t=0 base, t≈1 near-white). */
 export function mixHexWithWhite(hex, t) {

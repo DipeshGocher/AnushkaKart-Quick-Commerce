@@ -24,7 +24,7 @@ const colorMap = {
   green:
     "text-brand-600 bg-brand-50 border-brand-100 group-hover:bg-brand-100/50",
   sky: "text-brand-600 bg-brand-50 border-brand-100 group-hover:bg-brand-100/50",
-  pink: "text-pink-600 bg-pink-50 border-pink-100 group-hover:bg-pink-100/50",
+  pink: "text-orange-600 bg-orange-50 border-orange-100 group-hover:bg-orange-100/50",
   fuchsia:
     "text-fuchsia-600 bg-fuchsia-50 border-fuchsia-100 group-hover:bg-fuchsia-100/50",
   red: "text-red-600 bg-red-50 border-red-100 group-hover:bg-red-100/50",
@@ -343,7 +343,7 @@ const Sidebar = ({ items, title, isOpen, onClose }) => {
       {/* Mobile Sidebar (Drawer) */}
       <AnimatePresence mode="wait">
         {isOpen && (
-          <div className="fixed inset-0 z-[100] md:hidden">
+          <div className="fixed inset-0 z-[1500] md:hidden">
             {/* Backdrop Overlay */}
             <motion.div
               initial={{ opacity: 0 }}

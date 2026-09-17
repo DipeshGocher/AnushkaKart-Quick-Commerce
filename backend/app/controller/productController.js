@@ -169,6 +169,8 @@ function parseJsonIfString(value) {
 
 function normalizeUrl(value) {
   const normalized = String(value || "").trim();
+  if (!normalized) return "";
+  if (normalized.startsWith("/") || normalized.startsWith("uploads/") || normalized.startsWith("data:")) return normalized;
   if (!/^https?:\/\//i.test(normalized)) return "";
   return normalized;
 }
@@ -303,10 +305,30 @@ export const getProducts = async (req, res) => {
       sort,
       lat,
       lng,
+      conditionType,
+      brand,
     } = req.query;
     const enforceRadius = isCustomerVisibilityRequest(req);
 
     const query = {};
+    if (conditionType && conditionType !== "all") {
+      query.conditionType = conditionType;
+    } else if (!conditionType) {
+      // Exclude refurbished products from default home page/shop catalog feeds
+      query.conditionType = { $ne: "refurbished" };
+    }
+
+    if (brand && brand !== "all") {
+      const brandStr = String(brand).trim();
+      if (brandStr) {
+        const brandRegex = new RegExp(brandStr.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+        query.$or = [
+          { brand: brandRegex },
+          { name: brandRegex },
+          { tags: brandRegex }
+        ];
+      }
+    }
     if (search) {
       const term = String(search).trim();
       if (term) {
@@ -349,9 +371,23 @@ export const getProducts = async (req, res) => {
           }
 
           if (orClauses.length > 1) {
-            query.$or = orClauses;
+            if (query.$or) {
+              query.$and = query.$and || [];
+              query.$and.push({ $or: query.$or });
+              query.$and.push({ $or: orClauses });
+              delete query.$or;
+            } else {
+              query.$or = orClauses;
+            }
           } else if (orClauses.length === 1) {
-            Object.assign(query, orClauses[0]);
+            if (query.$or) {
+              query.$and = query.$and || [];
+              query.$and.push({ $or: query.$or });
+              query.$and.push(orClauses[0]);
+              delete query.$or;
+            } else {
+              Object.assign(query, orClauses[0]);
+            }
           }
         }
       }
@@ -368,18 +404,17 @@ export const getProducts = async (req, res) => {
 
     const requestedSellerIds = parseSellerIdFilters({ sellerId, sellerIds });
     const coords = parseCustomerCoordinates({ lat, lng });
-    const shouldApplyLocationFilter = enforceRadius || coords.valid;
-    if (enforceRadius && !coords.valid) {
-      return handleResponse(
-        res,
-        400,
-        "lat and lng are required for customer product visibility",
-      );
-    }
+    
+    // For refurbished products, do not restrict by tight quick-commerce location radius
+    // For general products, fallback to default coordinates if lat/lng are missing rather than returning 400 error
+    const effectiveLat = coords.valid ? coords.lat : 22.7196;
+    const effectiveLng = coords.valid ? coords.lng : 75.8577;
+
+    const shouldApplyLocationFilter = enforceRadius && conditionType !== "refurbished";
     if (shouldApplyLocationFilter) {
       const nearbySellerIds = await getNearbySellerIdsForCustomer(
-        coords.lat,
-        coords.lng,
+        effectiveLat,
+        effectiveLng,
       );
 
       const nearbySet = new Set(nearbySellerIds.map(String));
@@ -503,7 +538,7 @@ export const getProducts = async (req, res) => {
       const [rawProducts, total] = await Promise.all([
         Product.find(finalQuery)
           .select(
-            "name slug description sku price salePrice stock brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants createdAt",
+            "name slug description sku price salePrice stock brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants highlights conditionType refurbishedDetails createdAt",
           )
           // No .populate() — names resolved via cache-backed entityNameCache
           .sort(sortQuery)
@@ -570,7 +605,7 @@ export const getProducts = async (req, res) => {
     };
 
     const role = String(req.user?.role || "").toLowerCase();
-    const shouldCache = !role || (role !== "admin" && role !== "seller");
+    const shouldCache = (!role || (role !== "admin" && role !== "seller")) && conditionType !== "refurbished";
 
     const result = shouldCache
       ? await getOrSet(buildProductListKey(req.query), fetchFn, getTTL("productList"))
@@ -635,7 +670,7 @@ export const getSellerProducts = async (req, res) => {
     ] = await Promise.all([
       Product.find(query)
         .select(
-          "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants createdAt",
+          "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants highlights conditionType refurbishedDetails createdAt",
         )
         .populate("headerId", "name")
         .populate("categoryId", "name")
@@ -780,13 +815,13 @@ export const createProduct = async (req, res) => {
               variantImagesMap[vIndex] = [];
             }
             variantImagesMap[vIndex].push(url);
-          } else if (file.fieldname === "mainImage" || file.fieldname === "image") {
+          } else if (file.fieldname === "mainImage" || file.fieldname === "image" || file.fieldname === "mainImageFile") {
             uploadedMainImage = await uploadToCloudinary(file.buffer, "products", {
               mimeType: file.mimetype,
               resourceType: "image",
               originalName: file.originalname,
             });
-          } else if (file.fieldname === "galleryImages" || file.fieldname.startsWith("galleryImage_")) {
+          } else if (file.fieldname === "galleryImages" || file.fieldname.startsWith("galleryImage_") || file.fieldname === "galleryFiles") {
             const url = await uploadToCloudinary(file.buffer, "products/gallery", {
               mimeType: file.mimetype,
               resourceType: "image",
@@ -861,6 +896,13 @@ export const createProduct = async (req, res) => {
         // Not JSON
       }
     }
+    if (typeof productData.refurbishedDetails === "string") {
+      try {
+        productData.refurbishedDetails = JSON.parse(productData.refurbishedDetails);
+      } catch (e) {
+        // Not JSON
+      }
+    }
 
     if (!productData.name) {
       return handleResponse(res, 400, "Product name is required");
@@ -877,6 +919,11 @@ export const createProduct = async (req, res) => {
       typeof productData.description === "string"
         ? productData.description.trim()
         : productData.description || "";
+
+    // Normalize subcategoryId: if empty/invalid ObjectId, set to null so Mongoose schema accepts it
+    if (!productData.subcategoryId || !mongoose.Types.ObjectId.isValid(String(productData.subcategoryId))) {
+      productData.subcategoryId = null;
+    }
 
     // Auto-generate product SKU if missing
     if (!productData.sku || String(productData.sku).trim() === "") {
@@ -996,13 +1043,13 @@ export const updateProduct = async (req, res) => {
               variantImagesMap[vIndex] = [];
             }
             variantImagesMap[vIndex].push(url);
-          } else if (file.fieldname === "mainImage" || file.fieldname === "image") {
+          } else if (file.fieldname === "mainImage" || file.fieldname === "image" || file.fieldname === "mainImageFile") {
             uploadedMainImage = await uploadToCloudinary(file.buffer, "products", {
               mimeType: file.mimetype,
               resourceType: "image",
               originalName: file.originalname,
             });
-          } else if (file.fieldname === "galleryImages" || file.fieldname.startsWith("galleryImage_")) {
+          } else if (file.fieldname === "galleryImages" || file.fieldname.startsWith("galleryImage_") || file.fieldname === "galleryFiles") {
             const url = await uploadToCloudinary(file.buffer, "products/gallery", {
               mimeType: file.mimetype,
               resourceType: "image",
@@ -1080,6 +1127,13 @@ export const updateProduct = async (req, res) => {
         // Not JSON
       }
     }
+    if (typeof productData.refurbishedDetails === "string") {
+      try {
+        productData.refurbishedDetails = JSON.parse(productData.refurbishedDetails);
+      } catch (e) {
+        // Not JSON
+      }
+    }
 
     if (productData.name) {
       if (!productData.slug || productData.slug.trim() === "") {
@@ -1094,6 +1148,13 @@ export const updateProduct = async (req, res) => {
         typeof productData.description === "string"
           ? productData.description.trim()
           : productData.description || "";
+    }
+
+    // Normalize subcategoryId: if provided but empty/invalid ObjectId, set to null
+    if (productData.subcategoryId !== undefined) {
+      if (!productData.subcategoryId || !mongoose.Types.ObjectId.isValid(String(productData.subcategoryId))) {
+        productData.subcategoryId = null;
+      }
     }
 
     const skuBaseName = productData.name || product.name;
@@ -1152,7 +1213,7 @@ export const updateProduct = async (req, res) => {
 
     // Enqueue search indexing asynchronously
     await enqueueProductIndex(id);
-    await invalidate(`cache:catalog:product:${id}`);
+    await invalidate(buildKey("catalog", "product", id));
 
     try {
       await invalidate(buildKey("catalog", "productList", "*"));
@@ -1262,7 +1323,7 @@ export const getProductById = async (req, res) => {
         const query = isObjectId ? { _id: id } : { slug: id };
         return Product.findOne(query)
           .select(
-            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId isMonthlyKit status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants createdAt",
+            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId isMonthlyKit status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants highlights createdAt",
           )
           .populate("headerId", "name")
           .populate("categoryId", "name")
@@ -1425,7 +1486,7 @@ export const getModerationProducts = async (req, res) => {
       await Promise.all([
         Product.find(moderatedQuery)
           .select(
-            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants createdAt",
+            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants highlights createdAt",
           )
           .populate("headerId", "name")
           .populate("categoryId", "name")
@@ -1502,7 +1563,7 @@ export const approveProduct = async (req, res) => {
     }
 
     await enqueueProductIndex(id);
-    await invalidate(`cache:catalog:product:${id}`);
+    await invalidate(buildKey("catalog", "product", id));
     await invalidate(buildKey("catalog", "productList", "*"));
     await invalidate("cache:offersections:public:*");
 
@@ -1543,7 +1604,7 @@ export const rejectProduct = async (req, res) => {
     }
 
     await enqueueProductIndex(id);
-    await invalidate(`cache:catalog:product:${id}`);
+    await invalidate(buildKey("catalog", "product", id));
     await invalidate(buildKey("catalog", "productList", "*"));
     await invalidate("cache:offersections:public:*");
 

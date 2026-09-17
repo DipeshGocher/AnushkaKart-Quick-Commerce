@@ -19,8 +19,6 @@ import ScrollToTop from '../../modules/customer/components/shared/ScrollToTop';
 // Public Pages
 import Auth from '../../modules/seller/pages/Auth';
 import ApplicationPending from '../../modules/seller/pages/ApplicationPending';
-import WarehouseAuth from '../../modules/warehouse/pages/Auth';
-import WarehouseApplicationPending from '../../modules/warehouse/pages/ApplicationPending';
 import AdminAuth from '../../modules/admin/pages/AdminAuth';
 import DeliveryAuth from '../../modules/delivery/pages/DeliveryAuth';
 import CustomerAuth from '../../modules/customer/pages/CustomerAuth';
@@ -28,8 +26,12 @@ import CustomerAuth from '../../modules/customer/pages/CustomerAuth';
 // Customer Pages (lazy-loaded)
 const Home = lazy(() => import('../../modules/customer/pages/Home'));
 const CategoriesPage = lazy(() => import('../../modules/customer/pages/CategoriesPage'));
+const RefurbishedProductsPage = lazy(() => import('../../modules/customer/pages/RefurbishedProductsPage'));
+const RefurbishedBrandsPage = lazy(() => import('../../modules/customer/pages/RefurbishedBrandsPage'));
+const RefurbishedBrandProductsPage = lazy(() => import('../../modules/customer/pages/RefurbishedBrandProductsPage'));
 const CategoryProductsPage = lazy(() => import('../../modules/customer/pages/CategoryProductsPage'));
 const WishlistPage = lazy(() => import('../../modules/customer/pages/WishlistPage'));
+const CartPage = lazy(() => import('../../modules/customer/pages/CartPage'));
 const OffersPage = lazy(() => import('../../modules/customer/pages/OffersPage'));
 const ShopByStorePage = lazy(() => import('../../modules/customer/pages/ShopByStorePage'));
 const ProfilePage = lazy(() => import('../../modules/customer/pages/ProfilePage'));
@@ -56,7 +58,6 @@ const NotificationsPage = lazy(() => import('../../modules/customer/pages/Notifi
 const SellerModule = lazy(() => import('../../modules/seller/routes/index'));
 const AdminModule = lazy(() => import('../../modules/admin/routes/index'));
 const DeliveryModule = lazy(() => import('../../modules/delivery/routes/index'));
-const WarehouseModule = lazy(() => import('../../modules/warehouse/routes/index'));
 const DynamicLegalPage = lazy(() => import('../../shared/components/DynamicLegalPage'));
 
 import CustomerLayout from '../../modules/customer/components/layout/CustomerLayout';
@@ -114,14 +115,6 @@ const AppRouter = () => {
                     element: <ApplicationPending />,
                 },
                 {
-                    path: 'warehouse/auth',
-                    element: <WarehouseAuth />,
-                },
-                {
-                    path: 'warehouse/pending-approval',
-                    element: <WarehouseApplicationPending />,
-                },
-                {
                     path: 'admin/auth',
                     element: <AdminAuth />,
                 },
@@ -137,14 +130,6 @@ const AppRouter = () => {
                 {
                     path: 'seller/privacy',
                     element: <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}><DynamicLegalPage type="privacy" audience="seller" /></Suspense>,
-                },
-                {
-                    path: 'warehouse/terms',
-                    element: <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}><DynamicLegalPage type="terms" audience="warehouse" /></Suspense>,
-                },
-                {
-                    path: 'warehouse/privacy',
-                    element: <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}><DynamicLegalPage type="privacy" audience="warehouse" /></Suspense>,
                 },
                 {
                     path: 'delivery/support',
@@ -185,16 +170,6 @@ const AppRouter = () => {
                     ),
                 },
                 {
-                    path: 'warehouse/*',
-                    element: (
-                        <ProtectedRoute>
-                            <RoleGuard allowedRoles={[UserRole.WAREHOUSE]}>
-                                <WarehouseModule />
-                            </RoleGuard>
-                        </ProtectedRoute>
-                    ),
-                },
-                {
                     path: 'unauthorized',
                     element: <div className="flex h-screen items-center justify-center font-outfit">Unauthorized Access</div>,
                 },
@@ -203,6 +178,12 @@ const AppRouter = () => {
                     children: [
                         { index: true, element: <Home /> },
                         { path: 'categories', element: <CategoriesPage /> },
+                        { path: 'refurbished', element: <RefurbishedProductsPage /> },
+                        { path: 'refurbished/brands', element: <Navigate to="/refurbished" replace /> },
+                        { path: 'refurbished/brands/products', element: <RefurbishedBrandProductsPage /> },
+                        { path: 'refurbished/products', element: <RefurbishedBrandProductsPage /> },
+                        { path: 'refurbished/cart', element: <CartPage /> },
+                        { path: 'refurbished/wishlist', element: <WishlistPage /> },
                         { path: 'category/:categoryName', element: <CategoryProductsPage /> },
                         { path: 'product/:id', element: <ProductDetailPage /> },
                         { path: 'kit/:id', element: <KitDetailPage /> },
@@ -211,6 +192,7 @@ const AppRouter = () => {
                         { path: 'about', element: <AboutPage /> },
                         { path: 'offers', element: <OffersPage /> },
                         { path: 'shop-by-store', element: <ShopByStorePage /> },
+                        { path: 'cart', element: <CartPage /> },
                         { path: 'wishlist', element: <ProtectedRoute><WishlistPage /></ProtectedRoute> },
                         { path: 'orders', element: <ProtectedRoute><OrdersPage /></ProtectedRoute> },
                         { path: 'orders/:orderId', element: <ProtectedRoute><OrderDetailPage /></ProtectedRoute> },

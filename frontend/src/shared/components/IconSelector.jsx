@@ -1,37 +1,38 @@
 import React, { useState } from 'react';
-import { categoryIcons } from '../constants/categoryIcons';
+import { categoryIcons, refurbishedCategoryIcons } from '../constants/categoryIcons';
 import { Search, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-// MUI icon library (same as customer app categories)
-import HomeIcon from '@mui/icons-material/Home';
-import DevicesIcon from '@mui/icons-material/Devices';
-import LocalGroceryStoreIcon from '@mui/icons-material/LocalGroceryStore';
-import KitchenIcon from '@mui/icons-material/Kitchen';
-import ChildCareIcon from '@mui/icons-material/ChildCare';
-import PetsIcon from '@mui/icons-material/Pets';
-import SportsSoccerIcon from '@mui/icons-material/SportsSoccer';
-import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
-import SpaIcon from '@mui/icons-material/Spa';
-import ToysIcon from '@mui/icons-material/Toys';
-import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
-import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
-import YardIcon from '@mui/icons-material/Yard';
-import BusinessCenterIcon from '@mui/icons-material/BusinessCenter';
-import MusicNoteIcon from '@mui/icons-material/MusicNote';
-import CheckroomIcon from '@mui/icons-material/Checkroom';
-import LocalCafeIcon from '@mui/icons-material/LocalCafe';
-import DiamondIcon from '@mui/icons-material/Diamond';
-import ColorLensIcon from '@mui/icons-material/ColorLens';
-import BuildIcon from '@mui/icons-material/Build';
-import LuggageIcon from '@mui/icons-material/Luggage';
-
-const IconSelector = ({ selectedIcon, onSelect, onClose }) => {
+const IconSelector = ({ selectedIcon, onSelect, onClose, electronicsOnly = false, catalogType }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Map our internal icon ids to MUI icon components
+  const isElectronics = electronicsOnly || catalogType === "refurbished";
+  const sourceIcons = isElectronics ? refurbishedCategoryIcons : categoryIcons;
+
   const iconComponents = {
+    // Electronics & Gadget Icons
+    smartphone: "📱",
+    laptop: "💻",
+    tablet: "📱",
+    headphones: "🎧",
+    smartwatch: "⌚",
+    tv: "📺",
+    gamepad: "🎮",
+    camera: "📷",
+    desktop: "🖥️",
+    earbuds: "🎧",
+    speaker: "🔊",
+    usb: "💾",
+    powerbank: "🔋",
+    remote: "🎛️",
+    microphone: "🎙️",
+    webcam: "📹",
+    radio: "📻",
+    cable: "🔌",
+    handheld_game: "👾",
+    gadgets: "⚡",
+
+    // General Category Icons
     electronics: "📱",
     fashion: "👕",
     home: "🏠",
@@ -62,12 +63,12 @@ const IconSelector = ({ selectedIcon, onSelect, onClose }) => {
     festival: "🎉",
   };
 
-  const filteredIcons = categoryIcons.filter(icon =>
+  const filteredIcons = sourceIcons.filter(icon =>
     icon.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -76,8 +77,14 @@ const IconSelector = ({ selectedIcon, onSelect, onClose }) => {
 
         {/* Header */}
         <div className="p-6 border-b border-gray-100 flex justify-between items-center shrink-0">
-          <h2 className="text-lg font-bold text-gray-900">Select Category Icon</h2>
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Select Electronic Category Icon</h2>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              {isElectronics ? "Electronics & Gadget Icons" : "General Category Icons"}
+            </p>
+          </div>
           <button
+            type="button"
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors">
             <X className="w-6 h-6" />
@@ -90,7 +97,7 @@ const IconSelector = ({ selectedIcon, onSelect, onClose }) => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Search icons..."
+              placeholder="Search electronic icons (e.g. mobile, laptop, earbuds, tv)..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
@@ -104,6 +111,7 @@ const IconSelector = ({ selectedIcon, onSelect, onClose }) => {
             {filteredIcons.map((icon) => (
               <button
                 key={icon.id}
+                type="button"
                 onClick={() => onSelect(icon.id)}
                 className={`
                   flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl transition-all duration-300 group
@@ -147,16 +155,29 @@ const IconSelector = ({ selectedIcon, onSelect, onClose }) => {
 
           {filteredIcons.length === 0 && (
             <div className="text-center py-8 text-gray-500">
-              No icons found matching "{searchTerm}"
+              No electronic icons found matching "{searchTerm}"
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end shrink-0">
+        <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
+          {selectedIcon ? (
+            <button
+              type="button"
+              onClick={() => {
+                onSelect("");
+                onClose();
+              }}
+              className="px-3.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors flex items-center gap-1.5">
+              <X className="w-4 h-4" />
+              Remove Selected Icon
+            </button>
+          ) : <div />}
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-black  text-primary-foreground rounded-lg hover:bg-brand-700 font-medium transition-colors">
+            className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 font-medium transition-colors text-sm">
             Done
           </button>
         </div>

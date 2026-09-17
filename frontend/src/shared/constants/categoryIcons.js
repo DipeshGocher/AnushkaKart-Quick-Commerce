@@ -1,7 +1,151 @@
 // Category Icon Library
 // SVG icons for header categories
 
+export const refurbishedCategoryIcons = [
+  {
+    id: 'smartphone',
+    name: 'Mobile Phone',
+    category: 'electronics',
+    emoji: '📱',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`
+  },
+  {
+    id: 'laptop',
+    name: 'Laptop & Notebook',
+    category: 'electronics',
+    emoji: '💻',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/></svg>`
+  },
+  {
+    id: 'tablet',
+    name: 'Tablet & iPad',
+    category: 'electronics',
+    emoji: '📱',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`
+  },
+  {
+    id: 'headphones',
+    name: 'Headphones & Earbuds',
+    category: 'electronics',
+    emoji: '🎧',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>`
+  },
+  {
+    id: 'smartwatch',
+    name: 'Smartwatch & Band',
+    category: 'electronics',
+    emoji: '⌚',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="3"/><path d="M9 2h6v4H9zM9 18h6v4H9z"/></svg>`
+  },
+  {
+    id: 'tv',
+    name: 'Smart TV & Display',
+    category: 'electronics',
+    emoji: '📺',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`
+  },
+  {
+    id: 'gamepad',
+    name: 'Gaming Consoles',
+    category: 'electronics',
+    emoji: '🎮',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="15" cy="11" r="1"/><circle cx="17" cy="13" r="1"/><path d="M17.8 20a4.4 4.4 0 0 0 3.2-4.4V8a4.4 4.4 0 0 0-4.4-4.4H7.4A4.4 4.4 0 0 0 3 8v7.6a4.4 4.4 0 0 0 3.2 4.4l2.8 1.4c.6.3 1.2 0 1.5-.6L12 14l1.5 2.4c.3.6.9.9 1.5.6z"/></svg>`
+  },
+  {
+    id: 'camera',
+    name: 'Camera & DSLR',
+    category: 'electronics',
+    emoji: '📷',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`
+  },
+  {
+    id: 'desktop',
+    name: 'Desktop PC & Monitor',
+    category: 'electronics',
+    emoji: '🖥️',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`
+  },
+  {
+    id: 'earbuds',
+    name: 'Wireless Earbuds TWS',
+    category: 'electronics',
+    emoji: '🎧',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>`
+  },
+  {
+    id: 'speaker',
+    name: 'Bluetooth Speaker',
+    category: 'electronics',
+    emoji: '🔊',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><circle cx="12" cy="14" r="3"/><circle cx="12" cy="6" r="1"/></svg>`
+  },
+  {
+    id: 'usb',
+    name: 'USB & Memory Drive',
+    category: 'electronics',
+    emoji: '💾',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12v6H6z"/><path d="M4 8h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"/></svg>`
+  },
+  {
+    id: 'powerbank',
+    name: 'Power Bank & Charger',
+    category: 'electronics',
+    emoji: '🔋',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="10" rx="2"/><line x1="22" y1="11" x2="22" y2="13"/></svg>`
+  },
+  {
+    id: 'remote',
+    name: 'Remote Control',
+    category: 'electronics',
+    emoji: '🎛️',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><circle cx="12" cy="6" r="1"/><circle cx="12" cy="10" r="1"/><circle cx="12" cy="14" r="1"/></svg>`
+  },
+  {
+    id: 'microphone',
+    name: 'Microphone & Mic',
+    category: 'electronics',
+    emoji: '🎙️',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>`
+  },
+  {
+    id: 'webcam',
+    name: 'Webcam & Video Cam',
+    category: 'electronics',
+    emoji: '📹',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="8"/><circle cx="12" cy="10" r="3"/><path d="M7 22h10"/><line x1="12" y1="18" x2="12" y2="22"/></svg>`
+  },
+  {
+    id: 'radio',
+    name: 'Radio & Tuner',
+    category: 'electronics',
+    emoji: '📻',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="8" width="20" height="14" rx="2"/><path d="M6 8l10-6"/><circle cx="8" cy="15" r="2"/></svg>`
+  },
+  {
+    id: 'cable',
+    name: 'Power Cable & Plug',
+    category: 'electronics',
+    emoji: '🔌',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8H6v4a6 6 0 0 0 12 0V8z"/></svg>`
+  },
+  {
+    id: 'handheld_game',
+    name: 'Handheld Gaming Console',
+    category: 'electronics',
+    emoji: '👾',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="3"/><rect x="8" y="9" width="8" height="6" rx="1"/></svg>`
+  },
+  {
+    id: 'gadgets',
+    name: 'Smart Gadgets & Electronics',
+    category: 'electronics',
+    emoji: '⚡',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`
+  }
+];
+
 export const categoryIcons = [
+  ...refurbishedCategoryIcons,
   {
     id: 'electronics',
     name: 'Electronics',
@@ -145,7 +289,10 @@ export const categoryIcons = [
 ];
 
 export const getIconById = (id) => {
-  return categoryIcons.find(icon => icon.id === id);
+  return (
+    refurbishedCategoryIcons.find((icon) => icon.id === id) ||
+    categoryIcons.find((icon) => icon.id === id)
+  );
 };
 
 export const getIconSvg = (id) => {

@@ -7,13 +7,18 @@ export const customerApi = {
     axiosInstance.post("/customer/send-signup-otp", data),
   verifyOtp: (data) => axiosInstance.post("/customer/verify-otp", data),
   getProfile: () => getWithDedupe("/customer/profile", {}, { ttl: 5000 }), // Short cache for profile
-  updateProfile: (data) => axiosInstance.put("/customer/profile", data),
+  updateProfile: (data) => {
+    invalidateCache("/customer/profile");
+    return axiosInstance.put("/customer/profile", data);
+  },
   deleteAccount: () => axiosInstance.delete("/customer/delete-account"),
   getWalletTransactions: (params) =>
     getWithDedupe("/customer/transactions", params),
   getCategories: (params) =>
     getWithDedupe("/categories", params, { ttl: 60 * 1000 }), // 1 min for categories
-  getProducts: (params) => getWithDedupe("/products", params),
+  getProducts: (params) => getWithDedupe("/products", params, { forceRefresh: true }),
+  getRefurbishedProducts: (params) =>
+    getWithDedupe("/products", { ...params, conditionType: "refurbished" }, { forceRefresh: true }),
   getProductById: (id, params) => getWithDedupe(`/products/${id}`, params),
 
   // Sellers & Location

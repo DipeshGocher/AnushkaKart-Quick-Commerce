@@ -501,15 +501,66 @@ const Home = () => {
 
   const productsById = useMemo(() => { const map = {}; displayProducts.forEach((p) => { map[p._id || p.id] = p; }); return map; }, [displayProducts]);
   const effectiveQuickCategories = useMemo(() => {
-    const ids = heroConfig.categoryIds || [];
-    if (ids.length > 0) { const resolved = ids.map((id) => displayCategoryMap[id]).filter(Boolean).map((c) => ({ id: c._id, name: c.name, image: c.image || "https://cdn-icons-png.flaticon.com/128/2321/2321831.png" })); if (resolved.length > 0) return resolved; }
+    if (activeCategory && activeCategory._id !== "all" && activeCategory.id !== "all") {
+      const activeHeaderId = String(activeCategory._id || activeCategory.id);
+
+      const filteredByParent = Object.values(displayCategoryMap)
+        .filter(
+          (c) =>
+            c.type === "category" &&
+            String(c.parentId || c.headerId) === activeHeaderId
+        )
+        .map((c) => ({
+          id: c._id,
+          name: c.name,
+          image: c.image || "https://cdn-icons-png.flaticon.com/128/2321/2321831.png",
+          parentId: c.parentId,
+        }));
+
+      if (filteredByParent.length > 0) {
+        const heroIds = heroConfig?.categoryIds || [];
+        if (heroIds.length > 0) {
+          const heroIdSet = new Set(heroIds.map(String));
+          const heroMatched = filteredByParent.filter((c) => heroIdSet.has(String(c.id)));
+          if (heroMatched.length > 0) return heroMatched;
+        }
+        return filteredByParent;
+      }
+
+      return [];
+    }
+
+    const ids = heroConfig?.categoryIds || [];
+    if (ids.length > 0) {
+      const resolved = ids
+        .map((id) => displayCategoryMap[id])
+        .filter(Boolean)
+        .map((c) => ({
+          id: c._id,
+          name: c.name,
+          image: c.image || "https://cdn-icons-png.flaticon.com/128/2321/2321831.png",
+          parentId: c.parentId,
+        }));
+      if (resolved.length > 0) return resolved;
+    }
     return displayQuickCategories;
-  }, [heroConfig.categoryIds, displayCategoryMap, displayQuickCategories]);
+  }, [
+    activeCategory,
+    heroConfig?.categoryIds,
+    displayCategoryMap,
+    displayQuickCategories,
+  ]);
 
   useEffect(() => {
-    if (activeCategory && activeCategory._id !== "all" && effectiveQuickCategories.length > 0) {
-      setExpandedCategoryId(effectiveQuickCategories[0].id || effectiveQuickCategories[0]._id);
-    } else if (activeCategory && activeCategory._id === "all") {
+    if (activeCategory && activeCategory._id !== "all" && activeCategory.id !== "all") {
+      if (effectiveQuickCategories.length > 0) {
+        setExpandedCategoryId(
+          effectiveQuickCategories[0].id || effectiveQuickCategories[0]._id
+        );
+      } else {
+        setExpandedCategoryId(null);
+      }
+    } else {
       setExpandedCategoryId(null);
     }
   }, [activeCategory, effectiveQuickCategories]);
@@ -534,7 +585,7 @@ const Home = () => {
   };
 
   return (
-    <div className="min-h-screen pt-[210px] md:pt-[220px] bg-white">
+    <div className="min-h-screen pt-[210px] md:pt-[220px] bg-[#f1f4f8]">
       <MainLocationHeader categories={displayCategories} activeCategory={activeCategory} onCategorySelect={setActiveCategory} />
 
       <>
@@ -581,7 +632,7 @@ const Home = () => {
             <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-100 shadow-sm">
               <div className="flex items-center justify-between mb-3 px-1">
                 <h4 className="text-sm font-bold text-slate-800">
-                  {effectiveQuickCategories.find(c => c.id === expandedCategoryId)?.name} {getTranslatedText("Subcategories")}
+                  {effectiveQuickCategories.find(c => String(c.id || c._id) === String(expandedCategoryId))?.name || displayCategoryMap[expandedCategoryId]?.name} {getTranslatedText("Subcategories")}
                 </h4>
                 <button
                   onClick={() => {
@@ -595,7 +646,7 @@ const Home = () => {
               </div>
               <div className="grid grid-cols-4 gap-2">
                 {Object.values(displaySubcategoryMap)
-                  .filter(sub => sub.parentId === expandedCategoryId)
+                  .filter(sub => String(sub.parentId?._id || sub.parentId) === String(expandedCategoryId))
                   .map(sub => (
                     <div
                       key={sub._id}
@@ -617,7 +668,7 @@ const Home = () => {
                       </span>
                     </div>
                   ))}
-                {Object.values(displaySubcategoryMap).filter(sub => sub.parentId === expandedCategoryId).length === 0 && (
+                {Object.values(displaySubcategoryMap).filter(sub => String(sub.parentId?._id || sub.parentId) === String(expandedCategoryId)).length === 0 && (
                   <div className="col-span-4 text-center py-4 text-xs text-slate-400 font-medium">
                     {getTranslatedText("No subcategories found.")}
                   </div>
@@ -658,7 +709,11 @@ const Home = () => {
         
         <LowestPriceSection products={displayProducts} onSeeAll={() => navigate("/category/all")} />
         <MonthlyBasketSection />
-        <CategoryShowcase categoryMap={displayCategoryMap} subcategoryMap={displaySubcategoryMap} />
+        <CategoryShowcase
+          categoryMap={displayCategoryMap}
+          subcategoryMap={displaySubcategoryMap}
+          activeHeaderId={activeCategory && activeCategory._id !== "all" && activeCategory.id !== "all" ? (activeCategory._id || activeCategory.id) : null}
+        />
         
         {sectionsForRenderer.filter(s => s.displayType === "multiple_banners").length > 0 && (
           <div className="container mx-auto px-4 md:px-8 lg:px-[50px] py-2 md:py-4">

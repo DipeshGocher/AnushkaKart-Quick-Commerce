@@ -23,18 +23,61 @@ import { toast } from "sonner";
 import { sellerApi } from "../services/sellerApi";
 
 export const PRESET_HIGHLIGHT_ICONS = [
+  // Organic & Food
   { id: "leaf", emoji: "🌿", name: "Natural / Organic" },
   { id: "avocado", emoji: "🥑", name: "Farm Fresh" },
   { id: "zap", emoji: "⚡", name: "High Protein" },
   { id: "sprout", emoji: "🌱", name: "Source of Fiber" },
-  { id: "shield", emoji: "🛡️", name: "Quality / Certified" },
-  { id: "heart", emoji: "❤️", name: "Healthy / Low Fat" },
-  { id: "star", emoji: "⭐", name: "Premium Quality" },
-  { id: "truck", emoji: "🚚", name: "Fast Express Delivery" },
   { id: "wheat", emoji: "🌾", name: "Whole Grain / Pure" },
   { id: "sugarfree", emoji: "🍬", name: "Sugar Free" },
   { id: "sun", emoji: "☀️", name: "Sun Dried" },
-  { id: "smile", emoji: "😊", name: "Chemical Free" },
+  { id: "smile", emoji: "🚫", name: "Chemical Free" },
+  { id: "apple", emoji: "🍎", name: "100% Fresh Produce" },
+  { id: "milk", emoji: "🥛", name: "Pure Dairy" },
+
+  // Beauty & Personal Care
+  { id: "sparkles", emoji: "✨", name: "Dermatologically Tested" },
+  { id: "droplet", emoji: "💧", name: "100% Hydrating" },
+  { id: "flower", emoji: "🌸", name: "Cruelty & Paraben Free" },
+  { id: "lotion", emoji: "🧴", name: "UV Protection" },
+  { id: "mirror", emoji: "🪞", name: "Glow & Radiance" },
+  { id: "leaf2", emoji: "🍃", name: "100% Herbal" },
+
+  // Trust & Quality
+  { id: "shield", emoji: "🛡️", name: "100% Original / Authentic" },
+  { id: "star", emoji: "⭐", name: "Premium Quality" },
+  { id: "heart", emoji: "❤️", name: "Healthy / Low Fat" },
+  { id: "trophy", emoji: "🏆", name: "Best Seller / Top Rated" },
+  { id: "badge", emoji: "🏅", name: "Certified Quality" },
+
+  // Delivery & Service
+  { id: "truck", emoji: "🚚", name: "Fast Express Delivery" },
+  { id: "repeat", emoji: "🔄", name: "Easy Returns / Warranty" },
+  { id: "gift", emoji: "🎁", name: "Gift Pack Eligible" },
+
+  // Electronics & Tech
+  { id: "battery", emoji: "🔋", name: "Long Battery Life" },
+  { id: "wireless", emoji: "📶", name: "Bluetooth / Wireless" },
+  { id: "cpu", emoji: "💻", name: "High Speed Performance" },
+  { id: "plug", emoji: "🔌", name: "Fast Charging" },
+  { id: "snowflake", emoji: "❄️", name: "Energy Efficient" },
+  { id: "volume", emoji: "🔊", name: "Premium Sound" },
+
+  // Fashion & Apparel
+  { id: "cotton", emoji: "🧵", name: "100% Pure Fabric" },
+  { id: "shirt", emoji: "👕", name: "Breathable Material" },
+  { id: "scissors", emoji: "✂️", name: "Custom Tailored" },
+  { id: "wash", emoji: "🧼", name: "Color Fast & Washable" },
+
+  // Sports & Fitness
+  { id: "fitness", emoji: "🏋️", name: "Durable / Pro Grade" },
+  { id: "fire", emoji: "🔥", name: "High Energy Boost" },
+  { id: "water", emoji: "💧", name: "Sweat & Water Resistant" },
+
+  // Monthly Kits & Packs
+  { id: "box", emoji: "📦", name: "Monthly Supply" },
+  { id: "family", emoji: "👨‍👩‍👧‍👦", name: "Family Pack" },
+  { id: "value", emoji: "💰", name: "Best Value" },
 ];
 
 const AddProduct = () => {
@@ -77,11 +120,20 @@ const AddProduct = () => {
     mainImage: null,
     galleryImages: [],
     highlights: [
-      { icon: "leaf", label: "100% Natural" },
-      { icon: "avocado", label: "Farm Fresh" },
-      { icon: "zap", label: "High Protein" },
-      { icon: "sprout", label: "Source of Fiber" },
+      { icon: "", label: "" },
+      { icon: "", label: "" },
+      { icon: "", label: "" },
+      { icon: "", label: "" },
     ],
+    conditionType: "new",
+    refurbishedDetails: {
+      grade: "Grade A (Superb)",
+      batteryHealth: 90,
+      warrantyMonths: 6,
+      imeiNumber: "",
+      qcPassed: true,
+      boxItems: ["Charger", "Original Box"],
+    },
     variants: [
       {
         id: Date.now(),
@@ -141,6 +193,22 @@ const AddProduct = () => {
 
   const categories = dbCategories;
 
+  const selectedHeader = useMemo(() => {
+    return categories.find((h) => String(h._id || h.id || "") === String(formData.header || ""));
+  }, [categories, formData.header]);
+
+  const availableCategories = useMemo(() => {
+    return selectedHeader?.children || [];
+  }, [selectedHeader]);
+
+  const selectedCategory = useMemo(() => {
+    return availableCategories.find((c) => String(c._id || c.id || "") === String(formData.category || ""));
+  }, [availableCategories, formData.category]);
+
+  const availableSubcategories = useMemo(() => {
+    return selectedCategory?.children || selectedCategory?.subcategories || [];
+  }, [selectedCategory]);
+
   const handleSave = async () => {
     // Validate required fields
     if (!formData.name) {
@@ -148,9 +216,13 @@ const AddProduct = () => {
       return;
     }
 
-    // Validate all three category levels are selected
-    if (!formData.header || !formData.category || !formData.subcategory) {
-      toast.error("Please select all three category levels: Main Group, Specific Category, and Sub-Category");
+    if (!formData.header || !formData.category) {
+      toast.error("Please select Main Group and Specific Category");
+      return;
+    }
+
+    if (availableSubcategories.length > 0 && !formData.subcategory) {
+      toast.error("Please select a Sub-Category");
       return;
     }
 
@@ -189,9 +261,9 @@ const AddProduct = () => {
       data.append("stock", firstVariant.stock);
 
       // Category IDs
-      data.append("headerId", formData.header);
-      data.append("categoryId", formData.category);
-      data.append("subcategoryId", formData.subcategory);
+      if (formData.header) data.append("headerId", formData.header);
+      if (formData.category) data.append("categoryId", formData.category);
+      if (formData.subcategory) data.append("subcategoryId", formData.subcategory);
 
       // Images (now handled via variants)
 
@@ -214,7 +286,18 @@ const AddProduct = () => {
       });
 
       // Highlights
-      data.append("highlights", JSON.stringify(formData.highlights || []));
+      const cleanedHighlights = (formData.highlights || [])
+        .filter((h) => h && ((typeof h.label === "string" && h.label.trim().length > 0) || (typeof h.icon === "string" && h.icon.trim().length > 0)))
+        .map((h) => ({
+          icon: typeof h.icon === "string" ? h.icon.trim() : "",
+          label: typeof h.label === "string" ? h.label.trim() : "",
+        }));
+      data.append("highlights", JSON.stringify(cleanedHighlights));
+
+      data.append("conditionType", formData.conditionType || "new");
+      if (formData.conditionType === "refurbished") {
+        data.append("refurbishedDetails", JSON.stringify(formData.refurbishedDetails || {}));
+      }
 
       const response = await sellerApi.createProduct(data);
       const approvalStatus = response?.data?.result?.approvalStatus;
@@ -293,6 +376,7 @@ const AddProduct = () => {
             { id: "variants", label: "Item Variants", icon: HiOutlineSwatch },
             { id: "category", label: "Groups", icon: HiOutlineFolderOpen },
             { id: "highlights", label: "Highlights", icon: HiOutlineSparkles },
+            { id: "refurbished", label: "Refurbished Specs", icon: HiOutlineCube },
 
           ].map((tab) => (
             <button
@@ -709,20 +793,22 @@ const AddProduct = () => {
                     disabled={!formData.header}
                     className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-md text-sm font-bold outline-none cursor-pointer focus:ring-2 focus:ring-primary/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                     <option value="">Select Category</option>
-                    {categories
-                      .find((h) => (h._id || h.id) === formData.header)
-                      ?.children?.map((c) => (
-                        <option key={c._id || c.id} value={c._id || c.id}>
-                          {c.name}
-                        </option>
-                      ))}
+                    {availableCategories.map((c) => (
+                      <option key={c._id || c.id} value={c._id || c.id}>
+                        {c.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-6">
                 <div className="space-y-1.5 flex flex-col">
                   <label className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">
-                    Sub-Category <span className="text-rose-500">*</span>
+                    Sub-Category {availableSubcategories.length > 0 ? (
+                      <span className="text-rose-500">*</span>
+                    ) : (
+                      <span className="text-slate-400 font-normal lowercase">(Optional - None available)</span>
+                    )}
                   </label>
                   <select
                     value={formData.subcategory}
@@ -731,15 +817,20 @@ const AddProduct = () => {
                     }
                     disabled={!formData.category}
                     className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-md text-sm font-bold outline-none cursor-pointer focus:ring-2 focus:ring-primary/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                    <option value="">Select Sub-Category</option>
-                    {categories
-                      .find((h) => (h._id || h.id) === formData.header)
-                      ?.children?.find((c) => (c._id || c.id) === formData.category)
-                      ?.children?.map((sc) => (
-                        <option key={sc._id || sc.id} value={sc._id || sc.id}>
-                          {sc.name}
-                        </option>
-                      ))}
+                    {!formData.category ? (
+                      <option value="">Select Category First</option>
+                    ) : availableSubcategories.length === 0 ? (
+                      <option value="">No Sub-Category for this Category</option>
+                    ) : (
+                      <>
+                        <option value="">Select Sub-Category</option>
+                        {availableSubcategories.map((sc) => (
+                          <option key={sc._id || sc.id} value={sc._id || sc.id}>
+                            {sc.name}
+                          </option>
+                        ))}
+                      </>
+                    )}
                   </select>
                 </div>
               </div>
@@ -761,44 +852,68 @@ const AddProduct = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[0, 1, 2, 3].map((slotIdx) => {
-                  const currentHighlight = formData.highlights?.[slotIdx] || { icon: "leaf", label: "" };
+                  const currentHighlight = formData.highlights?.[slotIdx] || { icon: "", label: "" };
+                  const selectedPreset = PRESET_HIGHLIGHT_ICONS.find((i) => i.id === currentHighlight.icon);
                   return (
                     <div key={slotIdx} className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100 space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                           Highlight #{slotIdx + 1}
                         </span>
-                        <span className="text-xl">
-                          {PRESET_HIGHLIGHT_ICONS.find((i) => i.id === currentHighlight.icon)?.emoji || "🌿"}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {(currentHighlight.icon || currentHighlight.label) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const nextHL = [...(formData.highlights || [])];
+                                nextHL[slotIdx] = { icon: "", label: "" };
+                                setFormData({ ...formData, highlights: nextHL });
+                              }}
+                              className="text-[11px] font-bold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded-md transition-colors"
+                            >
+                              Remove
+                            </button>
+                          )}
+                          <span className="text-xl">
+                            {selectedPreset?.emoji || "✨"}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Icon Selector Grid */}
                       <div>
                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
-                          Select Icon
+                          Select Icon (Clicking sets icon & title)
                         </label>
                         <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1.5 bg-white rounded-xl border border-slate-200">
-                          {PRESET_HIGHLIGHT_ICONS.map((ic) => (
-                            <button
-                              key={ic.id}
-                              type="button"
-                              onClick={() => {
-                                const nextHL = [...(formData.highlights || [])];
-                                nextHL[slotIdx] = { ...currentHighlight, icon: ic.id };
-                                setFormData({ ...formData, highlights: nextHL });
-                              }}
-                              className={cn(
-                                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border",
-                                currentHighlight.icon === ic.id
-                                  ? "bg-brand-50 border-primary text-primary shadow-xs"
-                                  : "bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100"
-                              )}
-                            >
-                              <span>{ic.emoji}</span>
-                              <span className="text-[10px]">{ic.name}</span>
-                            </button>
-                          ))}
+                          {PRESET_HIGHLIGHT_ICONS.map((ic) => {
+                            const isSelected = currentHighlight.icon === ic.id;
+                            return (
+                              <button
+                                key={ic.id}
+                                type="button"
+                                onClick={() => {
+                                  const nextHL = [...(formData.highlights || [])];
+                                  if (isSelected) {
+                                    nextHL[slotIdx] = { icon: "", label: "" };
+                                  } else {
+                                    nextHL[slotIdx] = { icon: ic.id, label: ic.name };
+                                  }
+                                  setFormData({ ...formData, highlights: nextHL });
+                                }}
+                                className={cn(
+                                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border",
+                                  isSelected
+                                    ? "bg-amber-500 border-amber-600 text-white shadow-xs ring-2 ring-amber-300"
+                                    : "bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100"
+                                )}
+                              >
+                                <span>{ic.emoji}</span>
+                                <span className="text-[10px]">{ic.name}</span>
+                                {isSelected && <span className="text-[10px] ml-0.5 font-black">✓</span>}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
 
@@ -815,7 +930,7 @@ const AddProduct = () => {
                             nextHL[slotIdx] = { ...currentHighlight, label: e.target.value };
                             setFormData({ ...formData, highlights: nextHL });
                           }}
-                          placeholder="e.g. 100% Natural"
+                          placeholder="e.g. Dermatologically Tested"
                           className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-primary/10"
                         />
                       </div>
@@ -823,6 +938,124 @@ const AddProduct = () => {
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {modalTab === "refurbished" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+              <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/5 p-4 rounded-2xl border border-orange-200/80">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900">Refurbished / Second-Hand Phone Details</h3>
+                    <p className="text-xs text-slate-500 font-medium">Specify device condition grade, battery health, warranty and box contents</p>
+                  </div>
+                  <div className="bg-orange-500 text-white px-4 py-1.5 rounded-xl text-xs font-black shadow-xs">
+                    ✓ Refurbished Selected
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Device Grade</label>
+                    <select
+                      value={formData.refurbishedDetails?.grade || 'Grade A (Superb)'}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        conditionType: 'refurbished',
+                        refurbishedDetails: { ...(formData.refurbishedDetails || {}), grade: e.target.value }
+                      })}
+                      className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-xs font-bold outline-none"
+                    >
+                      <option value="Grade A (Superb)">Grade A (Superb) - Scratchless, pristine like-new condition</option>
+                      <option value="Grade B (Good)">Grade B (Good) - Minor cosmetic scuffs, 100% functional</option>
+                      <option value="Grade C (Fair)">Grade C (Fair) - Visible scratches, fully tested & working</option>
+                    </select>
+                  </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Battery Health (%)</label>
+                      <input
+                        type="number"
+                        min="50"
+                        max="100"
+                        value={formData.refurbishedDetails?.batteryHealth ?? 90}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          refurbishedDetails: { ...(formData.refurbishedDetails || {}), batteryHealth: Number(e.target.value) }
+                        })}
+                        className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-xs font-bold outline-none"
+                        placeholder="e.g. 92"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Seller Warranty (Months)</label>
+                      <select
+                        value={formData.refurbishedDetails?.warrantyMonths ?? 6}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          refurbishedDetails: { ...(formData.refurbishedDetails || {}), warrantyMonths: Number(e.target.value) }
+                        })}
+                        className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-xs font-bold outline-none"
+                      >
+                        <option value={0}>No Warranty</option>
+                        <option value={3}>3 Months Warranty</option>
+                        <option value={6}>6 Months Warranty</option>
+                        <option value={12}>12 Months Warranty</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">IMEI / Serial Number (Optional)</label>
+                      <input
+                        type="text"
+                        value={formData.refurbishedDetails?.imeiNumber || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          refurbishedDetails: { ...(formData.refurbishedDetails || {}), imeiNumber: e.target.value }
+                        })}
+                        className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-xs font-bold outline-none"
+                        placeholder="15-digit IMEI or Serial number"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Box items */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Box Contents (Included Items)</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['Charger', 'Original Box', 'USB Cable', 'Bill / Invoice', 'Earphones', 'SIM Ejector Tool'].map((boxItem) => {
+                        const currentBoxItems = formData.refurbishedDetails?.boxItems || [];
+                        const isChecked = currentBoxItems.includes(boxItem);
+                        return (
+                          <button
+                            key={boxItem}
+                            type="button"
+                            onClick={() => {
+                              const updated = isChecked
+                                ? currentBoxItems.filter((i) => i !== boxItem)
+                                : [...currentBoxItems, boxItem];
+                              setFormData({
+                                ...formData,
+                                refurbishedDetails: { ...(formData.refurbishedDetails || {}), boxItems: updated }
+                              });
+                            }}
+                            className={cn(
+                              "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all",
+                              isChecked
+                                ? "bg-orange-500 border-orange-600 text-white shadow-xs"
+                                : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                            )}
+                          >
+                            {isChecked ? '✓ ' : '+ '}{boxItem}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
             </div>
           )}
         </div>

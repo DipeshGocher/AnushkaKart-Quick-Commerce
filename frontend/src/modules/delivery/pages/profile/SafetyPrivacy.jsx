@@ -180,7 +180,7 @@ const SafetyPrivacy = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white pb-24">
+    <div className="min-h-screen bg-[#f1f4f8] pb-24">
       {/* Header */}
       <div className="bg-white shadow-sm sticky top-0 z-10">
         <div className="flex items-center p-4">
@@ -270,7 +270,7 @@ const SafetyPrivacy = () => {
               contacts.map((contact, idx) => (
                 <Card
                   key={contact._id || idx}
-                  className="p-4 flex justify-between items-center card-left-pill-magenta"
+                  className="p-4 flex justify-between items-center card-left-pill-orange"
                 >
                   <div>
                     <h4 className="font-bold text-gray-800">{contact.name}</h4>
@@ -353,7 +353,7 @@ const SafetyPrivacy = () => {
           <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
             <Lock size={20} className="mr-2 text-primary" /> Privacy Settings
           </h2>
-          <Card className="divide-y divide-gray-100 card-left-pill-magenta">
+          <Card className="divide-y divide-gray-100 card-left-pill-orange">
             <div className="p-4 flex justify-between items-center">
               <div>
                 <h4 className="font-medium text-gray-800">

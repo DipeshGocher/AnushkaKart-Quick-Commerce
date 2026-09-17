@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Header from './Header';
 import Footer from './Footer';
 import BottomNav from './BottomNav';
@@ -13,6 +14,8 @@ import { useAuth } from '@core/context/AuthContext';
 import { onReturnPickupOtp, onReturnDropOtp } from '@core/services/orderSocket';
 import { toast } from 'sonner';
 import { ShieldCheck, Package } from 'lucide-react';
+
+import RefurbishedBottomNav from './RefurbishedBottomNav';
 
 const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = false, showCart: showCartProp, showBottomNav: showBottomNavProp }) => {
     const location = useLocation();
@@ -79,19 +82,20 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
 
     // Route-based visibility logic
     const path = location.pathname.replace(/\/$/, '') || '/';
+    const isRefurbishedSection = location.pathname.startsWith('/refurbished');
 
-    const hideHeaderRoutes = ['/', '/categories', '/orders', '/transactions', '/profile', '/profile/edit', '/wishlist', '/addresses', '/wallet', '/help', '/privacy', '/about', '/support', '/checkout', '/search', '/chat', '/notifications'];
-    const hideBottomNavRoutes = ['/checkout', '/search', '/chat'];
+    const hideHeaderRoutes = ['/', '/refurbished', '/categories', '/orders', '/transactions', '/profile', '/profile/edit', '/wishlist', '/addresses', '/wallet', '/help', '/privacy', '/about', '/support', '/checkout', '/search', '/chat', '/notifications', '/cart'];
+    const hideBottomNavRoutes = ['/checkout', '/search', '/chat', '/refurbished/brands'];
     const hideCartRoutes = ['/checkout', '/search', '/chat'];
 
     // If props are passed, use them. Otherwise, use route-based logic.
-    const showHeader = showHeaderProp !== undefined ? showHeaderProp : (!hideHeaderRoutes.includes(path) && !path.startsWith('/category') && !path.startsWith('/orders'));
-    const showBottomNav = showBottomNavProp !== undefined ? showBottomNavProp : !hideBottomNavRoutes.includes(path);
+    const showHeader = showHeaderProp !== undefined ? showHeaderProp : (!hideHeaderRoutes.includes(path) && !path.startsWith('/category') && !path.startsWith('/orders') && !path.startsWith('/refurbished'));
+    const showBottomNav = showBottomNavProp !== undefined ? showBottomNavProp : (!hideBottomNavRoutes.includes(path) && !path.startsWith('/refurbished/brands'));
     const showCart = showCartProp !== undefined ? showCartProp : (!hideCartRoutes.includes(path) && !path.startsWith('/orders'));
 
     // Condition to hide the MobileFooterMessage ("Sab kuchh ek basket mein") on specific pages
     const hideFooterMessageRoutes = ['/profile', '/profile/edit'];
-    const showFooterMessage = showBottomNav && !hideFooterMessageRoutes.includes(path) && !path.startsWith('/category');
+    const showFooterMessage = showBottomNav && !hideFooterMessageRoutes.includes(path) && !path.startsWith('/category') && !isRefurbishedSection;
 
     // Hide elements on mobile only when product detail is open
     // On desktop, we want to keep the header visible even if the modal is open
@@ -116,15 +120,29 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
             )}
 
             <main className={cn("flex-1 md:pb-0", showHeader ? "pt-[100px] md:pt-[130px]" : "pt-0")}>
-                {children}
+                <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                        key={location.pathname}
+                        initial={{ opacity: 0, y: 28 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -12 }}
+                        transition={{
+                            duration: 0.32,
+                            ease: [0.22, 1, 0.36, 1],
+                        }}
+                        className="w-full flex-1 flex flex-col"
+                    >
+                        {children}
+                    </motion.div>
+                </AnimatePresence>
             </main>
 
-            {showCart && <MiniCart />}
+            {showCart && !isRefurbishedSection && <MiniCart />}
             <ProductDetailSheet />
             <VariantSelectionSheet />
 
             <div className="hidden md:block">
-                <Footer />
+                {showBottomNav && <Footer />}
             </div>
 
             {/* Mobile Footer Message logic */}
@@ -143,11 +161,15 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
 
             {/* Bottom Nav logic */}
             <div className="md:hidden">
-                {finalShowBottomNavMobile && <BottomNav />}
+                {finalShowBottomNavMobile && (
+                    isRefurbishedSection ? <RefurbishedBottomNav /> : <BottomNav />
+                )}
             </div>
             {/* Desktop Bottom Nav doesn't exist usually, but just in case of future changes */}
             <div className="hidden md:block">
-                {showBottomNav && <BottomNav />}
+                {showBottomNav && (
+                    isRefurbishedSection ? <RefurbishedBottomNav /> : <BottomNav />
+                )}
             </div>
         </div>
     );

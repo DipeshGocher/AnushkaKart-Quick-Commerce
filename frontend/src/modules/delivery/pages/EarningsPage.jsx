@@ -127,9 +127,13 @@ const EarningsPage = () => {
   }
 
   return (
-    <div className="bg-gray-50/50 min-h-screen pb-24">
+    <div className="bg-[#f1f4f8] min-h-screen pb-24">
       {/* Header & Sticky Area */}
-      <div className="bg-white sticky top-0 z-30 px-5 pt-12 pb-4 shadow-sm border-b border-slate-100">
+      <div 
+        style={{
+          background: "linear-gradient(180deg, rgba(255, 87, 34, 0.90) 0%, rgba(255, 112, 67, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%)"
+        }}
+        className="sticky top-0 z-30 px-5 pt-12 pb-4 shadow-2xs border-b border-orange-200/50 backdrop-blur-md">
         <div className="flex items-center justify-between mb-6">
           <button onClick={() => navigate(-1)} className="p-1 -ml-1">
             <ChevronLeft size={24} className="text-gray-900" />
@@ -146,7 +150,7 @@ const EarningsPage = () => {
               onClick={() => setActiveTab(tab)}
               className={`flex-1 py-2 text-sm font-bold rounded-full transition-all capitalize ${
                 activeTab === tab
-                  ? "bg-[#E60067] text-white shadow-sm"
+                  ? "bg-[#FF5722] text-white shadow-sm"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
@@ -291,7 +295,7 @@ const EarningsPage = () => {
                             (txn._id ? txn._id.toString().slice(-6).toUpperCase() : "N/A")}
                         </p>
                         {resolveTipAmount(txn) > 0 && (
-                          <p className="text-[11px] font-bold text-pink-600">
+                          <p className="text-[11px] font-bold text-orange-600">
                             Includes tip: {RUPEE}{resolveTipAmount(txn).toLocaleString()}
                           </p>
                         )}

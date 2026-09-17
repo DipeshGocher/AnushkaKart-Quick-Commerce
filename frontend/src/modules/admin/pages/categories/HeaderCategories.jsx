@@ -104,7 +104,7 @@ const HeaderCategories = () => {
   const fetchCategories = async (requestedPage = 1) => {
     setIsLoading(true);
     try {
-      const params = { type: "header", page: requestedPage, limit: pageSize };
+      const params = { type: "header", catalogType: "grocery", page: requestedPage, limit: pageSize };
       if (searchTerm) params.search = searchTerm;
       const res = await adminApi.getCategories(params);
       if (res.data.success) {
@@ -112,8 +112,9 @@ const HeaderCategories = () => {
         const list = Array.isArray(payload.items) ? payload.items : [];
         const allCats = res.data.results || [];
         const headers = list.length > 0 ? list : allCats.filter((c) => c.type === "header");
-        setCategories(headers);
-        setTotal(typeof payload.total === "number" ? payload.total : headers.length);
+        const groceryHeaders = headers.filter((c) => c.catalogType !== "refurbished");
+        setCategories(groceryHeaders);
+        setTotal(typeof payload.total === "number" ? payload.total : groceryHeaders.length);
         setPage(typeof payload.page === "number" ? payload.page : requestedPage);
       }
     } catch (error) {
@@ -141,8 +142,6 @@ const HeaderCategories = () => {
 
   const handleBulkDelete = () => {
     if (selectedItems.length === 0) return;
-    // In a real app, you would have a bulk delete API endpoint
-    // For now, we'll just show a toast
     toast.info(
       `Bulk delete functionality for ${selectedItems.length} items would be triggered here.`,
     );
@@ -158,44 +157,36 @@ const HeaderCategories = () => {
   };
 
   const handleSave = async () => {
-    if (!formData.name || !formData.slug) {
-      toast.error("Name and slug are required");
+    if (!formData.name) {
+      toast.error("Name is required");
       return;
     }
 
     setIsSaving(true);
     try {
-      const data = new FormData();
-      // Ensure type is always header
-      data.append("type", "header");
+      const dataToSend = new FormData();
       Object.keys(formData).forEach((key) => {
-        if (key === "type") return;
-        if (key === "adminCommission" || key === "handlingFees") {
-          data.append(key, formData[key] === "" ? "0" : String(formData[key]));
-          return;
+        if (formData[key] !== null && formData[key] !== undefined) {
+          dataToSend.append(key, formData[key]);
         }
-        data.append(key, formData[key]);
       });
 
       if (imageFile) {
-        data.append("image", imageFile);
-      } else if (previewUrl && !previewUrl.startsWith("blob:")) {
-        data.append("image", previewUrl);
+        dataToSend.append("image", imageFile);
       }
 
       if (editingItem) {
-        await adminApi.updateCategory(editingItem._id || editingItem.id, data);
-        toast.success("Header category updated");
+        await adminApi.updateCategory(editingItem._id || editingItem.id, dataToSend);
+        toast.success("Header category updated successfully");
       } else {
-        await adminApi.createCategory(data);
-        toast.success("Header category created");
+        await adminApi.createCategory(dataToSend);
+        toast.success("Header category created successfully");
       }
+
       setIsAddModalOpen(false);
-      setEditingItem(null);
       fetchCategories(page);
     } catch (error) {
-      console.error(error);
-      toast.error(editingItem ? "Failed to update" : "Failed to create");
+      toast.error(error?.response?.data?.message || "Failed to save category");
     } finally {
       setIsSaving(false);
     }
@@ -223,10 +214,12 @@ const HeaderCategories = () => {
       description: "",
       status: "active",
       type: "header",
+      catalogType: "grocery",
       parentId: null,
       iconId: "",
       adminCommission: "",
       handlingFees: "",
+      sortOrder: 0,
       headerColor: "#FF1E1E",
       headerFontColor: "#111111",
       headerIconColor: "#111111",
@@ -239,12 +232,13 @@ const HeaderCategories = () => {
   const openEditModal = (item) => {
     setEditingItem(item);
     setFormData({
-      name: item.name,
-      slug: item.slug,
+      name: item.name || "",
+      slug: item.slug || "",
       description: item.description || "",
-      status: item.status,
+      status: item.status || "active",
       type: "header",
-      parentId: null,
+      catalogType: item.catalogType || "grocery",
+      parentId: item.parentId || null,
       iconId: item.iconId || "",
       adminCommission: item.adminCommission ?? "",
       handlingFees: item.handlingFees ?? "",
@@ -449,7 +443,7 @@ const HeaderCategories = () => {
       {/* Add/Edit Modal */}
       <AnimatePresence>
         {isAddModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -477,7 +471,7 @@ const HeaderCategories = () => {
                   <div className="flex gap-4">
                     {/* SVG Icon Display */}
                     <div className="flex flex-col items-center gap-2">
-                      <div className="w-24 h-24 rounded-full bg-linear-to-br from-brand-50 to-purple-50 border-2 border-brand-200 flex items-center justify-center">
+                      <div className="w-24 h-24 rounded-full bg-linear-to-br from-brand-50 to-purple-50 border-2 border-brand-200 flex items-center justify-center relative">
                         {formData.iconId && iconComponents[formData.iconId] ? (
                           <div className="text-4xl flex items-center justify-center">
                             {iconComponents[formData.iconId]}
@@ -492,13 +486,34 @@ const HeaderCategories = () => {
                         ) : (
                           <Sparkles className="w-10 h-10 text-brand-300" />
                         )}
+                        {formData.iconId && (
+                          <button
+                            type="button"
+                            onClick={() => setFormData((prev) => ({ ...prev, iconId: "" }))}
+                            className="absolute -top-1 -right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-md"
+                            title="Remove Icon">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setIsIconSelectorOpen(true)}
-                        className="px-3 py-1.5 text-sm bg-black text-primary-foreground rounded-lg hover:bg-brand-700 transition-colors">
-                        {formData.iconId ? 'Change Icon' : 'Select Icon'}
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setIsIconSelectorOpen(true)}
+                          className="px-3 py-1.5 text-xs font-semibold bg-black text-primary-foreground rounded-lg hover:bg-brand-700 transition-colors">
+                          {formData.iconId ? 'Change Icon' : 'Select Icon'}
+                        </button>
+                        {formData.iconId && (
+                          <button
+                            type="button"
+                            onClick={() => setFormData((prev) => ({ ...prev, iconId: "" }))}
+                            className="px-2.5 py-1.5 text-xs font-semibold bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-1"
+                            title="Remove Icon">
+                            <X className="w-3.5 h-3.5" />
+                            Remove
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* OR Divider */}
@@ -508,22 +523,37 @@ const HeaderCategories = () => {
 
                     {/* Image Upload */}
                     <div className="flex flex-col items-center gap-2">
-                      <div
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-24 h-24 rounded-full bg-gray-50 border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-brand-500 overflow-hidden transition-colors">
-                        {previewUrl ? (
-                          <img
-                            src={previewUrl}
-                            alt="Preview"
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="text-center">
-                            <Upload className="w-8 h-8 text-gray-400 mx-auto" />
-                            <span className="text-xs text-gray-500 mt-1">
-                              Upload
-                            </span>
-                          </div>
+                      <div className="relative">
+                        <div
+                          onClick={() => fileInputRef.current?.click()}
+                          className="w-24 h-24 rounded-full bg-gray-50 border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-brand-500 overflow-hidden transition-colors">
+                          {previewUrl ? (
+                            <img
+                              src={previewUrl}
+                              alt="Preview"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="text-center">
+                              <Upload className="w-8 h-8 text-gray-400 mx-auto" />
+                              <span className="text-xs text-gray-500 mt-1">
+                                Upload
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {previewUrl && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setImageFile(null);
+                              setPreviewUrl(null);
+                            }}
+                            className="absolute -top-1 -right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-md"
+                            title="Remove Image">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
                         )}
                       </div>
                       <input
@@ -533,7 +563,22 @@ const HeaderCategories = () => {
                         onChange={handleImageChange}
                         accept="image/*"
                       />
-                      <span className="text-xs text-gray-500">Custom Image</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-gray-500 font-medium">Custom Image</span>
+                        {previewUrl && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setImageFile(null);
+                              setPreviewUrl(null);
+                            }}
+                            className="px-2 py-1 text-xs font-semibold bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-1"
+                            title="Remove Image">
+                            <X className="w-3.5 h-3.5" />
+                            Remove
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <p className="text-xs text-gray-500 text-center">
@@ -780,7 +825,7 @@ const HeaderCategories = () => {
       {/* Delete Confirmation Modal */}
       <AnimatePresence>
         {isDeleteModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}

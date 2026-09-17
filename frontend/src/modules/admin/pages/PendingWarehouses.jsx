@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
@@ -289,7 +289,7 @@ const PendingWarehouses = () => {
             {/* Review Modal */}
             <AnimatePresence>
                 {isReviewModalOpen && viewingWarehouse && (
-                    <div className="fixed inset-0 z-[100] overflow-y-auto">
+                    <div className="fixed inset-0 z-[2000] overflow-y-auto">
                         <div className="min-h-full flex items-center justify-center p-4 lg:p-4">
                             <motion.div
                                 initial={{ opacity: 0 }}

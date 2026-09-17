@@ -1,20 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@core/context/AuthContext';
 import { customerApi } from '../services/customerApi';
+import { invalidateCache } from '@core/api/dedupe';
 import { toast } from 'sonner';
-import { ChevronLeft, Globe, ChevronDown, ArrowRight } from 'lucide-react';
+import { ChevronLeft, ArrowRight, ShoppingBag, ShieldCheck } from 'lucide-react';
 import { useSettings } from '@core/context/SettingsContext';
-import { useTranslation, languages } from '@core/context/LanguageContext';
+import { useTranslation } from '@core/context/LanguageContext';
 import SignInCard2 from '@/components/ui/sign-in-card-2';
 
 const CustomerAuth = () => {
     const navigate = useNavigate();
     const { login } = useAuth();
     const { settings } = useSettings();
-    const { language, setLanguage, t } = useTranslation();
-    const [isLangOpen, setIsLangOpen] = useState(false);
-    const dropdownRef = useRef(null);
+    const { t } = useTranslation();
 
     const [isLogin, setIsLogin] = useState(true);
     const [showOtp, setShowOtp] = useState(false);
@@ -27,16 +26,6 @@ const CustomerAuth = () => {
         otp: '',
         referralCode: '',
     });
-
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setIsLangOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
 
     useEffect(() => {
         let interval = null;
@@ -64,12 +53,15 @@ const CustomerAuth = () => {
 
         setIsLoading(true);
         try {
-            const endpoint = isLogin ? '/customer/auth/send-otp' : '/customer/auth/signup/send-otp';
-            const payload = isLogin
-                ? { phone: formData.phone }
-                : { name: formData.name, phone: formData.phone, referralCode: formData.referralCode };
-
-            await customerApi.post(endpoint, payload);
+            if (isLogin) {
+                await customerApi.sendLoginOtp({ phone: formData.phone });
+            } else {
+                await customerApi.sendSignupOtp({
+                    name: formData.name,
+                    phone: formData.phone,
+                    referralCode: formData.referralCode
+                });
+            }
             toast.success(t('otpSentSuccess'));
             setShowOtp(true);
             setTimer(30);
@@ -90,13 +82,13 @@ const CustomerAuth = () => {
 
         setIsLoading(true);
         try {
-            const endpoint = isLogin ? '/customer/auth/verify-otp' : '/customer/auth/signup/verify-otp';
-            const payload = isLogin
-                ? { phone: formData.phone, otp: formData.otp }
-                : { name: formData.name, phone: formData.phone, otp: formData.otp, referralCode: formData.referralCode };
-
-            const response = await customerApi.post(endpoint, payload);
+            const response = await customerApi.verifyOtp({
+                phone: formData.phone,
+                otp: formData.otp
+            });
             const { token, customer } = response.data.result;
+
+            invalidateCache('/customer/profile');
             login({ ...customer, token, role: 'customer' });
             toast.success(t('loggedInSuccess'));
             navigate('/', { replace: true });
@@ -110,131 +102,68 @@ const CustomerAuth = () => {
 
     return (
         <SignInCard2
-            title={!showOtp ? t('loginSignup') : t('verifyOtp')}
-            subtitle={!showOtp ? (isLogin ? t('enterMobile') : t('createAccount')) : `${t('sentTo')} +91 ${formData.phone}`}
+            icon={showOtp ? ShieldCheck : ShoppingBag}
+            iconBg="bg-gradient-to-br from-[#FF5722] via-[#FF6D00] to-[#0F172A] text-white"
+            iconColor="text-white"
+            title={!showOtp ? (isLogin ? 'Welcome Back' : 'Create Account') : 'Verify OTP'}
+            subtitle={!showOtp ? (isLogin ? 'Login to access your orders' : 'Register to get started') : `${t('sentTo')} +91 ${formData.phone}`}
             logoUrl={settings?.logoUrl || "/logo.png"}
             appName="Anushka Store"
+            footer={
+                !showOtp ? (
+                    <p className="text-xs font-semibold text-slate-500">
+                        {isLogin ? "New user? " : "Already have an account? "}
+                        <button
+                            type="button"
+                            onClick={() => setIsLogin(!isLogin)}
+                            className="text-[#FF5722] font-bold hover:underline transition-colors ml-0.5"
+                        >
+                            {isLogin ? 'Create an account' : 'Login'}
+                        </button>
+                    </p>
+                ) : null
+            }
         >
-            {/* Language Switcher Section */}
-            <div className="mb-6 pb-4 border-b border-white/10 flex flex-col items-center">
-                {/* Desktop Dropdown */}
-                <div ref={dropdownRef} className="hidden md:block relative w-full">
-                    <button
-                        type="button"
-                        onClick={() => setIsLangOpen(!isLangOpen)}
-                        className="w-full flex items-center justify-between bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-200 transition-all focus:outline-none"
-                    >
-                        <div className="flex items-center gap-2">
-                            <Globe size={16} className="text-slate-400" />
-                            <span>{languages.find(l => l.code === language)?.flag} {languages.find(l => l.code === language)?.name}</span>
-                        </div>
-                        <ChevronDown size={16} className={`text-slate-400 transition-transform duration-200 ${isLangOpen ? 'rotate-180' : ''}`} />
-                    </button>
-                    
-                    {isLangOpen && (
-                        <div className="absolute right-0 left-0 mt-2 bg-slate-900 border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden py-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                            {languages.map((lang) => (
-                                <button
-                                    key={lang.code}
-                                    type="button"
-                                    onClick={() => {
-                                        setLanguage(lang.code);
-                                        setIsLangOpen(false);
-                                    }}
-                                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm font-medium transition-colors hover:bg-white/10 ${language === lang.code ? 'bg-blue-600/30 text-blue-400 font-bold' : 'text-slate-300'}`}
-                                >
-                                    <span className="text-base">{lang.flag}</span>
-                                    <span>{lang.name}</span>
-                                </button>
-                            ))}
+            {!showOtp ? (
+                <form className="space-y-4" onSubmit={handleSendOtp}>
+                    {!isLogin && (
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-[11px] font-bold tracking-wider text-[#0F172A] uppercase mb-1.5 px-0.5">
+                                    FULL NAME
+                                </label>
+                                <input
+                                    required
+                                    type="text"
+                                    name="name"
+                                    value={formData.name}
+                                    placeholder="Enter Full Name"
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm font-semibold text-[#0F172A] outline-none placeholder:text-slate-400 focus:bg-white focus:border-[#FF5722] focus:ring-2 focus:ring-[#FF5722]/20 transition-all"
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-bold tracking-wider text-[#0F172A] uppercase mb-1.5 px-0.5">
+                                    REFERRAL CODE (OPTIONAL)
+                                </label>
+                                <input
+                                    type="text"
+                                    name="referralCode"
+                                    value={formData.referralCode}
+                                    placeholder="Enter Referral Code"
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm font-semibold text-[#0F172A] outline-none placeholder:text-slate-400 focus:bg-white focus:border-[#FF5722] focus:ring-2 focus:ring-[#FF5722]/20 transition-all uppercase"
+                                    onChange={(e) => setFormData({ ...formData, referralCode: e.target.value.toUpperCase() })}
+                                />
+                            </div>
                         </div>
                     )}
-                </div>
 
-                {/* Mobile language pills */}
-                <div className="block md:hidden w-full">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                            <Globe size={12} /> Language / भाषा
-                        </span>
-                    </div>
-                    <div className="flex flex-wrap gap-2 justify-start">
-                        {languages.map((lang) => (
-                            <button
-                                key={lang.code}
-                                type="button"
-                                onClick={() => setLanguage(lang.code)}
-                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 ${
-                                    language === lang.code
-                                        ? 'bg-blue-600 border-blue-500 text-white shadow-sm'
-                                        : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
-                                }`}
-                            >
-                                <span>{lang.flag}</span>
-                                <span>{lang.name}</span>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            </div>
-            
-            {!showOtp ? (
-                <>
-                    {/* Mode Toggle Tabs */}
-                    <div className="flex bg-slate-950/80 p-1.5 rounded-2xl mb-6 border border-white/10 relative z-10">
-                        <button
-                            type="button"
-                            onClick={() => setIsLogin(true)}
-                            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
-                                isLogin
-                                    ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md"
-                                    : "text-slate-400 hover:text-white"
-                            }`}
-                        >
-                            Login
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setIsLogin(false)}
-                            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
-                                !isLogin
-                                    ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md"
-                                    : "text-slate-400 hover:text-white"
-                            }`}
-                        >
-                            Sign Up
-                        </button>
-                    </div>
-
-                    <form className="space-y-4" onSubmit={handleSendOtp}>
-                        {!isLogin && (
-                            <div className="space-y-4">
-                                <div className="relative">
-                                    <input
-                                        required
-                                        type="text"
-                                        name="name"
-                                        value={formData.name}
-                                        placeholder={t('fullName')}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-sm font-semibold text-white outline-none placeholder:text-slate-500 focus:bg-white/10 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30 transition-all"
-                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    />
-                                </div>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        name="referralCode"
-                                        value={formData.referralCode}
-                                        placeholder={t('referralCode')}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-sm font-semibold text-white outline-none placeholder:text-slate-500 focus:bg-white/10 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30 transition-all uppercase"
-                                        onChange={(e) => setFormData({ ...formData, referralCode: e.target.value.toUpperCase() })}
-                                    />
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="relative flex items-center border border-white/10 rounded-xl overflow-hidden focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-500/30 transition-all bg-white/5 focus-within:bg-white/10">
-                            <div className="pl-4 pr-3 py-3.5 font-bold text-slate-300 border-r border-white/10 bg-white/5">
+                    <div>
+                        <label className="block text-[11px] font-bold tracking-wider text-[#0F172A] uppercase mb-1.5 px-0.5">
+                            PHONE NUMBER
+                        </label>
+                        <div className="relative flex items-center border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#FF5722] focus-within:ring-2 focus-within:ring-[#FF5722]/20 transition-all bg-slate-50 focus-within:bg-white">
+                            <div className="pl-4 pr-3 py-3.5 font-bold text-[#0F172A] text-sm border-r border-slate-200/80 bg-slate-100/70 shrink-0">
                                 +91
                             </div>
                             <input
@@ -246,41 +175,32 @@ const CustomerAuth = () => {
                                 name="phone"
                                 value={formData.phone}
                                 maxLength={10}
-                                placeholder={isLogin ? "9671310143" : t('mobileNumber')}
-                                className="w-full px-4 py-3.5 text-sm font-semibold text-white outline-none bg-transparent placeholder:text-slate-500"
+                                placeholder="Enter Phone Number"
+                                className="w-full px-4 py-3.5 text-sm font-semibold text-[#0F172A] outline-none bg-transparent placeholder:text-slate-400"
                                 onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })}
                             />
                         </div>
-
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-full mt-2 relative bg-gradient-to-r from-blue-600 via-blue-700 to-orange-500 hover:from-blue-700 hover:to-orange-600 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg hover:shadow-blue-500/25 focus:outline-none focus:ring-2 focus:ring-blue-500/30 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                            <span>{isLoading ? t('pleaseWait') : t('continue')}</span>
-                            <ArrowRight className="w-4 h-4" />
-                        </button>
-                    </form>
-
-                    <div className="mt-6 text-center">
-                        <button
-                            onClick={() => setIsLogin(!isLogin)}
-                            className="text-xs font-semibold text-slate-400 hover:text-white transition-colors"
-                        >
-                            {isLogin ? t('newUser') : t('alreadyAccount')}
-                        </button>
                     </div>
-                </>
+
+                    <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full mt-3 relative bg-gradient-to-r from-[#FF5722] via-[#FF6D00] to-[#0F172A] hover:from-[#FF6D00] hover:to-[#0F172A] active:scale-[0.99] text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md shadow-orange-500/25 focus:outline-none disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
+                    >
+                        <span>{isLoading ? t('pleaseWait') : (isLogin ? 'Continue' : 'Create Account')}</span>
+                        <ArrowRight className="w-4 h-4" />
+                    </button>
+                </form>
             ) : (
                 <>
                     <div className="flex items-center justify-start gap-2 mb-4">
                         <button
                             onClick={() => setShowOtp(false)}
-                            className="text-slate-400 hover:text-white transition-colors p-1"
+                            className="text-slate-500 hover:text-[#0F172A] transition-colors p-1"
                         >
                             <ChevronLeft size={20} />
                         </button>
-                        <span className="text-xs font-medium text-slate-400">Change number</span>
+                        <span className="text-xs font-semibold text-slate-600">Change number</span>
                     </div>
 
                     <form onSubmit={handleVerifyOtp} className="space-y-6">
@@ -290,7 +210,7 @@ const CustomerAuth = () => {
                                     key={i}
                                     type="tel"
                                     maxLength={1}
-                                    className="w-12 h-14 bg-white/5 border border-white/10 rounded-xl text-center text-xl font-bold text-white outline-none focus:bg-white/10 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30 transition-all"
+                                    className="w-12 h-14 bg-slate-50 border border-slate-200 rounded-xl text-center text-xl font-bold text-[#0F172A] outline-none focus:bg-white focus:border-[#FF5722] focus:ring-2 focus:ring-[#FF5722]/20 transition-all"
                                     value={formData.otp[i] || ''}
                                     onKeyDown={(e) => {
                                         const target = /** @type {HTMLInputElement} */ (e.currentTarget);
@@ -318,16 +238,17 @@ const CustomerAuth = () => {
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full relative bg-gradient-to-r from-blue-600 via-blue-700 to-orange-500 hover:from-blue-700 hover:to-orange-600 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg hover:shadow-blue-500/25 focus:outline-none focus:ring-2 focus:ring-blue-500/30 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                className="w-full relative bg-gradient-to-r from-[#FF5722] via-[#FF6D00] to-[#0F172A] hover:from-[#FF6D00] hover:to-[#0F172A] active:scale-[0.99] text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md shadow-orange-500/25 focus:outline-none disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
                             >
-                                {isLoading ? t('verifying') : t('verifyProceed')}
+                                <span>{isLoading ? t('verifying') : t('verifyProceed')}</span>
+                                <ArrowRight className="w-4 h-4" />
                             </button>
                             <div className="flex justify-center">
                                 <button
                                     type="button"
                                     disabled={timer > 0}
                                     onClick={handleSendOtp}
-                                    className={`text-xs font-semibold ${timer > 0 ? 'text-slate-500' : 'text-orange-400 hover:underline'}`}
+                                    className={`text-xs font-semibold ${timer > 0 ? 'text-slate-400' : 'text-[#FF5722] hover:underline'}`}
                                 >
                                     {timer > 0 ? `${t('resendIn')} ${timer}s` : t('resendCode')}
                                 </button>
@@ -339,23 +260,23 @@ const CustomerAuth = () => {
 
             {/* Legal Agreement Footer */}
             {!showOtp && (
-                <div className="pt-6 flex flex-col items-center gap-1.5 border-t border-white/10 mt-6">
-                    <p className="text-[11px] text-slate-500 text-center font-medium">
-                        {t('agreeText')}
+                <div className="pt-5 flex flex-col items-center gap-1 border-t border-slate-100 mt-5">
+                    <p className="text-[11px] text-slate-400 text-center font-medium">
+                        By continuing, you agree to our
                     </p>
                     <div className="flex items-center gap-2">
                         <button 
                             onClick={() => navigate('/support')}
-                            className="text-[11px] font-semibold text-slate-400 hover:text-white transition-colors"
+                            className="text-[11px] font-semibold text-slate-500 hover:text-[#FF5722] transition-colors"
                         >
-                            {t('terms')}
+                            Terms & Conditions
                         </button>
-                        <span className="text-[10px] text-slate-600">•</span>
+                        <span className="text-[10px] text-slate-300">•</span>
                         <button 
                             onClick={() => navigate('/privacy')}
-                            className="text-[11px] font-semibold text-slate-400 hover:text-white transition-colors"
+                            className="text-[11px] font-semibold text-slate-500 hover:text-[#FF5722] transition-colors"
                         >
-                            {t('privacy')}
+                            Privacy Policy
                         </button>
                     </div>
                 </div>

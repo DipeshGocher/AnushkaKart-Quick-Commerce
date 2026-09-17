@@ -91,7 +91,7 @@ const Withdrawals = () => {
     };
 
     return (
-        <div className="min-h-screen bg-white pb-16 font-['Outfit',_sans-serif]">
+        <div className="min-h-screen bg-[#f1f4f8] pb-16 font-['Outfit',_sans-serif]">
             {/* Top Header */}
             <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 pt-4 pb-2 border-b border-slate-100 mb-2 flex items-center gap-2">
                 <button
@@ -105,7 +105,7 @@ const Withdrawals = () => {
 
             <div className="max-w-2xl mx-auto px-4 pt-1 relative z-20 space-y-4">
                 {/* Balance Card */}
-                <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-xs flex items-center justify-between overflow-hidden relative card-left-pill-magenta">
+                <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-xs flex items-center justify-between overflow-hidden relative card-left-pill-orange">
                     {/* Left Column */}
                     <div className="flex flex-col items-start text-left">
                         <p className="text-xs font-bold text-slate-800 tracking-tight">Available Balance</p>
@@ -138,7 +138,7 @@ const Withdrawals = () => {
                 </div>
 
                 {/* History */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden card-left-pill-magenta">
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden card-left-pill-orange">
                     <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                         <h3 className="text-base font-bold text-slate-800">Transfer History</h3>
                         <button
@@ -208,7 +208,7 @@ const Withdrawals = () => {
                         >
                             <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                                 <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                                    <Wallet size={18} className="text-[#E60067]" />
+                                    <Wallet size={18} className="text-[#FF5722]" />
                                     Withdraw Funds
                                 </h3>
                                 <button onClick={() => setIsModalOpen(false)} className="p-1 rounded-full hover:bg-slate-200 text-slate-500 transition-colors">
@@ -227,7 +227,7 @@ const Withdrawals = () => {
                                             placeholder="0.00"
                                             value={amount}
                                             onChange={(e) => setAmount(e.target.value)}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 pl-12 pr-4 font-bold text-xl outline-none focus:border-[#E60067] focus:ring-2 focus:ring-[#E60067]/20 transition-all"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 pl-12 pr-4 font-bold text-xl outline-none focus:border-[#FF5722] focus:ring-2 focus:ring-[#FF5722]/20 transition-all"
                                         />
                                     </div>
                                 </div>
@@ -247,7 +247,7 @@ const Withdrawals = () => {
                                         }
                                     }}
                                     disabled={loading || !amount || Number(amount) <= 0}
-                                    className="w-full py-3.5 rounded-xl font-bold text-sm shadow-md bg-[#E60067] hover:bg-[#C00052] text-white"
+                                    className="w-full py-3.5 rounded-xl font-bold text-sm shadow-md bg-[#FF5722] hover:bg-[#EA580C] text-white"
                                 >
                                     {loading ? <RotateCw className="animate-spin mr-2" size={18} /> : null}
                                     {loading ? "PROCESSING..." : "SUBMIT REQUEST"}

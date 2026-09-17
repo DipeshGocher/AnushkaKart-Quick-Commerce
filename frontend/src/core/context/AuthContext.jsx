@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import axiosInstance from '@core/api/axios';
-import { getWithDedupe } from '@core/api/dedupe';
+import { getWithDedupe, invalidateCache } from '@core/api/dedupe';
 import { getStoredAuthToken } from '@core/utils/authStorage';
 import {
     getActiveRole,
@@ -135,7 +135,23 @@ export const AuthProvider = ({ children }) => {
                     const response = await getWithDedupe(endpoint, {}, { ttl: 5000 });
                     
                     if (response?.data?.result) {
-                        setUser(response.data.result);
+                        const fetchedUser = response.data.result;
+                        setUser(prev => {
+                            const mergedUser = { ...fetchedUser };
+                            if (!mergedUser.avatar && prev?.avatar) {
+                                mergedUser.avatar = prev.avatar;
+                            }
+                            if (!mergedUser.profileImage && prev?.profileImage) {
+                                mergedUser.profileImage = prev.profileImage;
+                            }
+                            if (mergedUser.avatar && !mergedUser.profileImage) {
+                                mergedUser.profileImage = mergedUser.avatar;
+                            }
+                            if (mergedUser.profileImage && !mergedUser.avatar) {
+                                mergedUser.avatar = mergedUser.profileImage;
+                            }
+                            return mergedUser;
+                        });
                     } else {
                         console.warn('Profile fetch returned no result, preserving existing user state:', response?.data);
                     }
@@ -165,6 +181,7 @@ export const AuthProvider = ({ children }) => {
         const storageKey = ROLE_STORAGE_KEYS[role];
 
         if (storageKey && userData.token) {
+            invalidateCache(`/${role}/profile`);
             // Persist only the raw JWT string; everything else lives in memory
             // until the next profile fetch.
             rawSet(storageKey, userData.token);
@@ -231,10 +248,16 @@ export const AuthProvider = ({ children }) => {
     const refreshUser = async () => {
         if (token) {
             try {
+                invalidateCache(`/${currentRole}/profile`);
                 const endpoint = `/${currentRole}/profile`;
                 const response = await axiosInstance.get(endpoint);
-                setUser(response.data.result);
-                return response.data.result;
+                const result = response.data.result;
+                if (result) {
+                    if (result.avatar && !result.profileImage) result.profileImage = result.avatar;
+                    if (result.profileImage && !result.avatar) result.avatar = result.profileImage;
+                    setUser(result);
+                }
+                return result;
             } catch (error) {
                 console.error('Failed to refresh profile:', error);
             }
@@ -242,7 +265,14 @@ export const AuthProvider = ({ children }) => {
     };
 
     const updateUser = (updatedFields) => {
-        setUser(prev => prev ? { ...prev, ...updatedFields } : null);
+        invalidateCache(`/${currentRole}/profile`);
+        setUser(prev => {
+            if (!prev) return null;
+            const updated = { ...prev, ...updatedFields };
+            if (updated.avatar && !updated.profileImage) updated.profileImage = updated.avatar;
+            if (updated.profileImage && !updated.avatar) updated.avatar = updated.profileImage;
+            return updated;
+        });
     };
 
     const value = useMemo(() => ({

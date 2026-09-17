@@ -9,6 +9,7 @@ import { useSettings } from "@core/context/SettingsContext";
 import { cn } from "@/lib/utils";
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
+import { customerApi } from "../../services/customerApi";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
 import {
   buildHeaderGradient,
@@ -37,6 +38,7 @@ import ChevronDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import FavoriteBorderOutlinedIcon from "@mui/icons-material/FavoriteBorderOutlined";
 import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
 import AccountCircleOutlinedIcon from "@mui/icons-material/AccountCircleOutlined";
+import PersonOutlineOutlinedIcon from "@mui/icons-material/PersonOutlineOutlined";
 import NotificationsNoneOutlinedIcon from "@mui/icons-material/NotificationsNoneOutlined";
 import LanguageIcon from "@mui/icons-material/Language";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
@@ -195,6 +197,30 @@ const MainLocationHeader = ({
   const { settings } = useSettings();
   const { cartCount } = useCart();
   const { count: wishlistCount } = useWishlist();
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchUnreadCount = async () => {
+      try {
+        const token = localStorage.getItem("auth_customer") || localStorage.getItem("token");
+        if (!token) return;
+        const res = await customerApi.getNotifications({ unreadOnly: true });
+        const resData = res?.data;
+        const count =
+          resData?.result?.unreadCount ??
+          (Array.isArray(resData?.result?.notifications) ? resData.result.notifications.length : 0);
+        if (isMounted) {
+          setUnreadNotificationsCount(Number(count) || 0);
+        }
+      } catch (err) {
+        // silent fallback
+      }
+    };
+    fetchUnreadCount();
+    return () => { isMounted = false; };
+  }, []);
+
   const appName = settings?.appName || "App";
   const logoUrl = settings?.logoUrl;
   const navigate = useNavigate();
@@ -378,11 +404,11 @@ const MainLocationHeader = ({
             borderBottomLeftRadius: headerRoundness,
             borderBottomRightRadius: headerRoundness,
             opacity: bgOpacity,
-            background: "linear-gradient(to bottom, color-mix(in srgb, var(--primary) 8%, white) 0%, white 60%, white 100%)",
+            background: "linear-gradient(180deg, rgba(255, 87, 34, 0.90) 0%, rgba(255, 112, 67, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%)",
           }}
-          className="px-4 overflow-visible transform-gpu will-change-transform border-b border-slate-100/60 shadow-[0_2px_15px_rgba(0,0,0,0.015)]">
+          className="px-4 overflow-visible transform-gpu will-change-transform border-b border-orange-200/50 shadow-sm backdrop-blur-xl backdrop-saturate-180">
           {/* Subtle Glow Overlay */}
-          <div className="absolute inset-0 bg-white/8 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-b from-orange-500/10 via-transparent to-transparent pointer-events-none" />
 
 
 
@@ -405,20 +431,17 @@ const MainLocationHeader = ({
 
               {/* Weather Widget (Desktop) */}
               {weatherEnabled && (
-                <div className="flex items-center gap-1.5 bg-pink-50/80 border border-pink-100/50 px-3 py-1.5 rounded-full text-[#E60067] font-bold text-sm shadow-sm">
-                    {ActiveWeatherIcon && <ActiveWeatherIcon size={16} className="fill-current text-[#E60067]" />}
-                    <span>{settings?.weather?.condition || 'Rain'}</span>
+                <div className="flex items-center gap-1.5 bg-white shadow-xs border border-slate-200/80 px-3 py-1.5 rounded-full text-slate-900 font-bold text-sm">
+                    {ActiveWeatherIcon && <ActiveWeatherIcon size={16} className="text-slate-900 fill-none stroke-current" />}
+                    <span className="text-slate-900 font-extrabold">{settings?.weather?.condition || 'Rain'}</span>
                 </div>
               )}
 
-              {/* Location Block (Desktop inline row) */}
-              <div className="flex flex-col border-l border-black/10 pl-4 lg:pl-8 h-10 justify-center">
-                <div className="flex items-center gap-1.5 opacity-70">
-                  <AccessTimeIcon sx={{ fontSize: 13, color: headerFontColor }} />
-                  <span
-                    className="text-[11px] font-bold uppercase tracking-wider leading-none"
-                    style={{ color: headerFontColor }}
-                  >
+              {/* Location Block (Desktop inline row, soft medium font like Blinkit) */}
+              <div className="flex flex-col pl-3 lg:pl-6 h-10 justify-center">
+                <div className="flex items-center gap-1 opacity-80">
+                  <AccessTimeIcon sx={{ fontSize: 13, color: "#475569" }} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider leading-none text-slate-700">
                     {currentLocation.time}
                   </span>
                 </div>
@@ -429,136 +452,95 @@ const MainLocationHeader = ({
                   onClick={() => {
                     setIsLocationOpen(true);
                   }}
-                  className="flex items-center gap-1 text-slate-900 hover:text-slate-700 cursor-pointer group active:scale-95 transition-all border-0 bg-transparent p-0 text-left">
-                  <LocationOnIcon sx={{ fontSize: 14, color: "inherit" }} />
-                  <div
-                    className="text-[13px] font-bold leading-tight max-w-[250px] lg:max-w-[320px] truncate"
-                    style={{ color: headerFontColor }}
-                  >
+                  className="flex items-center gap-1 text-slate-700 hover:text-slate-900 cursor-pointer group active:scale-95 transition-all border-0 bg-transparent p-0 text-left">
+                  <div className="text-[13px] lg:text-[14px] font-medium leading-tight max-w-[260px] lg:max-w-[340px] truncate text-slate-700">
                     {isFetchingLocation
                       ? "Detecting location..."
                       : currentLocation.name}
                   </div>
                   <ChevronDownIcon
-                    sx={{ fontSize: 12, opacity: 0.5, color: headerFontColor }}
+                    sx={{ fontSize: 16, color: "#475569" }}
                   />
                 </button>
               </div>
             </div>
 
-            {/* Center Section: Search Bar */}
+            {/* Center Section: Highly Visible Search Bar */}
             <div className="flex-1 max-w-[450px] lg:max-w-2xl px-6">
               <motion.div
                 onClick={handleSearchClick}
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
-                className="bg-white rounded-full px-4 h-11 border border-primary/60 shadow-[0_0_10px_rgba(230,0,103,0.15)] flex items-center transition-all duration-200 focus-within:ring-2 focus-within:ring-primary/40 cursor-pointer hover:shadow-[0_0_14px_rgba(230,0,103,0.25)]">
-                <SearchIcon sx={{ color: "var(--primary)", fontSize: 20 }} />
+                className="bg-white rounded-full px-4 h-11 border border-slate-200/90 shadow-[0_4px_18px_rgba(0,0,0,0.08)] flex items-center transition-all duration-200 focus-within:ring-2 focus-within:ring-orange-500/40 cursor-pointer hover:shadow-md hover:border-slate-300">
+                <SearchIcon sx={{ color: "#0f172a", fontSize: 20 }} />
                 <input
                   type="text"
                   placeholder={searchPlaceholder || "Search Products..."}
                   readOnly
-                  className="flex-1 bg-transparent border-none outline-none pl-2 text-slate-800 font-semibold placeholder:text-slate-400 text-[15px] cursor-pointer"
+                  className="flex-1 bg-transparent border-none outline-none pl-2 text-slate-900 font-bold placeholder:text-slate-600 text-[15px] cursor-pointer"
                 />
-                <div className="flex items-center gap-2 border-l border-slate-200/60 pl-3">
-                  <MicIcon sx={{ color: "#64748b", fontSize: 20 }} />
+                <div className="flex items-center gap-2 border-l border-slate-200 pl-3">
+                  <MicIcon sx={{ color: "#0f172a", fontSize: 20 }} />
                 </div>
               </motion.div>
             </div>
 
-            {/* Right Section: Action Icons */}
-            <div className="flex items-center gap-5 lg:gap-8 shrink-0">
-              {/* Language Selector Dropdown */}
-              <div className="relative" ref={desktopLangDropdownRef}>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200/60 bg-slate-50/50 hover:bg-slate-100/60 transition-all text-slate-700 hover:text-slate-900 cursor-pointer text-xs font-bold shadow-3xs"
-                >
-                  <LanguageIcon sx={{ fontSize: 16 }} className="text-slate-500" />
-                  <span>{languages.find(l => l.code === language)?.flag}</span>
-                  <span className="uppercase text-[11px]">{language}</span>
-                  <ChevronDownIcon sx={{ fontSize: 14, opacity: 0.5 }} className={cn("transition-transform duration-200", isLangDropdownOpen ? "rotate-180" : "")} />
-                </motion.button>
-
-                {isLangDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-40 bg-white rounded-2xl border border-slate-100 shadow-xl py-1.5 z-[250] animate-in fade-in slide-in-from-top-1 duration-150">
-                    {languages.map((lang) => (
-                      <button
-                        key={lang.code}
-                        onClick={() => {
-                          setLanguage(lang.code);
-                          setIsLangDropdownOpen(false);
-                        }}
-                        className={cn(
-                          "w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center justify-between",
-                          language === lang.code
-                            ? "bg-brand-50 text-primary"
-                            : "text-slate-600 hover:bg-slate-50"
-                        )}
-                      >
-                        <span className="flex items-center gap-2">
-                          <span className="text-base">{lang.flag}</span>
-                          <span>{lang.name}</span>
-                        </span>
-                        {language === lang.code && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
+            {/* Right Section: Action Icons (White background circles + Black icons) */}
+            <div className="flex items-center gap-3.5 lg:gap-5 shrink-0">
+              {/* Cart Button */}
               <motion.button
-                whileHover={{ scale: 1.15, rotate: 5 }}
+                whileHover={{ scale: 1.08, rotate: 5 }}
                 whileTap={{ scale: 0.9 }}
-                onClick={() => navigate("/wishlist")}
-                className="transition-all hover:text-red-500 relative group"
-                style={{ color: headerFontColor }}
+                onClick={() => navigate("/cart")}
+                className="w-10 h-10 rounded-full bg-white shadow-xs border border-slate-200/80 flex items-center justify-center relative cursor-pointer active:scale-95 transition-all text-slate-900 hover:bg-slate-50"
+                title="My Cart"
               >
-                <FavoriteBorderOutlinedIcon sx={{ fontSize: 24 }} />
-                {wishlistCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:-translate-y-0.5 animate-in zoom-in duration-300">
-                    {wishlistCount}
-                  </span>
-                )}
-              </motion.button>
-
-              <motion.button
-                whileHover={{ scale: 1.15, rotate: 5 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => navigate("/notifications")}
-                className="transition-all hover:text-slate-700 relative group"
-                style={{ color: headerFontColor }}
-              >
-                <NotificationsNoneOutlinedIcon sx={{ fontSize: 24 }} />
-              </motion.button>
-
-              <motion.button
-                whileHover={{ scale: 1.15, rotate: -5 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => navigate("/checkout")}
-                className="transition-all hover:text-slate-700 relative group"
-                style={{ color: headerFontColor }}
-              >
-                <ShoppingCartOutlinedIcon sx={{ fontSize: 24 }} />
+                <ShoppingCartOutlinedIcon sx={{ fontSize: 22, color: "#0f172a" }} />
                 {cartCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-primary text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:-translate-y-0.5 animate-in zoom-in duration-300">
+                  <span className="absolute -top-1.5 -right-1.5 bg-[#FF5722] text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:-translate-y-0.5 animate-in zoom-in duration-300">
                     {cartCount}
                   </span>
                 )}
               </motion.button>
 
               <motion.button
-                whileHover={{ scale: 1.15 }}
+                whileHover={{ scale: 1.08, rotate: 5 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => navigate("/wishlist")}
+                className="w-10 h-10 rounded-full bg-white shadow-xs border border-slate-200/80 flex items-center justify-center relative cursor-pointer active:scale-95 transition-all text-slate-900 hover:bg-slate-50"
+                title="Wishlist"
+              >
+                <FavoriteBorderOutlinedIcon sx={{ fontSize: 22, color: "#0f172a" }} />
+                {wishlistCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-[#FF5722] text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:-translate-y-0.5 animate-in zoom-in duration-300">
+                    {wishlistCount}
+                  </span>
+                )}
+              </motion.button>
+
+              <motion.button
+                whileHover={{ scale: 1.08, rotate: 5 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => navigate("/notifications")}
+                className="w-10 h-10 rounded-full bg-white shadow-xs border border-slate-200/80 flex items-center justify-center relative cursor-pointer active:scale-95 transition-all text-slate-900 hover:bg-slate-50"
+                title="Notifications"
+              >
+                <NotificationsNoneOutlinedIcon sx={{ fontSize: 22, color: "#0f172a" }} />
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-[#FF5722] text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:-translate-y-0.5 animate-in zoom-in duration-300">
+                    {unreadNotificationsCount > 9 ? "9+" : unreadNotificationsCount}
+                  </span>
+                )}
+              </motion.button>
+
+              <motion.button
+                whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => navigate("/profile")}
-                className="lg:bg-slate-100/60 p-1.5 lg:rounded-full hover:bg-slate-200/50 transition-all"
-                style={{ color: headerFontColor }}
+                className="w-10 h-10 rounded-full bg-white shadow-xs border border-slate-200/80 flex items-center justify-center cursor-pointer transition-all text-slate-900 hover:bg-slate-50"
+                title="Profile"
               >
-                <AccountCircleOutlinedIcon sx={{ fontSize: 28 }} />
+                <AccountCircleOutlinedIcon sx={{ fontSize: 24, color: "#0f172a" }} />
               </motion.button>
             </div>
           </div>
@@ -583,75 +565,74 @@ const MainLocationHeader = ({
                   className="h-11 w-auto object-contain shrink-0"
                 />
                 {weatherEnabled && (
-                  <div className="flex items-center gap-1 bg-pink-50/80 border border-pink-100/50 px-2 py-1 rounded-full shadow-3xs">
-                    {ActiveWeatherIcon && <ActiveWeatherIcon size={12} className="text-[#E60067]" />}
-                    <span className="text-[10px] font-bold text-[#E60067] leading-none">{settings?.weather?.condition || 'Rain'}</span>
+                  <div className="flex items-center gap-1 bg-white shadow-xs border border-slate-200/80 px-2.5 py-1 rounded-full">
+                    {ActiveWeatherIcon && <ActiveWeatherIcon size={13} className="text-slate-900 fill-none stroke-current" />}
+                    <span className="text-[10px] font-extrabold text-slate-900 leading-none">{settings?.weather?.condition || 'Rain'}</span>
                   </div>
                 )}
               </div>
 
-              {/* Right actions: Cart Button (Replaces Language Icon) + Notification Bell Button */}
+              {/* Right actions: Wishlist Button + Notification Bell Button (White circle background + Black icons) */}
               <div className="flex items-center gap-2.5">
-                {/* Mobile Cart Button */}
+                {/* Mobile Wishlist Button */}
                 <button
                   type="button"
-                  onClick={() => navigate(cartCount > 0 ? '/checkout' : '/orders')}
-                  className="w-10 h-10 rounded-full bg-white border border-slate-100 flex items-center justify-center relative cursor-pointer active:scale-95 transition-all text-slate-800 shadow-3xs"
-                  title="View Cart"
+                  onClick={() => navigate("/wishlist")}
+                  className="w-10 h-10 rounded-full bg-white shadow-xs border border-slate-200/80 flex items-center justify-center relative cursor-pointer active:scale-95 transition-all text-slate-900 hover:bg-slate-50"
+                  title="Wishlist"
                 >
-                  <ShoppingCartOutlinedIcon sx={{ fontSize: 20 }} className="text-slate-700" />
-                  {cartCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-primary text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white shadow-xs animate-in zoom-in">
-                      {cartCount > 99 ? '99+' : cartCount}
+                  <FavoriteBorderOutlinedIcon sx={{ fontSize: 22, color: "#0f172a" }} />
+                  {wishlistCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-[#FF5722] text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:-translate-y-0.5 animate-in zoom-in duration-300">
+                      {wishlistCount}
                     </span>
                   )}
                 </button>
 
-                {/* Notification Bell Button */}
+                {/* Mobile Account / Profile Button */}
                 <button
-                  onClick={() => navigate("/notifications")}
-                  className="w-10 h-10 rounded-full bg-white border border-slate-100 flex items-center justify-center relative cursor-pointer active:scale-95 transition-all text-slate-800 shadow-3xs"
+                  type="button"
+                  onClick={() => navigate("/profile")}
+                  className="w-10 h-10 rounded-full bg-white shadow-xs border border-slate-200/80 flex items-center justify-center relative cursor-pointer active:scale-95 transition-all text-slate-900 hover:bg-slate-50"
+                  title="Account"
                 >
-                  <NotificationsNoneOutlinedIcon sx={{ fontSize: 22 }} />
-                  <span className="absolute -top-0.5 -right-0.5 bg-primary text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white">
-                    3
-                  </span>
+                  <PersonOutlineOutlinedIcon sx={{ fontSize: 22, color: "#0f172a" }} />
                 </button>
               </div>
             </div>
 
-            {/* Middle row: Deliver to Address capsule (w-fit) */}
-            <div className="flex justify-start">
-              <div
+            {/* Middle row: Deliver to Address (Medium weight soft text, borderless like Blinkit image) */}
+            <div className="flex justify-start pt-0.5">
+              <button
+                type="button"
                 onClick={() => setIsLocationOpen(true)}
-                className="w-fit max-w-[90%] flex items-center gap-1.5 bg-white border border-slate-100 rounded-full py-1 px-3 cursor-pointer shadow-3xs active:scale-[0.99] transition-all"
+                className="w-fit max-w-[95%] flex flex-col text-left bg-transparent border-0 p-0 cursor-pointer active:opacity-85 transition-all"
               >
-                <LocationOnIcon sx={{ color: "var(--primary)", fontSize: 18 }} className="shrink-0" />
-                <div className="flex flex-col text-left min-w-0">
-                  <span className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wider leading-none">Deliver to</span>
-                  <span className="text-[11.5px] font-black text-slate-800 truncate max-w-[190px] mt-0.5 leading-none">
+                <span className="text-[9.5px] font-bold text-slate-700 uppercase tracking-wider leading-none">Deliver to</span>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className="text-[12.5px] font-medium text-slate-700 truncate max-w-[260px] leading-tight">
                     {isFetchingLocation ? "Detecting location..." : currentLocation.name}
                   </span>
+                  <ChevronDownIcon sx={{ color: "#475569", fontSize: 16 }} className="shrink-0" />
                 </div>
-                <ChevronDownIcon sx={{ color: "#64748b", fontSize: 15 }} className="shrink-0 ml-0.5" />
-              </div>
+              </button>
             </div>
             </motion.div>
 
-            {/* Bottom row: Unified Search Bar with Mic and Scanner SVG */}
+            {/* Bottom row: Highly Visible White Search Bar */}
             <div
               onClick={handleSearchClick}
-              className="w-full bg-white border border-primary/60 rounded-full px-4 h-10 flex items-center shadow-[0_0_10px_rgba(230,0,103,0.15)] cursor-pointer hover:shadow-[0_0_14px_rgba(230,0,103,0.25)] transition-all"
+              className="w-full bg-white border border-slate-200/90 rounded-2xl md:rounded-full px-4 h-11 flex items-center shadow-[0_4px_16px_rgba(0,0,0,0.06)] cursor-pointer hover:border-slate-300 transition-all"
             >
-              <SearchIcon sx={{ color: "var(--primary)", fontSize: 20 }} className="shrink-0" />
+              <SearchIcon sx={{ color: "#0f172a", fontSize: 20 }} className="shrink-0" />
               <input
                 type="text"
                 placeholder='Search "Atta, Rice, Oil, Maggi..."'
                 readOnly
-                className="flex-1 bg-transparent border-none outline-none pl-2 text-slate-800 font-bold placeholder:text-slate-400 text-[12.5px] cursor-pointer"
+                className="flex-1 bg-transparent border-none outline-none pl-2 text-slate-900 font-bold placeholder:text-slate-600 text-[13.5px] cursor-pointer"
               />
-              <div className="flex items-center gap-3.5 shrink-0 ml-1">
-                <MicIcon sx={{ color: "#78909c", fontSize: 20 }} className="cursor-pointer" />
+              <div className="flex items-center gap-3.5 shrink-0 ml-1 border-l border-slate-200 pl-3">
+                <MicIcon sx={{ color: "#0f172a", fontSize: 20 }} className="cursor-pointer" />
               </div>
             </div>
           </div>
@@ -680,7 +661,7 @@ const MainLocationHeader = ({
                   <CategoryNavColumn
                     key={cat.id || cat._id}
                     cat={cat}
-                    isActive={activeCategory?.id === (cat.id || cat._id)}
+                    isActive={String(activeCategory?._id || activeCategory?.id || "") === String(cat._id || cat.id || "")}
                     categoryAccent={categoryAccent}
                     onCategorySelect={onCategorySelect}
                     headerFontColor={headerFontColor}
@@ -700,7 +681,7 @@ const MainLocationHeader = ({
                 <CategoryNavColumn
                   key={cat.id || cat._id}
                   cat={cat}
-                  isActive={activeCategory?.id === (cat.id || cat._id)}
+                  isActive={String(activeCategory?._id || activeCategory?.id || "") === String(cat._id || cat.id || "")}
                   categoryAccent={categoryAccent}
                   onCategorySelect={onCategorySelect}
                   headerFontColor={headerFontColor}

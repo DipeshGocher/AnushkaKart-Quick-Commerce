@@ -320,32 +320,55 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  const cartTotal = cart.reduce((total, item) => {
-    const unit =
-      Number(item.salePrice || 0) > 0 && Number(item.salePrice) < Number(item.price || 0)
-        ? Number(item.salePrice)
-        : Number(item.price || 0);
-    
-    let addonsTotal = 0;
-    if (item.kitAddons && Array.isArray(item.kitAddons)) {
-      addonsTotal = item.kitAddons.reduce((sum, addon) => sum + (Number(addon.price) * Number(addon.quantity)), 0);
-    }
-    
-    return total + (unit + addonsTotal) * Number(item.quantity || 0);
-  }, 0);
-  const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
+  const calculateTotal = (items) => {
+    return items.reduce((total, item) => {
+      const unit =
+        Number(item.salePrice || 0) > 0 && Number(item.salePrice) < Number(item.price || 0)
+          ? Number(item.salePrice)
+          : Number(item.price || 0);
+      
+      let addonsTotal = 0;
+      if (item.kitAddons && Array.isArray(item.kitAddons)) {
+        addonsTotal = item.kitAddons.reduce((sum, addon) => sum + (Number(addon.price) * Number(addon.quantity)), 0);
+      }
+      
+      return total + (unit + addonsTotal) * Number(item.quantity || 0);
+    }, 0);
+  };
+
+  const calculateCount = (items) => {
+    return items.reduce((total, item) => total + (item.quantity || 0), 0);
+  };
+
+  const groceryCart = useMemo(() => cart.filter((item) => item.conditionType !== 'refurbished' && item.catalogType !== 'refurbished'), [cart]);
+  const refurbishedCart = useMemo(() => cart.filter((item) => item.conditionType === 'refurbished' || item.catalogType === 'refurbished'), [cart]);
+
+  const groceryCartTotal = useMemo(() => calculateTotal(groceryCart), [groceryCart]);
+  const groceryCartCount = useMemo(() => calculateCount(groceryCart), [groceryCart]);
+
+  const refurbishedCartTotal = useMemo(() => calculateTotal(refurbishedCart), [refurbishedCart]);
+  const refurbishedCartCount = useMemo(() => calculateCount(refurbishedCart), [refurbishedCart]);
+
+  const cartTotal = useMemo(() => calculateTotal(cart), [cart]);
+  const cartCount = useMemo(() => calculateCount(cart), [cart]);
 
   const cartValue = useMemo(() => ({
     cart,
+    groceryCart,
+    refurbishedCart,
     addToCart,
     removeFromCart,
     updateQuantity,
     clearCart,
     cartTotal,
     cartCount,
+    groceryCartTotal,
+    groceryCartCount,
+    refurbishedCartTotal,
+    refurbishedCartCount,
     loading,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [cart, cartTotal, cartCount, loading]);
+  }), [cart, groceryCart, refurbishedCart, cartTotal, cartCount, groceryCartTotal, groceryCartCount, refurbishedCartTotal, refurbishedCartCount, loading]);
 
   return (
     <CartContext.Provider value={cartValue}>
