@@ -15,12 +15,22 @@ import { onReturnPickupOtp, onReturnDropOtp } from '@core/services/orderSocket';
 import { toast } from 'sonner';
 import { ShieldCheck, Package } from 'lucide-react';
 
+import MarketplaceBottomNav from './MarketplaceBottomNav';
 import RefurbishedBottomNav from './RefurbishedBottomNav';
 
 const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = false, showCart: showCartProp, showBottomNav: showBottomNavProp }) => {
     const location = useLocation();
     const { isOpen: isProductDetailOpen } = useProductDetail();
     const { user, token } = useAuth();
+
+    // Track last visited section for smart return navigation (Marketplace vs Grocery)
+    useEffect(() => {
+        if (location.pathname.startsWith('/marketplace') || location.pathname.startsWith('/refurbished')) {
+            sessionStorage.setItem('last_section', 'marketplace');
+        } else if (!location.pathname.startsWith('/login') && !location.pathname.startsWith('/signup')) {
+            sessionStorage.setItem('last_section', 'grocery');
+        }
+    }, [location.pathname]);
 
     // Listen for Return OTPs (Real-time Alert for Customer)
     useEffect(() => {
@@ -82,20 +92,25 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
 
     // Route-based visibility logic
     const path = location.pathname.replace(/\/$/, '') || '/';
-    const isRefurbishedSection = location.pathname.startsWith('/refurbished');
+    const isMarketplaceSection = location.pathname.startsWith('/marketplace') || location.pathname.startsWith('/refurbished');
 
-    const hideHeaderRoutes = ['/', '/refurbished', '/categories', '/orders', '/transactions', '/profile', '/profile/edit', '/wishlist', '/addresses', '/wallet', '/help', '/privacy', '/about', '/support', '/checkout', '/search', '/chat', '/notifications', '/cart'];
-    const hideBottomNavRoutes = ['/checkout', '/search', '/chat', '/refurbished/brands'];
-    const hideCartRoutes = ['/checkout', '/search', '/chat'];
+    const hideHeaderRoutes = [
+        '/', '/marketplace', '/refurbished', '/categories', '/orders', '/transactions', 
+        '/profile', '/profile/edit', '/wishlist', '/addresses', '/wallet', '/help', 
+        '/privacy', '/about', '/support', '/checkout', '/marketplace/checkout', '/refurbished/checkout', 
+        '/search', '/chat', '/notifications', '/cart'
+    ];
+    const hideBottomNavRoutes = ['/checkout', '/marketplace/checkout', '/refurbished/checkout', '/search', '/chat', '/marketplace/brands', '/refurbished/brands', '/marketplace/search'];
+    const hideCartRoutes = ['/checkout', '/marketplace/checkout', '/refurbished/checkout', '/search', '/chat'];
 
     // If props are passed, use them. Otherwise, use route-based logic.
-    const showHeader = showHeaderProp !== undefined ? showHeaderProp : (!hideHeaderRoutes.includes(path) && !path.startsWith('/category') && !path.startsWith('/orders') && !path.startsWith('/refurbished'));
-    const showBottomNav = showBottomNavProp !== undefined ? showBottomNavProp : (!hideBottomNavRoutes.includes(path) && !path.startsWith('/refurbished/brands'));
+    const showHeader = showHeaderProp !== undefined ? showHeaderProp : (!hideHeaderRoutes.includes(path) && !path.startsWith('/category') && !path.startsWith('/orders') && !path.startsWith('/marketplace') && !path.startsWith('/refurbished'));
+    const showBottomNav = showBottomNavProp !== undefined ? showBottomNavProp : (!hideBottomNavRoutes.includes(path) && !path.startsWith('/marketplace/brands') && !path.startsWith('/refurbished/brands') && !path.startsWith('/marketplace/product') && !path.startsWith('/marketplace/profile/edit') && !path.startsWith('/marketplace/my-listings/product') && !path.startsWith('/marketplace/my-listings/edit') && !path.startsWith('/marketplace/my-listings/myproducts'));
     const showCart = showCartProp !== undefined ? showCartProp : (!hideCartRoutes.includes(path) && !path.startsWith('/orders'));
 
     // Condition to hide the MobileFooterMessage ("Sab kuchh ek basket mein") on specific pages
     const hideFooterMessageRoutes = ['/profile', '/profile/edit'];
-    const showFooterMessage = showBottomNav && !hideFooterMessageRoutes.includes(path) && !path.startsWith('/category') && !isRefurbishedSection;
+    const showFooterMessage = showBottomNav && !hideFooterMessageRoutes.includes(path) && !path.startsWith('/category') && !isMarketplaceSection;
 
     // Hide elements on mobile only when product detail is open
     // On desktop, we want to keep the header visible even if the modal is open
@@ -104,7 +119,7 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
     const finalShowFooterMessageMobile = showFooterMessage && !isProductDetailOpen;
 
     return (
-        <div className="min-h-screen bg-white flex flex-col font-sans">
+        <div className="min-h-screen bg-[#f1f4f8] flex flex-col font-sans">
             {/* Header logic: Always show on desktop if showHeader is true. On mobile, hide if product detail is open. */}
             {showHeader && (
                 <>
@@ -137,7 +152,7 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
                 </AnimatePresence>
             </main>
 
-            {showCart && !isRefurbishedSection && <MiniCart />}
+            {showCart && !isMarketplaceSection && <MiniCart />}
             <ProductDetailSheet />
             <VariantSelectionSheet />
 
@@ -162,13 +177,13 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
             {/* Bottom Nav logic */}
             <div className="md:hidden">
                 {finalShowBottomNavMobile && (
-                    isRefurbishedSection ? <RefurbishedBottomNav /> : <BottomNav />
+                    isMarketplaceSection ? <MarketplaceBottomNav /> : <BottomNav />
                 )}
             </div>
             {/* Desktop Bottom Nav doesn't exist usually, but just in case of future changes */}
             <div className="hidden md:block">
                 {showBottomNav && (
-                    isRefurbishedSection ? <RefurbishedBottomNav /> : <BottomNav />
+                    isMarketplaceSection ? <MarketplaceBottomNav /> : <BottomNav />
                 )}
             </div>
         </div>

@@ -1,8 +1,9 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Home, LayoutGrid, CalendarCheck, User, ShoppingBag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCart } from '../../context/CartContext';
+import { usePageTransition } from '../../context/PageTransitionContext';
 import { motion } from 'framer-motion';
 import secondHandIcon from '@/assets/2ndhand-icon.png';
 
@@ -27,7 +28,9 @@ const isRouteActive = (itemPath, currentPath) => {
 
 const BottomNav = () => {
     const location = useLocation();
-    const { cartCount } = useCart();
+    const navigate = useNavigate();
+    const { groceryCartCount } = useCart();
+    const { triggerIconFillTransition } = usePageTransition() || {};
 
     const mainNavItems = [
         { label: 'Home', icon: Home, path: '/' },
@@ -40,11 +43,11 @@ const BottomNav = () => {
 
     return (
         <div 
-            className="fixed left-2 right-2 max-w-md mx-auto z-[500] flex items-center gap-2 md:hidden pointer-events-auto transition-all duration-300"
+            className="fixed left-3 right-3 max-w-sm mx-auto z-[500] flex items-center justify-center md:hidden pointer-events-auto transition-all duration-300"
             style={{ bottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}
         >
             {/* Glassmorphism Floating Pill Bar for Main Navigation (4 Items) */}
-            <div className="flex-1 bg-white/40 backdrop-blur-2xl backdrop-saturate-180 border border-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-full px-2 py-1.5 ring-1 ring-white/30 flex items-center justify-around">
+            <div className="w-full bg-white/40 backdrop-blur-2xl backdrop-saturate-180 border border-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-full px-2 py-1.5 ring-1 ring-white/30 flex items-center justify-around">
                 {mainNavItems.map((item) => {
                     const isActive = isRouteActive(item.path, location.pathname);
 
@@ -66,9 +69,9 @@ const BottomNav = () => {
                                     )}
                                 >
                                     <item.icon size={22} className="stroke-[2.2]" />
-                                    {cartCount > 0 && (
+                                    {groceryCartCount > 0 && (
                                         <span className="absolute -top-1.5 -right-1.5 bg-gradient-to-tr from-[#FF5722] to-[#FF7043] text-white font-black text-[10px] min-w-[20px] h-[20px] rounded-full px-1 flex items-center justify-center border-2 border-white shadow-md animate-in zoom-in duration-300">
-                                            {cartCount > 99 ? '99+' : cartCount}
+                                            {groceryCartCount > 99 ? '99+' : groceryCartCount}
                                         </span>
                                     )}
                                 </motion.div>
@@ -114,29 +117,6 @@ const BottomNav = () => {
                     );
                 })}
             </div>
-
-            {/* Floating 2nd Hand Mobile Action Button */}
-            <Link
-                to="/refurbished"
-                className="shrink-0 flex flex-col items-center justify-center relative group"
-            >
-                <motion.div
-                    whileTap={{ scale: 0.9 }}
-                    whileHover={{ scale: 1.05 }}
-                    className={cn(
-                        "w-13 h-13 rounded-full flex items-center justify-center shadow-xl transition-all relative border-2 border-white overflow-hidden p-0 bg-white",
-                        isRefurbishedActive
-                            ? "ring-4 ring-blue-500 scale-105 shadow-blue-500/40"
-                            : "shadow-slate-900/30 hover:scale-105"
-                    )}
-                >
-                    <img 
-                        src={secondHandIcon} 
-                        alt="2nd Hand Refurbished Mobiles" 
-                        className="w-full h-full object-contain rounded-full"
-                    />
-                </motion.div>
-            </Link>
         </div>
     );
 };

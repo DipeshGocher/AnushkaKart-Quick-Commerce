@@ -16,7 +16,9 @@ export function SignInCard2({
   iconBg = "bg-emerald-50",
   iconColor = "text-emerald-600",
   footer,
-  className 
+  className,
+  containerClassName,
+  bgImageUrl = "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1920&q=80"
 }) {
   const navigate = useNavigate();
 
@@ -29,15 +31,25 @@ export function SignInCard2({
   };
 
   return (
-    <div className="min-h-screen w-full bg-slate-100/90 bg-gradient-to-br from-slate-100 via-sky-50/30 to-slate-200/80 relative flex items-center justify-center p-4 sm:p-6 py-10">
-      {/* Background ambient glows for clean separation */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[90vw] max-w-lg h-[40vh] bg-[#0F172A]/10 blur-3xl pointer-events-none rounded-full" />
-      <div className="absolute bottom-10 right-10 w-[40vw] max-w-xs h-[30vh] bg-[#FF5722]/15 blur-3xl pointer-events-none rounded-full" />
+    <div className={cn(
+      "min-h-screen w-full relative flex items-center justify-center p-4 sm:p-6 py-10 overflow-hidden bg-slate-900",
+      containerClassName
+    )}>
+      {/* Blurred ambient background image */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center pointer-events-none scale-110 transform-gpu"
+        style={{
+          backgroundImage: `url('${bgImageUrl}')`,
+          filter: 'blur(18px) brightness(0.85)',
+        }}
+      />
+      {/* Subtle translucent overlay for soft contrast and focus on card */}
+      <div className="absolute inset-0 bg-black/25 backdrop-blur-[2px] pointer-events-none" />
 
       {/* Main Floating Card Container */}
       <div className="w-full max-w-md relative z-10 my-auto">
         <div className={cn(
-          "relative bg-white rounded-[28px] border border-slate-200/90 shadow-[0_20px_50px_rgba(15,23,42,0.12)] overflow-hidden text-slate-900",
+          "relative bg-white rounded-[28px] border border-white/60 shadow-[0_25px_60px_rgba(0,0,0,0.28)] overflow-hidden text-slate-900",
           className
         )}>
           {/* Top Orange & Navy Highlight Bar */}
@@ -48,7 +60,7 @@ export function SignInCard2({
             <button 
               type="button"
               onClick={handleBack}
-              className="absolute right-4 top-4 z-20 w-8 h-8 rounded-full bg-slate-100 hover:bg-orange-50 border border-slate-200/80 hover:border-orange-200 text-slate-400 hover:text-orange-600 flex items-center justify-center transition-all active:scale-95 shadow-2xs"
+              className="absolute right-4 top-4 z-20 w-8 h-8 rounded-full bg-slate-100/90 hover:bg-orange-50 border border-slate-200/80 hover:border-orange-200 text-slate-400 hover:text-orange-600 flex items-center justify-center transition-all active:scale-95 shadow-2xs backdrop-blur-sm cursor-pointer"
               title="Close / Back"
             >
               <X className="w-4 h-4" />
@@ -89,7 +101,7 @@ export function SignInCard2({
 
           {/* Bottom Card Footer Bar */}
           {footer && (
-            <div className="bg-slate-50/80 border-t border-slate-100 py-4 px-6 text-center text-xs font-medium text-slate-600">
+            <div className="bg-slate-50/60 backdrop-blur-md border-t border-slate-100/80 py-4 px-6 text-center text-xs font-medium text-slate-600">
               {footer}
             </div>
           )}

@@ -3,6 +3,8 @@ import { customerApi } from "../services/customerApi";
 import { useAuth } from "../../../core/context/AuthContext";
 import { getJSON, setJSON, remove as removeStorage, STORAGE_KEYS } from "@core/utils/storage";
 
+import { isRefurbishedItem } from "./CartContext";
+
 const WishlistContext = createContext();
 
 const loadGuestWishlist = () => {
@@ -11,7 +13,24 @@ const loadGuestWishlist = () => {
     removeStorage(STORAGE_KEYS.WISHLIST);
     return [];
   }
-  return parsed;
+  return parsed.map((item) => {
+    const isRefurb = isRefurbishedItem(item);
+    return {
+      ...item,
+      conditionType: isRefurb ? 'refurbished' : 'new',
+    };
+  });
+};
+
+const mapWishlistProduct = (p) => {
+  if (!p) return null;
+  const isRefurb = isRefurbishedItem(p);
+  return {
+    ...p,
+    id: p._id ? String(p._id) : (p.id || ""),
+    conditionType: isRefurb ? 'refurbished' : 'new',
+    image: p.mainImage || p.image,
+  };
 };
 
 export const useWishlist = () => useContext(WishlistContext);
@@ -35,12 +54,8 @@ export const WishlistProvider = ({ children }) => {
           if (typeof product === "string") {
             return { id: product, _id: product };
           }
-          return {
-            ...product,
-            id: product._id,
-            image: product.mainImage,
-          };
-        });
+          return mapWishlistProduct(product);
+        }).filter(Boolean);
         setWishlist(backendWishlist);
         setIsFullDataFetched(false);
       } catch (error) {
@@ -57,11 +72,7 @@ export const WishlistProvider = ({ children }) => {
       try {
         const response = await customerApi.getWishlist({ idsOnly: false });
         const products = response.data.result.products || [];
-        const backendWishlist = products.map((product) => ({
-          ...product,
-          id: product._id,
-          image: product.mainImage,
-        }));
+        const backendWishlist = products.map(mapWishlistProduct).filter(Boolean);
         setWishlist(backendWishlist);
         setIsFullDataFetched(true);
       } catch (error) {
@@ -93,16 +104,14 @@ export const WishlistProvider = ({ children }) => {
   }, [wishlist, isAuthenticated]);
 
   const addToWishlist = async (product) => {
+    const isRefurb = isRefurbishedItem(product) || (product?.conditionType !== 'new' && typeof window !== 'undefined' && (window.location.pathname.startsWith('/marketplace') || window.location.pathname.startsWith('/refurbished')));
+    const id = product.id || product._id;
     if (isAuthenticated) {
       try {
         const response = await customerApi.addToWishlist({
-          productId: product.id || product._id,
+          productId: id,
         });
-        const backendWishlist = response.data.result.products.map((p) => ({
-          ...p,
-          id: p._id,
-          image: p.mainImage,
-        }));
+        const backendWishlist = (response.data.result.products || []).map(mapWishlistProduct).filter(Boolean);
         setWishlist(backendWishlist);
         setIsFullDataFetched(true);
       } catch (error) {
@@ -110,9 +119,8 @@ export const WishlistProvider = ({ children }) => {
       }
     } else {
       setWishlist((prev) => {
-        const id = product.id || product._id;
         if (prev.some((item) => (item.id || item._id) === id)) return prev;
-        return [...prev, { ...product, id }];
+        return [...prev, { ...product, id, conditionType: isRefurb ? 'refurbished' : 'new' }];
       });
     }
   };
@@ -121,11 +129,7 @@ export const WishlistProvider = ({ children }) => {
     if (isAuthenticated) {
       try {
         const response = await customerApi.removeFromWishlist(productId);
-        const backendWishlist = response.data.result.products.map((p) => ({
-          ...p,
-          id: p._id,
-          image: p.mainImage,
-        }));
+        const backendWishlist = (response.data.result.products || []).map(mapWishlistProduct).filter(Boolean);
         setWishlist(backendWishlist);
         setIsFullDataFetched(true);
       } catch (error) {
@@ -140,14 +144,11 @@ export const WishlistProvider = ({ children }) => {
 
   const toggleWishlist = async (product) => {
     const id = product.id || product._id;
+    const isRefurb = isRefurbishedItem(product) || (product?.conditionType !== 'new' && typeof window !== 'undefined' && (window.location.pathname.startsWith('/marketplace') || window.location.pathname.startsWith('/refurbished')));
     if (isAuthenticated) {
       try {
         const response = await customerApi.toggleWishlist({ productId: id });
-        const backendWishlist = response.data.result.products.map((p) => ({
-          ...p,
-          id: p._id,
-          image: p.mainImage,
-        }));
+        const backendWishlist = (response.data.result.products || []).map(mapWishlistProduct).filter(Boolean);
         setWishlist(backendWishlist);
         setIsFullDataFetched(true);
       } catch (error) {
@@ -157,7 +158,10 @@ export const WishlistProvider = ({ children }) => {
       if (isInWishlist(id)) {
         removeFromWishlist(id);
       } else {
-        addToWishlist(product);
+        addToWishlist({
+          ...product,
+          conditionType: isRefurb ? 'refurbished' : (product.conditionType || 'new'),
+        });
       }
     }
   };
@@ -172,8 +176,8 @@ export const WishlistProvider = ({ children }) => {
     setWishlist([]);
   };
 
-  const groceryWishlist = useMemo(() => wishlist.filter((item) => item.conditionType !== 'refurbished' && item.catalogType !== 'refurbished'), [wishlist]);
-  const refurbishedWishlist = useMemo(() => wishlist.filter((item) => item.conditionType === 'refurbished' || item.catalogType === 'refurbished'), [wishlist]);
+  const groceryWishlist = useMemo(() => wishlist.filter((item) => !isRefurbishedItem(item)), [wishlist]);
+  const refurbishedWishlist = useMemo(() => wishlist.filter((item) => isRefurbishedItem(item)), [wishlist]);
 
   const wishlistValue = useMemo(() => ({
     wishlist,

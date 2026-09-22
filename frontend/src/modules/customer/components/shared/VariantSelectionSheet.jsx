@@ -5,12 +5,14 @@ import { X, Minus, Plus } from 'lucide-react';
 import Lottie from 'lottie-react';
 import { useVariantSelection } from '../../context/VariantSelectionContext';
 import { useCart } from '../../context/CartContext';
+import { useAuth } from '@core/context/AuthContext';
 import fruitBasketAnimation from '../../../../assets/FruitBasket.json';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 
 const VariantSelectionSheet = () => {
     const { selectedProduct, isOpen, closeVariantSelection } = useVariantSelection();
     const { cart, updateQuantity, removeFromCart, addToCart } = useCart();
+    const { isAuthenticated } = useAuth();
     const navigate = useNavigate();
 
     const dragControls = useDragControls();
@@ -33,6 +35,16 @@ const VariantSelectionSheet = () => {
         }
     };
 
+    const isRefurbished = React.useMemo(() => {
+        if (!selectedProduct) return false;
+        return (
+            selectedProduct.conditionType === 'refurbished' ||
+            selectedProduct.catalogType === 'refurbished' ||
+            Boolean(selectedProduct.refurbishedDetails) ||
+            (typeof window !== 'undefined' && (window.location.pathname.startsWith('/marketplace') || window.location.pathname.startsWith('/refurbished')))
+        );
+    }, [selectedProduct]);
+
     if (!selectedProduct) return null;
 
     const variants = selectedProduct?.variants || [];
@@ -47,6 +59,12 @@ const VariantSelectionSheet = () => {
     };
 
     const handleIncrement = (variant) => {
+        if (!isAuthenticated) {
+            closeVariantSelection();
+            navigate('/login', { state: { from: window.location.pathname } });
+            return;
+        }
+
         const productId = selectedProduct.id || selectedProduct._id;
         const variantKey = String(variant?.sku || variant?.name || "").trim();
         const qty = getCartQuantity(variantKey);
@@ -54,6 +72,7 @@ const VariantSelectionSheet = () => {
         if (qty === 0) {
             addToCart({
                 ...selectedProduct,
+                conditionType: isRefurbished ? 'refurbished' : (selectedProduct.conditionType || 'new'),
                 variantSku: variantKey,
                 variantName: String(variant?.name || "").trim(),
                 // Optionally pass variant specific price if needed, but CartContext usually handles this or uses the product base if identical.
@@ -218,7 +237,7 @@ const VariantSelectionSheet = () => {
                                 onClick={() => {
                                     closeVariantSelection();
                                     if (totalSelectedVariants > 0) {
-                                        navigate(isRefurbished ? '/refurbished/cart' : '/checkout');
+                                        navigate(isRefurbished ? '/marketplace/cart' : '/checkout');
                                     }
                                 }}
                                 className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${

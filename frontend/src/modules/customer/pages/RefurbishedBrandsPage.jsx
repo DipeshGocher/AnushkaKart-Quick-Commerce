@@ -23,6 +23,53 @@ const ROTATING_BRANDS = [
   'Nokia'
 ];
 
+const RefurbishedBrandsSkeleton = () => (
+  <div className="min-h-screen bg-[#f1f4f8] pb-8 font-outfit animate-pulse">
+    {/* Navbar Header Skeleton */}
+    <div className="bg-gradient-to-r from-blue-100/95 via-sky-50 to-[#EFF6FF] border-b border-blue-200/60 py-2.5 px-3 shadow-2xs sticky top-0 z-40">
+      <div className="max-w-7xl mx-auto flex items-center gap-2.5">
+        <div className="w-10 h-10 rounded-full bg-white border border-slate-200 shrink-0" />
+        <div className="flex-1 h-10 bg-white rounded-full border border-blue-200/60" />
+      </div>
+    </div>
+
+    {/* Main Body Skeleton */}
+    <div className="max-w-7xl mx-auto px-4 mt-5 space-y-6">
+      {/* Brands Grid Skeleton */}
+      <div className="space-y-3">
+        <div className="h-4 w-44 bg-slate-300/70 rounded-md" />
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
+          {[...Array(12)].map((_, i) => (
+            <div key={i} className="bg-white rounded-2xl p-3 border border-slate-200/80 flex flex-col items-center space-y-2 shadow-2xs">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-slate-200/80" />
+              <div className="h-3 w-14 bg-slate-200/80 rounded" />
+              <div className="h-3 w-10 bg-blue-100/80 rounded-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Products Grid Skeleton */}
+      <div className="pt-4 border-t border-slate-200 space-y-4">
+        <div className="space-y-1.5">
+          <div className="h-5 w-56 bg-slate-300/70 rounded-md" />
+          <div className="h-3 w-32 bg-slate-200/80 rounded-md" />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
+          {[...Array(10)].map((_, i) => (
+            <div key={i} className="bg-white rounded-2xl p-3 border border-slate-200/80 space-y-3 shadow-2xs">
+              <div className="w-full h-36 bg-slate-200/80 rounded-xl" />
+              <div className="h-3.5 bg-slate-200/80 rounded w-4/5" />
+              <div className="h-3 bg-slate-200/80 rounded w-1/2" />
+              <div className="h-7 bg-blue-100/80 rounded-xl" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 const RefurbishedBrandsPage = () => {
   const navigate = useNavigate();
 
@@ -71,8 +118,8 @@ const RefurbishedBrandsPage = () => {
       });
       setBrands(allSubCats);
 
-      // 2. Fetch Products
-      const prodRes = await customerApi.getProducts({ conditionType: 'refurbished', sort: 'newest' });
+      // 2. Fetch Products with limit: 1000
+      const prodRes = await customerApi.getProducts({ conditionType: 'refurbished', sort: 'newest', limit: 1000 });
       const rawProducts = prodRes?.data?.result?.items || prodRes?.data?.results || prodRes?.data?.items || prodRes?.data || [];
       setProducts(Array.isArray(rawProducts) ? rawProducts : []);
     } catch (err) {
@@ -82,10 +129,41 @@ const RefurbishedBrandsPage = () => {
     }
   };
 
+const PREFERRED_BRAND_ORDER = [
+  'All',
+  'All Brands',
+  'Apple',
+  'Samsung',
+  'Motorola',
+  'OnePlus',
+  'Xiaomi',
+  'Realme',
+  'Vivo',
+  'Oppo',
+  'Google Pixel',
+  'Poco',
+  'Nothing',
+  'iQOO',
+  'Other Brands'
+];
+
   // Filtered Brands List
   const filteredBrands = useMemo(() => {
-    return brands.filter((brand) => {
+    const list = brands.filter((brand) => {
       return brand.name.toLowerCase().includes(searchTerm.toLowerCase().trim());
+    });
+
+    return [...list].sort((a, b) => {
+      const nameA = a.name?.trim() || '';
+      const nameB = b.name?.trim() || '';
+
+      const idxA = PREFERRED_BRAND_ORDER.findIndex((brand) => brand.toLowerCase() === nameA.toLowerCase());
+      const idxB = PREFERRED_BRAND_ORDER.findIndex((brand) => brand.toLowerCase() === nameB.toLowerCase());
+
+      const posA = idxA !== -1 ? idxA : 999;
+      const posB = idxB !== -1 ? idxB : 999;
+
+      return posA - posB;
     });
   }, [brands, searchTerm]);
 
@@ -96,19 +174,24 @@ const RefurbishedBrandsPage = () => {
     }
 
     return products.filter((p) => {
-      const brandStr = (p.brand || p.name || '').toLowerCase();
+      const brandStr = (p.brand || '').toLowerCase().trim();
+      const nameStr = (p.name || '').toLowerCase().trim();
       const catStr = JSON.stringify(p.category || {}).toLowerCase();
-      const target = selectedBrand.toLowerCase();
-      return brandStr.includes(target) || catStr.includes(target);
+      const target = selectedBrand.toLowerCase().trim();
+      return brandStr === target || brandStr.includes(target) || nameStr.includes(target) || catStr.includes(target);
     });
   }, [products, selectedBrand]);
+
+  if (loading) {
+    return <RefurbishedBrandsSkeleton />;
+  }
 
   const handleBrandClick = (brandName) => {
     navigate(`/refurbished/brands/products?brand=${encodeURIComponent(brandName)}`);
   };
 
   return (
-    <div className="min-h-screen bg-slate-100/90 pb-8 font-outfit">
+    <div className="min-h-screen bg-[#f1f4f8] pb-8 font-outfit">
       {/* Short Compact Glassmorphic Navbar */}
       <div className="bg-gradient-to-r from-blue-100/95 via-sky-50 to-[#EFF6FF] backdrop-blur-md border-b border-blue-200/60 text-slate-800 py-2.5 px-3 shadow-2xs sticky top-0 z-40">
         <div className="max-w-7xl mx-auto">
@@ -196,10 +279,11 @@ const RefurbishedBrandsPage = () => {
 
                 // Count products matching this brand
                 const brandProdCount = products.filter((p) => {
-                  const bStr = (p.brand || p.name || '').toLowerCase();
+                  const bStr = (p.brand || '').toLowerCase().trim();
+                  const nStr = (p.name || '').toLowerCase().trim();
                   const cStr = JSON.stringify(p.category || {}).toLowerCase();
-                  const target = brand.name.toLowerCase();
-                  return bStr.includes(target) || cStr.includes(target);
+                  const target = brand.name.toLowerCase().trim();
+                  return bStr === target || bStr.includes(target) || nStr.includes(target) || cStr.includes(target);
                 }).length;
 
                 return (

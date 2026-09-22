@@ -595,6 +595,7 @@ const Auth = () => {
 
   return (
     <SignInCard2
+      showBackButton={false}
       title={isLogin ? "Welcome Back" : `Seller Signup (${signupStep}/3)`}
       subtitle={
         isLogin
@@ -608,40 +609,6 @@ const Auth = () => {
       logoUrl={logoUrl || "/logo.png"}
       appName={appName}
     >
-
-        {/* Mode Toggle Tabs */}
-        {forgotPasswordStep === 0 && (
-          <div className="flex bg-slate-100/90 p-1.5 rounded-2xl mb-6 border border-slate-200/50 relative z-10">
-            <button
-              onClick={() => {
-                setIsLogin(true);
-                setSignupStep(1);
-              }}
-              className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
-                isLogin
-                  ? "bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500 text-white shadow-md font-bold"
-                  : "text-slate-500 hover:text-slate-800 font-semibold"
-              }`}
-              type="button"
-            >
-              Login
-            </button>
-            <button
-              onClick={() => {
-                setIsLogin(false);
-                setSignupStep(1);
-              }}
-              className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
-                !isLogin
-                  ? "bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500 text-white shadow-md font-bold"
-                  : "text-slate-500 hover:text-slate-800 font-semibold"
-              }`}
-              type="button"
-            >
-              Sign Up
-            </button>
-          </div>
-        )}
 
                             {forgotPasswordStep > 0 ? (
                 <div className="space-y-4">

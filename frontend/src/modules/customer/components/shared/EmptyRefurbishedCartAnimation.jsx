@@ -170,9 +170,7 @@ const EmptyRefurbishedCartAnimation = ({ isRefurbished = true, onActionClick }) 
         animate={{ opacity: 1, y: 0 }}
         className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mb-2"
       >
-        {isRefurbished
-          ? "Your Refurbished Cart is Empty"
-          : "Your Cart is Empty"}
+        Your Cart is Empty
       </motion.h2>
 
       <motion.p
@@ -195,7 +193,7 @@ const EmptyRefurbishedCartAnimation = ({ isRefurbished = true, onActionClick }) 
         whileTap={{ scale: 0.96 }}
       >
         <Link
-          to={isRefurbished ? "/refurbished" : "/categories"}
+          to={isRefurbished ? "/marketplace" : "/categories"}
           onClick={onActionClick}
           className={`inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-2xl text-base font-bold text-white shadow-xl transition-all ${
             isRefurbished

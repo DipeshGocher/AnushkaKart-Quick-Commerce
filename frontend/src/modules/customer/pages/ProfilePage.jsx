@@ -2,15 +2,14 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     User, MapPin, Package, CreditCard, Wallet, ChevronRight,
-    LogOut, ShieldCheck, Heart, HelpCircle, Info, Edit2, ChevronLeft, Bell, ShoppingCart,
-    ClipboardCheck, Ticket, LifeBuoy, MapPinned, CalendarCheck, BadgePercent, Globe, AlertTriangle
+    LogOut, ShieldCheck, Heart, HelpCircle, Info, Edit2, Bell,
+    ClipboardCheck, Ticket, LifeBuoy, MapPinned, CalendarCheck, Globe, AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { customerApi } from '../services/customerApi';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
 import { useTranslation } from '@core/context/LanguageContext';
-import CartPage from './CartPage';
 import { cn } from '@/lib/utils';
 
 const ProfilePage = () => {
@@ -22,7 +21,6 @@ const ProfilePage = () => {
     const [showLogoutModal, setShowLogoutModal] = React.useState(false);
     const [showDeleteModal, setShowDeleteModal] = React.useState(false);
     const [isDeleting, setIsDeleting] = React.useState(false);
-    const [isCartOpen, setIsCartOpen] = React.useState(false);
     const [isLangExpanded, setIsLangExpanded] = React.useState(false);
 
     const handleDeleteAccount = async () => {
@@ -49,15 +47,10 @@ const ProfilePage = () => {
     return (
         <>
             <div className="min-h-screen bg-[#f1f4f8] pb-20 font-['Outfit',_sans-serif]">
-            <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 pt-4 pb-3 border-b border-slate-100 mb-4 flex items-center gap-2 shadow-2xs">
-                <button
-                    onClick={() => navigate(-1)}
-                    className="w-10 h-10 flex items-center justify-center hover:bg-slate-100 rounded-full transition-colors -ml-1"
-                >
-                    <ChevronLeft size={22} className="text-slate-800" />
-                </button>
+            {/* Header without Back Button */}
+            <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 pt-4 pb-3 border-b border-slate-100 mb-4 flex items-center justify-between shadow-2xs">
                 <h1 className="text-xl font-bold text-slate-900 tracking-tight">{t('myProfile')}</h1>
-                <div className="ml-auto flex items-center gap-2">
+                <div className="flex items-center gap-2">
                     <button
                         type="button"
                         onClick={() => navigate('/notifications')}
@@ -71,10 +64,10 @@ const ProfilePage = () => {
 
             <div className="max-w-2xl mx-auto px-4 pt-1 relative z-20 space-y-4">
 
-                {/* User Identity Card */}
+                {/* User Identity Card with Blue & Orange Mix Accent */}
                 <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex items-center justify-between">
                     <div className="flex items-center gap-3.5">
-                        <div className="h-14 w-14 rounded-full bg-gradient-to-tr from-[#FF5722] via-[#FF6D00] to-[#0F172A] border-2 border-orange-400/60 flex items-center justify-center p-0.5 shadow-sm shrink-0">
+                        <div className="h-14 w-14 rounded-full bg-gradient-to-tr from-orange-500 via-amber-400 to-blue-600 border-2 border-orange-300/80 flex items-center justify-center p-0.5 shadow-sm shrink-0">
                             <div className="h-full w-full rounded-full bg-white flex items-center justify-center overflow-hidden">
                                 {user?.avatar || user?.profileImage ? (
                                     <img 
@@ -90,50 +83,57 @@ const ProfilePage = () => {
                         <div>
                             <h2 className="text-base leading-tight font-bold text-[#0F172A]">{user?.name || 'Customer'}</h2>
                             <p className="text-slate-500 text-xs font-semibold flex items-center gap-1 mt-1">
-                                <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase">India</span> +91 {formatIndiaPhone(user?.phone)}
+                                <span className="bg-blue-50 text-blue-700 border border-blue-100 px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase">India</span> +91 {formatIndiaPhone(user?.phone)}
                             </p>
                         </div>
                     </div>
-                    <Link to="/profile/edit" className="p-2.5 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-100 transition-colors shadow-2xs">
+                    <Link to="/profile/edit" className="p-2.5 rounded-xl bg-orange-50/80 text-orange-600 hover:bg-orange-100 border border-orange-100 transition-colors shadow-2xs">
                         <Edit2 size={16} />
                     </Link>
                 </div>
 
-                {/* Quick Action Badges (Circular Highlight Icon Style) */}
+                {/* Quick Action Badges (Mix of Blue & Orange Themes) */}
                 <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
                     <div className="grid grid-cols-4 gap-2">
+                        {/* 1. Orders (Blue - Refurbished theme) */}
                         <button
                             onClick={() => navigate('/orders')}
                             className="flex flex-col items-center text-center group py-1"
                         >
-                            <div className="w-12 h-12 rounded-full bg-emerald-50/80 border border-emerald-100 text-emerald-700 flex items-center justify-center shadow-2xs mb-1.5 group-hover:scale-108 transition-transform">
+                            <div className="w-12 h-12 rounded-full bg-blue-50/90 border border-blue-100 text-blue-600 flex items-center justify-center shadow-2xs mb-1.5 group-hover:scale-108 transition-transform">
                                 <CalendarCheck size={22} strokeWidth={2.5} />
                             </div>
                             <span className="text-[11px] font-bold text-slate-700 leading-tight">{t('yourOrders')}</span>
                         </button>
+
+                        {/* 2. Transactions (Orange - Grocery theme) */}
+                        <button
+                            onClick={() => navigate('/transactions')}
+                            className="flex flex-col items-center text-center group py-1"
+                        >
+                            <div className="w-12 h-12 rounded-full bg-orange-50/90 border border-orange-100 text-orange-600 flex items-center justify-center shadow-2xs mb-1.5 group-hover:scale-108 transition-transform">
+                                <CreditCard size={22} strokeWidth={2.5} />
+                            </div>
+                            <span className="text-[11px] font-bold text-slate-700 leading-tight">Transactions</span>
+                        </button>
+
+                        {/* 3. Wallet (Blue/Sky - Refurbished theme) */}
                         <button
                             onClick={() => navigate('/wallet')}
                             className="flex flex-col items-center text-center group py-1"
                         >
-                            <div className="w-12 h-12 rounded-full bg-teal-50/80 border border-teal-100 text-teal-700 flex items-center justify-center shadow-2xs mb-1.5 group-hover:scale-108 transition-transform">
+                            <div className="w-12 h-12 rounded-full bg-sky-50/90 border border-sky-100 text-sky-600 flex items-center justify-center shadow-2xs mb-1.5 group-hover:scale-108 transition-transform">
                                 <Wallet size={22} strokeWidth={2.5} />
                             </div>
                             <span className="text-[11px] font-bold text-slate-700 leading-tight">{t('wallet')}</span>
                         </button>
-                        <button
-                            onClick={() => navigate('/wishlist')}
-                            className="flex flex-col items-center text-center group py-1"
-                        >
-                            <div className="w-12 h-12 rounded-full bg-orange-50/80 border border-orange-100 text-orange-600 flex items-center justify-center shadow-2xs mb-1.5 group-hover:scale-108 transition-transform">
-                                <BadgePercent size={22} strokeWidth={2.5} />
-                            </div>
-                            <span className="text-[11px] font-bold text-slate-700 leading-tight">{t('wishlist')}</span>
-                        </button>
+
+                        {/* 4. Saved Addresses (Orange/Amber - Grocery theme) */}
                         <button
                             onClick={() => navigate('/addresses')}
                             className="flex flex-col items-center text-center group py-1"
                         >
-                            <div className="w-12 h-12 rounded-full bg-orange-50/80 border border-orange-100 text-orange-600 flex items-center justify-center shadow-2xs mb-1.5 group-hover:scale-108 transition-transform">
+                            <div className="w-12 h-12 rounded-full bg-amber-50/90 border border-amber-100 text-amber-600 flex items-center justify-center shadow-2xs mb-1.5 group-hover:scale-108 transition-transform">
                                 <MapPinned size={22} strokeWidth={2.5} />
                             </div>
                             <span className="text-[11px] font-bold text-slate-700 leading-tight">{t('savedAddresses')}</span>
@@ -143,53 +143,43 @@ const ProfilePage = () => {
 
                 {/* Menu Sections */}
                 <div className="space-y-4">
-                    {/* Account Section */}
+                    {/* Account Section - Cart and Wishlist removed */}
                     <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm">
                         <div className="px-4 py-3 bg-slate-50/80 border-b border-slate-100">
                             <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{t('personalAccount')}</p>
                         </div>
                         <div className="divide-y divide-slate-100">
-                            <MenuItem
-                                icon={ShoppingCart}
-                                label={t('myCart')}
-                                sub={t('viewAdded')}
-                                onClick={() => setIsCartOpen(true)}
-                                badgeBg="bg-orange-50/80 border-orange-100/70 text-orange-600"
-                            />
+                            {/* Blue */}
                             <MenuItem
                                 icon={CalendarCheck}
                                 label={t('yourOrders')}
                                 sub={t('trackReturn')}
                                 path="/orders"
-                                badgeBg="bg-emerald-50/80 border-emerald-100/70 text-emerald-700"
+                                badgeBg="bg-blue-50/90 border-blue-100 text-blue-600"
                             />
+                            {/* Orange */}
                             <MenuItem
                                 icon={CreditCard}
-                                label={t('transactions')}
+                                label={t('transactions') || 'Order Transactions'}
                                 sub={t('viewPayments')}
                                 path="/transactions"
-                                badgeBg="bg-amber-50/80 border-amber-100/70 text-amber-600"
+                                badgeBg="bg-orange-50/90 border-orange-100 text-orange-600"
                             />
+                            {/* Blue */}
                             <MenuItem
                                 icon={Wallet}
                                 label={t('wallet')}
                                 sub={t('balanceRefunds')}
                                 path="/wallet"
-                                badgeBg="bg-teal-50/80 border-teal-100/70 text-teal-700"
+                                badgeBg="bg-sky-50/90 border-sky-100 text-sky-600"
                             />
-                            <MenuItem
-                                icon={BadgePercent}
-                                label={t('wishlist')}
-                                sub={t('savedItems')}
-                                path="/wishlist"
-                                badgeBg="bg-orange-50/80 border-orange-100/70 text-orange-600"
-                            />
+                            {/* Orange */}
                             <MenuItem
                                 icon={MapPinned}
                                 label={t('savedAddresses')}
                                 sub={t('manageLocations')}
                                 path="/addresses"
-                                badgeBg="bg-orange-50/80 border-orange-100/70 text-orange-600"
+                                badgeBg="bg-amber-50/90 border-amber-100 text-amber-600"
                             />
                         </div>
                     </div>
@@ -207,7 +197,7 @@ const ProfilePage = () => {
                                     className="w-full text-left px-4 py-3.5 flex items-center justify-between hover:bg-slate-50/80 cursor-pointer transition-colors group"
                                 >
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-full border bg-brand-50/80 border-brand-100/70 text-primary flex items-center justify-center shadow-2xs group-hover:scale-108 transition-transform flex-shrink-0">
+                                        <div className="w-10 h-10 rounded-full border bg-blue-50/90 border-blue-100 text-blue-600 flex items-center justify-center shadow-2xs group-hover:scale-108 transition-transform flex-shrink-0">
                                             <Globe size={18} strokeWidth={2.5} />
                                         </div>
                                         <div>
@@ -251,23 +241,26 @@ const ProfilePage = () => {
                                 )}
                             </div>
 
+                            {/* Orange */}
                             <MenuItem
                                 icon={LifeBuoy}
                                 label={t('helpSupport')}
                                 path="/help"
-                                badgeBg="bg-purple-50/80 border-purple-100/70 text-purple-700"
+                                badgeBg="bg-orange-50/90 border-orange-100 text-orange-600"
                             />
+                            {/* Blue */}
                             <MenuItem
                                 icon={ShieldCheck}
                                 label={t('privacy')}
                                 path="/privacy"
-                                badgeBg="bg-indigo-50/80 border-indigo-100/70 text-indigo-700"
+                                badgeBg="bg-blue-50/90 border-blue-100 text-blue-600"
                             />
+                            {/* Orange */}
                             <MenuItem
                                 icon={Info}
                                 label={t('aboutUs')}
                                 path="/about"
-                                badgeBg="bg-orange-50/80 border-orange-100/70 text-orange-600"
+                                badgeBg="bg-orange-50/90 border-orange-100 text-orange-600"
                             />
                         </div>
                     </div>
@@ -358,31 +351,6 @@ const ProfilePage = () => {
                         </button>
                     </div>
                 </div>
-            </div>
-        )}
-
-        {/* Cart Overlay */}
-        {isCartOpen && (
-            <div className="fixed inset-0 z-[9999] flex flex-col justify-end sm:justify-center items-center bg-slate-900/60 backdrop-blur-sm m-0 p-0 sm:p-4">
-                <div className="absolute inset-0" onClick={() => setIsCartOpen(false)}></div>
-                <div 
-                    className="relative w-full sm:max-w-md h-[90vh] sm:h-auto sm:max-h-[85vh] bg-white rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl transition-transform"
-                    style={{ animation: 'slideUp 0.3s ease-out' }}
-                >
-                    <CartPage asOverlay onClose={() => setIsCartOpen(false)} />
-                </div>
-                <style dangerouslySetInnerHTML={{__html: `
-                    @keyframes slideUp {
-                        from { transform: translateY(100%); opacity: 0; }
-                        to { transform: translateY(0); opacity: 1; }
-                    }
-                    @media (min-width: 640px) {
-                        @keyframes slideUp {
-                            from { transform: scale(0.95); opacity: 0; }
-                            to { transform: scale(1); opacity: 1; }
-                        }
-                    }
-                `}} />
             </div>
         )}
     </>

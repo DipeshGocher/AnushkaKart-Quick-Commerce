@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence, useAnimation, useDragControls } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { X, ChevronDown, Share2, Heart, Search, Clock, Minus, Plus, ShoppingBag, ShoppingCart, Star, MessageSquare, ArrowLeft, ChevronRight, ChevronLeft, Store, Building2, Package } from 'lucide-react';
 import { useProductDetail } from '../../context/ProductDetailContext';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
+import { useAuth } from '@core/context/AuthContext';
 import { useToast } from '@shared/components/ui/Toast';
 import { useSettings } from '@core/context/SettingsContext';
 import { useLocation as useAppLocation } from '../../context/LocationContext';
@@ -118,8 +119,21 @@ const HIGHLIGHT_ICON_MAP = {
 
 const ProductDetailSheet = () => {
     const { selectedProduct, isOpen, closeProduct } = useProductDetail();
-    const { cart, cartCount, addToCart, updateQuantity, removeFromCart, cartTotal } = useCart();
+    const { 
+        cart, 
+        cartCount, 
+        addToCart, 
+        updateQuantity, 
+        removeFromCart, 
+        cartTotal,
+        groceryCartCount,
+        refurbishedCartCount,
+        groceryCartTotal,
+        refurbishedCartTotal
+    } = useCart();
     const { toggleWishlist: toggleWishlistGlobal, isInWishlist } = useWishlist();
+    const { isAuthenticated } = useAuth();
+    const navigate = useNavigate();
     const { showToast } = useToast();
     const { settings } = useSettings();
     const { currentLocation } = useAppLocation();
@@ -127,10 +141,28 @@ const ProductDetailSheet = () => {
 
     // Controls for sheet animation
     const controls = useAnimation();
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(true);
     const [selectedVariant, setSelectedVariant] = useState(null);
     const [activeImageIndex, setActiveImageIndex] = useState(0);
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
+    const isRefurbishedProduct = useMemo(() => {
+        if (!selectedProduct) return false;
+        if (selectedProduct.conditionType === 'new' && selectedProduct.catalogType !== 'refurbished') {
+            return false;
+        }
+        return (
+            selectedProduct.conditionType === 'refurbished' ||
+            selectedProduct.isRefurbished ||
+            selectedProduct.catalogType === 'refurbished' ||
+            (selectedProduct.conditionType !== 'new' && typeof window !== 'undefined' && (
+                window.location.pathname.includes('/marketplace') ||
+                window.location.pathname.startsWith('/marketplace') ||
+                window.location.pathname.includes('/refurbished') ||
+                window.location.pathname.startsWith('/refurbished')
+            ))
+        );
+    }, [selectedProduct]);
 
     const [reviews, setReviews] = useState([]);
     const [reviewLoading, setReviewLoading] = useState(true);
@@ -450,12 +482,21 @@ const ProductDetailSheet = () => {
     const toggleWishlist = (e) => {
         e.stopPropagation();
 
+        if (!isAuthenticated) {
+            closeProduct();
+            navigate('/login', { state: { from: window.location.pathname } });
+            return;
+        }
+
         if (!isWishlisted) {
             setShowHeartPopup(true);
             setTimeout(() => setShowHeartPopup(false), 1000);
         }
 
-        toggleWishlistGlobal(selectedProduct);
+        toggleWishlistGlobal({
+            ...selectedProduct,
+            conditionType: isRefurbishedProduct ? 'refurbished' : (selectedProduct?.conditionType || 'new'),
+        });
         showToast(
             isWishlisted ? `${selectedProduct.name} removed from wishlist` : `${selectedProduct.name} added to wishlist`,
             isWishlisted ? 'info' : 'success'
@@ -463,6 +504,12 @@ const ProductDetailSheet = () => {
     };
 
     const handleAddToCart = () => {
+        if (!isAuthenticated) {
+            closeProduct();
+            navigate('/login', { state: { from: window.location.pathname } });
+            return;
+        }
+
         let customData = {};
         if (selectedProduct.isMonthlyKit) {
             const selectedAddons = addons.filter(a => (addonQuantities[a._id] || 0) > 0);
@@ -481,7 +528,10 @@ const ProductDetailSheet = () => {
         }
         
         addToCart(
-            selectedProduct,
+            {
+                ...selectedProduct,
+                conditionType: isRefurbishedProduct ? 'refurbished' : (selectedProduct?.conditionType || 'new'),
+            },
             1, 
             String(selectedVariant?.sku || selectedVariant?.name || "").trim(),
             customData
@@ -489,8 +539,14 @@ const ProductDetailSheet = () => {
         showToast(`${selectedProduct.name} added to cart`, 'success');
     };
 
-    const handleIncrement = () =>
+    const handleIncrement = () => {
+        if (!isAuthenticated) {
+            closeProduct();
+            navigate('/login', { state: { from: window.location.pathname } });
+            return;
+        }
         updateQuantity(selectedProduct.id, 1, String(selectedVariant?.sku || selectedVariant?.name || "").trim());
+    };
 
     const handleDecrement = () => {
         if (quantity === 1) {
@@ -893,23 +949,30 @@ const ProductDetailSheet = () => {
                                     </motion.div>
 
                                     {/* View Cart */}
-                                    {cartCount > 0 && (
+                                    {(isRefurbishedProduct ? refurbishedCartCount : groceryCartCount) > 0 && (
                                         <motion.div
                                             initial={{ opacity: 0, scale: 0.98 }}
                                             animate={{ opacity: 1, scale: 1 }}
                                             className="flex justify-center -mt-1"
                                         >
                                             <Link
-                                                to="/checkout"
+                                                to={isRefurbishedProduct ? "/marketplace/cart" : "/cart"}
                                                 onClick={closeProduct}
-                                                className="w-[80%] bg-gradient-to-r from-primary to-[var(--brand-500)] text-white h-[40px] rounded-xl flex items-center justify-between px-4 shadow-md shadow-brand-200/40 hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-[0.98]"
+                                                className={cn(
+                                                    "w-[80%] text-white h-[40px] rounded-xl flex items-center justify-between px-4 shadow-md transition-all active:scale-[0.98]",
+                                                    isRefurbishedProduct
+                                                        ? "bg-blue-600 hover:bg-blue-700 shadow-blue-500/25"
+                                                        : "bg-gradient-to-r from-primary to-[var(--brand-500)] shadow-brand-200/40 hover:shadow-lg hover:-translate-y-0.5"
+                                                )}
                                             >
                                                 <div className="flex items-center gap-2">
                                                     <ShoppingBag size={14} strokeWidth={2.0} />
                                                     <span className="text-[12px] font-[700] uppercase tracking-wider">View Cart</span>
                                                 </div>
                                                 <div className="flex items-center justify-center gap-1.5 bg-white/10 px-2 py-1 rounded-lg">
-                                                    <span className="text-[13px] font-[800] tracking-tight">₹{cartTotal}</span>
+                                                    <span className="text-[13px] font-[800] tracking-tight">
+                                                        ₹{isRefurbishedProduct ? refurbishedCartTotal : groceryCartTotal}
+                                                    </span>
                                                     <ChevronRight size={14} strokeWidth={2.5} />
                                                 </div>
                                             </Link>
@@ -1113,36 +1176,36 @@ const ProductDetailSheet = () => {
                     </motion.div>
 
                     {/* ============================================================ */}
-                    {/* MOBILE LAYOUT: Bottom sheet (hidden on desktop md+) */}
+                    {/* MOBILE LAYOUT: Full Screen Sheet (hidden on desktop md+) */}
                     {/* ============================================================ */}
                     <motion.div
-                        drag={isExpanded ? false : "y"}
+                        drag="y"
                         dragConstraints={{ top: 0, bottom: 0 }}
-                        dragElastic={0.7}
+                        dragElastic={0.2}
                         onDragEnd={handleDragEnd}
                         initial={{
                             opacity: 0,
                             y: "100vh",
-                            top: "auto",
+                            top: 0,
                             bottom: 0,
                             left: 0,
                             width: "100%",
-                            borderTopLeftRadius: "24px",
-                            borderTopRightRadius: "24px",
-                            height: "auto",
-                            maxHeight: "85vh"
+                            borderTopLeftRadius: 0,
+                            borderTopRightRadius: 0,
+                            height: "100vh",
+                            maxHeight: "100vh"
                         }}
                         animate={{
                             opacity: 1,
                             y: 0,
-                            top: isExpanded ? 0 : "auto",
+                            top: 0,
                             bottom: 0,
                             left: 0,
                             width: "100%",
-                            borderTopLeftRadius: isExpanded ? 0 : "24px",
-                            borderTopRightRadius: isExpanded ? 0 : "24px",
-                            height: isExpanded ? "100vh" : "auto",
-                            maxHeight: isExpanded ? "100vh" : "85vh"
+                            borderTopLeftRadius: 0,
+                            borderTopRightRadius: 0,
+                            height: "100vh",
+                            maxHeight: "100vh"
                         }}
                         exit={{ opacity: 0, y: "100vh", transition: { duration: 0.3 } }}
                         transition={{
@@ -1152,17 +1215,10 @@ const ProductDetailSheet = () => {
                             mass: 0.8
                         }}
                         className={cn(
-                            "md:hidden fixed z-[590] bg-white shadow-2xl overflow-hidden flex flex-col",
+                            "md:hidden fixed z-[590] bg-white shadow-2xl overflow-hidden flex flex-col inset-0 h-full w-full",
                         )}
-                        style={{ willChange: "transform, top, height, border-radius", touchAction: isExpanded ? "auto" : "none" }}
+                        style={{ willChange: "transform, top, height", touchAction: "auto" }}
                     >
-                        {/* Drag Handle (Visible only when not fully expanded) */}
-                        {!isExpanded && (
-                            <div className="absolute top-0 left-0 right-0 h-8 flex justify-center items-center z-50 pointer-events-none">
-                                <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
-                            </div>
-                        )}
-
                         {/* Header Actions (Absolute & Sticky) */}
                         <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-40 pointer-events-none">
                             <motion.button
@@ -1170,7 +1226,7 @@ const ProductDetailSheet = () => {
                                 whileTap={{ scale: 0.9 }}
                                 className="w-10 h-10 bg-white shadow-lg rounded-full flex items-center justify-center border border-gray-100 pointer-events-auto"
                             >
-                                <ArrowLeft size={24} className="text-primary" strokeWidth={3} />
+                                <ArrowLeft size={24} className={isRefurbishedProduct ? "text-blue-600" : "text-primary"} strokeWidth={3} />
                             </motion.button>
                             <div className="flex gap-3 pointer-events-auto invisible">
                                 {/* Hidden as per request to simplify the view */}
@@ -1179,15 +1235,17 @@ const ProductDetailSheet = () => {
 
                         {/* Scrollable Content */}
                         <div
-                            className={cn(
-                                "flex-1 overflow-x-hidden no-scrollbar pb-24 bg-white",
-                                isExpanded ? "overflow-y-auto" : "overflow-y-hidden"
-                            )}
+                            className="flex-1 overflow-x-hidden overflow-y-auto no-scrollbar pb-24 bg-white"
                             onScroll={handleScroll}
                             onWheel={handleWheel}
                         >
                             {/* Product Image Carousel */}
-                            <div className="relative w-full bg-gradient-to-b from-[#FFF2E8] via-[#FFF7F2] to-white pt-12 pb-8 h-[380px] sm:h-[480px] border-b border-orange-100/60">
+                            <div className={cn(
+                                "relative w-full pt-12 pb-8 h-[380px] sm:h-[480px] border-b",
+                                isRefurbishedProduct
+                                    ? "bg-gradient-to-b from-blue-50/90 via-sky-50/50 to-white border-blue-100/80"
+                                    : "bg-gradient-to-b from-[#FFF2E8] via-[#FFF7F2] to-white border-orange-100/60"
+                            )}>
                                 <div
                                     ref={scrollRef}
                                     className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar h-full w-full"
@@ -1215,7 +1273,9 @@ const ProductDetailSheet = () => {
                                                 key={i}
                                                 className={cn(
                                                     "h-1.5 rounded-full transition-all duration-300",
-                                                    i === activeImageIndex ? "w-6 bg-[#FF5722]" : "w-1.5 bg-orange-200"
+                                                    i === activeImageIndex
+                                                        ? (isRefurbishedProduct ? "w-6 bg-blue-600" : "w-6 bg-[#FF5722]")
+                                                        : (isRefurbishedProduct ? "w-1.5 bg-blue-200" : "w-1.5 bg-orange-200")
                                                 )}
                                             />
                                         ))}
@@ -1241,8 +1301,10 @@ const ProductDetailSheet = () => {
                                                 className={cn(
                                                     "w-[65px] h-[65px] flex-shrink-0 rounded-2xl overflow-hidden transition-all duration-300 border-2",
                                                     i === activeImageIndex
-                                                        ? "border-[#FF5722] shadow-md shadow-orange-100 ring-2 ring-orange-100 bg-white scale-95"
-                                                        : "border-slate-200 bg-slate-50 hover:border-[#FF5722]/50"
+                                                        ? (isRefurbishedProduct
+                                                            ? "border-blue-600 shadow-md shadow-blue-100 ring-2 ring-blue-100 bg-white scale-95"
+                                                            : "border-[#FF5722] shadow-md shadow-orange-100 ring-2 ring-orange-100 bg-white scale-95")
+                                                        : "border-slate-200 bg-slate-50 hover:border-slate-300"
                                                 )}
                                             >
                                                 <img src={applyCloudinaryTransform(img, "f_auto,q_auto:best,w_150")} alt="" className="w-full h-full object-contain p-1.5 mix-blend-multiply" />
@@ -1257,11 +1319,16 @@ const ProductDetailSheet = () => {
                                 {/* Delivery Time & Navy/Orange Badges Row */}
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <div className="inline-flex items-center gap-1.5 bg-[#0F172A] text-white px-3 py-1.5 rounded-full text-[10.5px] font-black uppercase tracking-wider shadow-2xs">
-                                        <Clock size={13} strokeWidth={2.5} className="text-[#FF7043]" />
+                                        <Clock size={13} strokeWidth={2.5} className={isRefurbishedProduct ? "text-blue-400" : "text-[#FF7043]"} />
                                         {selectedProduct.deliveryTime || "8-15 MINS"}
                                     </div>
-                                    <div className="inline-flex items-center gap-1 bg-[#FFF0E6] text-[#D9480F] border border-[#FFD0B5] px-2.5 py-1 rounded-full text-[10.5px] font-black uppercase">
-                                        ✨ Quality Fresh
+                                    <div className={cn(
+                                        "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] font-black uppercase border",
+                                        isRefurbishedProduct
+                                            ? "bg-blue-50 text-blue-700 border-blue-200"
+                                            : "bg-[#FFF0E6] text-[#D9480F] border-[#FFD0B5]"
+                                    )}>
+                                        {isRefurbishedProduct ? "✨ Certified Refurbished" : "✨ Quality Fresh"}
                                     </div>
                                 </div>
 
@@ -1271,7 +1338,7 @@ const ProductDetailSheet = () => {
                                         {selectedProduct.name}
                                     </h2>
                                     <p className="text-xs text-slate-500 font-bold mt-1">
-                                        {selectedVariant?.name || selectedProduct.weight || "1 kg"}
+                                        {selectedVariant?.name || (isRefurbishedProduct ? (selectedProduct.unit || "1 unit") : (selectedProduct.weight || "1 kg"))}
                                     </p>
                                 </div>
 
@@ -1286,7 +1353,12 @@ const ProductDetailSheet = () => {
                                                 <span className="text-sm font-bold text-slate-400 line-through">
                                                     ₹{selectedVariant?.price || selectedProduct.originalPrice}
                                                 </span>
-                                                <span className="text-xs font-black bg-[#FFF0E6] text-[#FF5722] border border-orange-200/80 px-2 py-0.5 rounded-lg uppercase tracking-wide">
+                                                <span className={cn(
+                                                    "text-xs font-black px-2 py-0.5 rounded-lg uppercase tracking-wide border",
+                                                    isRefurbishedProduct
+                                                        ? "bg-blue-50 text-blue-600 border-blue-200"
+                                                        : "bg-[#FFF0E6] text-[#FF5722] border-orange-200/80"
+                                                )}>
                                                     {selectedVariant
                                                         ? Math.round(((selectedVariant.price - selectedVariant.salePrice) / selectedVariant.price) * 100)
                                                         : Math.round(((selectedProduct.originalPrice - selectedProduct.price) / selectedProduct.originalPrice) * 100)}% OFF
@@ -1295,16 +1367,22 @@ const ProductDetailSheet = () => {
                                         )}
                                 </div>
 
-                                {/* Key Feature Highlights Row (Light Orange & Navy Blue Combos) */}
+                                {/* Key Feature Highlights Row (Light Orange / Blue Combos) */}
                                 {displayHighlights.length > 0 && (
                                     <div className={cn(
-                                        "grid gap-2 pt-2.5 pb-1.5 border-t border-b border-orange-100/90 my-2",
+                                        "grid gap-2 pt-2.5 pb-1.5 border-t border-b my-2",
+                                        isRefurbishedProduct ? "border-blue-100/90" : "border-orange-100/90",
                                         displayHighlights.length === 1 ? "grid-cols-1 max-w-[180px] mx-auto" :
                                         displayHighlights.length === 2 ? "grid-cols-2 max-w-[320px] mx-auto" :
                                         displayHighlights.length === 3 ? "grid-cols-3" : "grid-cols-4"
                                     )}>
                                         {displayHighlights.map((hl, idx) => {
-                                            const themeStyles = [
+                                            const themeStyles = isRefurbishedProduct ? [
+                                                "bg-blue-50 border-blue-200 text-blue-700",
+                                                "bg-sky-50 border-sky-200 text-sky-800",
+                                                "bg-indigo-50 border-indigo-200 text-indigo-700",
+                                                "bg-teal-50 border-teal-200 text-teal-800"
+                                            ] : [
                                                 "bg-[#FFF0E6] border-[#FFD0B5] text-[#D9480F]",
                                                 "bg-[#EEF2FF] border-[#C7D2FE] text-[#1E3A8A]",
                                                 "bg-[#FFF4EC] border-[#FFE4D6] text-[#E65100]",
@@ -1326,210 +1404,227 @@ const ProductDetailSheet = () => {
                                     </div>
                                 )}
 
-                                {isExpanded ? (
-                                    <>
-                                        {/* Variants Selection (Mobile) */}
-                                        {selectedProduct.variants && selectedProduct.variants.filter(v => v.name).length > 0 && (
-                                            <div className="pt-1 mb-1">
-                                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Select Variant</h4>
-                                                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                                                    {selectedProduct.variants.filter(v => v.name).map((v, idx) => (
-                                                        <motion.button
-                                                            key={idx}
-                                                            whileTap={{ scale: 0.95 }}
-                                                            onClick={() => handleVariantSelect(v)}
-                                                            className={cn(
-                                                                "flex-shrink-0 px-4 py-2 font-bold rounded-xl text-xs transition-all relative border-2",
-                                                                selectedVariant?.sku === v.sku
-                                                                    ? "bg-[#ecfeff] border-primary text-primary shadow-sm shadow-brand-100"
-                                                                    : "bg-slate-50 border-slate-100 text-slate-500"
-                                                            )}
-                                                        >
-                                                            {v.name}
-                                                            {selectedVariant?.sku === v.sku && (
-                                                                <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-primary rounded-bl-lg" />
-                                                            )}
-                                                        </motion.button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Included Items (Mobile) */}
-                                        {selectedProduct.isMonthlyKit && selectedProduct.includedItems && selectedProduct.includedItems.length > 0 && (
-                                            <div className="pt-2 mb-2">
-                                                <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                                                    <Package className="w-3 h-3" /> What's in the Basket
-                                                </h4>
-                                                <div className="bg-amber-50/50 rounded-xl p-3 border border-amber-100/50 space-y-2">
-                                                    {selectedProduct.includedItems.map((item, idx) => (
-                                                        <div key={idx} className="flex justify-between items-center text-xs font-bold">
-                                                            <span className="text-slate-700">{item.name}</span>
-                                                            <span className="text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-100">{item.quantity}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Kit Addons (Mobile) */}
-                                        {selectedProduct.isMonthlyKit && <KitAddonsUI />}
-
-                                        {/* Product Information Accordion (Mobile) */}
-                                        <div className="mt-2 border-t border-slate-100">
-                                            {/* Description */}
-                                            {cleanDesc && (
-                                                <AccordionItem expandedSections={expandedSections} toggleSection={toggleSection}
-                                                    id="description"
-                                                    title="Product Description"
-                                                    icon={<Clock size={18} strokeWidth={2.5} />}
-                                                >
-                                                    <div
-                                                        className="text-sm text-slate-500 font-medium leading-relaxed whitespace-pre-line"
-                                                        dangerouslySetInnerHTML={{ __html: cleanDesc }}
-                                                    />
-                                                </AccordionItem>
-                                            )}
-
-                                            {/* Product Details */}
-                                            <AccordionItem expandedSections={expandedSections} toggleSection={toggleSection}
-                                                id="details"
-                                                title="Product Details"
-                                                icon={<Search size={18} strokeWidth={2.5} />}
-                                            >
-                                                <div className="grid grid-cols-2 gap-3 mt-1">
-                                                    {[
-                                                        ...(selectedProduct?.brand ? [{ label: 'Brand', value: selectedProduct.brand }] : []),
-                                                        ...(selectedProduct?.shelfLife ? [{ label: 'Shelf Life', value: selectedProduct.shelfLife }] : []),
-                                                        ...(selectedProduct?.countryOfOrigin ? [{ label: 'Country of Origin', value: selectedProduct.countryOfOrigin }] : []),
-                                                        ...(selectedProduct?.fssaiLicense ? [{ label: 'FSSAI License', value: selectedProduct.fssaiLicense }] : []),
-                                                        { label: 'Customer Care', value: supportEmail }
-                                                    ].map((d) => (
-                                                        <div key={d.label} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                                            <span className="text-gray-400 block mb-0.5 text-[10px] font-bold uppercase tracking-wider">{d.label}</span>
-                                                            <span className="font-black text-slate-800 text-xs">{d.value}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </AccordionItem>
-
-                                            {/* Customer Reviews */}
-                                            <AccordionItem expandedSections={expandedSections} toggleSection={toggleSection}
-                                                id="reviews"
-                                                title={`Customer Reviews (${reviews.length > 0 ? reviews.length : '120+'})`}
-                                                icon={<Star size={18} strokeWidth={2.5} />}
-                                            >
-                                                <div className="space-y-6 mt-2">
-                                                    <div className="flex items-center justify-between mb-4">
-                                                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 text-primary rounded-xl text-xs font-black border border-brand-100">
-                                                            <Star size={16} fill="currentColor" />
-                                                            {reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : '4.8'}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Review Form */}
-                                                    {(selectedProduct?.hasReviewed || extendedProduct?.hasReviewed || localHasReviewed) ? (
-                                                        <div className="bg-brand-50 p-5 rounded-3xl border border-brand-100 mb-6 text-center">
-                                                            <p className="text-[12px] font-bold text-primary uppercase tracking-wide">You have already reviewed this product. Thank you!</p>
-                                                        </div>
-                                                    ) : (selectedProduct?.hasPurchased || extendedProduct?.hasPurchased) ? (
-                                                        <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100 mb-6">
-                                                            <h4 className="font-black text-slate-800 text-sm mb-1">Rate this product</h4>
-                                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-4">Reviews are moderated</p>
-                                                            <form onSubmit={handleReviewSubmit} className="space-y-4">
-                                                                <div className="flex gap-2">
-                                                                    {[1, 2, 3, 4, 5].map((s) => (
-                                                                        <button
-                                                                            key={s}
-                                                                            type="button"
-                                                                            onClick={() => setNewReview({ ...newReview, rating: s })}
-                                                                            className={cn(
-                                                                                "h-10 w-10 rounded-xl flex items-center justify-center transition-all shadow-sm",
-                                                                                newReview.rating >= s ? "bg-brand-50 text-primary border border-brand-100" : "bg-white text-slate-300 border border-slate-100"
-                                                                            )}
-                                                                        >
-                                                                            <Star size={18} className={cn(newReview.rating >= s && "fill-current")} />
-                                                                        </button>
-                                                                    ))}
-                                                                </div>
-                                                                <textarea value={newReview.comment} onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })} placeholder="Write your experience..." className="w-full bg-white border border-slate-100 rounded-2xl p-4 text-sm font-medium min-h-[100px] outline-none focus:border-primary transition-all resize-none shadow-sm" />
-                                                                <Button type="submit" disabled={isSubmittingReview} className="w-full h-12 bg-primary hover:opacity-90 text-white font-black rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg shadow-brand-100">
-                                                                    {isSubmittingReview ? "Submitting..." : "Post Review"}
-                                                                </Button>
-                                                            </form>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100 mb-6 text-center">
-                                                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">You must purchase this product to rate it</p>
-                                                        </div>
+                                {/* Variants Selection (Mobile) */}
+                                {selectedProduct.variants && selectedProduct.variants.filter(v => v.name).length > 0 && (
+                                    <div className="pt-1 mb-1">
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Select Variant</h4>
+                                        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                                            {selectedProduct.variants.filter(v => v.name).map((v, idx) => (
+                                                <motion.button
+                                                    key={idx}
+                                                    whileTap={{ scale: 0.95 }}
+                                                    onClick={() => handleVariantSelect(v)}
+                                                    className={cn(
+                                                        "flex-shrink-0 px-4 py-2 font-bold rounded-xl text-xs transition-all relative border-2",
+                                                        selectedVariant?.sku === v.sku
+                                                            ? (isRefurbishedProduct
+                                                                ? "bg-blue-50 border-blue-600 text-blue-700 shadow-sm shadow-blue-100"
+                                                                : "bg-[#ecfeff] border-primary text-primary shadow-sm shadow-brand-100")
+                                                            : "bg-slate-50 border-slate-100 text-slate-500"
                                                     )}
-
-                                                    {/* Reviews List */}
-                                                    <div className="space-y-4">
-                                                        {reviewLoading ? (
-                                                            <div className="flex justify-center py-8"><Loader2 className="animate-spin text-primary" size={24} /></div>
-                                                        ) : reviews.length > 0 ? (
-                                                            reviews.map((r, rIdx) => (
-                                                                <div key={r._id} className="p-5 rounded-2xl border border-slate-100 bg-white hover:shadow-md transition-all">
-                                                                    <div className="flex justify-between items-start mb-2">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <div className="h-8 w-8 rounded-full bg-brand-50 flex items-center justify-center text-[10px] font-black text-primary border border-brand-100">{r.userId?.name?.[0] || 'A'}</div>
-                                                                            <div>
-                                                                                <p className="text-xs font-black text-slate-800">{r.userId?.name || 'Anonymous'}</p>
-                                                                                <div className="flex gap-0.5">{[...Array(5)].map((_, i) => <Star key={i} size={10} className={cn(i < r.rating ? 'text-primary fill-primary' : 'text-slate-200')} />)}</div>
-                                                                            </div>
-                                                                        </div>
-                                                                        <span className="text-[10px] font-bold text-slate-400">{new Date(r.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
-                                                                    </div>
-                                                                    <p className="text-xs text-slate-600 font-medium leading-relaxed pl-10">{r.comment}</p>
-                                                                </div>
-                                                            ))
-                                                        ) : (
-                                                            <div className="py-12 text-center bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
-                                                                <MessageSquare size={24} className="text-slate-300 mx-auto mb-3" />
-                                                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No reviews yet — be the first!</p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </AccordionItem>
+                                                >
+                                                    {v.name}
+                                                    {selectedVariant?.sku === v.sku && (
+                                                        <div className={cn(
+                                                            "absolute top-0 right-0 w-2.5 h-2.5 rounded-bl-lg",
+                                                            isRefurbishedProduct ? "bg-blue-600" : "bg-primary"
+                                                        )} />
+                                                    )}
+                                                </motion.button>
+                                            ))}
                                         </div>
-                                    </>
-                                ) : (
-                                    <div className="mt-2 text-center">
-                                        <button
-                                            onClick={() => setIsExpanded(true)}
-                                            className="w-full flex items-center justify-center gap-2 py-3 bg-slate-50/80 hover:bg-slate-100 rounded-2xl transition-colors text-primary font-bold text-xs uppercase tracking-widest border border-slate-100"
-                                        >
-                                            View Full Details
-                                            <ChevronDown size={16} strokeWidth={3} />
-                                        </button>
                                     </div>
                                 )}
+
+                                {/* Included Items (Mobile) */}
+                                {selectedProduct.isMonthlyKit && selectedProduct.includedItems && selectedProduct.includedItems.length > 0 && (
+                                    <div className="pt-2 mb-2">
+                                        <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                            <Package className="w-3 h-3" /> What's in the Basket
+                                        </h4>
+                                        <div className="bg-amber-50/50 rounded-xl p-3 border border-amber-100/50 space-y-2">
+                                            {selectedProduct.includedItems.map((item, idx) => (
+                                                <div key={idx} className="flex justify-between items-center text-xs font-bold">
+                                                    <span className="text-slate-700">{item.name}</span>
+                                                    <span className="text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-100">{item.quantity}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Kit Addons (Mobile) */}
+                                {selectedProduct.isMonthlyKit && <KitAddonsUI />}
+
+                                {/* Product Information Accordion (Mobile) */}
+                                <div className="mt-2 border-t border-slate-100">
+                                    {/* Description */}
+                                    {cleanDesc && (
+                                        <AccordionItem expandedSections={expandedSections} toggleSection={toggleSection}
+                                            id="description"
+                                            title="Product Description"
+                                            icon={<Clock size={18} strokeWidth={2.5} />}
+                                        >
+                                            <div
+                                                className="text-sm text-slate-500 font-medium leading-relaxed whitespace-pre-line"
+                                                dangerouslySetInnerHTML={{ __html: cleanDesc }}
+                                            />
+                                        </AccordionItem>
+                                    )}
+
+                                    {/* Product Details */}
+                                    <AccordionItem expandedSections={expandedSections} toggleSection={toggleSection}
+                                        id="details"
+                                        title="Product Details"
+                                        icon={<Search size={18} strokeWidth={2.5} />}
+                                    >
+                                        <div className="grid grid-cols-2 gap-3 mt-1">
+                                            {[
+                                                ...(selectedProduct?.brand ? [{ label: 'Brand', value: selectedProduct.brand }] : []),
+                                                ...(selectedProduct?.shelfLife ? [{ label: 'Shelf Life', value: selectedProduct.shelfLife }] : []),
+                                                ...(selectedProduct?.countryOfOrigin ? [{ label: 'Country of Origin', value: selectedProduct.countryOfOrigin }] : []),
+                                                ...(selectedProduct?.fssaiLicense ? [{ label: 'FSSAI License', value: selectedProduct.fssaiLicense }] : []),
+                                                { label: 'Customer Care', value: supportEmail }
+                                            ].map((d) => (
+                                                <div key={d.label} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                                    <span className="text-gray-400 block mb-0.5 text-[10px] font-bold uppercase tracking-wider">{d.label}</span>
+                                                    <span className="font-black text-slate-800 text-xs">{d.value}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </AccordionItem>
+
+                                    {/* Customer Reviews */}
+                                    <AccordionItem expandedSections={expandedSections} toggleSection={toggleSection}
+                                        id="reviews"
+                                        title={`Customer Reviews (${reviews.length > 0 ? reviews.length : '120+'})`}
+                                        icon={<Star size={18} strokeWidth={2.5} />}
+                                    >
+                                        <div className="space-y-6 mt-2">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className={cn(
+                                                    "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black border",
+                                                    isRefurbishedProduct
+                                                        ? "bg-blue-50 text-blue-600 border-blue-200"
+                                                        : "bg-brand-50 text-primary border-brand-100"
+                                                )}>
+                                                    <Star size={16} fill="currentColor" />
+                                                    {reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : '4.8'}
+                                                </div>
+                                            </div>
+
+                                            {/* Review Form */}
+                                            {(selectedProduct?.hasReviewed || extendedProduct?.hasReviewed || localHasReviewed) ? (
+                                                <div className={cn(
+                                                    "p-5 rounded-3xl border mb-6 text-center",
+                                                    isRefurbishedProduct ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-brand-50 border-brand-100 text-primary"
+                                                )}>
+                                                    <p className="text-[12px] font-bold uppercase tracking-wide">You have already reviewed this product. Thank you!</p>
+                                                </div>
+                                            ) : (selectedProduct?.hasPurchased || extendedProduct?.hasPurchased) ? (
+                                                <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100 mb-6">
+                                                    <h4 className="font-black text-slate-800 text-sm mb-1">Rate this product</h4>
+                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-4">Reviews are moderated</p>
+                                                    <form onSubmit={handleReviewSubmit} className="space-y-4">
+                                                        <div className="flex gap-2">
+                                                            {[1, 2, 3, 4, 5].map((s) => (
+                                                                <button
+                                                                    key={s}
+                                                                    type="button"
+                                                                    onClick={() => setNewReview({ ...newReview, rating: s })}
+                                                                    className={cn(
+                                                                        "h-10 w-10 rounded-xl flex items-center justify-center transition-all shadow-sm",
+                                                                        newReview.rating >= s
+                                                                            ? (isRefurbishedProduct ? "bg-blue-50 text-blue-600 border border-blue-200" : "bg-brand-50 text-primary border border-brand-100")
+                                                                            : "bg-white text-slate-300 border border-slate-100"
+                                                                    )}
+                                                                >
+                                                                    <Star size={18} className={cn(newReview.rating >= s && "fill-current")} />
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                        <textarea value={newReview.comment} onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })} placeholder="Write your experience..." className="w-full bg-white border border-slate-100 rounded-2xl p-4 text-sm font-medium min-h-[100px] outline-none focus:border-blue-500 transition-all resize-none shadow-sm" />
+                                                        <Button type="submit" disabled={isSubmittingReview} className={cn(
+                                                            "w-full h-12 text-white font-black rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg",
+                                                            isRefurbishedProduct
+                                                                ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-95 shadow-blue-500/20"
+                                                                : "bg-primary hover:opacity-90 shadow-brand-100"
+                                                        )}>
+                                                            {isSubmittingReview ? "Submitting..." : "Post Review"}
+                                                        </Button>
+                                                    </form>
+                                                </div>
+                                            ) : (
+                                                <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100 mb-6 text-center">
+                                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">You must purchase this product to rate it</p>
+                                                </div>
+                                            )}
+
+                                            {/* Reviews List */}
+                                            <div className="space-y-4">
+                                                {reviewLoading ? (
+                                                    <div className="flex justify-center py-8"><Loader2 className={cn("animate-spin", isRefurbishedProduct ? "text-blue-600" : "text-primary")} size={24} /></div>
+                                                ) : reviews.length > 0 ? (
+                                                    reviews.map((r, rIdx) => (
+                                                        <div key={r._id} className="p-5 rounded-2xl border border-slate-100 bg-white hover:shadow-md transition-all">
+                                                            <div className="flex justify-between items-start mb-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className={cn(
+                                                                        "h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-black border",
+                                                                        isRefurbishedProduct ? "bg-blue-50 text-blue-600 border-blue-200" : "bg-brand-50 text-primary border-brand-100"
+                                                                    )}>{r.userId?.name?.[0] || 'A'}</div>
+                                                                    <div>
+                                                                        <p className="text-xs font-black text-slate-800">{r.userId?.name || 'Anonymous'}</p>
+                                                                        <div className="flex gap-0.5">{[...Array(5)].map((_, i) => <Star key={i} size={10} className={cn(i < r.rating ? (isRefurbishedProduct ? 'text-amber-400 fill-amber-400' : 'text-primary fill-primary') : 'text-slate-200')} />)}</div>
+                                                                    </div>
+                                                                </div>
+                                                                <span className="text-[10px] font-bold text-slate-400">{new Date(r.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                                                            </div>
+                                                            <p className="text-xs text-slate-600 font-medium leading-relaxed pl-10">{r.comment}</p>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <div className="py-12 text-center bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
+                                                        <MessageSquare size={24} className="text-slate-300 mx-auto mb-3" />
+                                                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No reviews yet — be the first!</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </AccordionItem>
+                                </div>
                             </div>
                         </div>
 
                         {/* Sticky Bottom Action Bar */}
-                        <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-orange-100 p-4 pb-7 shadow-[0_-10px_40px_rgba(0,0,0,0.08)] z-50 rounded-t-3xl">
+                        <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-100 p-4 pb-7 shadow-[0_-10px_40px_rgba(0,0,0,0.08)] z-50">
                             <div className="flex items-center gap-3.5">
                                 {/* Left Side: Cart Icon with Badge */}
                                 <Link
-                                    to="/checkout"
+                                    to={isRefurbishedProduct ? "/marketplace/cart" : "/cart"}
                                     onClick={closeProduct}
                                     className="relative w-14 h-14 bg-[#EEF2FF] border border-[#C7D2FE] rounded-2xl shadow-xs flex items-center justify-center text-[#1E3A8A] hover:bg-[#E0E7FF] active:scale-95 transition-all shrink-0"
                                     title="View Cart"
                                 >
                                     <ShoppingCart size={22} className="text-[#1E3A8A]" />
-                                    {cartCount > 0 && (
-                                        <div className="absolute -top-1.5 -right-1.5 bg-[#FF5722] text-white text-[11px] font-black w-5 h-5 rounded-full flex shrink-0 items-center justify-center shadow-md animate-in zoom-in duration-200">
-                                            {cartCount}
+                                    {(isRefurbishedProduct ? refurbishedCartCount : groceryCartCount) > 0 && (
+                                        <div className={cn(
+                                            "absolute -top-1.5 -right-1.5 text-white text-[11px] font-black w-5 h-5 rounded-full flex shrink-0 items-center justify-center shadow-md animate-in zoom-in duration-200",
+                                            isRefurbishedProduct ? "bg-blue-600" : "bg-[#FF5722]"
+                                        )}>
+                                            {(isRefurbishedProduct ? refurbishedCartCount : groceryCartCount) > 99 ? '99+' : (isRefurbishedProduct ? refurbishedCartCount : groceryCartCount)}
                                         </div>
                                     )}
                                 </Link>
 
                                 {/* Right Side: Add to Cart / Quantity Pill Button */}
                                 {quantity > 0 ? (
-                                    <div className="flex-1 bg-gradient-to-r from-[#FF5722] to-[#FF7043] text-white h-14 rounded-2xl flex items-center justify-between px-2 shadow-lg shadow-orange-500/25 border border-white/20">
+                                    <div className={cn(
+                                        "flex-1 text-white h-14 rounded-2xl flex items-center justify-between px-2 shadow-lg border border-white/20",
+                                        isRefurbishedProduct
+                                            ? "bg-gradient-to-r from-blue-600 to-indigo-600 shadow-blue-500/25"
+                                            : "bg-gradient-to-r from-[#FF5722] to-[#FF7043] shadow-orange-500/25"
+                                    )}>
                                         <motion.button
                                             whileTap={{ scale: 0.8 }}
                                             onClick={handleDecrement}
@@ -1564,7 +1659,12 @@ const ProductDetailSheet = () => {
                                         whileHover={{ scale: 1.01 }}
                                         whileTap={{ scale: 0.97 }}
                                         onClick={handleAddToCart}
-                                        className="flex-1 bg-gradient-to-r from-[#FF5722] to-[#FF6D00] text-white h-14 rounded-2xl font-black text-sm flex items-center justify-between px-6 shadow-xl shadow-orange-500/25 transition-all border border-white/20 active:opacity-90"
+                                        className={cn(
+                                            "flex-1 text-white h-14 rounded-2xl font-black text-sm flex items-center justify-between px-6 shadow-xl transition-all border border-white/20 active:opacity-90",
+                                            isRefurbishedProduct
+                                                ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 shadow-blue-500/25"
+                                                : "bg-gradient-to-r from-[#FF5722] to-[#FF6D00] shadow-orange-500/25"
+                                        )}
                                     >
                                         <span className="uppercase tracking-wider font-black text-[13px]">ADD TO CART</span>
                                         <span className="text-sm font-black bg-[#0F172A] text-white px-3 py-1 rounded-xl shadow-xs">₹{displayPrice}</span>

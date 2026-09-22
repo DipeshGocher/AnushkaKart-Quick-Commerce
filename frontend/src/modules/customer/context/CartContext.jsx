@@ -13,7 +13,35 @@ const loadGuestCart = () => {
     removeStorage(STORAGE_KEYS.CART);
     return [];
   }
-  return parsed;
+  return parsed.map((item) => {
+    const isRefurb = isRefurbishedItem(item);
+    return {
+      ...item,
+      conditionType: isRefurb ? 'refurbished' : 'new',
+    };
+  });
+};
+
+export const isRefurbishedItem = (item) => {
+  if (!item) return false;
+
+  // If explicitly 'new', it is guaranteed to be grocery/standard catalog
+  if (item.conditionType === 'new' && item.catalogType !== 'refurbished') {
+    return false;
+  }
+
+  // Refurbished items have conditionType 'refurbished' or catalogType 'refurbished'
+  if (
+    item.conditionType === 'refurbished' ||
+    item.catalogType === 'refurbished' ||
+    item.isRefurbished === true ||
+    item.category?.catalogType === 'refurbished' ||
+    item.header?.catalogType === 'refurbished'
+  ) {
+    return true;
+  }
+
+  return false;
 };
 
 export const useCart = () => useContext(CartContext);
@@ -34,9 +62,11 @@ export const CartProvider = ({ children }) => {
       const product = item.productId;
       const variantKey = String(item.variantSku || "").trim();
       const { price, salePrice, variantName, variantImage } = resolveVariantPricing(product, variantKey);
+      const isRefurb = isRefurbishedItem(product);
       return {
         ...product,
         id: product?._id ? String(product._id) : "", // Normalize ID to string
+        conditionType: isRefurb ? 'refurbished' : (product?.conditionType || 'new'),
         quantity: item.quantity,
         variantSku: variantKey,
         variantName,
@@ -134,10 +164,11 @@ export const CartProvider = ({ children }) => {
   }, [cart, isAuthenticated]);
 
   const addToCart = async (product, defaultQuantity = 1, forceVariantSku = null, options = {}) => {
+    const isRefurb = isRefurbishedItem(product) || (product?.conditionType !== 'new' && typeof window !== 'undefined' && (window.location.pathname.startsWith('/marketplace') || window.location.pathname.startsWith('/refurbished')));
     const variantSku = forceVariantSku ?? String(product?.variantSku || product?.variantName || "").trim();
     const id = product.id || product._id;
     const key = `${id}::${variantSku || ""}`;
-    console.log("DEBUG: addToCart product:", { id, name: product?.name, variantSku, key });
+    console.log("DEBUG: addToCart product:", { id, name: product?.name, variantSku, key, isRefurb });
     const { price, salePrice, variantName, variantImage } = resolveVariantPricing(product, variantSku);
 
     // Optimistic UI update for instant feedback
@@ -158,6 +189,7 @@ export const CartProvider = ({ children }) => {
           }
           return {
             ...item,
+            conditionType: isRefurb ? 'refurbished' : (item.conditionType || 'new'),
             quantity: item.quantity + defaultQuantity,
             ...(options.kitAddons ? { kitAddons: options.kitAddons } : {}),
           };
@@ -174,6 +206,7 @@ export const CartProvider = ({ children }) => {
         {
           ...product,
           id,
+          conditionType: isRefurb ? 'refurbished' : (product.conditionType || 'new'),
           variantSku,
           variantName,
           price,
@@ -320,6 +353,34 @@ export const CartProvider = ({ children }) => {
     }
   };
 
+  const clearCartSection = async (sectionType) => {
+    const isRefurb = sectionType === 'refurbished';
+    const itemsToRemove = isRefurb ? refurbishedCart : groceryCart;
+    const remainingItems = isRefurb ? groceryCart : refurbishedCart;
+
+    if (!itemsToRemove || itemsToRemove.length === 0) return;
+
+    // Immediately update local state so UI reflects it
+    setCart(remainingItems);
+
+    if (isAuthenticated) {
+      try {
+        if (remainingItems.length === 0) {
+          await customerApi.clearCart();
+        } else {
+          for (const item of itemsToRemove) {
+            const id = item.id || item._id;
+            const variantSku = String(item.variantSku || '').trim();
+            await customerApi.removeFromCart(id, variantSku);
+          }
+        }
+      } catch (err) {
+        console.error("Error clearing cart section on backend", err);
+        fetchCart();
+      }
+    }
+  };
+
   const calculateTotal = (items) => {
     return items.reduce((total, item) => {
       const unit =
@@ -340,8 +401,8 @@ export const CartProvider = ({ children }) => {
     return items.reduce((total, item) => total + (item.quantity || 0), 0);
   };
 
-  const groceryCart = useMemo(() => cart.filter((item) => item.conditionType !== 'refurbished' && item.catalogType !== 'refurbished'), [cart]);
-  const refurbishedCart = useMemo(() => cart.filter((item) => item.conditionType === 'refurbished' || item.catalogType === 'refurbished'), [cart]);
+  const groceryCart = useMemo(() => cart.filter((item) => !isRefurbishedItem(item)), [cart]);
+  const refurbishedCart = useMemo(() => cart.filter((item) => isRefurbishedItem(item)), [cart]);
 
   const groceryCartTotal = useMemo(() => calculateTotal(groceryCart), [groceryCart]);
   const groceryCartCount = useMemo(() => calculateCount(groceryCart), [groceryCart]);
@@ -360,6 +421,7 @@ export const CartProvider = ({ children }) => {
     removeFromCart,
     updateQuantity,
     clearCart,
+    clearCartSection,
     cartTotal,
     cartCount,
     groceryCartTotal,

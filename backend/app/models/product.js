@@ -190,24 +190,24 @@ const productSchema = new mongoose.Schema(
                     "Fair (Grade C)",
                     ""
                 ],
-                default: "Grade A (Superb)",
+                default: undefined,
             },
             batteryHealth: {
                 type: Number,
-                default: 100,
+                default: undefined,
             },
             warrantyMonths: {
                 type: Number,
-                default: 0,
+                default: undefined,
             },
             imeiNumber: {
                 type: String,
                 trim: true,
-                default: "",
+                default: undefined,
             },
             qcPassed: {
                 type: Boolean,
-                default: true,
+                default: undefined,
             },
             boxItems: [{
                 type: String,

@@ -119,6 +119,7 @@ const EmployeeManagement = React.lazy(() => import("../pages/EmployeeManagement"
 const EmployeeDetail = React.lazy(() => import("../pages/EmployeeDetail"));
 const WarehouseQueueDashboard = React.lazy(() => import("../pages/WarehouseQueueDashboard"));
 const LegalPageEditor = React.lazy(() => import("../pages/LegalPageEditor"));
+const C2CAdsManagement = React.lazy(() => import("../pages/c2c/C2CAdsManagement"));
 
 const navItems = [
   {
@@ -137,16 +138,6 @@ const navItems = [
       { label: "Header Categories", path: "/admin/categories/header" },
       { label: "Main Categories", path: "/admin/categories/level2" },
       { label: "Sub-Categories", path: "/admin/categories/sub" },
-    ],
-  },
-  {
-    label: "Refurbished Categories",
-    icon: Sparkles,
-    color: "indigo",
-    children: [
-      { label: "Refurbished Explorer", path: "/admin/refurbished-categories/hierarchy" },
-      { label: "Device Types (Headers)", path: "/admin/refurbished-categories/header" },
-      { label: "Brands (Main Categories)", path: "/admin/refurbished-categories/level2" },
     ],
   },
   { label: "Products", path: "/admin/products", icon: Box, color: "amber" },
@@ -263,6 +254,27 @@ const navItems = [
   },
   { label: "My Profile", path: "/admin/profile", icon: User, color: "indigo" },
   { label: "Legal Pages", path: "/admin/legal-pages", icon: ScrollText, color: "slate" },
+  // C2C Marketplace (OLX Module) Section
+  {
+    isSectionHeader: true,
+    label: "C2C Marketplace",
+  },
+  {
+    label: "Customer Ads",
+    path: "/admin/c2c-ads",
+    icon: Sparkles,
+    color: "blue",
+  },
+  {
+    label: "C2C Categories",
+    icon: Tag,
+    color: "indigo",
+    children: [
+      { label: "C2C Hierarchy", path: "/admin/refurbished-categories/hierarchy" },
+      { label: "Device Types", path: "/admin/refurbished-categories/header" },
+      { label: "Brands", path: "/admin/refurbished-categories/level2" },
+    ],
+  },
 ];
 
 const BillingCharges = React.lazy(() => import("../pages/BillingCharges"));
@@ -352,6 +364,7 @@ const AdminRoutes = () => {
         <Route path="/orders/view/:orderId" element={<OrderDetail />} />
         <Route path="/returns" element={<Returns />} />
         <Route path="/billing" element={<BillingCharges />} />
+        <Route path="/c2c-ads" element={<C2CAdsManagement />} />
         <Route path="/settings" element={<AdminSettings />} />
         <Route path="/legal-pages" element={<LegalPageEditor />} />
         <Route path="*" element={<Navigate to="/" replace />} />

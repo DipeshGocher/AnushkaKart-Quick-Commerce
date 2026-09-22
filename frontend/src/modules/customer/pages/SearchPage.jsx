@@ -324,34 +324,7 @@ const SearchPage = () => {
                     </section>
                 ) : (
                     <>
-                        {/* 1. Recently Searched Item Section */}
-                        {pastSearches.length > 0 && (
-                            <section>
-                                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Recently Searched</h3>
-                                <div className="flex gap-2 overflow-x-auto no-scrollbar">
-                                    {pastSearches.map((term) => (
-                                        <div
-                                            key={term}
-                                            className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-100 shadow-sm rounded-full whitespace-nowrap active:scale-95 transition-transform cursor-pointer"
-                                            onClick={() => setQuery(term)}
-                                        >
-                                            <div className="h-5 w-5 rounded flex items-center justify-center" style={{ backgroundColor: (settings?.primaryColor || 'var(--primary)') + '20' }}>
-                                                <History size={12} style={{ color: settings?.primaryColor || 'var(--primary)' }} />
-                                            </div>
-                                            <span className="text-sm font-bold text-slate-700">{term}</span>
-                                            <button
-                                                onClick={(e) => handleRemoveSearch(e, term)}
-                                                className="ml-1 p-0.5 hover:bg-slate-100 rounded-full transition-colors"
-                                            >
-                                                <X size={12} className="text-slate-400 hover:text-red-500" />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </section>
-                        )}
-
-                        {/* 2. Lowest Price Ever Section */}
+                        {/* 1. Lowest Price Ever Section */}
                         <section>
                             <div className="flex justify-between items-center mb-5">
                                 <h2 className="text-xl font-black text-slate-800 tracking-tight">Lowest Price Ever!</h2>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@core/context/AuthContext';
 import { customerApi } from '../services/customerApi';
 import { invalidateCache } from '@core/api/dedupe';
@@ -11,9 +11,53 @@ import SignInCard2 from '@/components/ui/sign-in-card-2';
 
 const CustomerAuth = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { login } = useAuth();
     const { settings } = useSettings();
     const { t } = useTranslation();
+
+    const fromState = location.state?.from;
+    const fromPath = typeof fromState === 'string'
+        ? fromState
+        : (fromState?.pathname ? (fromState.pathname + (fromState.search || '')) : null);
+
+    const isProtectedRoute = (path) => {
+        if (!path) return false;
+        const cleanPath = path.split('?')[0];
+        const protectedPaths = [
+            '/cart', '/wishlist', '/orders', '/transactions', '/addresses',
+            '/settings', '/help', '/chat', '/checkout', '/marketplace/checkout', '/refurbished/checkout', '/profile', '/wallet',
+            '/notifications', '/marketplace/cart', '/refurbished/cart', '/marketplace/wishlist', '/refurbished/wishlist',
+            '/marketplace/my-ads', '/refurbished/my-ads', '/marketplace/my-listings', '/marketplace/chats', '/refurbished/chats', '/marketplace/sell', '/refurbished/sell',
+            '/marketplace/profile', '/marketplace/profile/edit'
+        ];
+        return protectedPaths.some(p => cleanPath === p || cleanPath.startsWith(p + '/'));
+    };
+
+    const handleClose = () => {
+        let isMarketplaceSource = false;
+        if (fromPath) {
+            isMarketplaceSource = fromPath.includes('/marketplace') || fromPath.includes('/refurbished');
+        } else {
+            isMarketplaceSource = (
+                sessionStorage.getItem('last_section') === 'marketplace' ||
+                sessionStorage.getItem('last_section') === 'refurbished' ||
+                document.referrer.includes('/marketplace') ||
+                document.referrer.includes('/refurbished')
+            );
+        }
+
+        if (fromPath && !isProtectedRoute(fromPath) && fromPath !== '/login' && fromPath !== '/signup') {
+            navigate(fromPath, { replace: true });
+            return;
+        }
+
+        if (isMarketplaceSource) {
+            navigate('/marketplace', { replace: true });
+        } else {
+            navigate('/', { replace: true });
+        }
+    };
 
     const [isLogin, setIsLogin] = useState(true);
     const [showOtp, setShowOtp] = useState(false);
@@ -91,7 +135,10 @@ const CustomerAuth = () => {
             invalidateCache('/customer/profile');
             login({ ...customer, token, role: 'customer' });
             toast.success(t('loggedInSuccess'));
-            navigate('/', { replace: true });
+            const targetPath = (fromPath && fromPath !== '/login' && fromPath !== '/signup')
+                ? fromPath 
+                : ((sessionStorage.getItem('last_section') === 'marketplace' || sessionStorage.getItem('last_section') === 'refurbished') ? '/marketplace' : '/');
+            navigate(targetPath, { replace: true });
         } catch (error) {
             const apiMessage = error?.response?.data?.message;
             toast.error(apiMessage || t('invalidOtp'));
@@ -102,6 +149,7 @@ const CustomerAuth = () => {
 
     return (
         <SignInCard2
+            onBack={handleClose}
             icon={showOtp ? ShieldCheck : ShoppingBag}
             iconBg="bg-gradient-to-br from-[#FF5722] via-[#FF6D00] to-[#0F172A] text-white"
             iconColor="text-white"
@@ -109,6 +157,7 @@ const CustomerAuth = () => {
             subtitle={!showOtp ? (isLogin ? 'Login to access your orders' : 'Register to get started') : `${t('sentTo')} +91 ${formData.phone}`}
             logoUrl={settings?.logoUrl || "/logo.png"}
             appName="Anushka Store"
+            bgImageUrl={sessionStorage.getItem('last_section') === 'refurbished' ? "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=1920&q=80" : "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1920&q=80"}
             footer={
                 !showOtp ? (
                     <p className="text-xs font-semibold text-slate-500">
@@ -185,9 +234,9 @@ const CustomerAuth = () => {
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full mt-3 relative bg-gradient-to-r from-[#FF5722] via-[#FF6D00] to-[#0F172A] hover:from-[#FF6D00] hover:to-[#0F172A] active:scale-[0.99] text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md shadow-orange-500/25 focus:outline-none disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
+                        className="w-full mt-3 relative bg-gradient-to-r from-[#FF5722] via-[#FF6D00] to-[#0F172A] hover:from-[#FF6D00] hover:to-[#0F172A] active:scale-[0.99] text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md shadow-orange-500/25 focus:outline-none disabled:opacity-50 flex items-center justify-center gap-2 text-sm cursor-pointer"
                     >
-                        <span>{isLoading ? t('pleaseWait') : (isLogin ? 'Continue' : 'Create Account')}</span>
+                        <span>{isLoading ? t('pleaseWait') : (isLogin ? 'Send OTP' : 'Create Account')}</span>
                         <ArrowRight className="w-4 h-4" />
                     </button>
                 </form>
@@ -256,30 +305,6 @@ const CustomerAuth = () => {
                         </div>
                     </form>
                 </>
-            )}
-
-            {/* Legal Agreement Footer */}
-            {!showOtp && (
-                <div className="pt-5 flex flex-col items-center gap-1 border-t border-slate-100 mt-5">
-                    <p className="text-[11px] text-slate-400 text-center font-medium">
-                        By continuing, you agree to our
-                    </p>
-                    <div className="flex items-center gap-2">
-                        <button 
-                            onClick={() => navigate('/support')}
-                            className="text-[11px] font-semibold text-slate-500 hover:text-[#FF5722] transition-colors"
-                        >
-                            Terms & Conditions
-                        </button>
-                        <span className="text-[10px] text-slate-300">•</span>
-                        <button 
-                            onClick={() => navigate('/privacy')}
-                            className="text-[11px] font-semibold text-slate-500 hover:text-[#FF5722] transition-colors"
-                        >
-                            Privacy Policy
-                        </button>
-                    </div>
-                </div>
             )}
         </SignInCard2>
     );

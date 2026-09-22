@@ -18,6 +18,7 @@ import {
   shiftHex,
 } from "../../utils/headerTheme";
 import { CloudRain, Sun, Snowflake, Cloud, CloudLightning, Wind } from 'lucide-react';
+import FlipkartHeaderSectionSwitcher from "./FlipkartHeaderSectionSwitcher";
 
 const WeatherIconMap = {
     CloudRain,
@@ -409,6 +410,9 @@ const MainLocationHeader = ({
           className="px-4 overflow-visible transform-gpu will-change-transform border-b border-orange-200/50 shadow-sm backdrop-blur-xl backdrop-saturate-180">
           {/* Subtle Glow Overlay */}
           <div className="absolute inset-0 bg-gradient-to-b from-orange-500/10 via-transparent to-transparent pointer-events-none" />
+
+          {/* Flipkart Section Switcher inside header background */}
+          <FlipkartHeaderSectionSwitcher />
 
 
 

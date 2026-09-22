@@ -31,7 +31,7 @@ const DeliveryRoutes = () => {
   return (
     <Routes>
       <Route element={<DeliveryLayout />}>
-        <Route path="splash" element={<Splash />} />
+        <Route path="splash" element={<Navigate to="dashboard" replace />} />
 
         <Route path="auth" element={<DeliveryAuth />} />
         <Route path="dashboard" element={<Dashboard />} />

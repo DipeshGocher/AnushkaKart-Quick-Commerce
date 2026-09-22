@@ -12,10 +12,13 @@ import { useProductDetail } from "../../context/ProductDetailContext";
 import ParticleBurst from "./ParticleBurst";
 import { useVariantSelection } from "../../context/VariantSelectionContext";
 
+import { useAuth } from "@core/context/AuthContext";
+
 /**
- * @param {{ product: any, badge?: any, className?: string, compact?: boolean, neutralBg?: boolean, layout?: string, priority?: boolean }} props
+ * @param {{ product: any, badge?: any, className?: string, compact?: boolean, neutralBg?: boolean, layout?: string, priority?: boolean, addBtnClass?: string, addBtnBg?: string }} props
  */
-const ProductCard = ({ product, badge, className, compact = false, neutralBg = false, layout = "grid", priority = false }) => {
+const ProductCard = ({ product, badge, className, compact = false, neutralBg = false, layout = "grid", priority = false, addBtnClass, addBtnBg }) => {
+    const { isAuthenticated } = useAuth();
     const { toggleWishlist: toggleWishlistGlobal, isInWishlist } =
       useWishlist();
     const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
@@ -74,6 +77,15 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
     const quantity = cartItem ? cartItem.quantity : 0;
     const isWishlisted = isInWishlist(product.id || product._id);
 
+    const isRefurbished = React.useMemo(() => {
+      return (
+        product?.conditionType === 'refurbished' ||
+        product?.catalogType === 'refurbished' ||
+        Boolean(product?.refurbishedDetails) ||
+        (typeof window !== 'undefined' && (window.location.pathname.startsWith('/marketplace') || window.location.pathname.startsWith('/refurbished')))
+      );
+    }, [product]);
+
     const handleProductClick = React.useCallback(
       (e) => {
         if (openProduct) {
@@ -89,12 +101,20 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
         e.preventDefault();
         e.stopPropagation();
 
+        if (!isAuthenticated) {
+          navigate('/login', { state: { from: window.location.pathname } });
+          return;
+        }
+
         if (!isWishlisted) {
           setShowHeartPopup(true);
           setTimeout(() => setShowHeartPopup(false), 1000);
         }
 
-        toggleWishlistGlobal(product);
+        toggleWishlistGlobal({
+          ...product,
+          conditionType: isRefurbished ? 'refurbished' : (product?.conditionType || 'new'),
+        });
         showToast(
           isWishlisted
             ? `${product.name} removed from wishlist`
@@ -102,13 +122,18 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
           isWishlisted ? "info" : "success",
         );
       },
-      [isWishlisted, toggleWishlistGlobal, product, showToast],
+      [isAuthenticated, navigate, isWishlisted, toggleWishlistGlobal, product, isRefurbished, showToast],
     );
 
     const handleAddToCart = React.useCallback(
       (e) => {
         e.preventDefault();
         e.stopPropagation();
+
+        if (!isAuthenticated) {
+          navigate('/login', { state: { from: window.location.pathname } });
+          return;
+        }
         
         if (Array.isArray(product?.variants) && product.variants.length > 1) {
             if (openVariantSelection) {
@@ -125,26 +150,37 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
         }
         addToCart({
           ...product,
+          conditionType: isRefurbished ? 'refurbished' : (product?.conditionType || 'new'),
           variantSku: variantKey,
           variantName: defaultVariant?.name || "",
         });
       },
-      [animateAddToCart, product, addToCart, variantKey, defaultVariant?.name, openVariantSelection],
+      [isAuthenticated, navigate, animateAddToCart, product, isRefurbished, addToCart, variantKey, defaultVariant?.name, openVariantSelection],
     );
 
     const handleIncrement = React.useCallback(
       (e) => {
         e.preventDefault();
         e.stopPropagation();
+
+        if (!isAuthenticated) {
+          navigate('/login', { state: { from: window.location.pathname } });
+          return;
+        }
         updateQuantity(productId, 1, variantKey);
       },
-      [updateQuantity, productId, variantKey],
+      [isAuthenticated, navigate, updateQuantity, productId, variantKey],
     );
 
     const handleDecrement = React.useCallback(
       (e) => {
         e.preventDefault();
         e.stopPropagation();
+
+        if (!isAuthenticated) {
+          navigate('/login', { state: { from: window.location.pathname } });
+          return;
+        }
 
         if (quantity === 1) {
           animateRemoveFromCart(product.mainImage || product.image);
@@ -154,6 +190,8 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
         }
       },
       [
+        isAuthenticated,
+        navigate,
         quantity,
         animateRemoveFromCart,
         product.image,
@@ -163,15 +201,6 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
         variantKey,
       ],
     );
-
-    const isRefurbished = React.useMemo(() => {
-      return (
-        product?.conditionType === 'refurbished' ||
-        product?.catalogType === 'refurbished' ||
-        Boolean(product?.refurbishedDetails) ||
-        (typeof window !== 'undefined' && window.location.pathname.startsWith('/refurbished'))
-      );
-    }, [product]);
 
     const discountText = React.useMemo(() => {
       if (badge) return badge;
@@ -235,8 +264,11 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
           )}
         </AnimatePresence>
 
-        {/* Top Image Section */}
-        <div className={cn("relative w-full overflow-hidden flex items-center justify-center p-0.5", compact ? "h-24 sm:h-28" : layout === "list" ? "w-[90px] h-[90px] shrink-0" : "aspect-square")}>
+        {/* Top Image Section - Clean White Inner Box (like Saathi Grow UI) */}
+        <div className={cn(
+          "relative w-full overflow-hidden flex items-center justify-center p-1 bg-white rounded-xl shadow-2xs border border-white/80", 
+          compact ? "h-24 sm:h-28" : layout === "list" ? "w-[90px] h-[90px] shrink-0" : "aspect-square"
+        )}>
           {/* Discount Badge (Top-Left Speech Bubble) */}
           {discountText && (
             <div className={cn(
@@ -318,19 +350,16 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
                 <div 
                   className={cn(
                     "flex items-center justify-between rounded-lg text-white shadow-2xs",
-                    isRefurbished
+                    addBtnBg ? addBtnBg : (isRefurbished
                       ? "bg-gradient-to-r from-blue-600 to-indigo-600"
-                      : "bg-gradient-to-r from-[#FF5722] to-[#FF6D00]",
+                      : "bg-gradient-to-r from-[#FF5722] to-[#FF6D00]"),
                     compact ? "h-6.5 min-w-[55px]" : "h-8 min-w-[70px]"
                   )}
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
                 >
                   <button 
                     onClick={handleDecrement} 
-                    className={cn(
-                      "w-6 h-full flex items-center justify-center rounded-l-lg transition-colors px-0.5 cursor-pointer",
-                      isRefurbished ? "active:bg-blue-800 hover:bg-blue-700/50" : "active:bg-orange-700 hover:bg-orange-600/50"
-                    )}
+                    className="w-6 h-full flex items-center justify-center rounded-l-lg transition-colors px-0.5 cursor-pointer hover:opacity-80"
                   >
                     <Minus size={compact ? 12 : 14} strokeWidth={3} />
                   </button>
@@ -339,10 +368,7 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
                   </span>
                   <button 
                     onClick={handleIncrement} 
-                    className={cn(
-                      "w-6 h-full flex items-center justify-center rounded-r-lg transition-colors px-0.5 cursor-pointer",
-                      isRefurbished ? "active:bg-blue-800 hover:bg-blue-700/50" : "active:bg-orange-700 hover:bg-orange-600/50"
-                    )}
+                    className="w-6 h-full flex items-center justify-center rounded-r-lg transition-colors px-0.5 cursor-pointer hover:opacity-80"
                   >
                     <Plus size={compact ? 12 : 14} strokeWidth={3} />
                   </button>
@@ -352,9 +378,9 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
                   onClick={handleAddToCart}
                   className={cn(
                     "rounded-lg border-2 flex items-center justify-center font-black uppercase active:scale-95 transition-all shadow-2xs cursor-pointer",
-                    isRefurbished
+                    addBtnClass ? addBtnClass : (isRefurbished
                       ? "border-blue-600 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white"
-                      : "border-[#FF5722] bg-[#FFF0E6] text-[#FF5722] hover:bg-[#FF5722] hover:text-white",
+                      : "border-[#FF5722] bg-[#FFF0E6] text-[#FF5722] hover:bg-[#FF5722] hover:text-white"),
                     compact ? "h-6.5 min-w-[55px] px-2 text-[10px]" : "h-8 min-w-[70px] px-3.5 text-[12px]"
                   )}
                   title="Add to Cart"

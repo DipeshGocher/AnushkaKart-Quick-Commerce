@@ -585,7 +585,7 @@ const Home = () => {
   };
 
   return (
-    <div className="min-h-screen pt-[210px] md:pt-[220px] bg-[#f1f4f8]">
+    <div className="min-h-screen pt-[254px] md:pt-[264px] bg-[#f1f4f8]">
       <MainLocationHeader categories={displayCategories} activeCategory={activeCategory} onCategorySelect={setActiveCategory} />
 
       <>

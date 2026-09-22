@@ -1,125 +1,369 @@
-import React from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { 
+  ChevronLeft, ShoppingBag, MapPin, Plus, Minus, 
+  Trash2, Heart, Zap, ArrowRight, Sparkles, Clock, Smartphone
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { useCart } from '../context/CartContext';
-import { ChevronLeft, ChevronRight, ShoppingBag, Smartphone } from 'lucide-react';
+import { useWishlist } from '../context/WishlistContext';
+import { useLocation as useAppLocation } from '../context/LocationContext';
+import LocationDrawer from '../components/shared/LocationDrawer';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 import EmptyRefurbishedCartAnimation from '../components/shared/EmptyRefurbishedCartAnimation';
 
 const CartPage = ({ asOverlay = false, onClose }) => {
-    const { groceryCart, refurbishedCart, groceryCartTotal, refurbishedCartTotal } = useCart();
-    const navigate = useNavigate();
-    const location = useLocation();
+  const navigate = useNavigate();
+  const { 
+    groceryCart, 
+    groceryCartTotal,
+    refurbishedCart,
+    removeFromCart,
+    updateQuantity
+  } = useCart();
+  const { addToWishlist } = useWishlist();
+  const { currentLocation } = useAppLocation() || {};
 
-    const isRefurbished = location.pathname.startsWith('/refurbished');
-    const activeCart = isRefurbished ? refurbishedCart : groceryCart;
-    const activeTotal = isRefurbished ? refurbishedCartTotal : groceryCartTotal;
+  const [isLocationOpen, setIsLocationOpen] = useState(false);
 
-    return (
-        <div className={`bg-[#f1f4f8] font-sans ${asOverlay ? 'h-full overflow-y-auto relative pb-28' : 'min-h-screen pb-44 md:pb-28'}`}>
-            {/* Header */}
-            <div className={`sticky top-0 z-30 px-4 py-4 flex items-center border-b ${
-                isRefurbished 
-                    ? 'bg-gradient-to-r from-blue-100/95 via-sky-50 to-[#EFF6FF] border-blue-200/60 text-slate-900' 
-                    : 'bg-white border-gray-100/50 text-gray-900'
-            }`}>
-                <button
-                    onClick={() => (asOverlay && onClose ? onClose() : (isRefurbished ? navigate('/refurbished') : navigate(-1)))}
-                    className="p-1 -ml-1 hover:bg-black/5 rounded-full transition-colors"
+  // Grocery Cart is strictly grocery products
+  const activeCart = groceryCart;
+  const activeTotal = groceryCartTotal;
+
+  // Calculate MRP Total and Savings
+  const { totalMrp, totalSavings } = useMemo(() => {
+    let mrpSum = 0;
+    let saleSum = 0;
+
+    activeCart.forEach((item) => {
+      const mrp = Number(item.price || 0);
+      const sale = Number(item.salePrice || 0);
+      const unitSale = sale > 0 && sale < mrp ? sale : mrp;
+      const qty = Number(item.quantity || 1);
+
+      let addonsTotal = 0;
+      if (item.kitAddons && Array.isArray(item.kitAddons)) {
+        addonsTotal = item.kitAddons.reduce((sum, addon) => sum + (Number(addon.price || 0) * Number(addon.quantity || 1)), 0);
+      }
+
+      mrpSum += (mrp + addonsTotal) * qty;
+      saleSum += (unitSale + addonsTotal) * qty;
+    });
+
+    const savings = Math.max(0, mrpSum - saleSum);
+    return {
+      totalMrp: mrpSum,
+      totalSavings: savings
+    };
+  }, [activeCart]);
+
+  const handleQuantityMinus = (item) => {
+    const key = String(item.variantSku || '').trim();
+    if (item.quantity <= 1) {
+      removeFromCart(item.id || item._id, key);
+      toast.info(`${item.name} removed from cart`);
+    } else {
+      updateQuantity(item.id || item._id, -1, key);
+    }
+  };
+
+  const handleQuantityPlus = (item) => {
+    const key = String(item.variantSku || '').trim();
+    updateQuantity(item.id || item._id, 1, key);
+  };
+
+  const handleRemove = (item) => {
+    const key = String(item.variantSku || '').trim();
+    removeFromCart(item.id || item._id, key);
+    toast.info(`${item.name} removed from cart`);
+  };
+
+  const handleMoveToWishlist = (item) => {
+    addToWishlist(item);
+    const key = String(item.variantSku || '').trim();
+    removeFromCart(item.id || item._id, key);
+    toast.success(`${item.name} moved to wishlist`);
+  };
+
+  const handleBuyNow = (item) => {
+    if (asOverlay && onClose) onClose();
+    navigate('/checkout', { state: { directBuyItem: item } });
+  };
+
+  const displayAddress = currentLocation?.address || currentLocation?.formattedAddress || currentLocation?.name || "Select delivery location";
+
+  return (
+    <div className={`bg-[#f1f4f8] font-sans antialiased text-slate-900 ${asOverlay ? 'h-full overflow-y-auto relative pb-32' : 'min-h-screen pb-64 md:pb-32'}`}>
+      <LocationDrawer isOpen={isLocationOpen} onClose={() => setIsLocationOpen(false)} />
+
+      {/* Top Header */}
+      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 py-3.5 border-b border-slate-200/80 flex items-center justify-between">
+        <div className="flex items-center gap-2 flex-1">
+          <button
+            onClick={() => (asOverlay && onClose ? onClose() : navigate(-1))}
+            className="w-10 h-10 flex items-center justify-center hover:bg-slate-100 rounded-full transition-colors -ml-1 cursor-pointer"
+          >
+            <ChevronLeft size={24} className="text-slate-800" />
+          </button>
+          <div>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight leading-tight">My Cart</h1>
+            {activeCart.length > 0 && (
+              <p className="text-[11px] text-slate-500 font-semibold">
+                {activeCart.length} {activeCart.length === 1 ? 'item' : 'items'} in grocery basket
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Cross-section banner if user also has refurbished items */}
+      {refurbishedCart.length > 0 && (
+        <div className="bg-blue-50 border-b border-blue-100 px-4 py-2.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <Smartphone size={16} className="text-blue-600 shrink-0" />
+            <p className="text-xs font-bold text-blue-900 truncate">
+              {refurbishedCart.length} {refurbishedCart.length === 1 ? 'device' : 'devices'} in Refurbished Cart
+            </p>
+          </div>
+          <Link
+            to="/marketplace/cart"
+            onClick={onClose}
+            className="text-xs font-black text-blue-700 bg-white border border-blue-200 hover:bg-blue-600 hover:text-white px-2.5 py-1 rounded-lg transition shrink-0"
+          >
+            Go to Marketplace Cart →
+          </Link>
+        </div>
+      )}
+
+      {/* Delivery Address Bar */}
+      <div 
+        onClick={() => setIsLocationOpen(true)}
+        className="bg-white border-b border-slate-200/80 px-4 py-2.5 flex items-center justify-between gap-2 cursor-pointer hover:bg-slate-50/80 transition-colors shadow-2xs"
+      >
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <MapPin size={16} className="text-[#FF5722] shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold text-slate-400 leading-tight">Deliver to:</p>
+            <p className="text-xs font-bold text-slate-800 truncate leading-tight mt-0.5">
+              {displayAddress}
+            </p>
+          </div>
+        </div>
+        <span className="text-xs font-extrabold px-2.5 py-1 rounded-lg shrink-0 border text-orange-700 bg-orange-50 border-orange-200">
+          Change
+        </span>
+      </div>
+
+      {/* Main Cart Items Content */}
+      <div className="max-w-2xl mx-auto px-3 sm:px-4 pt-3">
+        {activeCart.length > 0 ? (
+          <div className="space-y-3">
+            {activeCart.map((item) => {
+              const mrp = Number(item.price || 0);
+              const sale = Number(item.salePrice || 0);
+              const unitPrice = sale > 0 && sale < mrp ? sale : mrp;
+              const hasDiscount = mrp > unitPrice;
+              const discountPercent = hasDiscount ? Math.round(((mrp - unitPrice) / mrp) * 100) : 0;
+              const lineTotal = Math.round(unitPrice * Number(item.quantity || 1));
+
+              return (
+                <div 
+                  key={`${item.id || item._id}-${item.variantSku || ''}`}
+                  className="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200/80 shadow-2xs"
                 >
-                    <ChevronLeft size={24} className="text-gray-900" />
-                </button>
-                <h1 className="flex-1 text-center text-[18px] font-bold leading-tight mr-6 flex items-center justify-center gap-1.5">
-                    {isRefurbished ? (
-                        <>
-                            <Smartphone size={18} className="text-blue-600" />
-                            <span>Refurbished Cart</span>
-                        </>
-                    ) : (
-                        'My Cart'
-                    )}
-                </h1>
+                  <div className="flex gap-3.5">
+                    {/* Left Column: Image Box + Stepper underneath */}
+                    <div className="flex flex-col items-center shrink-0">
+                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-slate-50 border border-slate-100 p-1.5 flex items-center justify-center overflow-hidden">
+                        <img
+                          src={applyCloudinaryTransform(item.image || item.mainImage)}
+                          alt={item.name}
+                          className="w-full h-full object-contain"
+                          loading="lazy"
+                        />
+                      </div>
+
+                      {/* Quantity Stepper */}
+                      <div className="mt-2.5 flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white shadow-2xs">
+                        <button
+                          onClick={() => handleQuantityMinus(item)}
+                          className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition active:scale-90 cursor-pointer"
+                          title="Decrease quantity"
+                        >
+                          <Minus size={13} strokeWidth={2.5} />
+                        </button>
+                        <span className="w-8 sm:w-9 text-center text-xs sm:text-sm font-extrabold text-slate-900 select-none">
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => handleQuantityPlus(item)}
+                          className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition active:scale-90 cursor-pointer"
+                          title="Increase quantity"
+                        >
+                          <Plus size={13} strokeWidth={2.5} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Right Column: Product Info & Pricing */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-between">
+                      <div>
+                        <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-snug line-clamp-2">
+                          {item.name}
+                        </h3>
+
+                        <p className="text-[11px] font-semibold text-slate-500 mt-1">
+                          {item.variantName || item.weight || item.unit || '1 Unit'}
+                        </p>
+
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-[10px] font-extrabold px-2 py-0.5 rounded-md border border-emerald-200">
+                            ★ Assured
+                          </span>
+                        </div>
+
+                        {/* Price Row */}
+                        <div className="mt-2 flex items-baseline gap-2 flex-wrap">
+                          {hasDiscount && (
+                            <span className="text-[11px] sm:text-xs font-bold text-emerald-600">
+                              ↓ {discountPercent}%
+                            </span>
+                          )}
+                          {hasDiscount && (
+                            <span className="text-xs text-slate-400 line-through font-semibold">
+                              ₹{mrp}
+                            </span>
+                          )}
+                          <span className="text-sm sm:text-base font-black text-slate-900">
+                            ₹{unitPrice}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Delivery Speed Indicator */}
+                      <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-slate-600">
+                        <Clock size={13} className="text-emerald-600" />
+                        <span>Delivery in 10-15 mins</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions Row */}
+                  <div className="border-t border-slate-100 mt-3 pt-2.5 grid grid-cols-3 gap-1">
+                    <button
+                      onClick={() => handleRemove(item)}
+                      className="py-1.5 px-2 rounded-lg text-xs font-bold text-slate-600 hover:text-rose-600 hover:bg-rose-50/60 transition cursor-pointer flex items-center justify-center gap-1"
+                    >
+                      <Trash2 size={13} />
+                      <span>Remove</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleMoveToWishlist(item)}
+                      className="py-1.5 px-2 rounded-lg text-xs font-bold text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition cursor-pointer flex items-center justify-center gap-1"
+                    >
+                      <Heart size={13} />
+                      <span className="truncate">Move to Wishlist</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleBuyNow(item)}
+                      className="py-1.5 px-2 rounded-lg text-xs font-extrabold text-slate-900 hover:text-orange-600 hover:bg-slate-50 transition cursor-pointer flex items-center justify-center gap-1"
+                    >
+                      <Zap size={13} className="text-amber-500" />
+                      <span>Buy Now</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Price Details Card */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs space-y-2.5">
+              <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
+                Price Details ({activeCart.length} {activeCart.length === 1 ? 'Item' : 'Items'})
+              </h4>
+
+              <div className="flex justify-between text-xs sm:text-sm font-semibold text-slate-600">
+                <span>Total MRP</span>
+                <span>₹{totalMrp}</span>
+              </div>
+
+              {totalSavings > 0 && (
+                <div className="flex justify-between text-xs sm:text-sm font-bold text-emerald-600">
+                  <span>Discount on MRP</span>
+                  <span>- ₹{totalSavings}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between text-xs sm:text-sm font-semibold text-slate-600">
+                <span>Delivery Fee</span>
+                <span className="text-emerald-600 font-bold">FREE</span>
+              </div>
+
+              <div className="border-t border-slate-100 pt-2.5 flex justify-between text-sm sm:text-base font-black text-slate-900">
+                <span>Total Amount</span>
+                <span>₹{activeTotal}</span>
+              </div>
+
+              {totalSavings > 0 && (
+                <p className="text-[11.5px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-100">
+                  You will save ₹{totalSavings} on this order!
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-2xs text-center">
+            <EmptyRefurbishedCartAnimation
+              isRefurbished={false}
+              onActionClick={() => {
+                if (asOverlay && onClose) onClose();
+                navigate('/');
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Sticky Checkout Bar (Positioned above Footer Navigation on Mobile) */}
+      {activeCart.length > 0 && (
+        <div className={`${asOverlay ? 'absolute bottom-0' : 'fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:bottom-0'} left-0 right-0 z-40 bg-white border-y border-slate-200/90 shadow-[0_-4px_25px_rgba(0,0,0,0.08)]`}>
+          {/* Green Savings Strip */}
+          {totalSavings > 0 && (
+            <div className="bg-emerald-50 text-emerald-800 text-xs font-bold px-4 py-1.5 flex items-center justify-center gap-1.5 border-b border-emerald-100">
+              <Sparkles size={12} className="text-emerald-600" />
+              <span>You'll save ₹{totalSavings} on this order</span>
+            </div>
+          )}
+
+          <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+            {/* Left: Total Price */}
+            <div>
+              {totalSavings > 0 && (
+                <p className="text-xs text-slate-400 line-through font-semibold leading-tight">
+                  ₹{totalMrp}
+                </p>
+              )}
+              <p className="text-lg sm:text-xl font-black text-slate-900 leading-tight">
+                ₹{activeTotal}
+              </p>
             </div>
 
-            {/* Cart Items */}
-            {activeCart.length > 0 ? (
-                <div className="px-5 pt-2 space-y-8">
-                    {activeCart.map((item) => (
-                        <div key={`${item.id}-${item.variantSku || ''}`} className="flex items-center">
-                            {/* Image */}
-                            <div className="w-[72px] h-[72px] flex-shrink-0 flex items-center justify-center mr-5">
-                                <img
-                                    src={applyCloudinaryTransform(item.image)}
-                                    alt={item.name}
-                                    className="w-full h-full object-contain"
-                                    loading="lazy"
-                                />
-                            </div>
-
-                            {/* Details */}
-                            <div className="flex-1">
-                                <h3 className="text-[16px] font-bold text-gray-900 leading-tight">
-                                    {item.name}
-                                </h3>
-                                <p className="text-[14px] text-gray-500 font-medium mt-1">
-                                    {item.weight || item.refurbishedDetails?.grade || '1 Unit'} {item.quantity > 1 ? `(x${item.quantity})` : ''}
-                                </p>
-                            </div>
-
-                            {/* Price */}
-                            <div className="text-[16px] font-bold text-gray-900 pl-4">
-                                ₹{(() => {
-                                    const mrp = Number(item.price || 0);
-                                    const sale = Number(item.salePrice || 0);
-                                    const unit = sale > 0 && sale < mrp ? sale : mrp;
-                                    return Math.round(unit * Number(item.quantity || 1));
-                                })()}
-                            </div>
-                        </div>
-                    ))}
-
-                    <div className="pt-8 pb-4">
-                        {/* Apply Coupon */}
-                        <div className="flex items-center justify-between py-4 cursor-pointer">
-                            <span className="text-[16px] font-bold text-gray-700">Apply Coupon</span>
-                            <ChevronRight size={20} className="text-gray-400" />
-                        </div>
-
-                        {/* Total */}
-                        <div className="flex items-center justify-between py-6 mt-2">
-                            <span className="text-[22px] font-black text-gray-900">Total</span>
-                            <span className="text-[22px] font-black text-gray-900">₹{activeTotal}</span>
-                        </div>
-                    </div>
-                </div>
-            ) : (
-                <EmptyRefurbishedCartAnimation
-                    isRefurbished={isRefurbished}
-                    onActionClick={() => {
-                        if (asOverlay && onClose) onClose();
-                    }}
-                />
-            )}
-
-            {/* Bottom Fixed Checkout Button */}
-            {activeCart.length > 0 && (
-                <div className={`${asOverlay ? 'absolute bottom-0' : 'fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-0'} left-0 right-0 p-3.5 bg-white/95 backdrop-blur-md z-40 border-t border-slate-100 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]`}>
-                    <div className="max-w-md mx-auto">
-                        <Link
-                            to="/checkout"
-                            onClick={onClose}
-                            className={`flex w-full items-center justify-center transition-all text-white text-[16px] font-black py-3.5 px-6 rounded-2xl shadow-lg active:scale-[0.99] ${
-                                isRefurbished 
-                                    ? 'bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 shadow-blue-600/30'
-                                    : 'bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 shadow-orange-500/30'
-                            }`}
-                        >
-                            Proceed to Checkout
-                        </Link>
-                    </div>
-                </div>
-            )}
+            {/* Right: Grocery Proceed to Buy Button */}
+            <Link
+              to="/checkout"
+              onClick={onClose}
+              className="bg-[#FF5722] hover:bg-[#F4511E] active:scale-95 text-white font-black text-xs sm:text-sm px-7 py-3.5 rounded-xl shadow-md shadow-orange-500/25 transition-all flex items-center gap-2 cursor-pointer shrink-0"
+            >
+              <span>Proceed to buy</span>
+              <ArrowRight size={16} strokeWidth={2.5} />
+            </Link>
+          </div>
         </div>
-    );
+      )}
+    </div>
+  );
 };
 
 export default CartPage;

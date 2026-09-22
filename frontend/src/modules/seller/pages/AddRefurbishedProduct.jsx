@@ -20,6 +20,7 @@ import {
   HiOutlineDeviceTablet,
   HiOutlineCpuChip,
   HiOutlineCheckCircle,
+  HiOutlineXMark,
 } from "react-icons/hi2";
 import { HiOutlinePhotograph } from "react-icons/hi";
 import { useNavigate } from "react-router-dom";
@@ -54,6 +55,38 @@ const AddRefurbishedProduct = () => {
   const [modalTab, setModalTab] = useState("refurbished");
   const [isSaving, setIsSaving] = useState(false);
   const [variantImageFiles, setVariantImageFiles] = useState({});
+  const [mainImageFile, setMainImageFile] = useState(null);
+  const [galleryFiles, setGalleryFiles] = useState([]);
+  const [mainImagePreview, setMainImagePreview] = useState(null);
+
+  useEffect(() => {
+    return () => {
+      if (mainImagePreview && mainImagePreview.startsWith("blob:")) {
+        URL.revokeObjectURL(mainImagePreview);
+      }
+    };
+  }, [mainImagePreview]);
+
+  const handleImageUpload = (e, type) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const previewUrl = URL.createObjectURL(file);
+      if (type === "main") {
+        if (mainImagePreview && mainImagePreview.startsWith("blob:")) {
+          URL.revokeObjectURL(mainImagePreview);
+        }
+        setMainImageFile(file);
+        setMainImagePreview(previewUrl);
+        setFormData((prev) => ({ ...prev, mainImage: null }));
+      } else {
+        setGalleryFiles((prev) => [...prev, file]);
+        setFormData((prev) => ({
+          ...prev,
+          galleryImages: [...(prev.galleryImages || []), previewUrl],
+        }));
+      }
+    }
+  };
 
   const makeSku = (name, index = 1) => {
     const prefix =
@@ -217,6 +250,28 @@ const AddRefurbishedProduct = () => {
       if (formData.category) data.append("categoryId", formData.category);
       if (formData.subcategory) data.append("subcategoryId", formData.subcategory);
 
+      // Main image
+      if (mainImageFile instanceof File) {
+        data.append("mainImage", mainImageFile);
+      } else if (typeof formData.mainImage === "string" && formData.mainImage.trim() && !formData.mainImage.startsWith("data:")) {
+        data.append("mainImage", formData.mainImage.trim());
+      }
+
+      // Gallery images
+      if (galleryFiles.length > 0) {
+        galleryFiles.forEach((file) => {
+          if (file instanceof File) data.append("galleryImages", file);
+        });
+      }
+      if (Array.isArray(formData.galleryImages) && formData.galleryImages.length > 0) {
+        const existingUrls = formData.galleryImages.filter(
+          (img) => typeof img === "string" && img.startsWith("http") && !img.startsWith("blob:") && !img.startsWith("data:")
+        );
+        if (existingUrls.length > 0) {
+          data.append("galleryImages", JSON.stringify(existingUrls));
+        }
+      }
+
       data.append("variants", JSON.stringify(formData.variants));
 
       Object.keys(variantImageFiles).forEach((vIndex) => {
@@ -295,6 +350,7 @@ const AddRefurbishedProduct = () => {
           {[
             { id: "refurbished", label: "Refurbished Specs", icon: HiOutlineDevicePhoneMobile },
             { id: "general", label: "General & Title", icon: HiOutlineTag },
+            { id: "media", label: "Device Media", icon: HiOutlinePhoto },
             { id: "variants", label: "Storage & Variants", icon: HiOutlineSwatch },
             { id: "category", label: "Category & Brand", icon: HiOutlineFolderOpen },
             { id: "highlights", label: "Quality Highlights", icon: HiOutlineSparkles },
@@ -518,6 +574,164 @@ const AddRefurbishedProduct = () => {
                     className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-mono font-bold outline-none"
                     placeholder="AUTO-GENERATED"
                   />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {modalTab === "media" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 mb-1">Device Images & Gallery</h4>
+                <p className="text-xs text-slate-500 font-medium">
+                  Upload photos of the device (front, back, screen on, accessories). Uploaded images are stored in Cloudinary.
+                </p>
+              </div>
+
+              {/* Main Product Image Section */}
+              <div className="bg-amber-50/40 p-5 rounded-2xl border border-orange-200/60 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-extrabold uppercase text-slate-600 tracking-wider">
+                    Main Device Photo
+                  </label>
+                  {(mainImagePreview || formData.mainImage) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (mainImagePreview && mainImagePreview.startsWith("blob:")) {
+                          URL.revokeObjectURL(mainImagePreview);
+                        }
+                        setMainImageFile(null);
+                        setMainImagePreview(null);
+                        setFormData({ ...formData, mainImage: null });
+                      }}
+                      className="text-xs text-rose-500 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <HiOutlineTrash className="h-3.5 w-3.5" /> Remove
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-5 items-start sm:items-center">
+                  <div className="h-32 w-32 shrink-0 rounded-2xl border-2 border-dashed border-orange-200 bg-white overflow-hidden flex items-center justify-center relative p-1 shadow-sm">
+                    {mainImagePreview ? (
+                      <img
+                        src={mainImagePreview}
+                        alt="Device Preview"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : formData.mainImage ? (
+                      <img
+                        src={formData.mainImage}
+                        alt="Device"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <div className="text-center p-2 text-slate-400">
+                        <HiOutlinePhoto className="h-8 w-8 mx-auto text-slate-300" />
+                        <span className="text-[10px] font-bold">No Photo</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-3 w-full">
+                    <div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        id="refurbished-main-image"
+                        onChange={(e) => handleImageUpload(e, "main")}
+                        className="text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-orange-600 file:text-white hover:file:bg-orange-700 cursor-pointer"
+                      />
+                      <p className="text-[11px] text-slate-400 mt-1">PNG, JPG, WEBP up to 10MB</p>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                        Or enter direct image URL
+                      </label>
+                      <input
+                        type="text"
+                        value={typeof formData.mainImage === "string" ? formData.mainImage : ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (mainImagePreview && mainImagePreview.startsWith("blob:")) {
+                            URL.revokeObjectURL(mainImagePreview);
+                          }
+                          setMainImageFile(null);
+                          setMainImagePreview(null);
+                          setFormData({ ...formData, mainImage: val });
+                        }}
+                        placeholder="https://res.cloudinary.com/..."
+                        className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-orange-500/10"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Gallery Images Section */}
+              <div className="bg-amber-50/40 p-5 rounded-2xl border border-orange-200/60 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-[10px] font-extrabold uppercase text-slate-600 tracking-wider block">
+                      Device Angles & Accessories
+                    </label>
+                    <p className="text-[11px] text-slate-400">Add photos of back, sides, bill/box, charger</p>
+                  </div>
+                  <label className="cursor-pointer bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5">
+                    <HiOutlinePlus className="h-4 w-4" />
+                    <span>Upload Images</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          const newFiles = Array.from(e.target.files);
+                          const newPreviews = newFiles.map((f) => URL.createObjectURL(f));
+                          setGalleryFiles((prev) => [...prev, ...newFiles]);
+                          setFormData((prev) => ({
+                            ...prev,
+                            galleryImages: [...(prev.galleryImages || []), ...newPreviews],
+                          }));
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3 pt-2">
+                  {(formData.galleryImages || []).map((imgUrl, idx) => (
+                    <div key={idx} className="relative h-24 rounded-xl border border-orange-200/80 bg-white overflow-hidden p-1 group shadow-xs">
+                      <img
+                        src={imgUrl}
+                        alt={`Device Gallery ${idx + 1}`}
+                        className="w-full h-full object-contain"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (imgUrl.startsWith("blob:")) {
+                            URL.revokeObjectURL(imgUrl);
+                          }
+                          setFormData((prev) => ({
+                            ...prev,
+                            galleryImages: prev.galleryImages.filter((_, i) => i !== idx),
+                          }));
+                          setGalleryFiles((prev) => prev.filter((_, i) => i !== idx));
+                        }}
+                        className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        aria-label="Remove image"
+                      >
+                        <HiOutlineXMark className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  {(!formData.galleryImages || formData.galleryImages.length === 0) && (
+                    <div className="col-span-full py-6 text-center text-slate-400 text-xs font-medium border-2 border-dashed border-orange-200 rounded-xl">
+                      No additional photos uploaded yet
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

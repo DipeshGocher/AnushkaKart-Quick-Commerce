@@ -27,8 +27,13 @@ import CustomerAuth from '../../modules/customer/pages/CustomerAuth';
 const Home = lazy(() => import('../../modules/customer/pages/Home'));
 const CategoriesPage = lazy(() => import('../../modules/customer/pages/CategoriesPage'));
 const RefurbishedProductsPage = lazy(() => import('../../modules/customer/pages/RefurbishedProductsPage'));
+const MarketplaceProductsPage = lazy(() => import('../../modules/customer/pages/MarketplaceProductsPage'));
+const MarketplaceSearchPage = lazy(() => import('../../modules/customer/pages/MarketplaceSearchPage'));
+const MarketplaceCategoriesPage = lazy(() => import('../../modules/customer/pages/MarketplaceCategoriesPage'));
+const MarketplaceProductsListingPage = lazy(() => import('../../modules/customer/pages/MarketplaceProductsListingPage'));
 const RefurbishedBrandsPage = lazy(() => import('../../modules/customer/pages/RefurbishedBrandsPage'));
 const RefurbishedBrandProductsPage = lazy(() => import('../../modules/customer/pages/RefurbishedBrandProductsPage'));
+const RefurbishedSearchPage = lazy(() => import('../../modules/customer/pages/RefurbishedSearchPage'));
 const CategoryProductsPage = lazy(() => import('../../modules/customer/pages/CategoryProductsPage'));
 const WishlistPage = lazy(() => import('../../modules/customer/pages/WishlistPage'));
 const CartPage = lazy(() => import('../../modules/customer/pages/CartPage'));
@@ -49,10 +54,24 @@ const OrderDetailPage = lazy(() => import('../../modules/customer/pages/OrderDet
 const ProductDetailPage = lazy(() => import('../../modules/customer/pages/ProductDetailPage'));
 const KitDetailPage = lazy(() => import('../../modules/customer/pages/KitDetailPage'));
 const CheckoutPage = lazy(() => import('../../modules/customer/pages/CheckoutPage'));
+const RefurbishedCheckoutPage = lazy(() => import('../../modules/customer/pages/RefurbishedCheckoutPage'));
+const RefurbishedCartPage = lazy(() => import('../../modules/customer/pages/RefurbishedCartPage'));
 const PaymentStatusPage = lazy(() => import('../../modules/customer/pages/PaymentStatusPage'));
 const SearchPage = lazy(() => import('../../modules/customer/pages/SearchPage'));
 const WalletPage = lazy(() => import('../../modules/customer/pages/WalletPage'));
 const NotificationsPage = lazy(() => import('../../modules/customer/pages/NotificationsPage'));
+
+// C2C Marketplace Pages (OLX Module)
+const C2CProductDetailPage = lazy(() => import('../../modules/customer/pages/c2c/C2CProductDetailPage'));
+const C2CSellPage = lazy(() => import('../../modules/customer/pages/c2c/C2CSellPage'));
+const C2CChatsPage = lazy(() => import('../../modules/customer/pages/c2c/C2CChatsPage'));
+const C2CMyAdsPage = lazy(() => import('../../modules/customer/pages/c2c/C2CMyAdsPage'));
+const C2CAccountPage = lazy(() => import('../../modules/customer/pages/c2c/C2CAccountPage'));
+const C2CProfilePage = lazy(() => import('../../modules/customer/pages/c2c/C2CProfilePage'));
+const C2CEditProfilePage = lazy(() => import('../../modules/customer/pages/c2c/C2CEditProfilePage'));
+const C2CMyProductDetailPage = lazy(() => import('../../modules/customer/pages/c2c/C2CMyProductDetailPage'));
+const C2CEditProductPage = lazy(() => import('../../modules/customer/pages/c2c/C2CEditProductPage'));
+const MarketplaceNotificationPage = lazy(() => import('../../modules/customer/pages/MarketplaceNotificationPage'));
 
 // Lazy load heavy modules
 const SellerModule = lazy(() => import('../../modules/seller/routes/index'));
@@ -178,12 +197,48 @@ const AppRouter = () => {
                     children: [
                         { index: true, element: <Home /> },
                         { path: 'categories', element: <CategoriesPage /> },
-                        { path: 'refurbished', element: <RefurbishedProductsPage /> },
-                        { path: 'refurbished/brands', element: <Navigate to="/refurbished" replace /> },
-                        { path: 'refurbished/brands/products', element: <RefurbishedBrandProductsPage /> },
-                        { path: 'refurbished/products', element: <RefurbishedBrandProductsPage /> },
-                        { path: 'refurbished/cart', element: <CartPage /> },
-                        { path: 'refurbished/wishlist', element: <WishlistPage /> },
+                        // C2C Marketplace (OLX Module) Routes
+                        { path: 'marketplace', element: <MarketplaceProductsPage /> },
+                        { path: 'marketplace/product/:id', element: <C2CProductDetailPage /> },
+                        { path: 'marketplace/sell', element: <C2CSellPage /> },
+                        { path: 'marketplace/chats', element: <C2CChatsPage /> },
+                        { path: 'marketplace/categories', element: <MarketplaceCategoriesPage /> },
+                        { path: 'marketplace/products', element: <MarketplaceProductsListingPage /> },
+                        { path: 'marketplace/account', element: <C2CAccountPage /> },
+                        { path: 'marketplace/profile', element: <C2CProfilePage /> },
+                        { path: 'marketplace/profile/edit', element: <C2CEditProfilePage /> },
+                        { path: 'marketplace/search', element: <MarketplaceSearchPage /> },
+                        { path: 'marketplace/notification', element: <MarketplaceNotificationPage /> },
+                        { path: 'marketplace/notifications', element: <Navigate to="/marketplace/notification" replace /> },
+                        { path: 'marketplace/my-listings', element: <C2CMyAdsPage /> },
+                        { path: 'marketplace/my-ads', element: <C2CMyAdsPage /> },
+                        { path: 'marketplace/my-listings/product', element: <C2CMyProductDetailPage /> },
+                        { path: 'marketplace/my-listings/product/:id', element: <C2CMyProductDetailPage /> },
+                        { path: 'marketplace/my-listings/product/:id/edit', element: <C2CEditProductPage /> },
+                        { path: 'marketplace/my-listings/myproducts', element: <C2CMyProductDetailPage /> },
+                        { path: 'marketplace/my-listings/myproducts/:id', element: <C2CMyProductDetailPage /> },
+                        { path: 'marketplace/my-listings/edit', element: <C2CEditProductPage /> },
+                        { path: 'marketplace/my-listings/edit/:id', element: <C2CEditProductPage /> },
+                        { path: 'marketplace/wishlist', element: <Navigate to="/marketplace/products?view=wishlist" replace /> },
+                        { path: 'marketplace/brands', element: <Navigate to="/marketplace" replace /> },
+                        { path: 'marketplace/brands/products', element: <Navigate to="/marketplace" replace /> },
+                        { path: 'marketplace/cart', element: <Navigate to="/marketplace" replace /> },
+                        { path: 'marketplace/checkout', element: <Navigate to="/marketplace" replace /> },
+
+                        // Backwards compatibility redirects for /refurbished -> /marketplace
+                        { path: 'refurbished', element: <Navigate to="/marketplace" replace /> },
+                        { path: 'refurbished/product/:id', element: <Navigate to="/marketplace" replace /> },
+                        { path: 'refurbished/sell', element: <Navigate to="/marketplace/sell" replace /> },
+                        { path: 'refurbished/chats', element: <Navigate to="/marketplace/chats" replace /> },
+                        { path: 'refurbished/my-ads', element: <Navigate to="/marketplace/my-ads" replace /> },
+                        { path: 'refurbished/wishlist', element: <Navigate to="/marketplace/my-ads?tab=wishlist" replace /> },
+                        { path: 'refurbished/account', element: <Navigate to="/marketplace/account" replace /> },
+                        { path: 'refurbished/search', element: <Navigate to="/marketplace" replace /> },
+                        { path: 'refurbished/brands', element: <Navigate to="/marketplace" replace /> },
+                        { path: 'refurbished/brands/products', element: <Navigate to="/marketplace" replace /> },
+                        { path: 'refurbished/products', element: <Navigate to="/marketplace" replace /> },
+                        { path: 'refurbished/cart', element: <Navigate to="/marketplace" replace /> },
+                        { path: 'refurbished/checkout', element: <Navigate to="/marketplace" replace /> },
                         { path: 'category/:categoryName', element: <CategoryProductsPage /> },
                         { path: 'product/:id', element: <ProductDetailPage /> },
                         { path: 'kit/:id', element: <KitDetailPage /> },
@@ -192,7 +247,7 @@ const AppRouter = () => {
                         { path: 'about', element: <AboutPage /> },
                         { path: 'offers', element: <OffersPage /> },
                         { path: 'shop-by-store', element: <ShopByStorePage /> },
-                        { path: 'cart', element: <CartPage /> },
+                        { path: 'cart', element: <ProtectedRoute><CartPage /></ProtectedRoute> },
                         { path: 'wishlist', element: <ProtectedRoute><WishlistPage /></ProtectedRoute> },
                         { path: 'orders', element: <ProtectedRoute><OrdersPage /></ProtectedRoute> },
                         { path: 'orders/:orderId', element: <ProtectedRoute><OrderDetailPage /></ProtectedRoute> },

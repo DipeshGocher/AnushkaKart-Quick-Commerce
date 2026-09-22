@@ -8,7 +8,7 @@ import {
 } from "../services/customerVisibilityService.js";
 
 const CART_POPULATE_FIELDS =
-  "name slug price salePrice mainImage stock status headerId categoryId subcategoryId sellerId warehouseId variants";
+  "name slug price salePrice mainImage stock status headerId categoryId subcategoryId sellerId warehouseId variants conditionType catalogType refurbishedDetails isFeatured brand weight unit isMonthlyKit";
 
 const CUSTOMER_VISIBLE_PRODUCT_MATCH = {
   status: "active",
@@ -27,11 +27,16 @@ async function getCustomerVisibleProductById(productId) {
     _id: productId,
     ...CUSTOMER_VISIBLE_PRODUCT_MATCH,
   })
-    .select("_id sellerId warehouseId")
+    .select("_id sellerId warehouseId conditionType catalogType")
     .lean();
 }
 
 async function assertProductInCustomerRadius(product, lat, lng) {
+  // Refurbished products ship via courier / central shipping and bypass local grocery radius checks
+  if (product?.conditionType === "refurbished" || product?.catalogType === "refurbished") {
+    return;
+  }
+
   const coords = parseCustomerCoordinates({ lat, lng });
   if (!coords.valid) {
     const err = new Error("lat and lng are required to add items in your delivery area");

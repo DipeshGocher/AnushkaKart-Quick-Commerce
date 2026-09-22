@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import Lottie from "lottie-react";
 import { useInViewAnimation } from "@/core/hooks/useInViewAnimation";
-import { useCart } from "../context/CartContext";
+import { useCart, isRefurbishedItem } from "../context/CartContext";
 import { useAuth } from "../../../core/context/AuthContext";
 import { useWishlist } from "../context/WishlistContext";
 import { customerApi } from "../services/customerApi";
@@ -86,13 +86,14 @@ const loadRazorpayScript = () => {
 
 const CheckoutPage = () => {
   const {
-    cart,
+    groceryCart,
+    groceryCartTotal,
+    groceryCartCount,
+    refurbishedCart,
     addToCart,
-    cartTotal,
-    cartCount,
     updateQuantity,
     removeFromCart,
-    clearCart,
+    clearCartSection,
   } = useCart();
   const { wishlist, addToWishlist, fetchFullWishlist, isFullDataFetched } =
     useWishlist();
@@ -141,6 +142,35 @@ const CheckoutPage = () => {
     updateLocation,
   } = useAppLocation();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const directBuyItem = useMemo(() => {
+    const item = location.state?.directBuyItem;
+    if (item && !isRefurbishedItem(item)) {
+      return item;
+    }
+    return null;
+  }, [location.state]);
+
+  const cart = useMemo(() => {
+    if (directBuyItem) return [directBuyItem];
+    return groceryCart;
+  }, [directBuyItem, groceryCart]);
+
+  const cartTotal = useMemo(() => {
+    if (directBuyItem) {
+      const p = Number(directBuyItem.salePrice || directBuyItem.price || 0);
+      return p * Number(directBuyItem.quantity || 1);
+    }
+    return groceryCartTotal;
+  }, [directBuyItem, groceryCartTotal]);
+
+  const cartCount = useMemo(() => {
+    if (directBuyItem) {
+      return Number(directBuyItem.quantity || 1);
+    }
+    return groceryCartCount;
+  }, [directBuyItem, groceryCartCount]);
 
   // State management
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("now");
@@ -857,7 +887,11 @@ const CheckoutPage = () => {
                 order_id: razorpayOrderId,
                 handler: function (response) {
                   // After successful payment, verify with backend or just show success
-                  clearCart();
+                  if (directBuyItem) {
+                    removeFromCart(directBuyItem.id || directBuyItem._id, directBuyItem.variantSku);
+                  } else {
+                    clearCartSection('grocery');
+                  }
                   showToast("Payment Successful! Verifying with server...", "success");
                   navigate(`/payment-status?merchantOrderId=${merchantOrderId}&paymentId=${response.razorpay_payment_id}`);
                 },
@@ -905,7 +939,11 @@ const CheckoutPage = () => {
         }
 
         // COD flow
-        clearCart();
+        if (directBuyItem) {
+          removeFromCart(directBuyItem.id || directBuyItem._id, directBuyItem.variantSku);
+        } else {
+          clearCartSection('grocery');
+        }
         showToast("Order placed — waiting for seller to accept.", "success");
         setOrderId(mainOrderId);
         setShowSuccess(true);
@@ -1008,6 +1046,19 @@ const CheckoutPage = () => {
               Start Shopping <ChevronRight size={20} />
             </span>
           </Link>
+          {refurbishedCart.length > 0 && (
+            <div className="mt-5 w-full p-4 rounded-2xl bg-blue-50/80 border border-blue-100 text-center">
+              <p className="text-xs font-bold text-blue-900 mb-2">
+                You have {refurbishedCart.length} item{refurbishedCart.length > 1 ? 's' : ''} in your Marketplace Cart!
+              </p>
+              <Link
+                to="/marketplace/checkout"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-[#0F4C81] hover:bg-[#0A365C] text-white rounded-xl text-xs font-black shadow-sm transition-all"
+              >
+                Go to Marketplace Checkout <ChevronRight size={14} />
+              </Link>
+            </div>
+          )}
           <div className="mt-8 flex gap-6 text-slate-400">
             <div className="flex flex-col items-center gap-2">
               <div className="p-3 bg-slate-50 rounded-2xl"><Clock size={20} /></div>

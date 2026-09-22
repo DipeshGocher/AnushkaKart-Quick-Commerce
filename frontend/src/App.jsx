@@ -10,7 +10,6 @@ import { ToastProvider } from './shared/components/ui/Toast';
 import Loader from './shared/components/ui/Loader';
 import ErrorBoundary from './shared/components/ErrorBoundary';
 import LenisScroll from './shared/components/LenisScroll';
-import SplashScreen from './shared/components/ui/SplashScreen';
 
 function App() {
     useEffect(() => {
@@ -47,9 +46,7 @@ function App() {
                             <Suspense fallback={<Loader fullScreen />}>
                                 <SupportUnreadProvider>
                                     <LenisScroll />
-                                    <SplashScreen>
-                                        <AppRouter />
-                                    </SplashScreen>
+                                    <AppRouter />
                                 </SupportUnreadProvider>
                             </Suspense>
                         </ToastProvider>

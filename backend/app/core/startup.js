@@ -211,6 +211,11 @@ async function connectMongoDB(maxRetries = 5) {
         );
       }
       
+      // Check for TLS alert 80 / IP Whitelist error
+      if (error?.message?.includes('tlsv1 alert internal error') || error?.cause?.toString()?.includes('ReplicaSetNoPrimary')) {
+        logger.error('[MongoDB] TLS Handshake / IP Whitelist error: MongoDB Atlas rejected the connection (SSL Alert 80). Ensure your current Public IP is whitelisted in MongoDB Atlas Network Access (or set to 0.0.0.0/0).');
+      }
+
       // If SRV lookup failed, cycle DNS servers
       if (error?.message?.includes('querySrv')) {
         try {

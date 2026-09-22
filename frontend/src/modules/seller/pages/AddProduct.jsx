@@ -15,6 +15,7 @@ import {
   HiOutlinePlus,
   HiOutlineSquaresPlus,
   HiOutlineSparkles,
+  HiOutlineXMark,
 } from "react-icons/hi2";
 import { HiOutlinePhotograph } from "react-icons/hi";
 import { useNavigate } from "react-router-dom";
@@ -85,6 +86,11 @@ const AddProduct = () => {
   const [modalTab, setModalTab] = useState("general");
   const [isSaving, setIsSaving] = useState(false);
   const [variantImageFiles, setVariantImageFiles] = useState({});
+  // Separate state for actual File objects (used in FormData submission)
+  const [mainImageFile, setMainImageFile] = useState(null);
+  const [galleryFiles, setGalleryFiles] = useState([]);
+  // Object URL for local preview - must be revoked when changed
+  const [mainImagePreview, setMainImagePreview] = useState(null);
 
   const makeSku = (name, index = 1) => {
     const prefix =
@@ -117,8 +123,8 @@ const AddProduct = () => {
     shelfLife: "",
     countryOfOrigin: "",
     fssaiLicense: "",
-    mainImage: null,
-    galleryImages: [],
+    mainImage: null,   // Cloudinary URL string (for existing/URL-input images)
+    galleryImages: [], // Array of Cloudinary URL strings (existing images)
     highlights: [
       { icon: "", label: "" },
       { icon: "", label: "" },
@@ -265,8 +271,28 @@ const AddProduct = () => {
       if (formData.category) data.append("categoryId", formData.category);
       if (formData.subcategory) data.append("subcategoryId", formData.subcategory);
 
-      // Images (now handled via variants)
+      // Main image: send the actual File object if one was selected, otherwise send URL string
+      if (mainImageFile instanceof File) {
+        data.append("mainImage", mainImageFile);
+      } else if (typeof formData.mainImage === "string" && formData.mainImage.trim() && !formData.mainImage.startsWith("data:")) {
+        data.append("mainImage", formData.mainImage.trim());
+      }
 
+      // Gallery images: send actual File objects for newly selected files
+      if (galleryFiles.length > 0) {
+        galleryFiles.forEach((file) => {
+          if (file instanceof File) data.append("galleryImages", file);
+        });
+      }
+      // Also send any existing gallery URLs (not files)
+      if (Array.isArray(formData.galleryImages) && formData.galleryImages.length > 0) {
+        const existingUrls = formData.galleryImages.filter(
+          (img) => typeof img === "string" && img.startsWith("http") && !img.startsWith("data:")
+        );
+        if (existingUrls.length > 0) {
+          data.append("galleryImages", JSON.stringify(existingUrls));
+        }
+      }
 
       // Variants
       data.append("variants", JSON.stringify(formData.variants));
@@ -317,23 +343,23 @@ const AddProduct = () => {
   const handleImageUpload = (e, type) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (type === "main") {
-          setFormData({
-            ...formData,
-            mainImage: reader.result,
-            mainImageFile: file
-          });
-        } else {
-          setFormData({
-            ...formData,
-            galleryImages: [...formData.galleryImages, reader.result],
-            galleryFiles: [...(formData.galleryFiles || []), file]
-          });
+      const previewUrl = URL.createObjectURL(file);
+      if (type === "main") {
+        // Revoke previous object URL to avoid memory leak
+        if (mainImagePreview && mainImagePreview.startsWith("blob:")) {
+          URL.revokeObjectURL(mainImagePreview);
         }
-      };
-      reader.readAsDataURL(file);
+        setMainImageFile(file);
+        setMainImagePreview(previewUrl);
+        // Keep mainImage as null so we know it's a new file (not a URL string)
+        setFormData({ ...formData, mainImage: null });
+      } else {
+        setGalleryFiles((prev) => [...prev, file]);
+        setFormData({
+          ...formData,
+          galleryImages: [...formData.galleryImages, previewUrl],
+        });
+      }
     }
   };
 
@@ -373,11 +399,11 @@ const AddProduct = () => {
         <div className="md:w-64 bg-slate-50/50 border-r border-slate-100 p-4 space-y-1 overflow-y-auto">
           {[
             { id: "general", label: "General Info", icon: HiOutlineTag },
+            { id: "media", label: "Images & Media", icon: HiOutlinePhoto },
             { id: "variants", label: "Item Variants", icon: HiOutlineSwatch },
             { id: "category", label: "Groups", icon: HiOutlineFolderOpen },
             { id: "highlights", label: "Highlights", icon: HiOutlineSparkles },
             { id: "refurbished", label: "Refurbished Specs", icon: HiOutlineCube },
-
           ].map((tab) => (
             <button
               key={tab.id}
@@ -521,6 +547,164 @@ const AddProduct = () => {
                     className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-md text-sm font-semibold outline-none ring-primary/5 focus:ring-2 transition-all"
                     placeholder="e.g. 100123..."
                   />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {modalTab === "media" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 mb-1">Product Images</h4>
+                <p className="text-xs text-slate-500 font-medium">
+                  Upload product photos. Images are automatically saved to your Cloudinary storage.
+                </p>
+              </div>
+
+              {/* Main Product Image Section */}
+              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-extrabold uppercase text-slate-600 tracking-wider">
+                    Main Product Image
+                  </label>
+                  {(mainImagePreview || formData.mainImage) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (mainImagePreview && mainImagePreview.startsWith("blob:")) {
+                          URL.revokeObjectURL(mainImagePreview);
+                        }
+                        setMainImageFile(null);
+                        setMainImagePreview(null);
+                        setFormData({ ...formData, mainImage: null });
+                      }}
+                      className="text-xs text-rose-500 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <HiOutlineTrash className="h-3.5 w-3.5" /> Remove
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-5 items-start sm:items-center">
+                  <div className="h-32 w-32 shrink-0 rounded-2xl border-2 border-dashed border-slate-200 bg-white overflow-hidden flex items-center justify-center relative p-1 shadow-sm">
+                    {mainImagePreview ? (
+                      <img
+                        src={mainImagePreview}
+                        alt="Main Product Preview"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : formData.mainImage ? (
+                      <img
+                        src={formData.mainImage}
+                        alt="Main Product"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <div className="text-center p-2 text-slate-400">
+                        <HiOutlinePhoto className="h-8 w-8 mx-auto text-slate-300" />
+                        <span className="text-[10px] font-bold">No Image</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-3 w-full">
+                    <div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        id="main-image-upload"
+                        onChange={(e) => handleImageUpload(e, "main")}
+                        className="text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-900 file:text-white hover:file:bg-slate-800 cursor-pointer"
+                      />
+                      <p className="text-[11px] text-slate-400 mt-1">PNG, JPG, WEBP up to 10MB</p>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                        Or enter direct image URL
+                      </label>
+                      <input
+                        type="text"
+                        value={typeof formData.mainImage === "string" ? formData.mainImage : ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (mainImagePreview && mainImagePreview.startsWith("blob:")) {
+                            URL.revokeObjectURL(mainImagePreview);
+                          }
+                          setMainImageFile(null);
+                          setMainImagePreview(null);
+                          setFormData({ ...formData, mainImage: val });
+                        }}
+                        placeholder="https://res.cloudinary.com/..."
+                        className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/10"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Gallery Images Section */}
+              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-[10px] font-extrabold uppercase text-slate-600 tracking-wider block">
+                      Gallery Images
+                    </label>
+                    <p className="text-[11px] text-slate-400">Add multiple additional images for customers to view</p>
+                  </div>
+                  <label className="cursor-pointer bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5">
+                    <HiOutlinePlus className="h-4 w-4" />
+                    <span>Upload Images</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          const newFiles = Array.from(e.target.files);
+                          const newPreviews = newFiles.map((f) => URL.createObjectURL(f));
+                          setGalleryFiles((prev) => [...prev, ...newFiles]);
+                          setFormData((prev) => ({
+                            ...prev,
+                            galleryImages: [...(prev.galleryImages || []), ...newPreviews],
+                          }));
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3 pt-2">
+                  {(formData.galleryImages || []).map((imgUrl, idx) => (
+                    <div key={idx} className="relative h-24 rounded-xl border border-slate-200 bg-white overflow-hidden p-1 group shadow-xs">
+                      <img
+                        src={imgUrl}
+                        alt={`Gallery ${idx + 1}`}
+                        className="w-full h-full object-contain"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (imgUrl.startsWith("blob:")) {
+                            URL.revokeObjectURL(imgUrl);
+                          }
+                          setFormData((prev) => ({
+                            ...prev,
+                            galleryImages: prev.galleryImages.filter((_, i) => i !== idx),
+                          }));
+                          setGalleryFiles((prev) => prev.filter((_, i) => i !== idx));
+                        }}
+                        className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        aria-label="Remove image"
+                      >
+                        <HiOutlineXMark className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  {(!formData.galleryImages || formData.galleryImages.length === 0) && (
+                    <div className="col-span-full py-6 text-center text-slate-400 text-xs font-medium border-2 border-dashed border-slate-200 rounded-xl">
+                      No gallery images uploaded yet
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

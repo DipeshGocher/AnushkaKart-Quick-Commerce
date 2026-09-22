@@ -24,6 +24,7 @@ import deliveryRiding from "@/assets/lottie/Delivery Riding.json";
 import { deliveryApi } from "../services/deliveryApi";
 import { useAuth } from "@core/context/AuthContext";
 import { useSettings } from "@core/context/SettingsContext";
+import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
 import SignInCard2 from "@/components/ui/sign-in-card-2";
 import { toast } from "sonner";
 import DynamicLegalPage from "@/shared/components/DynamicLegalPage";
@@ -53,7 +54,14 @@ const DeliveryAuth = () => {
   const { settings } = useSettings();
   const appName = settings?.appName || "AnushkaStore";
   const logoUrl = settings?.logoUrl || "/logo.png";
-  const { login } = useAuth();
+  const { login, authData } = useAuth();
+
+  useEffect(() => {
+    setActiveRole(ROLES.DELIVERY);
+    if (authData?.delivery) {
+      navigate('/delivery/dashboard', { replace: true });
+    }
+  }, [authData?.delivery, navigate]);
 
   const [touched, setTouched] = useState({
     signupName: false,
@@ -218,6 +226,7 @@ const DeliveryAuth = () => {
       const response = await deliveryApi.verifyOtp({ phone, otp: otpString });
       const { token, delivery } = response.data.result;
 
+      setActiveRole(ROLES.DELIVERY);
       login({ ...delivery, token, role: "delivery" });
 
       toast.success("Welcome! Redirecting to dashboard...");
@@ -285,20 +294,18 @@ const DeliveryAuth = () => {
         type="checkbox"
         checked={signupAgreed}
         onChange={(e) => setSignupAgreed(e.target.checked)}
-        disabled={!hasClickedTerms}
-        className="mt-0.5 h-4 w-4 accent-orange-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-0.5 h-4 w-4 accent-orange-500 cursor-pointer"
       />
-      <div className={`text-xs leading-relaxed ${!hasClickedTerms ? 'text-slate-400' : 'text-slate-500'}`}>
-        <label htmlFor={`signupTerms-${signupStep}`} className={`cursor-pointer ${!hasClickedTerms ? 'cursor-not-allowed' : ''}`}>I agree to the </label>
+      <div className="text-xs leading-relaxed text-slate-500">
+        <label htmlFor={`signupTerms-${signupStep}`} className="cursor-pointer">I agree to the </label>
         <span 
-          onClick={() => { setHasClickedTerms(true); navigate('/delivery/support'); }}
+          onClick={() => navigate('/delivery/support')}
           className="text-orange-600 font-bold hover:underline cursor-pointer"
         >Terms of Service</span> &amp;{" "}
         <span 
-          onClick={() => { setHasClickedTerms(true); navigate('/delivery/privacy'); }}
+          onClick={() => navigate('/delivery/privacy')}
           className="text-orange-600 font-bold hover:underline cursor-pointer"
         >Privacy Policy</span>.
-        {!hasClickedTerms && <span className="block text-[10px] text-rose-500 mt-1 font-semibold">* Please click on the links to read them before agreeing.</span>}
       </div>
     </div>
   );
@@ -306,6 +313,7 @@ const DeliveryAuth = () => {
   return (
     <>
     <SignInCard2
+      showBackButton={false}
       icon={step === "otp" ? ShieldCheck : (mode === "signup" ? User : Bike)}
       iconBg="bg-gradient-to-tr from-orange-500 via-amber-500 to-orange-400 text-white"
       iconColor="text-white"
@@ -313,6 +321,7 @@ const DeliveryAuth = () => {
       subtitle={step === "form" ? (mode === "login" ? 'Login to access your orders & deliveries' : `Step ${signupStep} of 4`) : step === "otp" ? `Sent code to +91 ${mode === "login" ? loginPhone : signupPhone}` : ''}
       logoUrl={logoUrl || "/logo.png"}
       appName={appName}
+      bgImageUrl="https://images.unsplash.com/photo-1617347454431-f49d7ff5c3b1?auto=format&fit=crop&w=1920&q=80"
       footer={
         step === "form" ? (
           <p className="text-xs font-semibold text-slate-500">
@@ -499,36 +508,6 @@ const DeliveryAuth = () => {
                           )}
                         </div>
 
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">Permanent Address</label>
-                          <div className="relative">
-                            <MapPin className="absolute left-4 top-4 text-slate-400 w-4 h-4" />
-                            <textarea
-                              value={signupAddress}
-                              onChange={(e) => {
-                                setSignupAddress(e.target.value);
-                                markTouched("signupAddress");
-                              }}
-                              onBlur={() => markTouched("signupAddress")}
-                              className={`w-full pl-11 pr-4 py-3.5 bg-slate-50 border rounded-2xl text-sm font-semibold text-slate-900 transition-all resize-none h-24 placeholder:text-slate-400 ${getDeliveryFieldBorderClass("signupAddress", signupAddress, isValidAddress(signupAddress))}`}
-                              placeholder="Enter Complete Address"
-                            />
-                          </div>
-                          {touched.signupAddress && signupAddress && (
-                            <div className="mt-1 px-1 text-xs font-semibold">
-                              {isValidAddress(signupAddress) ? (
-                                <span className="text-emerald-600 flex items-center gap-1">
-                                  <CheckCircle size={13} className="shrink-0" /> Complete Address provided
-                                </span>
-                              ) : (
-                                <span className="text-rose-500 flex items-center gap-1">
-                                  <AlertCircle size={13} className="shrink-0" /> Address must be at least 10 characters ({signupAddress.trim().length}/10)
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
                         {renderTermsCheckbox()}
 
                         <button
@@ -540,8 +519,7 @@ const DeliveryAuth = () => {
                             markTouched("signupName");
                             markTouched("signupPhone");
                             markTouched("signupEmail");
-                            markTouched("signupAddress");
-                            if (!signupName || !signupPhone || !signupEmail || !signupAddress || !profileImageFile) {
+                            if (!signupName || !signupPhone || !signupEmail || !profileImageFile) {
                               toast.error("Please fill all personal information fields and upload photo");
                               return;
                             }
@@ -555,10 +533,6 @@ const DeliveryAuth = () => {
                             }
                             if (!isValidEmail(signupEmail)) {
                               toast.error("Please enter a valid email address");
-                              return;
-                            }
-                            if (!isValidAddress(signupAddress)) {
-                              toast.error("Please enter a complete address (min 10 characters)");
                               return;
                             }
                             setSignupStep(2);
@@ -1066,15 +1040,6 @@ const DeliveryAuth = () => {
                     </button>
                   </div>
                 )}
-
-                <div className="mt-6 text-center">
-                  <button
-                    onClick={() => switchMode(mode === 'login' ? 'signup' : 'login')}
-                    className="text-xs font-semibold text-slate-500 hover:text-orange-600 transition-colors"
-                  >
-                    {mode === 'login' ? "New partner? Register now" : "Already registered? Login"}
-                  </button>
-                </div>
 
               </motion.div>
             )}

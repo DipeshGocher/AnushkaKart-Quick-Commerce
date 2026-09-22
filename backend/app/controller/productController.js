@@ -170,7 +170,9 @@ function parseJsonIfString(value) {
 function normalizeUrl(value) {
   const normalized = String(value || "").trim();
   if (!normalized) return "";
-  if (normalized.startsWith("/") || normalized.startsWith("uploads/") || normalized.startsWith("data:")) return normalized;
+  // NOTE: "data:" base64 URLs are intentionally NOT accepted here.
+  // All images must be uploaded to Cloudinary and stored as https:// URLs.
+  if (normalized.startsWith("/") || normalized.startsWith("uploads/")) return normalized;
   if (!/^https?:\/\//i.test(normalized)) return "";
   return normalized;
 }
@@ -519,7 +521,7 @@ export const getProducts = async (req, res) => {
 
     const { page, limit, skip } = getPagination(req, {
       defaultLimit: 24,
-      maxLimit: 100,
+      maxLimit: 1000,
     });
 
     const sortMap = {
@@ -626,7 +628,7 @@ export const getSellerProducts = async (req, res) => {
     const { stockStatus, sort, approvalStatus } = req.query;
     const { page, limit, skip } = getPagination(req, {
       defaultLimit: 20,
-      maxLimit: 100,
+      maxLimit: 500,
     });
 
     const role = String(req.user?.role || "").toLowerCase();
@@ -1427,7 +1429,7 @@ export const getModerationProducts = async (req, res) => {
     } = req.query;
     const { page, limit, skip } = getPagination(req, {
       defaultLimit: 25,
-      maxLimit: 100,
+      maxLimit: 500,
     });
 
     const baseQuery = {};

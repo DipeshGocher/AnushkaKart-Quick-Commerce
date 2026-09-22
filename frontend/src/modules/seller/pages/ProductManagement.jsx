@@ -373,17 +373,25 @@ const ProductManagement = () => {
       data.append("highlights", JSON.stringify(cleanedHighlights));
 
       // Append main image file or string URL
-      if (formData.mainImageFile) {
+      if (formData.mainImageFile instanceof File) {
         data.append("mainImage", formData.mainImageFile);
-      } else if (typeof formData.mainImage === "string" && formData.mainImage.trim()) {
+      } else if (typeof formData.mainImage === "string" && formData.mainImage.trim() && !formData.mainImage.startsWith("data:") && !formData.mainImage.startsWith("blob:")) {
         data.append("mainImage", formData.mainImage.trim());
       }
 
       // Append gallery image files
       if (Array.isArray(formData.galleryFiles) && formData.galleryFiles.length > 0) {
         formData.galleryFiles.forEach((file) => {
-          if (file) data.append("galleryImages", file);
+          if (file instanceof File) data.append("galleryImages", file);
         });
+      }
+      if (Array.isArray(formData.galleryImages) && formData.galleryImages.length > 0) {
+        const existingUrls = formData.galleryImages.filter(
+          (img) => typeof img === "string" && img.startsWith("http") && !img.startsWith("blob:") && !img.startsWith("data:")
+        );
+        if (existingUrls.length > 0) {
+          data.append("galleryImages", JSON.stringify(existingUrls));
+        }
       }
 
       // Append variant image files
@@ -429,19 +437,21 @@ const ProductManagement = () => {
   const handleImageUpload = (e, type) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (type === "main") {
-          setFormData({ ...formData, mainImage: reader.result, mainImageFile: file });
-        } else {
-          setFormData({
-            ...formData,
-            galleryImages: [...formData.galleryImages, reader.result],
-            galleryFiles: [...(formData.galleryFiles || []), file]
-          });
-        }
-      };
-      reader.readAsDataURL(file);
+      const previewUrl = URL.createObjectURL(file);
+      if (type === "main") {
+        setFormData((prev) => ({
+          ...prev,
+          mainImagePreview: previewUrl,
+          mainImageFile: file,
+          mainImage: null,
+        }));
+      } else {
+        setFormData((prev) => ({
+          ...prev,
+          galleryImages: [...(prev.galleryImages || []), previewUrl],
+          galleryFiles: [...(prev.galleryFiles || []), file],
+        }));
+      }
     }
   };
 
@@ -1036,6 +1046,11 @@ const ProductManagement = () => {
                       icon: HiOutlineTag,
                     },
                     {
+                      id: "media",
+                      label: "Images & Media",
+                      icon: HiOutlinePhoto,
+                    },
+                    {
                       id: "variants",
                       label: "Item Variants",
                       icon: HiOutlineSwatch,
@@ -1050,7 +1065,6 @@ const ProductManagement = () => {
                       label: "Highlights",
                       icon: HiOutlineSparkles,
                     },
-
                   ].map((tab) => (
                     <button
                       key={tab.id}
@@ -1229,6 +1243,160 @@ const ProductManagement = () => {
                       </div>
                     </div>
                   )}
+
+                  {modalTab === "media" && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900 mb-1">Product Images</h4>
+                        <p className="text-xs text-slate-500 font-medium">
+                          Upload main product photo and gallery images. Images are stored securely in Cloudinary.
+                        </p>
+                      </div>
+
+                      {/* Main Product Image Section */}
+                      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-extrabold uppercase text-slate-600 tracking-wider">
+                            Main Product Image
+                          </label>
+                          {(formData.mainImagePreview || formData.mainImage) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  mainImage: null,
+                                  mainImageFile: null,
+                                  mainImagePreview: null,
+                                }));
+                              }}
+                              className="text-xs text-rose-500 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer"
+                            >
+                              <HiOutlineTrash className="h-3.5 w-3.5" /> Remove
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-5 items-start sm:items-center">
+                          <div className="h-32 w-32 shrink-0 rounded-2xl border-2 border-dashed border-slate-200 bg-white overflow-hidden flex items-center justify-center relative p-1 shadow-sm">
+                            {formData.mainImagePreview ? (
+                              <img
+                                src={formData.mainImagePreview}
+                                alt="Main Preview"
+                                className="w-full h-full object-contain"
+                              />
+                            ) : formData.mainImage ? (
+                              <img
+                                src={formData.mainImage}
+                                alt="Main Product"
+                                className="w-full h-full object-contain"
+                              />
+                            ) : (
+                              <div className="text-center p-2 text-slate-400">
+                                <HiOutlinePhoto className="h-8 w-8 mx-auto text-slate-300" />
+                                <span className="text-[10px] font-bold">No Image</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 space-y-3 w-full">
+                            <div>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => handleImageUpload(e, "main")}
+                                className="text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-900 file:text-white hover:file:bg-slate-800 cursor-pointer"
+                              />
+                              <p className="text-[11px] text-slate-400 mt-1">PNG, JPG, WEBP up to 10MB</p>
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                Or enter direct image URL
+                              </label>
+                              <input
+                                type="text"
+                                value={typeof formData.mainImage === "string" ? formData.mainImage : ""}
+                                onChange={(e) => {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    mainImage: e.target.value,
+                                    mainImageFile: null,
+                                    mainImagePreview: null,
+                                  }));
+                                }}
+                                placeholder="https://res.cloudinary.com/..."
+                                className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/10"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Gallery Images Section */}
+                      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <label className="text-[10px] font-extrabold uppercase text-slate-600 tracking-wider block">
+                              Gallery Images
+                            </label>
+                            <p className="text-[11px] text-slate-400">Add multiple additional photos for customers to view</p>
+                          </div>
+                          <label className="cursor-pointer bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5">
+                            <HiOutlinePlus className="h-4 w-4" />
+                            <span>Upload Images</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              className="hidden"
+                              onChange={(e) => {
+                                if (e.target.files && e.target.files.length > 0) {
+                                  const newFiles = Array.from(e.target.files);
+                                  const newPreviews = newFiles.map((f) => URL.createObjectURL(f));
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    galleryImages: [...(prev.galleryImages || []), ...newPreviews],
+                                    galleryFiles: [...(prev.galleryFiles || []), ...newFiles],
+                                  }));
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3 pt-2">
+                          {(formData.galleryImages || []).map((imgUrl, idx) => (
+                            <div key={idx} className="relative h-24 rounded-xl border border-slate-200 bg-white overflow-hidden p-1 group shadow-xs">
+                              <img
+                                src={imgUrl}
+                                alt={`Gallery ${idx + 1}`}
+                                className="w-full h-full object-contain"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    galleryImages: prev.galleryImages.filter((_, i) => i !== idx),
+                                    galleryFiles: (prev.galleryFiles || []).filter((_, i) => i !== idx),
+                                  }));
+                                }}
+                                className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                aria-label="Remove image"
+                              >
+                                <HiOutlineXMark className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                          {(!formData.galleryImages || formData.galleryImages.length === 0) && (
+                            <div className="col-span-full py-6 text-center text-slate-400 text-xs font-medium border-2 border-dashed border-slate-200 rounded-xl">
+                              No gallery images uploaded yet
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Additional tabs populated as needed */}
                   {modalTab === "category" && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
