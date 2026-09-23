@@ -23,13 +23,14 @@ import AdminAuth from '../../modules/admin/pages/AdminAuth';
 import DeliveryAuth from '../../modules/delivery/pages/DeliveryAuth';
 import CustomerAuth from '../../modules/customer/pages/CustomerAuth';
 
+import CategoriesPage from '../../modules/customer/pages/CategoriesPage';
+import MarketplaceCategoriesPage from '../../modules/customer/pages/MarketplaceCategoriesPage';
+
 // Customer Pages (lazy-loaded)
 const Home = lazy(() => import('../../modules/customer/pages/Home'));
-const CategoriesPage = lazy(() => import('../../modules/customer/pages/CategoriesPage'));
 const RefurbishedProductsPage = lazy(() => import('../../modules/customer/pages/RefurbishedProductsPage'));
 const MarketplaceProductsPage = lazy(() => import('../../modules/customer/pages/MarketplaceProductsPage'));
 const MarketplaceSearchPage = lazy(() => import('../../modules/customer/pages/MarketplaceSearchPage'));
-const MarketplaceCategoriesPage = lazy(() => import('../../modules/customer/pages/MarketplaceCategoriesPage'));
 const MarketplaceProductsListingPage = lazy(() => import('../../modules/customer/pages/MarketplaceProductsListingPage'));
 const RefurbishedBrandsPage = lazy(() => import('../../modules/customer/pages/RefurbishedBrandsPage'));
 const RefurbishedBrandProductsPage = lazy(() => import('../../modules/customer/pages/RefurbishedBrandProductsPage'));

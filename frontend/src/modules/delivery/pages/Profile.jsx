@@ -37,12 +37,30 @@ const Profile = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const clearDeliverySessionState = () => {
+    try {
+      Object.keys(sessionStorage).forEach((key) => {
+        if (key.startsWith('delivery_')) {
+          sessionStorage.removeItem(key);
+        }
+      });
+    } catch (e) {
+      console.warn("Failed to clear delivery session storage:", e);
+    }
+  };
+
+  const handleLogout = async () => {
+    clearDeliverySessionState();
+    await logout();
+  };
+
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
       await deliveryApi.deleteAccount();
       toast.success("Account deleted successfully.");
       setShowDeleteModal(false);
+      clearDeliverySessionState();
       logout();
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to delete account");
@@ -201,7 +219,7 @@ const Profile = () => {
 
         <motion.div variants={itemVariants} className="pt-2 pb-6 space-y-3">
           <Button
-            onClick={logout}
+            onClick={handleLogout}
             variant="ghost"
             className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50/50 font-medium py-3 px-4">
             <LogOut size={20} className="mr-4 text-red-500" strokeWidth={2} /> Logout

@@ -11,6 +11,7 @@ import {
     rawSet,
     rawRemove,
     clearOnLogout,
+    clearByPrefix,
     STORAGE_KEYS,
 } from '@core/utils/storage';
 
@@ -241,7 +242,11 @@ export const AuthProvider = ({ children }) => {
         if (path.startsWith('/admin')) window.location.href = '/admin/auth';
         else if (path.startsWith('/seller')) window.location.href = '/seller/auth';
         else if (path.startsWith('/warehouse')) window.location.href = '/warehouse/auth';
-        else if (path.startsWith('/delivery')) window.location.href = '/delivery/auth';
+        else if (path.startsWith('/delivery')) {
+            clearByPrefix('delivery_', { storage: 'session' });
+            clearByPrefix('delivery_', { storage: 'local' });
+            window.location.href = '/delivery/auth';
+        }
         else window.location.href = '/login';
     };
 

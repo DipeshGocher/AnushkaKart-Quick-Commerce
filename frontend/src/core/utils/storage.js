@@ -294,6 +294,8 @@ export function clearOnLogout({
     if (normalizedRole === 'delivery' || clearLastLocation) {
         rawRemove(STORAGE_KEYS.DELIVERY_LAST_LOCATION, { storage: 'local' });
         rawRemove(STORAGE_KEYS.DELIVERY_HANDLED_INCOMING, { storage: 'session' });
+        clearByPrefix('delivery_', { storage: 'session' });
+        clearByPrefix('delivery_', { storage: 'local' });
     }
 
     if (clearLastLocation) {

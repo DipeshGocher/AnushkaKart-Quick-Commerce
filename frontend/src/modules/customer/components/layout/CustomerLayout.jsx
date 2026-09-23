@@ -135,21 +135,9 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
             )}
 
             <main className={cn("flex-1 md:pb-0", showHeader ? "pt-[100px] md:pt-[130px]" : "pt-0")}>
-                <AnimatePresence mode="wait" initial={false}>
-                    <motion.div
-                        key={location.pathname}
-                        initial={{ opacity: 0, y: 28 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -12 }}
-                        transition={{
-                            duration: 0.32,
-                            ease: [0.22, 1, 0.36, 1],
-                        }}
-                        className="w-full flex-1 flex flex-col"
-                    >
-                        {children}
-                    </motion.div>
-                </AnimatePresence>
+                <div key={location.pathname} className="w-full flex-1 flex flex-col animate-in fade-in duration-150">
+                    {children}
+                </div>
             </main>
 
             {showCart && !isMarketplaceSection && <MiniCart />}

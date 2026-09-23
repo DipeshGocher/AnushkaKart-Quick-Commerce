@@ -98,7 +98,15 @@ const DeliveryAuth = () => {
 
   // mode: "login" | "signup"
   const [mode, setMode] = useState(() => getSaved("mode", "login"));
-  const [step, setStep] = useState(() => getSaved("step", "form")); // "form" | "otp"
+  // Always default to initial form step, never resume into OTP after logout or fresh visit
+  const [step, setStep] = useState("form");
+
+  // Proactively purge any stale delivery_step leftover from previous sessions
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem("delivery_step");
+    } catch (e) {}
+  }, []);
 
   // Login state
   const [loginPhone, setLoginPhone] = useState(() => getSaved("loginPhone", ""));
@@ -124,7 +132,6 @@ const DeliveryAuth = () => {
 
   useEffect(() => {
     sessionStorage.setItem("delivery_mode", JSON.stringify(mode));
-    sessionStorage.setItem("delivery_step", JSON.stringify(step));
     sessionStorage.setItem("delivery_loginPhone", JSON.stringify(loginPhone));
     sessionStorage.setItem("delivery_signupStep", JSON.stringify(signupStep));
     sessionStorage.setItem("delivery_signupName", JSON.stringify(signupName));
@@ -143,7 +150,7 @@ const DeliveryAuth = () => {
     sessionStorage.setItem("delivery_signupAgreed", JSON.stringify(signupAgreed));
     sessionStorage.setItem("delivery_agreed", JSON.stringify(agreed));
   }, [
-    mode, step, loginPhone, signupStep, signupName, signupPhone, signupEmail, signupAddress,
+    mode, loginPhone, signupStep, signupName, signupPhone, signupEmail, signupAddress,
     signupVehicle, signupVehicleNumber, signupDLNumber, signupPanNumber, signupAadharNumber,
     signupAccountNumber, signupIfsc, signupAccountHolder, hasClickedTerms, signupAgreed, agreed
   ]);
@@ -228,6 +235,14 @@ const DeliveryAuth = () => {
 
       setActiveRole(ROLES.DELIVERY);
       login({ ...delivery, token, role: "delivery" });
+
+      try {
+        Object.keys(sessionStorage).forEach((key) => {
+          if (key.startsWith("delivery_")) {
+            sessionStorage.removeItem(key);
+          }
+        });
+      } catch (e) {}
 
       toast.success("Welcome! Redirecting to dashboard...");
       navigate("/delivery/dashboard", { replace: true });

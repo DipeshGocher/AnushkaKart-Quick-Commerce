@@ -103,13 +103,13 @@ const MarketplaceCategoriesPage = () => {
 
         {/* Right Content Panel: Subcategories matching Image 2 */}
         <main className="flex-1 bg-white overflow-y-auto max-h-[calc(100vh-3.5rem)] px-4 sm:px-6 py-4">
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="popLayout" initial={false}>
             <motion.div
               key={selectedCategory.id}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.18 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.15 }}
               className="space-y-6"
             >
               {/* Category Title Header with Horizontal Separator matching Image 2 */}
