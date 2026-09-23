@@ -61,10 +61,14 @@ const MarketplaceBottomNav = () => {
     ];
 
     const handleNavClick = (e, item) => {
+        e.preventDefault();
         if (item.requiresAuth && !isAuthenticated) {
-            e.preventDefault();
             toast.info(item.isSellButton ? 'Please log in to sell your products' : `Please log in to view ${item.label.toLowerCase()}`);
             navigate('/login', { state: { from: { pathname: item.path } } });
+            return;
+        }
+        if (location.pathname !== item.path) {
+            navigate(item.path);
         }
     };
 
@@ -84,22 +88,21 @@ const MarketplaceBottomNav = () => {
                     // Prominent Center SELL Button
                     if (item.isSellButton) {
                         return (
-                            <Link
+                            <button
                                 key={item.path}
-                                to={item.path}
+                                type="button"
                                 onClick={(e) => handleNavClick(e, item)}
-                                className="flex flex-col items-center justify-center -mt-6 group focus:outline-none"
+                                className="flex flex-col items-center justify-center -mt-6 group focus:outline-none cursor-pointer"
                             >
                                 <motion.div
-                                    whileHover={{ scale: 1.08 }}
                                     whileTap={{ scale: 0.94 }}
                                     className="relative flex items-center justify-center"
                                 >
                                     {/* Glowing outer ring in signature Classic Blue #0F4C81 & amber/cyan */}
                                     <div className="w-14 h-14 rounded-full p-[3px] bg-gradient-to-tr from-[#0F4C81] via-[#155e9e] to-amber-400 shadow-[0_8px_20px_rgba(15,76,129,0.45)] flex items-center justify-center animate-pulse duration-1000">
-                                        <div className="w-full h-full rounded-full bg-white flex items-center justify-center transition-all group-hover:bg-blue-50/50">
+                                        <div className="w-full h-full rounded-full bg-white flex items-center justify-center transition-all md:group-hover:bg-blue-50/50">
                                             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#0F4C81] to-[#0A365C] text-white flex items-center justify-center shadow-inner">
-                                                <Plus size={24} strokeWidth={3} className="transition-transform group-hover:rotate-90 duration-300" />
+                                                <Plus size={24} strokeWidth={3} className="transition-transform md:group-hover:rotate-90 duration-300" />
                                             </div>
                                         </div>
                                     </div>
@@ -110,20 +113,20 @@ const MarketplaceBottomNav = () => {
                                 )}>
                                     SELL
                                 </span>
-                            </Link>
+                            </button>
                         );
                     }
 
                     return (
-                        <Link
+                        <button
                             key={item.path}
-                            to={item.path}
+                            type="button"
                             onClick={(e) => handleNavClick(e, item)}
                             className={cn(
-                                "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-2xl transition-all duration-200 flex-1 min-w-[50px] relative",
+                                "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-2xl transition-all duration-150 flex-1 min-w-[50px] relative cursor-pointer active:scale-95",
                                 isActive
                                     ? "text-[#0F4C81] font-bold"
-                                    : "text-slate-500 hover:text-[#0F4C81] font-medium hover:bg-slate-100/60"
+                                    : "text-slate-500 font-medium md:hover:text-[#0F4C81] md:hover:bg-slate-100/60"
                             )}
                         >
                             <motion.div
@@ -155,7 +158,7 @@ const MarketplaceBottomNav = () => {
                                     className="w-1.5 h-1.5 rounded-full bg-[#0F4C81] mt-0.5"
                                 />
                             )}
-                        </Link>
+                        </button>
                     );
                 })}
             </nav>

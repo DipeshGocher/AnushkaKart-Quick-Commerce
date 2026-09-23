@@ -167,13 +167,13 @@ const MarketplaceLocationModal = ({ isOpen, onClose, selectedLocation, onSelectL
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-xs">
+      <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-xs">
         <motion.div
           initial={{ opacity: 0, y: 120, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 120, scale: 0.98 }}
           transition={{ duration: 0.22, ease: 'easeOut' }}
-          className="bg-white rounded-t-3xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
+          className="bg-white rounded-t-3xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto pb-[calc(1.75rem+env(safe-area-inset-bottom,0px))] sm:pb-6"
         >
           {/* Header */}
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">

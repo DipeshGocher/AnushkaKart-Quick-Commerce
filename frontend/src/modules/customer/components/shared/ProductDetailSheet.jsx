@@ -1185,15 +1185,15 @@ const ProductDetailSheet = () => {
                         onDragEnd={handleDragEnd}
                         initial={{
                             opacity: 0,
-                            y: "100vh",
+                            y: "100%",
                             top: 0,
                             bottom: 0,
                             left: 0,
                             width: "100%",
                             borderTopLeftRadius: 0,
                             borderTopRightRadius: 0,
-                            height: "100vh",
-                            maxHeight: "100vh"
+                            height: "100dvh",
+                            maxHeight: "100dvh"
                         }}
                         animate={{
                             opacity: 1,
@@ -1204,10 +1204,10 @@ const ProductDetailSheet = () => {
                             width: "100%",
                             borderTopLeftRadius: 0,
                             borderTopRightRadius: 0,
-                            height: "100vh",
-                            maxHeight: "100vh"
+                            height: "100dvh",
+                            maxHeight: "100dvh"
                         }}
-                        exit={{ opacity: 0, y: "100vh", transition: { duration: 0.3 } }}
+                        exit={{ opacity: 0, y: "100%", transition: { duration: 0.25 } }}
                         transition={{
                             type: "spring",
                             damping: 25,
@@ -1215,9 +1215,9 @@ const ProductDetailSheet = () => {
                             mass: 0.8
                         }}
                         className={cn(
-                            "md:hidden fixed z-[590] bg-white shadow-2xl overflow-hidden flex flex-col inset-0 h-full w-full",
+                            "md:hidden fixed z-[590] bg-white shadow-2xl overflow-hidden flex flex-col inset-0 h-[100dvh] max-h-[100dvh] w-full",
                         )}
-                        style={{ willChange: "transform, top, height", touchAction: "auto" }}
+                        style={{ willChange: "transform, height", touchAction: "auto", height: "100dvh", maxHeight: "100dvh" }}
                     >
                         {/* Header Actions (Absolute & Sticky) */}
                         <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-40 pointer-events-none">
@@ -1235,7 +1235,8 @@ const ProductDetailSheet = () => {
 
                         {/* Scrollable Content */}
                         <div
-                            className="flex-1 overflow-x-hidden overflow-y-auto no-scrollbar pb-24 bg-white"
+                            className="flex-1 overflow-x-hidden overflow-y-auto no-scrollbar bg-white"
+                            style={{ paddingBottom: 'calc(6.5rem + env(safe-area-inset-bottom, 20px))' }}
                             onScroll={handleScroll}
                             onWheel={handleWheel}
                         >
@@ -1597,7 +1598,10 @@ const ProductDetailSheet = () => {
                         </div>
 
                         {/* Sticky Bottom Action Bar */}
-                        <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-100 p-4 pb-7 shadow-[0_-10px_40px_rgba(0,0,0,0.08)] z-50">
+                        <div 
+                            className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-100 p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.08)] z-50 shrink-0"
+                            style={{ paddingBottom: 'max(1.25rem, calc(0.75rem + env(safe-area-inset-bottom, 16px)))' }}
+                        >
                             <div className="flex items-center gap-3.5">
                                 {/* Left Side: Cart Icon with Badge */}
                                 <Link

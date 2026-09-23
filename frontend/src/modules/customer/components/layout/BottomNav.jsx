@@ -35,6 +35,13 @@ const BottomNav = () => {
         { label: 'Categories', icon: LayoutGrid, path: '/categories' },
     ];
 
+    const handleNavClick = (e, item) => {
+        e.preventDefault();
+        if (location.pathname !== item.path) {
+            navigate(item.path);
+        }
+    };
+
     return (
         <div 
             className="fixed left-3 right-3 max-w-sm mx-auto z-[500] flex items-center justify-center md:hidden pointer-events-auto transition-all duration-300"
@@ -47,14 +54,14 @@ const BottomNav = () => {
 
                     if (item.isMiddle) {
                         return (
-                            <Link
+                            <button
                                 key={item.path}
-                                to={item.path}
-                                className="flex flex-col items-center justify-center flex-1 min-w-[50px] relative -mt-5"
+                                type="button"
+                                onClick={(e) => handleNavClick(e, item)}
+                                className="flex flex-col items-center justify-center flex-1 min-w-[50px] relative -mt-5 cursor-pointer focus:outline-none"
                             >
                                 <motion.div
                                     whileTap={{ scale: 0.92 }}
-                                    whileHover={{ scale: 1.05 }}
                                     className={cn(
                                         "w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all relative border-2 border-white",
                                         isActive
@@ -75,19 +82,20 @@ const BottomNav = () => {
                                 )}>
                                     {item.label}
                                 </span>
-                            </Link>
+                            </button>
                         );
                     }
 
                     return (
-                        <Link
+                        <button
                             key={item.path}
-                            to={item.path}
+                            type="button"
+                            onClick={(e) => handleNavClick(e, item)}
                             className={cn(
-                                "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-2xl transition-all duration-300 flex-1 min-w-[44px]",
+                                "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-2xl transition-all duration-150 flex-1 min-w-[44px] cursor-pointer active:scale-95 focus:outline-none",
                                 isActive
                                     ? "bg-slate-900 text-white shadow-md shadow-slate-900/20 font-extrabold"
-                                    : "text-slate-700 hover:text-slate-900 font-semibold hover:bg-slate-100/50"
+                                    : "text-slate-700 font-semibold md:hover:text-slate-900 md:hover:bg-slate-100/50"
                             )}
                         >
                             <motion.div
@@ -107,7 +115,7 @@ const BottomNav = () => {
                             )}>
                                 {item.label}
                             </span>
-                        </Link>
+                        </button>
                     );
                 })}
             </div>

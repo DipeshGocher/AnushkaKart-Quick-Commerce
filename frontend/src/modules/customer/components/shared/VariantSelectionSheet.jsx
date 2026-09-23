@@ -125,7 +125,7 @@ const VariantSelectionSheet = () => {
                         animate={{ y: 0 }}
                         exit={{ y: "100%" }}
                         transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                        className="fixed inset-x-0 bottom-0 z-[300] bg-white rounded-t-[32px] shadow-2xl flex flex-col overflow-hidden max-h-[90vh]"
+                        className="fixed inset-x-0 bottom-0 z-[300] bg-white rounded-t-[32px] shadow-2xl flex flex-col overflow-hidden max-h-[90dvh]"
                     >
                         {/* Drag Handle */}
                         <div
@@ -232,7 +232,10 @@ const VariantSelectionSheet = () => {
                         </div>
 
                         {/* Bottom Sticky Action Bar */}
-                        <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
+                        <div 
+                            className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]"
+                            style={{ paddingBottom: 'max(1rem, calc(0.75rem + env(safe-area-inset-bottom, 12px)))' }}
+                        >
                             <button
                                 onClick={() => {
                                     closeVariantSelection();
