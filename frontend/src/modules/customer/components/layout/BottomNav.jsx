@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils';
 import { useCart } from '../../context/CartContext';
 import { usePageTransition } from '../../context/PageTransitionContext';
 import { motion } from 'framer-motion';
-import secondHandIcon from '@/assets/2ndhand-icon.png';
 
 const isRouteActive = (itemPath, currentPath) => {
     if (itemPath === '/') {
@@ -16,9 +15,6 @@ const isRouteActive = (itemPath, currentPath) => {
     }
     if (itemPath === '/orders') {
         return currentPath.startsWith('/orders') || currentPath.startsWith('/payment-status');
-    }
-    if (itemPath === '/refurbished') {
-        return currentPath.startsWith('/refurbished');
     }
     if (itemPath === '/cart') {
         return currentPath.startsWith('/cart') || currentPath.startsWith('/checkout');
@@ -38,8 +34,6 @@ const BottomNav = () => {
         { label: 'Cart', icon: ShoppingBag, path: '/cart', isMiddle: true },
         { label: 'Categories', icon: LayoutGrid, path: '/categories' },
     ];
-
-    const isRefurbishedActive = isRouteActive('/refurbished', location.pathname);
 
     return (
         <div 

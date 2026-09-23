@@ -2,66 +2,22 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   Package, ChevronRight, CheckCircle2, Loader2, ChevronLeft, 
-  Search, SlidersHorizontal, ShoppingBag, Smartphone, 
+  Search, SlidersHorizontal, ShoppingBag, 
   X, RotateCcw, AlertCircle, Clock
 } from 'lucide-react';
 import { customerApi } from '../services/customerApi';
 import { getOrderStatusLabel, getLegacyStatusFromOrder } from '@/shared/utils/orderStatus';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 
-export const isOrderItemRefurbished = (item) => {
-  if (!item) return false;
-  const prod = item.product || {};
-  if (prod.conditionType === 'new' || item.conditionType === 'new') {
-    return false;
-  }
-  return (
-    prod.conditionType === 'refurbished' ||
-    prod.catalogType === 'refurbished' ||
-    item.conditionType === 'refurbished' ||
-    item.catalogType === 'refurbished' ||
-    item.isRefurbished === true ||
-    (typeof item.name === 'string' && (
-      item.name.toLowerCase().includes('refurbished') ||
-      item.name.toLowerCase().includes('iphone') ||
-      item.name.toLowerCase().includes('galaxy s') ||
-      item.name.toLowerCase().includes('oneplus') ||
-      item.name.toLowerCase().includes('pixel') ||
-      item.name.toLowerCase().includes('smartphone')
-    ))
-  );
-};
-
-export const getOrderSection = (order) => {
-  if (!order || !Array.isArray(order.items) || order.items.length === 0) {
-    return 'grocery';
-  }
-  const hasRefurbished = order.items.some(isOrderItemRefurbished);
-  const hasGrocery = order.items.some((item) => !isOrderItemRefurbished(item));
-
-  if (hasRefurbished && hasGrocery) return 'mixed';
-  if (hasRefurbished) return 'refurbished';
-  return 'grocery';
-};
-
 const PROMO_BANNERS = [
   {
     id: 1,
     badge: 'SUPER SAVINGS',
     title: 'Get 10% Extra Savings',
-    subtitle: 'On your next Grocery or Electronics order',
-    bg: 'from-blue-900 via-indigo-900 to-slate-900',
+    subtitle: 'On your next Grocery & Daily Essentials order',
+    bg: 'from-orange-600 via-amber-600 to-slate-900',
     btnText: 'Shop Deals',
     link: '/offers'
-  },
-  {
-    id: 2,
-    badge: 'CERTIFIED REFURBISHED',
-    title: 'Save up to 60% on Mobiles',
-    subtitle: 'Quality-tested smartphones with 6M warranty',
-    bg: 'from-sky-900 via-blue-950 to-slate-900',
-    btnText: 'View Store',
-    link: '/marketplace'
   }
 ];
 
@@ -69,7 +25,6 @@ const OrdersPage = () => {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'grocery' | 'refurbished'
   const [searchQuery, setSearchQuery] = useState('');
   const [activeBannerIdx, setActiveBannerIdx] = useState(0);
 
@@ -93,39 +48,16 @@ const OrdersPage = () => {
     fetchOrders();
   }, []);
 
-  // Counts for each tab
+  // Counts
   const counts = useMemo(() => {
-    let groceryCount = 0;
-    let refurbishedCount = 0;
-
-    orders.forEach((order) => {
-      const section = getOrderSection(order);
-      if (section === 'grocery' || section === 'mixed') groceryCount++;
-      if (section === 'refurbished' || section === 'mixed') refurbishedCount++;
-    });
-
     return {
       all: orders.length,
-      grocery: groceryCount,
-      refurbished: refurbishedCount,
     };
   }, [orders]);
 
-  // Filtered orders based on active tab and search query
+  // Filtered orders based on search query
   const filteredOrders = useMemo(() => {
     let list = orders;
-
-    if (activeTab === 'grocery') {
-      list = list.filter((o) => {
-        const s = getOrderSection(o);
-        return s === 'grocery' || s === 'mixed';
-      });
-    } else if (activeTab === 'refurbished') {
-      list = list.filter((o) => {
-        const s = getOrderSection(o);
-        return s === 'refurbished' || s === 'mixed';
-      });
-    }
 
     if (searchQuery.trim()) {
       const query = searchQuery.trim().toLowerCase();
@@ -137,7 +69,7 @@ const OrdersPage = () => {
     }
 
     return list;
-  }, [orders, activeTab, searchQuery]);
+  }, [orders, searchQuery]);
 
   if (loading) {
     return (
@@ -234,59 +166,6 @@ const OrdersPage = () => {
           </button>
         </div>
 
-        {/* Section Tabs (Flipkart Style: All | My Cart (Grocery) | My Store (Refurbished)) */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
-          <button
-            onClick={() => setActiveTab('all')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer shadow-2xs flex items-center gap-1.5 ${
-              activeTab === 'all'
-                ? 'bg-slate-900 text-white shadow-md'
-                : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200/80'
-            }`}
-          >
-            <span>All</span>
-            <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
-              activeTab === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-            }`}>
-              {counts.all}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('grocery')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer shadow-2xs flex items-center gap-1.5 ${
-              activeTab === 'grocery'
-                ? 'bg-[#FF5722] text-white shadow-md shadow-orange-500/20'
-                : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200/80'
-            }`}
-          >
-            <ShoppingBag size={13} className={activeTab === 'grocery' ? 'text-white' : 'text-orange-600'} />
-            <span>My Cart</span>
-            <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
-              activeTab === 'grocery' ? 'bg-white/25 text-white' : 'bg-orange-50 text-orange-700'
-            }`}>
-              {counts.grocery}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('refurbished')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer shadow-2xs flex items-center gap-1.5 ${
-              activeTab === 'refurbished'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200/80'
-            }`}
-          >
-            <Smartphone size={13} className={activeTab === 'refurbished' ? 'text-white' : 'text-blue-600'} />
-            <span>My Store</span>
-            <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${
-              activeTab === 'refurbished' ? 'bg-white/25 text-white' : 'bg-blue-50 text-blue-700'
-            }`}>
-              {counts.refurbished}
-            </span>
-          </button>
-        </div>
-
         {/* Orders List */}
         <div className="space-y-3 pt-1">
           {filteredOrders.length === 0 ? (
@@ -295,31 +174,24 @@ const OrdersPage = () => {
                 <Package size={32} className="text-slate-400" />
               </div>
               <h3 className="text-base font-bold text-slate-900 mb-1">
-                {searchQuery ? 'No matching orders found' : activeTab === 'refurbished' ? 'No orders in My Store' : activeTab === 'grocery' ? 'No orders in My Cart' : 'No orders yet'}
+                {searchQuery ? 'No matching orders found' : 'No orders yet'}
               </h3>
               <p className="text-slate-500 text-xs sm:text-sm mb-5 max-w-[280px]">
                 {searchQuery 
                   ? 'Try searching with a different product name or order ID.' 
-                  : activeTab === 'refurbished'
-                  ? 'Explore our certified refurbished smartphones and electronics.'
                   : 'Start shopping your favorite groceries and everyday essentials.'
                 }
               </p>
               <Link
-                to={activeTab === 'refurbished' ? '/marketplace' : '/'}
-                className={`px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-sm transition-all text-white cursor-pointer ${
-                  activeTab === 'refurbished' ? 'bg-[#0F4C81] hover:bg-[#0A365C]' : 'bg-orange-600 hover:bg-orange-700'
-                }`}
+                to="/"
+                className="px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-sm transition-all text-white cursor-pointer bg-orange-600 hover:bg-orange-700"
               >
-                {activeTab === 'refurbished' ? 'Explore Marketplace' : 'Shop Groceries'}
+                Shop Groceries
               </Link>
             </div>
           ) : (
             filteredOrders.map((order) => {
               const legacy = getLegacyStatusFromOrder(order);
-              const section = getOrderSection(order);
-              const isRefurb = section === 'refurbished';
-              const isMixed = section === 'mixed';
               const firstItem = order.items?.[0] || {};
               const remainingCount = (order.items?.length || 1) - 1;
               const formattedDate = new Date(order.createdAt).toLocaleDateString('en-US', {
@@ -385,23 +257,10 @@ const OrdersPage = () => {
 
                       {/* Section & Total Meta Line */}
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        {/* Section Tag */}
-                        {isRefurb ? (
-                          <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200/70 text-[10.5px] font-extrabold px-2 py-0.5 rounded-md">
-                            <Smartphone size={10} className="text-blue-600" />
-                            My Store
-                          </span>
-                        ) : isMixed ? (
-                          <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 border border-purple-200/70 text-[10.5px] font-extrabold px-2 py-0.5 rounded-md">
-                            <Package size={10} className="text-purple-600" />
-                            Mixed Order
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 bg-orange-50 text-orange-700 border border-orange-200/70 text-[10.5px] font-extrabold px-2 py-0.5 rounded-md">
-                            <ShoppingBag size={10} className="text-orange-600" />
-                            My Cart
-                          </span>
-                        )}
+                        <span className="inline-flex items-center gap-1 bg-orange-50 text-orange-700 border border-orange-200/70 text-[10.5px] font-extrabold px-2 py-0.5 rounded-md">
+                          <ShoppingBag size={10} className="text-orange-600" />
+                          Grocery
+                        </span>
 
                         <span className="text-slate-300 text-xs">•</span>
                         <span className="text-xs font-bold text-slate-900">

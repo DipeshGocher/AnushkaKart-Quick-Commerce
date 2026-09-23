@@ -792,7 +792,7 @@ export const INITIAL_C2C_CHATS = [
 
 
 // Helper functions using localStorage
-export const getC2CAds = () => {
+export const getC2CAds = (includePending = false) => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY_ADS);
     if (!stored) {
@@ -806,7 +806,7 @@ export const getC2CAds = () => {
       const userAds = parsed.filter(a => a.isUserAd || a.id?.startsWith('c2c-user-'));
       const combined = [...userAds, ...INITIAL_C2C_ADS];
       localStorage.setItem(STORAGE_KEY_ADS, JSON.stringify(combined));
-      return combined;
+      return includePending ? combined : combined.filter(a => a.status !== 'Pending Approval' && a.isApproved !== false);
     }
     const existingIds = new Set(parsed.map(a => a.id));
     const merged = [...parsed];
@@ -820,19 +820,20 @@ export const getC2CAds = () => {
     if (changed) {
       localStorage.setItem(STORAGE_KEY_ADS, JSON.stringify(merged));
     }
-    return merged;
+    if (includePending) return merged;
+    return merged.filter(a => a.status !== 'Pending Approval' && a.isApproved !== false);
   } catch {
     return INITIAL_C2C_ADS;
   }
 };
 
 export const getC2CAdById = (id) => {
-  const ads = getC2CAds();
+  const ads = getC2CAds(true);
   return ads.find(ad => ad.id === id) || INITIAL_C2C_ADS[0];
 };
 
 export const addC2CAd = (newAd) => {
-  const ads = getC2CAds();
+  const ads = getC2CAds(true);
   const created = {
     ...newAd,
     id: `c2c-user-${Date.now()}`,
@@ -843,6 +844,50 @@ export const addC2CAd = (newAd) => {
   const updated = [created, ...ads];
   localStorage.setItem(STORAGE_KEY_ADS, JSON.stringify(updated));
   return created;
+};
+
+export const addPendingC2CAd = (newAd) => {
+  const ads = getC2CAds(true);
+  const created = {
+    ...newAd,
+    id: `c2c-user-${Date.now()}`,
+    postedAt: 'Just now',
+    views: 0,
+    status: 'Pending Approval',
+    isApproved: false,
+    isUserAd: true,
+  };
+  const updated = [created, ...ads];
+  localStorage.setItem(STORAGE_KEY_ADS, JSON.stringify(updated));
+  window.dispatchEvent(new Event('c2c_ads_updated'));
+  return created;
+};
+
+export const approveC2CAd = (id) => {
+  const ads = getC2CAds(true);
+  const updated = ads.map(a => a.id === id ? { ...a, status: 'Active', isApproved: true } : a);
+  localStorage.setItem(STORAGE_KEY_ADS, JSON.stringify(updated));
+  window.dispatchEvent(new Event('c2c_ads_updated'));
+
+  const ad = ads.find(a => a.id === id);
+  if (ad) {
+    const notifs = getC2CNotifications();
+    const newNotif = {
+      id: `notif-${Date.now()}`,
+      type: 'selling',
+      title: 'Your product is approved successfully! 🎉',
+      message: `Your product "${ad.title}" has been approved by Admin and is now visible to other customers!`,
+      time: 'Just now',
+      unread: true,
+      actionType: 'product',
+      actionLink: `/marketplace/product/${ad.id}`,
+      icon: 'check-circle'
+    };
+    const updatedNotifs = [newNotif, ...notifs];
+    localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(updatedNotifs));
+    window.dispatchEvent(new Event('c2c_notifications_updated'));
+  }
+  return updated;
 };
 
 export const updateC2CAd = (id, updatedFields) => {

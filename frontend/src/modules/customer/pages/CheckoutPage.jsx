@@ -89,7 +89,6 @@ const CheckoutPage = () => {
     groceryCart,
     groceryCartTotal,
     groceryCartCount,
-    refurbishedCart,
     addToCart,
     updateQuantity,
     removeFromCart,
@@ -1046,19 +1045,7 @@ const CheckoutPage = () => {
               Start Shopping <ChevronRight size={20} />
             </span>
           </Link>
-          {refurbishedCart.length > 0 && (
-            <div className="mt-5 w-full p-4 rounded-2xl bg-blue-50/80 border border-blue-100 text-center">
-              <p className="text-xs font-bold text-blue-900 mb-2">
-                You have {refurbishedCart.length} item{refurbishedCart.length > 1 ? 's' : ''} in your Marketplace Cart!
-              </p>
-              <Link
-                to="/marketplace/checkout"
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-[#0F4C81] hover:bg-[#0A365C] text-white rounded-xl text-xs font-black shadow-sm transition-all"
-              >
-                Go to Marketplace Checkout <ChevronRight size={14} />
-              </Link>
-            </div>
-          )}
+
           <div className="mt-8 flex gap-6 text-slate-400">
             <div className="flex flex-col items-center gap-2">
               <div className="p-3 bg-slate-50 rounded-2xl"><Clock size={20} /></div>

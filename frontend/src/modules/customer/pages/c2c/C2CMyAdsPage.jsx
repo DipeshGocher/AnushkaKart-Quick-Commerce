@@ -19,7 +19,7 @@ const C2CMyAdsPage = () => {
   }, []);
 
   const loadData = () => {
-    const ads = getC2CAds();
+    const ads = getC2CAds(true);
     setAllAds(ads);
   };
 
@@ -103,9 +103,13 @@ const C2CMyAdsPage = () => {
                     className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${isSold ? 'grayscale' : ''}`}
                   />
                   <span className={`absolute top-2 left-2 text-[10px] font-black uppercase px-2 py-0.5 rounded-md shadow-xs ${
-                    isSold ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'
+                    ad.status === 'Pending Approval' || ad.isApproved === false
+                      ? 'bg-amber-500 text-white'
+                      : isSold
+                      ? 'bg-red-600 text-white'
+                      : 'bg-emerald-600 text-white'
                   }`}>
-                    {isSold ? 'Sold Out' : 'Active'}
+                    {ad.status === 'Pending Approval' || ad.isApproved === false ? 'Pending Approval' : isSold ? 'Sold Out' : 'Active'}
                   </span>
                 </div>
 

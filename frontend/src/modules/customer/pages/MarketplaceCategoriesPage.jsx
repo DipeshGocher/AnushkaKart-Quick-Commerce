@@ -4,9 +4,12 @@ import { ArrowLeft, ChevronRight, Tag } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { C2C_CATEGORIES } from '../data/c2cMockData';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@core/context/AuthContext';
+import { toast } from 'sonner';
 
 const MarketplaceCategoriesPage = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [selectedCatId, setSelectedCatId] = useState('mobiles');
 
   const selectedCategory = useMemo(() => {
@@ -160,7 +163,14 @@ const MarketplaceCategoriesPage = () => {
 
               {/* 'Have something to sell? List here >' Banner matching Image 2 */}
               <div 
-                onClick={() => navigate('/marketplace/sell')}
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    toast.info('Please log in to sell your products');
+                    navigate('/login', { state: { from: { pathname: '/marketplace/sell' } } });
+                    return;
+                  }
+                  navigate('/marketplace/sell');
+                }}
                 className="mt-8 bg-[#fff9ea] hover:bg-[#fff4d6] border border-[#f5dfa0] rounded-2xl p-3.5 flex items-center justify-between cursor-pointer shadow-xs active:scale-[0.99] transition-all"
               >
                 <div className="flex items-center gap-3">

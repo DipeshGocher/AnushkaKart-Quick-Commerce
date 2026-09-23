@@ -26,10 +26,11 @@ const CustomerAuth = () => {
         const cleanPath = path.split('?')[0];
         const protectedPaths = [
             '/cart', '/wishlist', '/orders', '/transactions', '/addresses',
-            '/settings', '/help', '/chat', '/checkout', '/marketplace/checkout', '/refurbished/checkout', '/profile', '/wallet',
-            '/notifications', '/marketplace/cart', '/refurbished/cart', '/marketplace/wishlist', '/refurbished/wishlist',
-            '/marketplace/my-ads', '/refurbished/my-ads', '/marketplace/my-listings', '/marketplace/chats', '/refurbished/chats', '/marketplace/sell', '/refurbished/sell',
-            '/marketplace/profile', '/marketplace/profile/edit'
+            '/settings', '/help', '/chat', '/checkout', '/marketplace/checkout', '/profile', '/wallet',
+            '/notifications', '/marketplace/cart', '/marketplace/wishlist',
+            '/marketplace/my-ads', '/marketplace/my-listings', '/marketplace/chats', '/marketplace/sell',
+            '/marketplace/profile', '/marketplace/profile/edit', '/marketplace/account',
+            '/marketplace/notification', '/marketplace/notifications'
         ];
         return protectedPaths.some(p => cleanPath === p || cleanPath.startsWith(p + '/'));
     };
@@ -37,13 +38,11 @@ const CustomerAuth = () => {
     const handleClose = () => {
         let isMarketplaceSource = false;
         if (fromPath) {
-            isMarketplaceSource = fromPath.includes('/marketplace') || fromPath.includes('/refurbished');
+            isMarketplaceSource = fromPath.includes('/marketplace');
         } else {
             isMarketplaceSource = (
                 sessionStorage.getItem('last_section') === 'marketplace' ||
-                sessionStorage.getItem('last_section') === 'refurbished' ||
-                document.referrer.includes('/marketplace') ||
-                document.referrer.includes('/refurbished')
+                document.referrer.includes('/marketplace')
             );
         }
 
@@ -137,7 +136,7 @@ const CustomerAuth = () => {
             toast.success(t('loggedInSuccess'));
             const targetPath = (fromPath && fromPath !== '/login' && fromPath !== '/signup')
                 ? fromPath 
-                : ((sessionStorage.getItem('last_section') === 'marketplace' || sessionStorage.getItem('last_section') === 'refurbished') ? '/marketplace' : '/');
+                : (sessionStorage.getItem('last_section') === 'marketplace' ? '/marketplace' : '/');
             navigate(targetPath, { replace: true });
         } catch (error) {
             const apiMessage = error?.response?.data?.message;
@@ -157,7 +156,7 @@ const CustomerAuth = () => {
             subtitle={!showOtp ? (isLogin ? 'Login to access your orders' : 'Register to get started') : `${t('sentTo')} +91 ${formData.phone}`}
             logoUrl={settings?.logoUrl || "/logo.png"}
             appName="Anushka Store"
-            bgImageUrl={sessionStorage.getItem('last_section') === 'refurbished' ? "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=1920&q=80" : "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1920&q=80"}
+            bgImageUrl="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1920&q=80"
             footer={
                 !showOtp ? (
                     <p className="text-xs font-semibold text-slate-500">

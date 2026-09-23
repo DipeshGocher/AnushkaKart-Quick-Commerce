@@ -14,12 +14,14 @@ import {
   toggleC2CFavorite 
 } from '../data/c2cMockData';
 import MarketplaceLocationModal, { getSavedLocation, saveUserLocation } from '../components/c2c/MarketplaceLocationModal';
+import { useAuth } from '@core/context/AuthContext';
 import { toast } from 'sonner';
 
 const DEFAULT_BANNER_IMAGE = '/c2c_home_banner.png';
 
 const MarketplaceProductsPage = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -55,6 +57,11 @@ const MarketplaceProductsPage = () => {
   // Handle favorite toggle
   const handleToggleFavorite = (e, adId) => {
     e.stopPropagation();
+    if (!isAuthenticated) {
+      toast.info('Please log in to save items to your wishlist');
+      navigate('/login', { state: { from: { pathname: '/marketplace' } } });
+      return;
+    }
     const isNowFav = toggleC2CFavorite(adId);
     setFavorites(getC2CFavorites());
     if (isNowFav) {
@@ -122,7 +129,14 @@ const MarketplaceProductsPage = () => {
               {/* Wishlist Icon left to Notification Icon */}
               <button
                 type="button"
-                onClick={() => navigate('/marketplace/wishlist')}
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    toast.info('Please log in to view your wishlist');
+                    navigate('/login', { state: { from: { pathname: '/marketplace/wishlist' } } });
+                    return;
+                  }
+                  navigate('/marketplace/wishlist');
+                }}
                 className="p-2 rounded-full hover:bg-slate-100 text-slate-700 hover:text-[#0F4C81] transition-colors relative cursor-pointer"
                 title="Saved Items / Wishlist"
               >
@@ -132,7 +146,14 @@ const MarketplaceProductsPage = () => {
               {/* Notification Bell Icon */}
               <button
                 type="button"
-                onClick={() => navigate('/marketplace/notification')}
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    toast.info('Please log in to view notifications');
+                    navigate('/login', { state: { from: { pathname: '/marketplace/notification' } } });
+                    return;
+                  }
+                  navigate('/marketplace/notification');
+                }}
                 className="p-2 rounded-full hover:bg-slate-100 text-slate-700 hover:text-[#0F4C81] transition-colors relative cursor-pointer"
                 title="Notifications"
               >

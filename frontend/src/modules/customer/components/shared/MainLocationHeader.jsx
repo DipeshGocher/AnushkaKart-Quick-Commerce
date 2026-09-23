@@ -515,11 +515,6 @@ const MainLocationHeader = ({
                 title="Wishlist"
               >
                 <FavoriteBorderOutlinedIcon sx={{ fontSize: 22, color: "#0f172a" }} />
-                {wishlistCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-[#FF5722] text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:-translate-y-0.5 animate-in zoom-in duration-300">
-                    {wishlistCount}
-                  </span>
-                )}
               </motion.button>
 
               <motion.button
@@ -586,11 +581,6 @@ const MainLocationHeader = ({
                   title="Wishlist"
                 >
                   <FavoriteBorderOutlinedIcon sx={{ fontSize: 22, color: "#0f172a" }} />
-                  {wishlistCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-[#FF5722] text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:-translate-y-0.5 animate-in zoom-in duration-300">
-                      {wishlistCount}
-                    </span>
-                  )}
                 </button>
 
                 {/* Mobile Account / Profile Button */}

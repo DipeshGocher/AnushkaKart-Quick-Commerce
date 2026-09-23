@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, Share2, ChevronRight, Users, Heart, 
+  ArrowLeft, Share2, ChevronRight, User, Heart, 
   Settings, HelpCircle, Phone, Mail, Edit3, Lock, 
   LogOut, Trash2, X, Check, Eye, EyeOff, Smartphone, Bell, Package
 } from 'lucide-react';
@@ -29,7 +29,6 @@ const C2CAccountPage = () => {
   }, []);
 
   // Modals for settings
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [showCommunicationModal, setShowCommunicationModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -85,7 +84,16 @@ const C2CAccountPage = () => {
     toast.success('C2C communication preference updated');
   };
 
-  const displayName = user?.name || 'Dipesh';
+  const formatIndiaPhone = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return '9999999999';
+    if (raw.startsWith('+91')) return raw.replace(/^\+91[\s-]*/, '');
+    if (raw.startsWith('91') && raw.length >= 12) return raw.replace(/^91[\s-]*/, '');
+    return raw;
+  };
+
+  const displayName = user?.name || 'Customer';
+  const displayPhone = formatIndiaPhone(user?.phone) || '9999999999';
 
   return (
     <div className="min-h-screen bg-white pb-32 text-slate-900 font-sans selection:bg-[#0F4C81]/15">
@@ -119,9 +127,9 @@ const C2CAccountPage = () => {
           {/* Profile Card (Clickable -> routes to /marketplace/profile) */}
           <div
             onClick={() => navigate('/marketplace/profile')}
-            className="w-full bg-white rounded-2xl border border-amber-300/80 p-3.5 sm:p-4 flex items-center gap-3.5 shadow-2xs hover:border-amber-400 hover:shadow-xs transition-all cursor-pointer select-none"
+            className="w-full bg-white rounded-2xl border border-slate-200 p-3.5 sm:p-4 flex items-center gap-3.5 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all cursor-pointer select-none"
           >
-            <div className="relative w-14 h-14 rounded-full overflow-hidden shrink-0 border-2 border-amber-400/80 p-0.5 bg-amber-50">
+            <div className="relative w-14 h-14 rounded-full overflow-hidden shrink-0 border-2 border-slate-200 p-0.5 bg-slate-100 flex items-center justify-center">
               {user?.avatar || user?.profileImage ? (
                 <img
                   src={user.avatar || user.profileImage}
@@ -129,8 +137,8 @@ const C2CAccountPage = () => {
                   className="w-full h-full object-cover rounded-full"
                 />
               ) : (
-                <div className="w-full h-full rounded-full bg-gradient-to-tr from-[#0F4C81] to-[#0A365C] text-white flex items-center justify-center text-xl font-black">
-                  {displayName[0]?.toUpperCase() || 'D'}
+                <div className="w-full h-full rounded-full bg-slate-100 text-slate-700 flex items-center justify-center">
+                  <User size={26} className="text-[#0F172A]" />
                 </div>
               )}
             </div>
@@ -139,9 +147,9 @@ const C2CAccountPage = () => {
               <h2 className="text-lg font-bold text-slate-950 truncate leading-tight">
                 {displayName}
               </h2>
-              <span className="text-xs text-slate-400 font-medium">
-                Tap to view full profile & details
-              </span>
+              <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                +91 {displayPhone}
+              </p>
             </div>
 
             <ChevronRight size={18} className="text-slate-400 shrink-0" />
@@ -177,28 +185,6 @@ const C2CAccountPage = () => {
             <ChevronRight size={18} className="text-slate-400 shrink-0" />
           </button>
 
-          {/* 2. My Network */}
-          <button
-            type="button"
-            onClick={() => toast.info('Network feature: 0 Followers • 0 Following')}
-            className="w-full py-3.5 px-1 flex items-center justify-between hover:bg-slate-50 transition-colors text-left cursor-pointer group"
-          >
-            <div className="flex items-center gap-3.5">
-              <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 group-hover:text-[#0F4C81] shrink-0">
-                <Users size={18} />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 leading-snug">
-                  My Network
-                </h3>
-                <p className="text-xs text-slate-500 font-medium">
-                  Followers, following and find friends
-                </p>
-              </div>
-            </div>
-            <ChevronRight size={18} className="text-slate-400 shrink-0" />
-          </button>
-
           {/* 3. Wishlist */}
           <button
             type="button"
@@ -221,29 +207,73 @@ const C2CAccountPage = () => {
             <ChevronRight size={18} className="text-slate-400 shrink-0" />
           </button>
 
-          {/* 4. Settings */}
+          {/* 4. Notifications */}
           <button
             type="button"
-            onClick={() => setShowSettingsModal(true)}
+            onClick={() => setShowNotificationsModal(true)}
             className="w-full py-3.5 px-1 flex items-center justify-between hover:bg-slate-50 transition-colors text-left cursor-pointer group"
           >
             <div className="flex items-center gap-3.5">
               <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 group-hover:text-[#0F4C81] shrink-0">
-                <Settings size={18} />
+                <Bell size={18} />
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900 leading-snug">
-                  Settings
+                  Notifications
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">
-                  Privacy and logout
+                  Recommendations & special alerts
                 </p>
               </div>
             </div>
             <ChevronRight size={18} className="text-slate-400 shrink-0" />
           </button>
 
-          {/* 5. Help and Support */}
+          {/* 5. Communication Preferences */}
+          <button
+            type="button"
+            onClick={() => setShowCommunicationModal(true)}
+            className="w-full py-3.5 px-1 flex items-center justify-between hover:bg-slate-50 transition-colors text-left cursor-pointer group"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 group-hover:text-[#0F4C81] shrink-0">
+                <Phone size={18} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 leading-snug">
+                  Communication Preferences
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Chat, calls & buyer messages
+                </p>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-slate-400 shrink-0" />
+          </button>
+
+          {/* 6. Privacy */}
+          <button
+            type="button"
+            onClick={() => setShowPrivacyModal(true)}
+            className="w-full py-3.5 px-1 flex items-center justify-between hover:bg-slate-50 transition-colors text-left cursor-pointer group"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 group-hover:text-[#0F4C81] shrink-0">
+                <Lock size={18} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 leading-snug">
+                  Privacy
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Change password & credentials
+                </p>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-slate-400 shrink-0" />
+          </button>
+
+          {/* 7. Help and Support */}
           <button
             type="button"
             onClick={() => navigate('/help')}
@@ -263,6 +293,63 @@ const C2CAccountPage = () => {
               </div>
             </div>
             <ChevronRight size={18} className="text-slate-400 shrink-0" />
+          </button>
+
+          {/* 8. Logout */}
+          <button
+            type="button"
+            onClick={() => setShowLogoutModal(true)}
+            className="w-full py-3.5 px-1 flex items-center justify-between hover:bg-slate-50 transition-colors text-left cursor-pointer group"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 group-hover:text-red-600 shrink-0">
+                <LogOut size={18} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 leading-snug group-hover:text-red-600">
+                  Logout
+                </h3>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-slate-400 shrink-0" />
+          </button>
+
+          {/* 9. Logout from all devices */}
+          <button
+            type="button"
+            onClick={() => setShowLogoutAllModal(true)}
+            className="w-full py-3.5 px-1 flex items-center justify-between hover:bg-slate-50 transition-colors text-left cursor-pointer group"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 group-hover:text-red-600 shrink-0">
+                <Smartphone size={18} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 leading-snug group-hover:text-red-600">
+                  Logout from all devices
+                </h3>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-slate-400 shrink-0" />
+          </button>
+
+          {/* 10. Delete account */}
+          <button
+            type="button"
+            onClick={() => setShowDeleteModal(true)}
+            className="w-full py-3.5 px-1 flex items-center justify-between hover:bg-red-50/40 transition-colors text-left text-red-600 cursor-pointer group"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-9 h-9 rounded-full bg-red-50 flex items-center justify-center text-red-600 shrink-0">
+                <Trash2 size={18} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-red-600 leading-snug">
+                  Delete account
+                </h3>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-red-400 shrink-0" />
           </button>
         </section>
 
@@ -313,120 +400,7 @@ const C2CAccountPage = () => {
         </section>
       </div>
 
-      {/* Settings Modal Drawer */}
-      <AnimatePresence>
-        {showSettingsModal && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs p-0 sm:p-4">
-            <motion.div
-              initial={{ y: '100%', opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: '100%', opacity: 0 }}
-              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-5 space-y-4 max-h-[85vh] overflow-y-auto"
-            >
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                <h3 className="text-base font-black text-slate-900">Settings</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowSettingsModal(false)}
-                  className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
-                >
-                  <X size={20} />
-                </button>
-              </div>
 
-              <div className="divide-y divide-slate-100">
-                {/* Notifications */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowSettingsModal(false);
-                    setShowNotificationsModal(true);
-                  }}
-                  className="w-full py-3 flex items-center justify-between hover:bg-slate-50 transition-colors text-left cursor-pointer"
-                >
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900">Notifications</h4>
-                    <p className="text-xs text-slate-500">Recommendations & special alerts</p>
-                  </div>
-                  <ChevronRight size={18} className="text-slate-400" />
-                </button>
-
-                {/* Communication Preferences */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowSettingsModal(false);
-                    setShowCommunicationModal(true);
-                  }}
-                  className="w-full py-3 flex items-center justify-between hover:bg-slate-50 transition-colors text-left cursor-pointer"
-                >
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900">Communication Preferences</h4>
-                    <p className="text-xs text-slate-500">Chat, calls & buyer messages</p>
-                  </div>
-                  <ChevronRight size={18} className="text-slate-400" />
-                </button>
-
-                {/* Privacy & Password */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowSettingsModal(false);
-                    setShowPrivacyModal(true);
-                  }}
-                  className="w-full py-3 flex items-center justify-between hover:bg-slate-50 transition-colors text-left cursor-pointer"
-                >
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900">Privacy</h4>
-                    <p className="text-xs text-slate-500">Change password & credentials</p>
-                  </div>
-                  <ChevronRight size={18} className="text-slate-400" />
-                </button>
-
-                {/* Logout */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowSettingsModal(false);
-                    setShowLogoutModal(true);
-                  }}
-                  className="w-full py-3 flex items-center justify-between hover:bg-slate-50 transition-colors text-left cursor-pointer"
-                >
-                  <h4 className="text-sm font-bold text-slate-900">Logout</h4>
-                  <ChevronRight size={18} className="text-slate-400" />
-                </button>
-
-                {/* Logout from all devices */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowSettingsModal(false);
-                    setShowLogoutAllModal(true);
-                  }}
-                  className="w-full py-3 flex items-center justify-between hover:bg-slate-50 transition-colors text-left cursor-pointer"
-                >
-                  <h4 className="text-sm font-bold text-slate-900">Logout from all devices</h4>
-                  <ChevronRight size={18} className="text-slate-400" />
-                </button>
-
-                {/* Delete Account */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowSettingsModal(false);
-                    setShowDeleteModal(true);
-                  }}
-                  className="w-full py-3 flex items-center justify-between hover:bg-red-50/50 transition-colors text-left text-red-600 cursor-pointer"
-                >
-                  <h4 className="text-sm font-bold">Delete account</h4>
-                  <ChevronRight size={18} className="text-red-400" />
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* Notifications Modal */}
       <AnimatePresence>

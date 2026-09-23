@@ -105,7 +105,7 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
 
     // If props are passed, use them. Otherwise, use route-based logic.
     const showHeader = showHeaderProp !== undefined ? showHeaderProp : (!hideHeaderRoutes.includes(path) && !path.startsWith('/category') && !path.startsWith('/orders') && !path.startsWith('/marketplace') && !path.startsWith('/refurbished'));
-    const showBottomNav = showBottomNavProp !== undefined ? showBottomNavProp : (!hideBottomNavRoutes.includes(path) && !path.startsWith('/marketplace/brands') && !path.startsWith('/refurbished/brands') && !path.startsWith('/marketplace/product') && !path.startsWith('/marketplace/profile/edit') && !path.startsWith('/marketplace/my-listings/product') && !path.startsWith('/marketplace/my-listings/edit') && !path.startsWith('/marketplace/my-listings/myproducts'));
+    const showBottomNav = showBottomNavProp !== undefined ? showBottomNavProp : (!hideBottomNavRoutes.includes(path) && !path.startsWith('/marketplace/brands') && !path.startsWith('/refurbished/brands') && !path.startsWith('/marketplace/product') && !path.startsWith('/marketplace/profile/edit') && !path.startsWith('/marketplace/my-listings/product') && !path.startsWith('/marketplace/my-listings/edit') && !path.startsWith('/marketplace/my-listings/myproducts') && !path.startsWith('/marketplace/sell') && !path.startsWith('/refurbished/sell'));
     const showCart = showCartProp !== undefined ? showCartProp : (!hideCartRoutes.includes(path) && !path.startsWith('/orders'));
 
     // Condition to hide the MobileFooterMessage ("Sab kuchh ek basket mein") on specific pages

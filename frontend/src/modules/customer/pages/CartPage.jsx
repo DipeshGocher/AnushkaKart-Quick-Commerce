@@ -9,15 +9,14 @@ import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useLocation as useAppLocation } from '../context/LocationContext';
 import LocationDrawer from '../components/shared/LocationDrawer';
+import EmptyCartAnimation from '../components/shared/EmptyCartAnimation';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
-import EmptyRefurbishedCartAnimation from '../components/shared/EmptyRefurbishedCartAnimation';
 
 const CartPage = ({ asOverlay = false, onClose }) => {
   const navigate = useNavigate();
   const { 
     groceryCart, 
     groceryCartTotal,
-    refurbishedCart,
     removeFromCart,
     updateQuantity
   } = useCart();
@@ -116,24 +115,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
         </div>
       </div>
 
-      {/* Cross-section banner if user also has refurbished items */}
-      {refurbishedCart.length > 0 && (
-        <div className="bg-blue-50 border-b border-blue-100 px-4 py-2.5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <Smartphone size={16} className="text-blue-600 shrink-0" />
-            <p className="text-xs font-bold text-blue-900 truncate">
-              {refurbishedCart.length} {refurbishedCart.length === 1 ? 'device' : 'devices'} in Refurbished Cart
-            </p>
-          </div>
-          <Link
-            to="/marketplace/cart"
-            onClick={onClose}
-            className="text-xs font-black text-blue-700 bg-white border border-blue-200 hover:bg-blue-600 hover:text-white px-2.5 py-1 rounded-lg transition shrink-0"
-          >
-            Go to Marketplace Cart →
-          </Link>
-        </div>
-      )}
+
 
       {/* Delivery Address Bar */}
       <div 
@@ -314,12 +296,11 @@ const CartPage = ({ asOverlay = false, onClose }) => {
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-2xs text-center">
-            <EmptyRefurbishedCartAnimation
-              isRefurbished={false}
+          <div className="bg-white rounded-3xl p-4 sm:p-8 border border-slate-200/80 shadow-2xs text-center">
+            <EmptyCartAnimation
               onActionClick={() => {
                 if (asOverlay && onClose) onClose();
-                navigate('/');
+                navigate('/categories');
               }}
             />
           </div>

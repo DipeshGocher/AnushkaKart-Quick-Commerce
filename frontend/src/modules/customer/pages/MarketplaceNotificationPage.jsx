@@ -20,7 +20,14 @@ const MarketplaceNotificationPage = () => {
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'selling', 'buying'
 
   useEffect(() => {
-    setNotifications(getC2CNotifications());
+    const loadNotifs = () => setNotifications(getC2CNotifications());
+    loadNotifs();
+    window.addEventListener('c2c_notifications_updated', loadNotifs);
+    window.addEventListener('storage', loadNotifs);
+    return () => {
+      window.removeEventListener('c2c_notifications_updated', loadNotifs);
+      window.removeEventListener('storage', loadNotifs);
+    };
   }, []);
 
   const handleMarkAllRead = () => {

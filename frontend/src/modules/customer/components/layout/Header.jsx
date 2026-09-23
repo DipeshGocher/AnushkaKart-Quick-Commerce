@@ -183,11 +183,6 @@ const Header = () => {
 
                         <Link to="/wishlist" className="relative flex items-center justify-center p-2 hover:bg-slate-50 rounded-full transition-colors group" title="Wishlist">
                             <Heart className="h-6 w-6 text-slate-600 group-hover:text-[var(--primary)] transition-colors" />
-                            {wishlistCount > 0 && (
-                                <span className="absolute top-0 right-0 h-5 w-5 rounded-full bg-primary text-[10px] font-bold text-white flex items-center justify-center border-2 border-white shadow-sm animate-in zoom-in duration-300">
-                                    {wishlistCount}
-                                </span>
-                            )}
                         </Link>
 
                         <Link to="/profile" className="flex items-center justify-center" title="Profile">

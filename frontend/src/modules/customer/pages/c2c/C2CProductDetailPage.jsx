@@ -1,20 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { 
   ArrowLeft, Heart, Share2, MapPin, Calendar, Eye, 
   ShieldCheck, MessageSquare, Tag, AlertTriangle, 
   ChevronRight, CheckCircle2, User, Sparkles, ImagePlus, Edit3
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@core/context/AuthContext';
 import { 
   getC2CAds, getC2CFavorites, toggleC2CFavorite, 
   sendC2CMessage, getC2CChats, createOrGetC2CChat 
 } from '../../data/c2cMockData';
 import { toast } from 'sonner';
 
-const C2CProductDetailPage = () => {
+const C2CProductDetailPage = ({ initialOfferOpen = false }) => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const { isAuthenticated } = useAuth();
 
   const [ad, setAd] = useState(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -34,7 +38,16 @@ const C2CProductDetailPage = () => {
     if (found?.price) {
       setOfferAmount(Math.round(found.price * 0.9)); // default 10% lower offer
     }
-  }, [id]);
+
+    if (initialOfferOpen || searchParams.get('offer') === 'true' || location.pathname.endsWith('/offer')) {
+      if (!isAuthenticated) {
+        toast.info('Please log in to make an offer');
+        navigate('/login', { state: { from: location } });
+      } else {
+        setShowOfferModal(true);
+      }
+    }
+  }, [id, initialOfferOpen, searchParams, location.pathname, isAuthenticated, navigate, location]);
 
   if (!ad) {
     return (
@@ -50,6 +63,11 @@ const C2CProductDetailPage = () => {
   const isOwner = ad.isUserAd || ad.seller?.id === 'seller-user' || ad.id === 'c2c-1';
 
   const handleFavoriteToggle = () => {
+    if (!isAuthenticated) {
+      toast.info('Please log in to save items to your wishlist');
+      navigate('/login', { state: { from: location } });
+      return;
+    }
     const updatedFav = toggleC2CFavorite(ad.id);
     setIsFavorite(updatedFav);
     if (updatedFav) {
@@ -76,8 +94,22 @@ const C2CProductDetailPage = () => {
     }
   };
 
+  const handleOpenOfferModal = () => {
+    if (!isAuthenticated) {
+      toast.info('Please log in to make an offer');
+      navigate('/login', { state: { from: location } });
+      return;
+    }
+    setShowOfferModal(true);
+  };
+
   const handleMakeOffer = (e) => {
     e.preventDefault();
+    if (!isAuthenticated) {
+      toast.info('Please log in to make an offer');
+      navigate('/login', { state: { from: location } });
+      return;
+    }
     if (!offerAmount || Number(offerAmount) <= 0) {
       toast.error('Please enter a valid offer amount');
       return;
@@ -98,11 +130,21 @@ const C2CProductDetailPage = () => {
   };
 
   const handleStartChat = () => {
+    if (!isAuthenticated) {
+      toast.info('Please log in to chat with the owner');
+      navigate('/login', { state: { from: location } });
+      return;
+    }
     const chat = createOrGetC2CChat(ad);
     navigate(`/marketplace/chats?id=${chat.id}`);
   };
 
   const handleRequestMoreImages = () => {
+    if (!isAuthenticated) {
+      toast.info('Please log in to request images from the seller');
+      navigate('/login', { state: { from: location } });
+      return;
+    }
     const chat = createOrGetC2CChat(ad);
     sendC2CMessage(chat.id, "I want more images of this product");
     toast.success("Image request sent to seller!");
@@ -362,7 +404,7 @@ const C2CProductDetailPage = () => {
           {/* 2. Make an Offer Button */}
           <button
             type="button"
-            onClick={() => setShowOfferModal(true)}
+            onClick={handleOpenOfferModal}
             className="h-11 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-900 font-extrabold text-xs border border-amber-300 transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-2xs px-2 cursor-pointer text-center"
           >
             <Tag size={14} className="text-amber-700 shrink-0" />

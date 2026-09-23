@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Home, MessageCircle, Plus, LayoutGrid, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import { useAuth } from '@core/context/AuthContext';
+import { toast } from 'sonner';
 import { getC2CChats } from '../../data/c2cMockData';
 
 const isRouteActive = (itemPath, currentPath) => {
@@ -26,6 +28,8 @@ const isRouteActive = (itemPath, currentPath) => {
 
 const MarketplaceBottomNav = () => {
     const location = useLocation();
+    const navigate = useNavigate();
+    const { isAuthenticated } = useAuth();
     const [hasUnreadChats, setHasUnreadChats] = useState(false);
 
     useEffect(() => {
@@ -50,11 +54,19 @@ const MarketplaceBottomNav = () => {
 
     const navItems = [
         { label: 'Home', icon: Home, path: '/marketplace' },
-        { label: 'Chats', icon: MessageCircle, path: '/marketplace/chats', hasUnreadDot: hasUnreadChats },
-        { label: 'SELL', isSellButton: true, path: '/marketplace/sell' },
+        { label: 'Chats', icon: MessageCircle, path: '/marketplace/chats', hasUnreadDot: hasUnreadChats, requiresAuth: true },
+        { label: 'SELL', isSellButton: true, path: '/marketplace/sell', requiresAuth: true },
         { label: 'Categories', icon: LayoutGrid, path: '/marketplace/categories' },
-        { label: 'Account', icon: User, path: '/marketplace/account' },
+        { label: 'Account', icon: User, path: '/marketplace/account', requiresAuth: true },
     ];
+
+    const handleNavClick = (e, item) => {
+        if (item.requiresAuth && !isAuthenticated) {
+            e.preventDefault();
+            toast.info(item.isSellButton ? 'Please log in to sell your products' : `Please log in to view ${item.label.toLowerCase()}`);
+            navigate('/login', { state: { from: { pathname: item.path } } });
+        }
+    };
 
     return (
         <div 
@@ -75,6 +87,7 @@ const MarketplaceBottomNav = () => {
                             <Link
                                 key={item.path}
                                 to={item.path}
+                                onClick={(e) => handleNavClick(e, item)}
                                 className="flex flex-col items-center justify-center -mt-6 group focus:outline-none"
                             >
                                 <motion.div
@@ -105,6 +118,7 @@ const MarketplaceBottomNav = () => {
                         <Link
                             key={item.path}
                             to={item.path}
+                            onClick={(e) => handleNavClick(e, item)}
                             className={cn(
                                 "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-2xl transition-all duration-200 flex-1 min-w-[50px] relative",
                                 isActive
