@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Search, ShoppingCart, Heart, User, Menu, MapPin, CloudRain, Sun, Snowflake, Cloud, CloudLightning, Wind } from 'lucide-react';
+import { Search, ShoppingCart, User, MapPin, CloudRain, Sun, Snowflake, Cloud, CloudLightning, Wind } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useWishlist } from '../../context/WishlistContext';
 import { useCart } from '../../context/CartContext';
 import { useLocation as useAppLocation } from "../../context/LocationContext";
 import { useSettings } from '@core/context/SettingsContext';
@@ -18,7 +17,6 @@ const WeatherIconMap = {
 
 const Header = () => {
     const { settings } = useSettings();
-    const { count: wishlistCount } = useWishlist();
     const { cartCount } = useCart();
     const location = useLocation();
     const isCheckoutPage = location.pathname === '/checkout';
@@ -81,7 +79,7 @@ const Header = () => {
     const ActiveWeatherIcon = settings?.weather?.icon ? WeatherIconMap[settings.weather.icon] : CloudRain;
 
     return (
-        <header className="absolute top-4 md:top-8 left-0 right-0 z-[200] px-4">
+        <header className="absolute top-0 md:top-8 left-0 right-0 z-[200] px-4 py-4 md:py-0 bg-[radial-gradient(ellipse_at_15%_-20%,rgba(255,255,255,0.4),transparent_45%),linear-gradient(115deg,#3278d7_0%,#3d83df_52%,#5a9ae8_100%)] md:bg-none">
             <div className="container mx-auto max-w-6xl">
                 {/* Mobile Top Row: Location & Profile */}
                 <div className="md:hidden flex items-center justify-between mb-4 px-2 animate-in slide-in-from-top duration-500">
@@ -93,9 +91,9 @@ const Header = () => {
                             refreshLocation();
                             setIsLocationOpen(true);
                         }}
-                        className="flex items-center gap-3 cursor-pointer active:scale-95 transition-transform border-0 bg-transparent p-0 text-left"
+                        className="flex w-full items-center gap-3 rounded-xl border border-white/35 bg-black/20 px-3 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-xl cursor-pointer active:scale-[0.99] transition-transform"
                     >
-                        <div className="h-10 w-10 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30 shadow-sm">
+                        <div className="h-9 w-9 flex items-center justify-center">
                             <MapPin size={22} className="text-white fill-current" />
                         </div>
                         <div className="flex flex-col leading-tight">
@@ -111,7 +109,7 @@ const Header = () => {
                 </div>
 
                 {/* Main Header Capsule */}
-                <div className="px-4 md:px-8 h-18 bg-white/95 backdrop-blur-sm rounded-full shadow-2xl flex items-center justify-between border border-white/20">
+                <div className="px-4 md:px-8 h-18 bg-white/95 md:bg-[radial-gradient(ellipse_at_10%_-35%,rgba(255,255,255,0.4),transparent_42%),linear-gradient(110deg,#3278d7_0%,#3d83df_50%,#5a9ae8_100%)] backdrop-blur-sm rounded-full shadow-[0_14px_32px_rgba(18,55,143,0.22)] flex items-center justify-between border border-white/40">
                     {/* Logo */}
                     <div className="flex items-center gap-6 mr-4 md:mr-12">
                         <Link to="/" className="flex items-center gap-2">
@@ -120,8 +118,8 @@ const Header = () => {
 
                         {/* Weather Widget */}
                         {weatherEnabled && (
-                            <div className="hidden md:flex items-center gap-1.5 bg-orange-50/80 border border-orange-100/50 px-3 py-1.5 rounded-full text-orange-600 font-bold text-sm shadow-sm">
-                                {ActiveWeatherIcon && <ActiveWeatherIcon size={16} className="fill-current text-orange-600" />}
+                            <div className="hidden md:flex items-center gap-1.5 rounded-xl border border-white/35 bg-black/20 px-3 py-2 text-sm font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-xl">
+                                {ActiveWeatherIcon && <ActiveWeatherIcon size={16} className="text-white" />}
                                 <span>{settings?.weather?.condition || 'Rain'}</span>
                             </div>
                         )}
@@ -135,13 +133,13 @@ const Header = () => {
                                 refreshLocation();
                                 setIsLocationOpen(true);
                             }}
-                            className="hidden md:flex items-center gap-2 pl-6 border-l border-slate-200 cursor-pointer active:scale-95 transition-transform border-0 bg-transparent p-0"
+                            className="hidden md:flex items-center gap-2 rounded-xl border border-white/35 bg-black/20 px-3 py-2 cursor-pointer active:scale-95 transition-transform backdrop-blur-xl"
                         >
                             <div className="flex flex-col items-start leading-none group">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5 group-hover:text-[var(--primary)] transition-colors">
+                                <span className="text-[10px] font-bold text-white/85 uppercase tracking-wider mb-0.5 transition-colors">
                                     Delivery in {currentLocation.time}
                                 </span>
-                                <div className="flex items-center gap-1 font-bold text-slate-700 text-sm group-hover:text-[var(--primary)] transition-colors">
+                                <div className="flex items-center gap-1 font-bold text-white text-sm transition-colors">
                                     <span className="max-w-[150px] truncate">{currentLocation.name}</span> <MapPin size={14} className="fill-current" />
                                 </div>
                             </div>
@@ -150,10 +148,10 @@ const Header = () => {
 
                     {/* Desktop Navigation */}
                     <nav className="hidden md:flex items-center gap-6">
-                        <Link to="/" className="text-sm font-medium transition-colors hover:text-[var(--primary)]">Home</Link>
+                        <Link to="/" className="text-sm font-semibold text-white transition-opacity hover:opacity-80">Home</Link>
 
-                        <Link to="/categories" className="text-sm font-medium transition-colors hover:text-[var(--primary)]">Categories</Link>
-                        <Link to="/offers" className="text-sm font-medium transition-colors hover:text-[var(--primary)]">Offers</Link>
+                        <Link to="/categories" className="text-sm font-semibold text-white transition-opacity hover:opacity-80">Categories</Link>
+                        <Link to="/offers" className="text-sm font-semibold text-white transition-opacity hover:opacity-80">Offers</Link>
                     </nav>
 
                     {/* Search Bar - Hidden on checkout page */}
@@ -172,8 +170,8 @@ const Header = () => {
 
                     {/* Desktop Right Icons */}
                     <div className="hidden md:flex items-center gap-4">
-                        <Link to="/cart" className="relative flex items-center justify-center p-2 hover:bg-slate-50 rounded-full transition-colors group" title="My Cart">
-                            <ShoppingCart className="h-6 w-6 text-slate-600 group-hover:text-[var(--primary)] transition-colors" />
+                        <Link to="/cart" className="relative flex items-center justify-center p-2 transition-transform hover:scale-110 group" title="My Cart">
+                            <ShoppingCart className="h-6 w-6 text-white drop-shadow-sm" />
                             {cartCount > 0 && (
                                 <span className="absolute top-0 right-0 h-5 w-5 rounded-full bg-primary text-[10px] font-bold text-white flex items-center justify-center border-2 border-white shadow-sm animate-in zoom-in duration-300">
                                     {cartCount}
@@ -181,12 +179,8 @@ const Header = () => {
                             )}
                         </Link>
 
-                        <Link to="/wishlist" className="relative flex items-center justify-center p-2 hover:bg-slate-50 rounded-full transition-colors group" title="Wishlist">
-                            <Heart className="h-6 w-6 text-slate-600 group-hover:text-[var(--primary)] transition-colors" />
-                        </Link>
-
                         <Link to="/profile" className="flex items-center justify-center" title="Profile">
-                            <User className="h-6 w-6 text-slate-600 hover:text-[var(--primary)] transition-colors" />
+                            <User className="h-6 w-6 text-white drop-shadow-sm hover:scale-110 transition-transform" />
                         </Link>
                     </div>
                 </div>

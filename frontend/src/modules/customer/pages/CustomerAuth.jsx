@@ -26,36 +26,19 @@ const CustomerAuth = () => {
         const cleanPath = path.split('?')[0];
         const protectedPaths = [
             '/cart', '/wishlist', '/orders', '/transactions', '/addresses',
-            '/settings', '/help', '/chat', '/checkout', '/marketplace/checkout', '/profile', '/wallet',
-            '/notifications', '/marketplace/cart', '/marketplace/wishlist',
-            '/marketplace/my-ads', '/marketplace/my-listings', '/marketplace/chats', '/marketplace/sell',
-            '/marketplace/profile', '/marketplace/profile/edit', '/marketplace/account',
-            '/marketplace/notification', '/marketplace/notifications'
+            '/settings', '/help', '/chat', '/checkout', '/profile', '/wallet',
+            '/notifications'
         ];
         return protectedPaths.some(p => cleanPath === p || cleanPath.startsWith(p + '/'));
     };
 
     const handleClose = () => {
-        let isMarketplaceSource = false;
-        if (fromPath) {
-            isMarketplaceSource = fromPath.includes('/marketplace');
-        } else {
-            isMarketplaceSource = (
-                sessionStorage.getItem('last_section') === 'marketplace' ||
-                document.referrer.includes('/marketplace')
-            );
-        }
-
         if (fromPath && !isProtectedRoute(fromPath) && fromPath !== '/login' && fromPath !== '/signup') {
             navigate(fromPath, { replace: true });
             return;
         }
 
-        if (isMarketplaceSource) {
-            navigate('/marketplace', { replace: true });
-        } else {
-            navigate('/', { replace: true });
-        }
+        navigate('/', { replace: true });
     };
 
     const [isLogin, setIsLogin] = useState(true);
@@ -136,7 +119,7 @@ const CustomerAuth = () => {
             toast.success(t('loggedInSuccess'));
             const targetPath = (fromPath && fromPath !== '/login' && fromPath !== '/signup')
                 ? fromPath 
-                : (sessionStorage.getItem('last_section') === 'marketplace' ? '/marketplace' : '/');
+                : '/';
             navigate(targetPath, { replace: true });
         } catch (error) {
             const apiMessage = error?.response?.data?.message;

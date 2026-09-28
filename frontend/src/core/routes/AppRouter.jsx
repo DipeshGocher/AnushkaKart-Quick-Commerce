@@ -1,5 +1,6 @@
 import React, { lazy, useMemo, useEffect, Suspense } from 'react';
-import { createBrowserRouter, RouterProvider, Outlet, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Outlet, Navigate, useOutlet, useLocation, useNavigationType } from 'react-router-dom';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import ProtectedRoute from '../guards/ProtectedRoute';
 import RoleGuard from '../guards/RoleGuard';
 import { UserRole } from '../constants/roles';
@@ -13,7 +14,7 @@ import { CartAnimationProvider } from '../../modules/customer/context/CartAnimat
 import { ProductDetailProvider } from '../../modules/customer/context/ProductDetailContext';
 import { VariantSelectionProvider } from '../../modules/customer/context/VariantSelectionContext';
 import { LocationProvider } from '../../modules/customer/context/LocationContext';
-import { PageTransitionProvider } from '../../modules/customer/context/PageTransitionContext';
+import PageSkeleton from '../../shared/components/PageSkeleton';
 import ScrollToTop from '../../modules/customer/components/shared/ScrollToTop';
 
 // Public Pages
@@ -24,17 +25,9 @@ import DeliveryAuth from '../../modules/delivery/pages/DeliveryAuth';
 import CustomerAuth from '../../modules/customer/pages/CustomerAuth';
 
 import CategoriesPage from '../../modules/customer/pages/CategoriesPage';
-import MarketplaceCategoriesPage from '../../modules/customer/pages/MarketplaceCategoriesPage';
 
 // Customer Pages (lazy-loaded)
 const Home = lazy(() => import('../../modules/customer/pages/Home'));
-const RefurbishedProductsPage = lazy(() => import('../../modules/customer/pages/RefurbishedProductsPage'));
-const MarketplaceProductsPage = lazy(() => import('../../modules/customer/pages/MarketplaceProductsPage'));
-const MarketplaceSearchPage = lazy(() => import('../../modules/customer/pages/MarketplaceSearchPage'));
-const MarketplaceProductsListingPage = lazy(() => import('../../modules/customer/pages/MarketplaceProductsListingPage'));
-const RefurbishedBrandsPage = lazy(() => import('../../modules/customer/pages/RefurbishedBrandsPage'));
-const RefurbishedBrandProductsPage = lazy(() => import('../../modules/customer/pages/RefurbishedBrandProductsPage'));
-const RefurbishedSearchPage = lazy(() => import('../../modules/customer/pages/RefurbishedSearchPage'));
 const CategoryProductsPage = lazy(() => import('../../modules/customer/pages/CategoryProductsPage'));
 const WishlistPage = lazy(() => import('../../modules/customer/pages/WishlistPage'));
 const CartPage = lazy(() => import('../../modules/customer/pages/CartPage'));
@@ -55,24 +48,11 @@ const OrderDetailPage = lazy(() => import('../../modules/customer/pages/OrderDet
 const ProductDetailPage = lazy(() => import('../../modules/customer/pages/ProductDetailPage'));
 const KitDetailPage = lazy(() => import('../../modules/customer/pages/KitDetailPage'));
 const CheckoutPage = lazy(() => import('../../modules/customer/pages/CheckoutPage'));
-const RefurbishedCheckoutPage = lazy(() => import('../../modules/customer/pages/RefurbishedCheckoutPage'));
-const RefurbishedCartPage = lazy(() => import('../../modules/customer/pages/RefurbishedCartPage'));
 const PaymentStatusPage = lazy(() => import('../../modules/customer/pages/PaymentStatusPage'));
 const SearchPage = lazy(() => import('../../modules/customer/pages/SearchPage'));
 const WalletPage = lazy(() => import('../../modules/customer/pages/WalletPage'));
 const NotificationsPage = lazy(() => import('../../modules/customer/pages/NotificationsPage'));
 
-// C2C Marketplace Pages (OLX Module)
-const C2CProductDetailPage = lazy(() => import('../../modules/customer/pages/c2c/C2CProductDetailPage'));
-const C2CSellPage = lazy(() => import('../../modules/customer/pages/c2c/C2CSellPage'));
-const C2CChatsPage = lazy(() => import('../../modules/customer/pages/c2c/C2CChatsPage'));
-const C2CMyAdsPage = lazy(() => import('../../modules/customer/pages/c2c/C2CMyAdsPage'));
-const C2CAccountPage = lazy(() => import('../../modules/customer/pages/c2c/C2CAccountPage'));
-const C2CProfilePage = lazy(() => import('../../modules/customer/pages/c2c/C2CProfilePage'));
-const C2CEditProfilePage = lazy(() => import('../../modules/customer/pages/c2c/C2CEditProfilePage'));
-const C2CMyProductDetailPage = lazy(() => import('../../modules/customer/pages/c2c/C2CMyProductDetailPage'));
-const C2CEditProductPage = lazy(() => import('../../modules/customer/pages/c2c/C2CEditProductPage'));
-const MarketplaceNotificationPage = lazy(() => import('../../modules/customer/pages/MarketplaceNotificationPage'));
 
 // Lazy load heavy modules
 const SellerModule = lazy(() => import('../../modules/seller/routes/index'));
@@ -82,14 +62,52 @@ const DynamicLegalPage = lazy(() => import('../../shared/components/DynamicLegal
 
 import CustomerLayout from '../../modules/customer/components/layout/CustomerLayout';
 
+const AnimatedCustomerPage = ({ children }) => {
+    const location = useLocation();
+    const navigationType = useNavigationType();
+    const reduceMotion = useReducedMotion();
+    const isTabNavigation = navigationType === 'PUSH' && location.state?.pageTransition === 'tab';
+    const direction = location.state?.tabDirection === -1 ? -1 : 1;
+    const transition = reduceMotion ? { duration: 0 } : { duration: 0.24, ease: [0.32, 0.72, 0, 1] };
+    const variants = {
+        initial: ({ tab, side }) => tab
+            ? { left: `${side * 100}vw`, top: 0, opacity: 1 }
+            : { left: 0, top: 28, opacity: 0.94 },
+        animate: { left: 0, top: 0, opacity: 1 },
+        exit: ({ tab, side }) => tab
+            ? { left: `${side * -100}vw`, top: 0, opacity: 1 }
+            : { left: 0, top: -18, opacity: 0.94 },
+    };
+
+    return (
+        <AnimatePresence mode="wait" initial={false} custom={{ tab: isTabNavigation, side: direction }}>
+            <motion.div
+                key={location.pathname}
+                custom={{ tab: isTabNavigation, side: direction }}
+                variants={variants}
+                initial={reduceMotion ? false : 'initial'}
+                animate="animate"
+                exit={reduceMotion ? undefined : 'exit'}
+                transition={transition}
+                className="relative w-full flex-1 flex flex-col"
+            >
+                <Suspense fallback={<PageSkeleton />}>
+                    {children}
+                </Suspense>
+            </motion.div>
+        </AnimatePresence>
+    );
+};
+
 const CustomerLayoutWrapper = () => {
+    const outlet = useOutlet();
+
     useEffect(() => {
         setActiveRole(ROLES.CUSTOMER);
     }, []);
 
     return (
         <LocationProvider>
-            <PageTransitionProvider>
                 <WishlistProvider>
                     <CartProvider>
                         <CartAnimationProvider>
@@ -97,16 +115,13 @@ const CustomerLayoutWrapper = () => {
                                 <VariantSelectionProvider>
                                     <ScrollToTop />
                                     <CustomerLayout>
-                                        <Suspense fallback={<div className="flex h-screen items-center justify-center font-outfit">Loading...</div>}>
-                                            <Outlet />
-                                        </Suspense>
+                                        <AnimatedCustomerPage>{outlet}</AnimatedCustomerPage>
                                     </CustomerLayout>
                                 </VariantSelectionProvider>
                             </ProductDetailProvider>
                         </CartAnimationProvider>
                     </CartProvider>
                 </WishlistProvider>
-            </PageTransitionProvider>
         </LocationProvider>
     );
 };
@@ -145,19 +160,19 @@ const AppRouter = () => {
                 // Public legal pages for each module
                 {
                     path: 'seller/terms',
-                    element: <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}><DynamicLegalPage type="terms" audience="seller" /></Suspense>,
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="terms" audience="seller" /></Suspense>,
                 },
                 {
                     path: 'seller/privacy',
-                    element: <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}><DynamicLegalPage type="privacy" audience="seller" /></Suspense>,
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="privacy" audience="seller" /></Suspense>,
                 },
                 {
                     path: 'delivery/support',
-                    element: <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}><DynamicLegalPage type="terms" audience="delivery" /></Suspense>,
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="terms" audience="delivery" /></Suspense>,
                 },
                 {
                     path: 'delivery/privacy',
-                    element: <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}><DynamicLegalPage type="privacy" audience="delivery" /></Suspense>,
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="privacy" audience="delivery" /></Suspense>,
                 },
                 {
                     path: 'seller/*',
@@ -198,50 +213,6 @@ const AppRouter = () => {
                     children: [
                         { index: true, element: <Home /> },
                         { path: 'categories', element: <CategoriesPage /> },
-                        // C2C Marketplace (OLX Module) Routes
-                        { path: 'marketplace', element: <MarketplaceProductsPage /> },
-                        { path: 'marketplace/product/:id', element: <C2CProductDetailPage /> },
-                        { path: 'marketplace/product/:id/offer', element: <ProtectedRoute><C2CProductDetailPage initialOfferOpen={true} /></ProtectedRoute> },
-                        { path: 'marketplace/offer/:id', element: <ProtectedRoute><C2CProductDetailPage initialOfferOpen={true} /></ProtectedRoute> },
-                        { path: 'marketplace/sell', element: <ProtectedRoute><C2CSellPage /></ProtectedRoute> },
-                        { path: 'marketplace/chats', element: <ProtectedRoute><C2CChatsPage /></ProtectedRoute> },
-                        { path: 'marketplace/categories', element: <MarketplaceCategoriesPage /> },
-                        { path: 'marketplace/products', element: <MarketplaceProductsListingPage /> },
-                        { path: 'marketplace/account', element: <ProtectedRoute><C2CAccountPage /></ProtectedRoute> },
-                        { path: 'marketplace/profile', element: <ProtectedRoute><C2CProfilePage /></ProtectedRoute> },
-                        { path: 'marketplace/profile/edit', element: <ProtectedRoute><C2CEditProfilePage /></ProtectedRoute> },
-                        { path: 'marketplace/search', element: <MarketplaceSearchPage /> },
-                        { path: 'marketplace/notification', element: <ProtectedRoute><MarketplaceNotificationPage /></ProtectedRoute> },
-                        { path: 'marketplace/notifications', element: <Navigate to="/marketplace/notification" replace /> },
-                        { path: 'marketplace/my-listings', element: <ProtectedRoute><C2CMyAdsPage /></ProtectedRoute> },
-                        { path: 'marketplace/my-ads', element: <ProtectedRoute><C2CMyAdsPage /></ProtectedRoute> },
-                        { path: 'marketplace/my-listings/product', element: <ProtectedRoute><C2CMyProductDetailPage /></ProtectedRoute> },
-                        { path: 'marketplace/my-listings/product/:id', element: <ProtectedRoute><C2CMyProductDetailPage /></ProtectedRoute> },
-                        { path: 'marketplace/my-listings/product/:id/edit', element: <ProtectedRoute><C2CEditProductPage /></ProtectedRoute> },
-                        { path: 'marketplace/my-listings/myproducts', element: <ProtectedRoute><C2CMyProductDetailPage /></ProtectedRoute> },
-                        { path: 'marketplace/my-listings/myproducts/:id', element: <ProtectedRoute><C2CMyProductDetailPage /></ProtectedRoute> },
-                        { path: 'marketplace/my-listings/edit', element: <ProtectedRoute><C2CEditProductPage /></ProtectedRoute> },
-                        { path: 'marketplace/my-listings/edit/:id', element: <ProtectedRoute><C2CEditProductPage /></ProtectedRoute> },
-                        { path: 'marketplace/wishlist', element: <ProtectedRoute><Navigate to="/marketplace/products?view=wishlist" replace /></ProtectedRoute> },
-                        { path: 'marketplace/brands', element: <Navigate to="/marketplace" replace /> },
-                        { path: 'marketplace/brands/products', element: <Navigate to="/marketplace" replace /> },
-                        { path: 'marketplace/cart', element: <Navigate to="/marketplace" replace /> },
-                        { path: 'marketplace/checkout', element: <Navigate to="/marketplace" replace /> },
-
-                        // Backwards compatibility redirects for /refurbished -> /marketplace
-                        { path: 'refurbished', element: <Navigate to="/marketplace" replace /> },
-                        { path: 'refurbished/product/:id', element: <Navigate to="/marketplace" replace /> },
-                        { path: 'refurbished/sell', element: <Navigate to="/marketplace/sell" replace /> },
-                        { path: 'refurbished/chats', element: <Navigate to="/marketplace/chats" replace /> },
-                        { path: 'refurbished/my-ads', element: <Navigate to="/marketplace/my-ads" replace /> },
-                        { path: 'refurbished/wishlist', element: <Navigate to="/marketplace/my-ads?tab=wishlist" replace /> },
-                        { path: 'refurbished/account', element: <Navigate to="/marketplace/account" replace /> },
-                        { path: 'refurbished/search', element: <Navigate to="/marketplace" replace /> },
-                        { path: 'refurbished/brands', element: <Navigate to="/marketplace" replace /> },
-                        { path: 'refurbished/brands/products', element: <Navigate to="/marketplace" replace /> },
-                        { path: 'refurbished/products', element: <Navigate to="/marketplace" replace /> },
-                        { path: 'refurbished/cart', element: <Navigate to="/marketplace" replace /> },
-                        { path: 'refurbished/checkout', element: <Navigate to="/marketplace" replace /> },
                         { path: 'category/:categoryName', element: <CategoryProductsPage /> },
                         { path: 'product/:id', element: <ProductDetailPage /> },
                         { path: 'kit/:id', element: <KitDetailPage /> },

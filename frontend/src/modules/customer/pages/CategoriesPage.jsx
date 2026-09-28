@@ -4,6 +4,7 @@ import { ChevronLeft, Search, Mic, X, ShoppingBag, ArrowRight } from 'lucide-rea
 import { customerApi } from '../services/customerApi';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 import { useSettings } from '@core/context/SettingsContext';
+import { motion } from 'framer-motion';
 
 const CategoriesBannerCarousel = ({ banners, fallbackImage }) => {
     const scrollContainerRef = useRef(null);
@@ -349,7 +350,12 @@ const CategoriesPage = () => {
 
                 {/* Flipkart-Style Categories Layout (Header sections one by one with 4-col subcategory cards) */}
                 {!isLoading && filteredSections.length > 0 && (
-                    <div className="space-y-6 sm:space-y-7 pt-1">
+                    <motion.div
+                        initial={{ opacity: 0.94, y: 18 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                        className="space-y-6 sm:space-y-7 pt-1"
+                    >
                         {filteredSections.map((section) => (
                             <div key={section.id} className="category-section">
                                 {/* Section Header Title */}
@@ -386,7 +392,7 @@ const CategoriesPage = () => {
                                 </div>
                             </div>
                         ))}
-                    </div>
+                    </motion.div>
                 )}
             </div>
         </div>

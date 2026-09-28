@@ -1,9 +1,8 @@
-import React from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, LayoutGrid, CalendarCheck, User, ShoppingBag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCart } from '../../context/CartContext';
-import { usePageTransition } from '../../context/PageTransitionContext';
 import { motion } from 'framer-motion';
 
 const isRouteActive = (itemPath, currentPath) => {
@@ -26,20 +25,40 @@ const BottomNav = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { groceryCartCount } = useCart();
-    const { triggerIconFillTransition } = usePageTransition() || {};
+    const pendingNavigation = useRef(0);
 
     const mainNavItems = [
         { label: 'Home', icon: Home, path: '/' },
         { label: 'Orders', icon: CalendarCheck, path: '/orders' },
         { label: 'Cart', icon: ShoppingBag, path: '/cart', isMiddle: true },
         { label: 'Categories', icon: LayoutGrid, path: '/categories' },
+        { label: 'Account', icon: User, path: '/profile' },
     ];
 
-    const handleNavClick = (e, item) => {
+    const handleNavClick = async (e, item) => {
         e.preventDefault();
-        if (location.pathname !== item.path) {
-            navigate(item.path);
+        if (location.pathname === item.path) return;
+
+        const navigationId = ++pendingNavigation.current;
+        const currentIndex = mainNavItems.findIndex((navItem) => isRouteActive(navItem.path, location.pathname));
+        const targetIndex = mainNavItems.findIndex((navItem) => navItem.path === item.path);
+        const tabDirection = targetIndex < currentIndex ? -1 : 1;
+
+        // Keep the current screen visible until the destination chunk is ready.
+        // This lets the full-page slide show the actual page instead of a route skeleton.
+        const pageImports = {
+            '/': () => import('../../pages/Home'),
+            '/orders': () => import('../../pages/OrdersPage'),
+            '/cart': () => import('../../pages/CartPage'),
+            '/profile': () => import('../../pages/ProfilePage'),
+        };
+        try {
+            await pageImports[item.path]?.();
+        } catch {
+            // Let the route's own error boundary handle a failed import.
         }
+        if (navigationId !== pendingNavigation.current) return;
+        navigate(item.path, { state: { pageTransition: 'tab', tabDirection } });
     };
 
     return (
@@ -47,8 +66,8 @@ const BottomNav = () => {
             className="fixed left-3 right-3 max-w-sm mx-auto z-[500] flex items-center justify-center md:hidden pointer-events-auto transition-all duration-300"
             style={{ bottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}
         >
-            {/* Glassmorphism Floating Pill Bar for Main Navigation (4 Items) */}
-            <div className="w-full bg-white/40 backdrop-blur-2xl backdrop-saturate-180 border border-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-full px-2 py-1.5 ring-1 ring-white/30 flex items-center justify-around">
+            {/* Translucent white glass navigation */}
+            <div className="w-full bg-white/50 backdrop-blur-2xl backdrop-saturate-150 border border-white/75 shadow-[0_8px_32px_rgba(15,23,42,0.14)] rounded-full px-1.5 py-1.5 ring-1 ring-white/40 flex items-center justify-between">
                 {mainNavItems.map((item) => {
                     const isActive = isRouteActive(item.path, location.pathname);
 
@@ -58,7 +77,7 @@ const BottomNav = () => {
                                 key={item.path}
                                 type="button"
                                 onClick={(e) => handleNavClick(e, item)}
-                                className="flex flex-col items-center justify-center flex-1 min-w-[50px] relative -mt-5 cursor-pointer focus:outline-none"
+                                className="flex flex-col items-center justify-center flex-1 min-w-0 relative -mt-5 cursor-pointer focus:outline-none"
                             >
                                 <motion.div
                                     whileTap={{ scale: 0.92 }}
@@ -92,10 +111,10 @@ const BottomNav = () => {
                             type="button"
                             onClick={(e) => handleNavClick(e, item)}
                             className={cn(
-                                "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-2xl transition-all duration-150 flex-1 min-w-[44px] cursor-pointer active:scale-95 focus:outline-none",
+                                "flex flex-col items-center justify-center gap-0.5 px-1 py-1 rounded-2xl border transition-all duration-150 flex-1 min-w-0 cursor-pointer active:scale-95 focus:outline-none",
                                 isActive
-                                    ? "bg-slate-900 text-white shadow-md shadow-slate-900/20 font-extrabold"
-                                    : "text-slate-700 font-semibold md:hover:text-slate-900 md:hover:bg-slate-100/50"
+                                    ? "bg-white/75 border-white/90 text-slate-900 shadow-sm font-extrabold"
+                                    : "bg-transparent border-transparent text-slate-700 font-semibold md:hover:bg-white/50"
                             )}
                         >
                             <motion.div
@@ -106,12 +125,12 @@ const BottomNav = () => {
                                 <item.icon
                                     size={18}
                                     strokeWidth={isActive ? 2.5 : 2}
-                                    className={cn("transition-colors shrink-0", isActive ? "text-orange-400" : "text-slate-700")}
+                                    className={cn("transition-colors shrink-0", isActive ? "text-orange-600" : "text-slate-700")}
                                 />
                             </motion.div>
                             <span className={cn(
                                 "text-[9.5px] whitespace-nowrap leading-none tracking-tight",
-                                isActive ? "text-white font-black" : "text-slate-800 font-semibold"
+                                isActive ? "text-slate-900 font-black" : "text-slate-800 font-semibold"
                             )}>
                                 {item.label}
                             </span>

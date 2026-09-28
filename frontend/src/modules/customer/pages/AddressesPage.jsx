@@ -306,9 +306,13 @@ const AddressesPage = () => {
                 {/* Address List */}
                 <div className="space-y-4">
                     {loading ? (
-                        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm text-center">
-                            <p className="text-slate-500 font-medium">Loading addresses...</p>
-                        </div>
+                        [0, 1, 2].map((index) => (
+                            <div key={index} role="status" aria-label="Loading addresses" className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm animate-pulse space-y-3">
+                                <div className="h-5 w-32 rounded bg-slate-200" />
+                                <div className="h-4 w-4/5 rounded bg-slate-200" />
+                                <div className="h-4 w-2/3 rounded bg-slate-200" />
+                            </div>
+                        ))
                     ) : addresses.length === 0 ? (
                         <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm text-center">
                             <div className="w-12 h-12 rounded-full bg-orange-50/80 border border-orange-100 flex items-center justify-center text-orange-600 mx-auto mb-3">

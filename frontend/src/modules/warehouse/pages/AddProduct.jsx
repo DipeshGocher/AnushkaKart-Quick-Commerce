@@ -126,14 +126,6 @@ const AddProduct = () => {
       { icon: "", label: "" },
     ],
     conditionType: "new",
-    refurbishedDetails: {
-      grade: "Grade A (Superb)",
-      batteryHealth: 90,
-      warrantyMonths: 6,
-      imeiNumber: "",
-      qcPassed: true,
-      boxItems: ["Charger", "Original Box"],
-    },
     variants: [
       {
         id: Date.now(),
@@ -281,9 +273,6 @@ const AddProduct = () => {
       data.append("highlights", JSON.stringify(cleanedHighlights));
 
       data.append("conditionType", formData.conditionType || "new");
-      if (formData.conditionType === "refurbished") {
-        data.append("refurbishedDetails", JSON.stringify(formData.refurbishedDetails || {}));
-      }
 
       const response = await warehouseApi.createProduct(data);
       const approvalStatus = response?.data?.result?.approvalStatus;
@@ -362,7 +351,6 @@ const AddProduct = () => {
             { id: "variants", label: "Item Variants", icon: HiOutlineSwatch },
             { id: "category", label: "Groups", icon: HiOutlineFolderOpen },
             { id: "highlights", label: "Highlights", icon: HiOutlineSparkles },
-            { id: "refurbished", label: "Refurbished Specs", icon: HiOutlineCube },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -931,124 +919,6 @@ const AddProduct = () => {
                   );
                 })}
               </div>
-            </div>
-          )}
-
-          {modalTab === "refurbished" && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
-              <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/5 p-4 rounded-2xl border border-orange-200/80">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-black text-slate-900">Refurbished / Second-Hand Mobile Details</h3>
-                    <p className="text-xs text-slate-500 font-medium">Specify device condition grade, battery health, warranty and box contents</p>
-                  </div>
-                  <div className="bg-orange-500 text-white px-4 py-1.5 rounded-xl text-xs font-black shadow-xs flex items-center gap-1">
-                    <span>✓</span> Refurbished Auto-Selected
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Device Grade</label>
-                    <select
-                      value={formData.refurbishedDetails?.grade || 'Grade A (Superb)'}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        conditionType: 'refurbished',
-                        refurbishedDetails: { ...(formData.refurbishedDetails || {}), grade: e.target.value }
-                      })}
-                      className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-xs font-bold outline-none"
-                    >
-                      <option value="Grade A (Superb)">Grade A (Superb) - Scratchless, pristine like-new condition</option>
-                      <option value="Grade B (Good)">Grade B (Good) - Minor cosmetic scuffs, 100% functional</option>
-                      <option value="Grade C (Fair)">Grade C (Fair) - Visible scratches, fully tested & working</option>
-                    </select>
-                  </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Battery Health (%)</label>
-                      <input
-                        type="number"
-                        min="50"
-                        max="100"
-                        value={formData.refurbishedDetails?.batteryHealth ?? 90}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          refurbishedDetails: { ...(formData.refurbishedDetails || {}), batteryHealth: Number(e.target.value) }
-                        })}
-                        className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-xs font-bold outline-none"
-                        placeholder="e.g. 92"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Seller Warranty (Months)</label>
-                      <select
-                        value={formData.refurbishedDetails?.warrantyMonths ?? 6}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          refurbishedDetails: { ...(formData.refurbishedDetails || {}), warrantyMonths: Number(e.target.value) }
-                        })}
-                        className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-xs font-bold outline-none"
-                      >
-                        <option value={0}>No Warranty</option>
-                        <option value={3}>3 Months Warranty</option>
-                        <option value={6}>6 Months Warranty</option>
-                        <option value={12}>12 Months Warranty</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">IMEI / Serial Number (Optional)</label>
-                      <input
-                        type="text"
-                        value={formData.refurbishedDetails?.imeiNumber || ''}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          refurbishedDetails: { ...(formData.refurbishedDetails || {}), imeiNumber: e.target.value }
-                        })}
-                        className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-xs font-bold outline-none"
-                        placeholder="15-digit IMEI or Serial number"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Box items */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Box Contents (Included Items)</label>
-                    <div className="flex flex-wrap gap-2">
-                      {['Charger', 'Original Box', 'USB Cable', 'Bill / Invoice', 'Earphones', 'SIM Ejector Tool'].map((boxItem) => {
-                        const currentBoxItems = formData.refurbishedDetails?.boxItems || [];
-                        const isChecked = currentBoxItems.includes(boxItem);
-                        return (
-                          <button
-                            key={boxItem}
-                            type="button"
-                            onClick={() => {
-                              const updated = isChecked
-                                ? currentBoxItems.filter((i) => i !== boxItem)
-                                : [...currentBoxItems, boxItem];
-                              setFormData({
-                                ...formData,
-                                refurbishedDetails: { ...(formData.refurbishedDetails || {}), boxItems: updated }
-                              });
-                            }}
-                            className={cn(
-                              "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all",
-                              isChecked
-                                ? "bg-orange-500 border-orange-600 text-white shadow-xs"
-                                : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                            )}
-                          >
-                            {isChecked ? '✓ ' : '+ '}{boxItem}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
             </div>
           )}
         </div>

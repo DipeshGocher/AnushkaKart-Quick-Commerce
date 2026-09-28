@@ -7,7 +7,7 @@ import { SupportUnreadProvider } from '@core/context/SupportUnreadContext';
 import { LanguageProvider } from '@core/context/LanguageContext';
 import SeoHead from '@core/components/SeoHead';
 import { ToastProvider } from './shared/components/ui/Toast';
-import Loader from './shared/components/ui/Loader';
+import PageSkeleton from './shared/components/PageSkeleton';
 import ErrorBoundary from './shared/components/ErrorBoundary';
 import LenisScroll from './shared/components/LenisScroll';
 
@@ -43,7 +43,7 @@ function App() {
                     <SettingsProvider>
                         <SeoHead />
                         <ToastProvider>
-                            <Suspense fallback={<Loader fullScreen />}>
+                            <Suspense fallback={<PageSkeleton />}>
                                 <SupportUnreadProvider>
                                     <LenisScroll />
                                     <AppRouter />

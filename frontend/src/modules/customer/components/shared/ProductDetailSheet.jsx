@@ -956,7 +956,7 @@ const ProductDetailSheet = () => {
                                             className="flex justify-center -mt-1"
                                         >
                                             <Link
-                                                to={isRefurbishedProduct ? "/marketplace/cart" : "/cart"}
+                                                to="/cart"
                                                 onClick={closeProduct}
                                                 className={cn(
                                                     "w-[80%] text-white h-[40px] rounded-xl flex items-center justify-between px-4 shadow-md transition-all active:scale-[0.98]",
@@ -1605,7 +1605,7 @@ const ProductDetailSheet = () => {
                             <div className="flex items-center gap-3.5">
                                 {/* Left Side: Cart Icon with Badge */}
                                 <Link
-                                    to={isRefurbishedProduct ? "/marketplace/cart" : "/cart"}
+                                    to="/cart"
                                     onClick={closeProduct}
                                     className="relative w-14 h-14 bg-[#EEF2FF] border border-[#C7D2FE] rounded-2xl shadow-xs flex items-center justify-center text-[#1E3A8A] hover:bg-[#E0E7FF] active:scale-95 transition-all shrink-0"
                                     title="View Cart"

@@ -1,24 +1,16 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
-import Lottie from "lottie-react";
 import LocationDrawer from "./LocationDrawer";
 import { useLocation } from "../../context/LocationContext";
 import { useProductDetail } from "../../context/ProductDetailContext";
 import { useSettings } from "@core/context/SettingsContext";
 import { cn } from "@/lib/utils";
 import { useCart } from "../../context/CartContext";
-import { useWishlist } from "../../context/WishlistContext";
 import { customerApi } from "../../services/customerApi";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
-import {
-  buildHeaderGradient,
-  buildMiniCartColor,
-  buildSearchBarBackgroundColor,
-  shiftHex,
-} from "../../utils/headerTheme";
+import { buildMiniCartColor, getCustomerHeaderColor } from "../../utils/headerTheme";
 import { CloudRain, Sun, Snowflake, Cloud, CloudLightning, Wind } from 'lucide-react';
-import FlipkartHeaderSectionSwitcher from "./FlipkartHeaderSectionSwitcher";
 
 const WeatherIconMap = {
     CloudRain,
@@ -32,90 +24,42 @@ const WeatherIconMap = {
 
 // MUI Icons
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import LocationOnIcon from "@mui/icons-material/LocationOn";
 import SearchIcon from "@mui/icons-material/Search";
 import MicIcon from "@mui/icons-material/Mic";
 import ChevronDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import FavoriteBorderOutlinedIcon from "@mui/icons-material/FavoriteBorderOutlined";
 import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
 import AccountCircleOutlinedIcon from "@mui/icons-material/AccountCircleOutlined";
-import PersonOutlineOutlinedIcon from "@mui/icons-material/PersonOutlineOutlined";
 import NotificationsNoneOutlinedIcon from "@mui/icons-material/NotificationsNoneOutlined";
-import LanguageIcon from "@mui/icons-material/Language";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { useTranslation } from "@core/context/LanguageContext";
 
-/** Full-width bottom stroke + tab curve; l/r are 0–100% of column where the inner bump sits. */
-function buildActiveTabPath(l, r) {
-  const y = 20;
-  const mapX = (x) => l + ((x - 1.5) / (98.5 - 1.5)) * (r - l);
-  // Softer shoulders + flatter crown for a cleaner active tab curve.
-  return `M 0 ${y} L ${l} ${y} L ${l} 12 C ${mapX(2.6)} 7 ${mapX(8.2)} 1.55 ${mapX(15)} 1.55 L ${mapX(85)} 1.55 C ${mapX(91.8)} 1.55 ${mapX(97.4)} 7 ${mapX(98.5)} 12 V ${y} L 100 ${y}`;
-}
-
 function CategoryNavColumn({
   cat,
   isActive,
-  categoryAccent,
   onCategorySelect,
-  headerFontColor,
-  headerIconColor,
 }) {
-  const iconColor = headerIconColor || "#111111";
-  const colRef = useRef(null);
-  const labelRef = useRef(null);
-  const [lr, setLr] = useState({ l: 22, r: 78 });
-
-  const measure = () => {
-    if (!isActive || !colRef.current || !labelRef.current) return;
-    const col = colRef.current.getBoundingClientRect();
-    const lab = labelRef.current.getBoundingClientRect();
-    if (col.width < 4) return;
-    const pad = 5;
-    const l = Math.max(0, ((lab.left - col.left - pad) / col.width) * 100);
-    const r = Math.min(100, ((lab.right - col.left + pad) / col.width) * 100);
-    if (r - l > 6) setLr({ l, r });
-  };
-
-  useLayoutEffect(() => {
-    measure();
-    const ro = new ResizeObserver(measure);
-    if (colRef.current) ro.observe(colRef.current);
-    window.addEventListener("resize", measure);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", measure);
-    };
-  }, [isActive, cat.name]);
-
-  const pathD = isActive ? buildActiveTabPath(lr.l, lr.r) : "";
-
   return (
     <motion.div
-      ref={colRef}
       layout
       whileTap={{ scale: 0.96 }}
       transition={{
         layout: { type: "spring", stiffness: 520, damping: 38, mass: 0.55 },
       }}
       onClick={() => onCategorySelect && onCategorySelect(cat)}
-      className="relative z-[2] flex min-w-[48px] shrink-0 cursor-pointer flex-col items-center gap-0.5 px-2 pb-0.5 pt-0.5 snap-start md:min-w-[58px]">
+      className="relative z-[2] flex min-w-[54px] shrink-0 cursor-pointer flex-col items-center gap-1 px-2 pb-2 pt-0.5 snap-start md:min-w-[64px]">
       <div 
         className={cn(
-          "relative z-10 flex items-center justify-center rounded-full transition-all duration-300",
-          isActive ? "h-12 w-12 md:h-14 md:w-14 shadow-sm" : "h-11 w-11 md:h-12 md:w-12 opacity-90"
+          "relative z-10 flex h-11 w-11 items-center justify-center transition-all duration-300 md:h-12 md:w-12",
+          isActive ? "scale-105 opacity-100" : "opacity-90"
         )}
-        style={{
-          backgroundColor: `${iconColor}15`,
-        }}
       >
         {typeof cat.icon === "function" ||
           (typeof cat.icon === "object" && cat.icon.$$typeof) ? (
           <cat.icon
             sx={{
               fontSize: isActive ? { xs: 24, md: 28 } : { xs: 20, md: 24 },
-              color: iconColor,
+              color: "#ffffff",
               transition: "color 0.2s, font-size 0.2s",
             }}
           />
@@ -124,7 +68,7 @@ function CategoryNavColumn({
             className="transition-all duration-300 drop-shadow-sm" 
             style={{ 
               fontSize: isActive ? '26px' : '22px', 
-              filter: isActive ? 'none' : 'grayscale(15%) opacity(90%)' 
+              filter: isActive ? 'drop-shadow(0 2px 5px rgba(12, 35, 82, 0.28))' : 'none'
             }}
           >
             {cat.icon}
@@ -134,25 +78,24 @@ function CategoryNavColumn({
             src={applyCloudinaryTransform(cat.icon, "f_auto,q_auto,w_100")}
             alt={cat.name}
             loading="lazy"
-            className="h-6 w-6 md:h-7 md:w-7 object-contain drop-shadow-sm transition-all duration-300"
-            style={{ filter: isActive ? 'none' : 'brightness(0.95)' }}
+            className="h-9 w-9 md:h-10 md:w-10 object-contain drop-shadow-[0_3px_7px_rgba(14,43,93,0.32)] transition-all duration-300"
           />
         )}
       </div>
-      <div className="relative mt-px w-full">
+      <div className="relative w-full">
         <span
-          ref={labelRef}
           className={cn(
-            "relative z-10 mx-auto block max-w-[72px] truncate px-1 pb-0.5 text-center text-[8px] uppercase tracking-tight md:max-w-[88px] md:text-[10px]",
+            "relative z-10 mx-auto block max-w-[72px] truncate px-1 pb-0.5 text-center text-[9px] uppercase tracking-tight md:max-w-[88px] md:text-[10px]",
             isActive ? "font-black" : "font-semibold",
           )}
           style={{
-            color: isActive ? iconColor : (headerFontColor || "#111111"),
-            opacity: isActive ? 1 : 0.68,
+            color: "#ffffff",
+            opacity: isActive ? 1 : 0.84,
           }}>
           {cat.name}
         </span>
       </div>
+      {isActive && <span className="absolute bottom-0 left-4 right-4 h-[3px] rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.9)]" />}
 
     </motion.div>
   );
@@ -184,20 +127,11 @@ const MainLocationHeader = ({
 
   const isMobileView = typeof window !== "undefined" && window.innerWidth < 768;
   const [isLocationOpen, setIsLocationOpen] = useState(false);
-  const [cartAnimData, setCartAnimData] = useState(null);
-
-  // Dynamically load shopping-cart Lottie on mount
-  useEffect(() => {
-    import("../../../../assets/lottie/shopping-cart.json")
-      .then((m) => setCartAnimData(m.default))
-      .catch(() => { });
-  }, []);
   const { currentLocation, refreshLocation, isFetchingLocation } =
     useLocation();
   const { isOpen: isProductDetailOpen } = useProductDetail();
   const { settings } = useSettings();
   const { cartCount } = useCart();
-  const { count: wishlistCount } = useWishlist();
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
   useEffect(() => {
@@ -356,14 +290,15 @@ const MainLocationHeader = ({
 
   // Content animations
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const mobileTopHeight = useTransform(scrollY, [0, 80], ["96px", "0px"]);
-  const mobileTopOpacity = useTransform(scrollY, [0, 80], [1, 0]);
+  const mobileTopHeight = useTransform(scrollY, [0, 22, 108], ["96px", "96px", "0px"]);
+  const mobileTopOpacity = useTransform(scrollY, [0, 30, 95], [1, 1, 0]);
 
   const contentHeight = useTransform(scrollY, [0, 160], ["64px", "64px"]);
   const contentOpacity = useTransform(scrollY, [0, 160], [1, 1]);
-  const navHeight = useTransform(scrollY, [0, 200], ["80px", "80px"]);
-  const navOpacity = useTransform(scrollY, [0, 200], [1, 1]);
-  const navMargin = useTransform(scrollY, [0, 200], [8, 8]);
+  const mobileNavHeight = useTransform(scrollY, [0, 22, 108], ["80px", "80px", "0px"]);
+  const mobileNavOpacity = useTransform(scrollY, [0, 35, 92], [1, 1, 0]);
+  const mobileNavMargin = useTransform(scrollY, [0, 22, 108], [8, 8, 0]);
+  const mobileNavPointerEvents = useTransform(scrollY, (value) => value >= 92 ? 'none' : 'auto');
   const categorySpacing = useTransform(scrollY, [0, 200], [3, 3]);
   const cartOpacity = useTransform(scrollY, [0, 110, 150], [1, 1, 1]);
   const cartScale = useTransform(scrollY, [0, 110, 150], [1, 1, 1]);
@@ -373,13 +308,7 @@ const MainLocationHeader = ({
   const displayNav = useTransform(scrollY, (value) => "flex");
   const displayCart = useTransform(scrollY, (value) => "block");
 
-  const baseHeaderColor = activeCategory?.headerColor || "var(--primary)";
-  const headerFontColor = "#111827";
-  const headerIconColor = "#111111";
-
-  const headerGradient = buildHeaderGradient(baseHeaderColor);
-  const searchBarBg = buildSearchBarBackgroundColor(baseHeaderColor);
-  const categoryAccent = headerIconColor;
+  const baseHeaderColor = getCustomerHeaderColor(activeCategory, categories);
 
   useEffect(() => {
     const c = buildMiniCartColor(baseHeaderColor);
@@ -399,22 +328,29 @@ const MainLocationHeader = ({
       <div className="fixed top-0 left-0 right-0 z-[200]">
         <motion.div
           initial={false}
+          animate={{ backgroundColor: baseHeaderColor }}
+          transition={{ backgroundColor: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }}
           style={{
             paddingTop: headerTopPadding,
             paddingBottom: headerBottomPadding,
             borderBottomLeftRadius: headerRoundness,
             borderBottomRightRadius: headerRoundness,
             opacity: bgOpacity,
-            background: "linear-gradient(180deg, rgba(255, 87, 34, 0.90) 0%, rgba(255, 112, 67, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%)",
           }}
-          className="px-4 overflow-visible transform-gpu will-change-transform border-b border-orange-200/50 shadow-sm backdrop-blur-xl backdrop-saturate-180">
-          {/* Subtle Glow Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-orange-500/10 via-transparent to-transparent pointer-events-none" />
-
-          {/* Flipkart Section Switcher inside header background */}
-          <FlipkartHeaderSectionSwitcher />
-
-
+          className="px-4 overflow-visible transform-gpu will-change-transform border-b border-white/40 shadow-[0_14px_34px_rgba(23,39,78,0.26)] backdrop-blur-xl backdrop-saturate-150">
+          <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 12% -18%, rgba(255,255,255,0.42), transparent 45%), radial-gradient(ellipse at 94% 8%, rgba(255,224,174,0.18), transparent 32%), linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.03) 36%, rgba(8,17,50,0.26) 100%)' }} />
+          <div className="absolute inset-x-0 top-0 h-px bg-white/65 pointer-events-none" />
+          <svg aria-hidden="true" viewBox="0 0 430 280" preserveAspectRatio="none" className="absolute inset-0 h-full w-full pointer-events-none" style={{ opacity: 0.3 }}>
+            <g fill="none" stroke="white" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M-28 43 C55 8 92 63 163 34 S298 6 461 59" strokeWidth="1.65" />
+              <path d="M-20 84 C53 45 128 105 207 69 S352 55 450 103" strokeWidth="1.25" />
+              <path d="M-18 191 C79 161 120 205 207 176 S343 150 455 183" strokeWidth="1.55" />
+              <path d="M36 239 C103 221 177 259 252 225 S365 208 454 229" strokeWidth="1.2" />
+              <path d="M-12 159 C70 143 125 173 204 143 S335 125 451 150" strokeWidth="0.95" opacity="0.75" />
+              <path d="M266 12 C307 25 310 47 352 48 M80 126 C116 115 141 123 165 137" strokeWidth="2.6" opacity="0.65" />
+            </g>
+          </svg>
+          <div className="absolute inset-x-0 bottom-0 h-px bg-white/50 pointer-events-none" />
 
           {/* Desktop/Tablet Header Layout (md and above) */}
           <div className="hidden md:flex items-center justify-between relative z-20 px-2 lg:px-6 mb-8 mt-1">
@@ -435,17 +371,16 @@ const MainLocationHeader = ({
 
               {/* Weather Widget (Desktop) */}
               {weatherEnabled && (
-                <div className="flex items-center gap-1.5 bg-white shadow-xs border border-slate-200/80 px-3 py-1.5 rounded-full text-slate-900 font-bold text-sm">
-                    {ActiveWeatherIcon && <ActiveWeatherIcon size={16} className="text-slate-900 fill-none stroke-current" />}
-                    <span className="text-slate-900 font-extrabold">{settings?.weather?.condition || 'Rain'}</span>
+                <div className="flex items-center gap-1.5 rounded-xl border border-white/35 bg-black/20 px-3 py-2 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-xl">
+                    {ActiveWeatherIcon && <ActiveWeatherIcon size={16} className="text-white" />}
+                    <span className="text-sm font-extrabold text-white">{settings?.weather?.condition || 'Rain'}</span>
                 </div>
               )}
 
-              {/* Location Block (Desktop inline row, soft medium font like Blinkit) */}
-              <div className="flex flex-col pl-3 lg:pl-6 h-10 justify-center">
-                <div className="flex items-center gap-1 opacity-80">
-                  <AccessTimeIcon sx={{ fontSize: 13, color: "#475569" }} />
-                  <span className="text-[10px] font-bold uppercase tracking-wider leading-none text-slate-700">
+              <div className="flex flex-col justify-center rounded-xl border border-white/35 bg-black/20 px-4 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-xl">
+                <div className="flex items-center gap-1 opacity-90">
+                  <AccessTimeIcon sx={{ fontSize: 13, color: "#ffffff" }} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider leading-none text-white">
                     {currentLocation.time}
                   </span>
                 </div>
@@ -456,14 +391,14 @@ const MainLocationHeader = ({
                   onClick={() => {
                     setIsLocationOpen(true);
                   }}
-                  className="flex items-center gap-1 text-slate-700 hover:text-slate-900 cursor-pointer group active:scale-95 transition-all border-0 bg-transparent p-0 text-left">
-                  <div className="text-[13px] lg:text-[14px] font-medium leading-tight max-w-[260px] lg:max-w-[340px] truncate text-slate-700">
+                  className="flex items-center gap-1 text-white cursor-pointer group active:scale-95 transition-all border-0 bg-transparent p-0 text-left">
+                  <div className="text-[13px] lg:text-[14px] font-medium leading-tight max-w-[260px] lg:max-w-[340px] truncate text-white">
                     {isFetchingLocation
                       ? "Detecting location..."
                       : currentLocation.name}
                   </div>
                   <ChevronDownIcon
-                    sx={{ fontSize: 16, color: "#475569" }}
+                    sx={{ fontSize: 16, color: "#ffffff" }}
                   />
                 </button>
               </div>
@@ -489,17 +424,17 @@ const MainLocationHeader = ({
               </motion.div>
             </div>
 
-            {/* Right Section: Action Icons (White background circles + Black icons) */}
+            {/* Right Section: clean icons over the glossy header */}
             <div className="flex items-center gap-3.5 lg:gap-5 shrink-0">
               {/* Cart Button */}
               <motion.button
                 whileHover={{ scale: 1.08, rotate: 5 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => navigate("/cart")}
-                className="w-10 h-10 rounded-full bg-white shadow-xs border border-slate-200/80 flex items-center justify-center relative cursor-pointer active:scale-95 transition-all text-slate-900 hover:bg-slate-50"
+                className="w-10 h-10 flex items-center justify-center relative cursor-pointer text-white drop-shadow-sm"
                 title="My Cart"
               >
-                <ShoppingCartOutlinedIcon sx={{ fontSize: 22, color: "#0f172a" }} />
+                <ShoppingCartOutlinedIcon sx={{ fontSize: 24, color: "#ffffff" }} />
                 {cartCount > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 bg-[#FF5722] text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:-translate-y-0.5 animate-in zoom-in duration-300">
                     {cartCount}
@@ -510,21 +445,11 @@ const MainLocationHeader = ({
               <motion.button
                 whileHover={{ scale: 1.08, rotate: 5 }}
                 whileTap={{ scale: 0.9 }}
-                onClick={() => navigate("/wishlist")}
-                className="w-10 h-10 rounded-full bg-white shadow-xs border border-slate-200/80 flex items-center justify-center relative cursor-pointer active:scale-95 transition-all text-slate-900 hover:bg-slate-50"
-                title="Wishlist"
-              >
-                <FavoriteBorderOutlinedIcon sx={{ fontSize: 22, color: "#0f172a" }} />
-              </motion.button>
-
-              <motion.button
-                whileHover={{ scale: 1.08, rotate: 5 }}
-                whileTap={{ scale: 0.9 }}
                 onClick={() => navigate("/notifications")}
-                className="w-10 h-10 rounded-full bg-white shadow-xs border border-slate-200/80 flex items-center justify-center relative cursor-pointer active:scale-95 transition-all text-slate-900 hover:bg-slate-50"
+                className="w-10 h-10 flex items-center justify-center relative cursor-pointer text-white drop-shadow-sm"
                 title="Notifications"
               >
-                <NotificationsNoneOutlinedIcon sx={{ fontSize: 22, color: "#0f172a" }} />
+                <NotificationsNoneOutlinedIcon sx={{ fontSize: 24, color: "#ffffff" }} />
                 {unreadNotificationsCount > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 bg-[#FF5722] text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:-translate-y-0.5 animate-in zoom-in duration-300">
                     {unreadNotificationsCount > 9 ? "9+" : unreadNotificationsCount}
@@ -536,10 +461,10 @@ const MainLocationHeader = ({
                 whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => navigate("/profile")}
-                className="w-10 h-10 rounded-full bg-white shadow-xs border border-slate-200/80 flex items-center justify-center cursor-pointer transition-all text-slate-900 hover:bg-slate-50"
+                className="w-10 h-10 flex items-center justify-center cursor-pointer text-white drop-shadow-sm"
                 title="Profile"
               >
-                <AccountCircleOutlinedIcon sx={{ fontSize: 24, color: "#0f172a" }} />
+                <AccountCircleOutlinedIcon sx={{ fontSize: 26, color: "#ffffff" }} />
               </motion.button>
             </div>
           </div>
@@ -564,51 +489,39 @@ const MainLocationHeader = ({
                   className="h-11 w-auto object-contain shrink-0"
                 />
                 {weatherEnabled && (
-                  <div className="flex items-center gap-1 bg-white shadow-xs border border-slate-200/80 px-2.5 py-1 rounded-full">
-                    {ActiveWeatherIcon && <ActiveWeatherIcon size={13} className="text-slate-900 fill-none stroke-current" />}
-                    <span className="text-[10px] font-extrabold text-slate-900 leading-none">{settings?.weather?.condition || 'Rain'}</span>
+                  <div className="flex items-center gap-1.5 rounded-xl border border-white/35 bg-black/20 px-2.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-xl">
+                    {ActiveWeatherIcon && <ActiveWeatherIcon size={13} className="text-white fill-none stroke-current" />}
+                    <span className="text-[10px] font-extrabold text-white leading-none">{settings?.weather?.condition || 'Rain'}</span>
                   </div>
                 )}
               </div>
 
-              {/* Right actions: Wishlist Button + Notification Bell Button (White circle background + Black icons) */}
-              <div className="flex items-center gap-2.5">
-                {/* Mobile Wishlist Button */}
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => navigate("/wishlist")}
-                  className="w-10 h-10 rounded-full bg-white shadow-xs border border-slate-200/80 flex items-center justify-center relative cursor-pointer active:scale-95 transition-all text-slate-900 hover:bg-slate-50"
-                  title="Wishlist"
+                  onClick={() => navigate("/notifications")}
+                  className="relative flex h-10 w-10 items-center justify-center text-white drop-shadow-sm active:scale-95 transition-transform"
+                  title="Notifications"
                 >
-                  <FavoriteBorderOutlinedIcon sx={{ fontSize: 22, color: "#0f172a" }} />
-                </button>
-
-                {/* Mobile Account / Profile Button */}
-                <button
-                  type="button"
-                  onClick={() => navigate("/profile")}
-                  className="w-10 h-10 rounded-full bg-white shadow-xs border border-slate-200/80 flex items-center justify-center relative cursor-pointer active:scale-95 transition-all text-slate-900 hover:bg-slate-50"
-                  title="Account"
-                >
-                  <PersonOutlineOutlinedIcon sx={{ fontSize: 22, color: "#0f172a" }} />
+                  <NotificationsNoneOutlinedIcon sx={{ fontSize: 26, color: "#ffffff" }} />
+                  {unreadNotificationsCount > 0 && <span className="absolute right-0 top-0 h-4 min-w-4 rounded-full bg-orange-500 px-0.5 text-center text-[9px] font-black leading-4 text-white">{unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}</span>}
                 </button>
               </div>
             </div>
 
-            {/* Middle row: Deliver to Address (Medium weight soft text, borderless like Blinkit image) */}
+            {/* Location bar over the glossy header */}
             <div className="flex justify-start pt-0.5">
               <button
                 type="button"
                 onClick={() => setIsLocationOpen(true)}
-                className="w-fit max-w-[95%] flex flex-col text-left bg-transparent border-0 p-0 cursor-pointer active:opacity-85 transition-all"
+                className="w-full flex items-center gap-2 rounded-xl border border-white/35 bg-black/20 px-3 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_5px_18px_rgba(5,28,101,0.16)] backdrop-blur-xl cursor-pointer active:scale-[0.99] transition-transform"
               >
-                <span className="text-[9.5px] font-bold text-slate-700 uppercase tracking-wider leading-none">Deliver to</span>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <span className="text-[12.5px] font-medium text-slate-700 truncate max-w-[260px] leading-tight">
+                <span className="text-[13px] font-black text-white drop-shadow-sm">⌂</span>
+                <span className="text-[10px] font-black text-white uppercase tracking-wide whitespace-nowrap">Deliver to</span>
+                <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-white/95">
                     {isFetchingLocation ? "Detecting location..." : currentLocation.name}
-                  </span>
-                  <ChevronDownIcon sx={{ color: "#475569", fontSize: 16 }} className="shrink-0" />
-                </div>
+                </span>
+                <ChevronDownIcon sx={{ color: "#ffffff", fontSize: 18 }} className="shrink-0" />
               </button>
             </div>
             </motion.div>
@@ -616,7 +529,7 @@ const MainLocationHeader = ({
             {/* Bottom row: Highly Visible White Search Bar */}
             <div
               onClick={handleSearchClick}
-              className="w-full bg-white border border-slate-200/90 rounded-2xl md:rounded-full px-4 h-11 flex items-center shadow-[0_4px_16px_rgba(0,0,0,0.06)] cursor-pointer hover:border-slate-300 transition-all"
+              className="w-full bg-white/95 border-2 border-white/90 rounded-2xl md:rounded-full px-4 h-12 flex items-center shadow-[0_8px_24px_rgba(18,50,113,0.2),inset_0_1px_0_rgba(255,255,255,0.9)] cursor-pointer hover:border-white transition-all"
             >
               <SearchIcon sx={{ color: "#0f172a", fontSize: 20 }} className="shrink-0" />
               <input
@@ -647,28 +560,26 @@ const MainLocationHeader = ({
             {/* Mobile wrapper */}
             <div className="md:hidden w-full">
               <motion.div
-                ref={mobileNavRef}
-                style={{ height: navHeight, opacity: navOpacity, marginTop: navMargin }}
-                className="relative z-10 flex items-end gap-1 overflow-x-auto overflow-y-visible px-2 pb-0 no-scrollbar"
+                style={{ height: mobileNavHeight, opacity: mobileNavOpacity, marginTop: mobileNavMargin, pointerEvents: mobileNavPointerEvents }}
+                className="relative z-10 overflow-hidden"
               >
-                {categories.map((cat) => (
-                  <CategoryNavColumn
-                    key={cat.id || cat._id}
-                    cat={cat}
-                    isActive={String(activeCategory?._id || activeCategory?.id || "") === String(cat._id || cat.id || "")}
-                    categoryAccent={categoryAccent}
-                    onCategorySelect={onCategorySelect}
-                    headerFontColor={headerFontColor}
-                    headerIconColor={headerIconColor}
-                  />
-                ))}
+                <div ref={mobileNavRef} className="flex h-20 items-end gap-1 overflow-x-auto overflow-y-hidden px-2 pb-0 no-scrollbar">
+                  {categories.map((cat) => (
+                    <CategoryNavColumn
+                      key={cat.id || cat._id}
+                      cat={cat}
+                      isActive={String(activeCategory?._id || activeCategory?.id || "") === String(cat._id || cat.id || "")}
+                      onCategorySelect={onCategorySelect}
+                    />
+                  ))}
+                </div>
               </motion.div>
             </div>
 
             {/* Desktop wrapper: full scrollable row */}
             <motion.div
               ref={navRef}
-              style={{ height: navHeight, opacity: navOpacity, marginTop: navMargin }}
+              style={{ height: "80px", opacity: 1, marginTop: 8 }}
               className="relative z-10 -mx-2 hidden md:flex items-end gap-4 overflow-x-auto overflow-y-visible px-4 pb-0 no-scrollbar"
             >
               {categories.map((cat) => (
@@ -676,10 +587,7 @@ const MainLocationHeader = ({
                   key={cat.id || cat._id}
                   cat={cat}
                   isActive={String(activeCategory?._id || activeCategory?.id || "") === String(cat._id || cat.id || "")}
-                  categoryAccent={categoryAccent}
                   onCategorySelect={onCategorySelect}
-                  headerFontColor={headerFontColor}
-                  headerIconColor={headerIconColor}
                 />
               ))}
             </motion.div>

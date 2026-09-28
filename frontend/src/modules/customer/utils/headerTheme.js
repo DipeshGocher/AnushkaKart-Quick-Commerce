@@ -73,3 +73,53 @@ export function buildMiniCartGradient(baseHeaderColor) {
   return `linear-gradient(135deg, ${top} 0%, ${mid} 48%, ${deep} 100%)`;
 }
 
+const HEADER_PALETTE = [
+  '#3478d3', '#21885d', '#cb7135', '#9d3e65', '#b53d91', '#7958bd',
+  '#bd8b26', '#c95f86', '#258c88', '#bf5c5a', '#967141', '#6f72ba',
+  '#ca774f', '#367fa7', '#9d4c83', '#718942', '#b46898', '#4a8eaa',
+];
+
+const getThemeColor = (category) => {
+  const label = `${category?.name || ''} ${category?.slug || ''}`.toLowerCase();
+  const themes = [
+    [/grocery|fresh|food|produce|fruit|vegetable/, '#21885d'],
+    [/decor|home|kitchen|household/, '#cb7135'],
+    [/agri|garden|plant/, '#718942'],
+    [/health|wellness|pharma|medical/, '#258c88'],
+    [/beauty|personal|cosmetic/, '#b53d91'],
+    [/fashion|apparel|cloth/, '#9d3e65'],
+    [/wedding/, '#c95f86'],
+    [/electronic|mobile|tech|device/, '#7958bd'],
+    [/kid|baby|toy/, '#8656bd'],
+    [/pet|animal/, '#bd8b26'],
+    [/sport|fitness/, '#367fa7'],
+  ];
+  return themes.find(([pattern]) => pattern.test(label))?.[1];
+};
+
+const categoryKey = (category) => String(category?._id || category?.id || category?.slug || category?.name || 'all');
+const isAllCategory = (category) => !category || String(category.name || category.slug || '').toLowerCase() === 'all';
+
+/** Curated medium-tone colors keep every visible category distinct. */
+export function getCustomerHeaderColor(category, categories = []) {
+  if (isAllCategory(category)) return '#3478d3';
+
+  const visibleCategories = categories.length ? categories : [category];
+  const usedColors = new Set();
+  for (let index = 0; index < visibleCategories.length; index += 1) {
+    const item = visibleCategories[index];
+    let color = isAllCategory(item)
+      ? '#3478d3'
+      : getThemeColor(item) || HEADER_PALETTE[index % HEADER_PALETTE.length];
+
+    if (usedColors.has(color.toLowerCase())) {
+      color = HEADER_PALETTE.find((candidate) => !usedColors.has(candidate)) ||
+        `hsl(${Math.round((index * 137.508) % 360)} 58% 44%)`;
+    }
+    usedColors.add(color.toLowerCase());
+    if (categoryKey(item) === categoryKey(category)) return color;
+  }
+
+  return getThemeColor(category) || HEADER_PALETTE[1];
+}
+

@@ -52,8 +52,14 @@ const OrderTransactionsPage = () => {
                     </div>
 
                     {loading ? (
-                        <div className="py-10 flex items-center justify-center text-xs text-slate-400 font-semibold">
-                            Loading transactions...
+                        <div className="divide-y divide-slate-100" role="status" aria-label="Loading transactions">
+                            {[0, 1, 2, 3].map((index) => (
+                                <div key={index} className="px-4 py-4 flex items-center gap-3.5 animate-pulse">
+                                    <div className="w-11 h-11 rounded-full bg-slate-200" />
+                                    <div className="flex-1 space-y-2"><div className="h-4 w-32 rounded bg-slate-200" /><div className="h-3 w-48 rounded bg-slate-200" /></div>
+                                    <div className="h-4 w-16 rounded bg-slate-200" />
+                                </div>
+                            ))}
                         </div>
                     ) : orders.length === 0 ? (
                         <div className="py-10 flex flex-col items-center justify-center text-center px-6">

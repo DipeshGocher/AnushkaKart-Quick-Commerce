@@ -592,12 +592,6 @@ const ProductManagement = () => {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={() => navigate("/seller/products/add-refurbished")}
-            className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-600 text-white font-bold px-4 py-2 rounded-xl hover:brightness-110 shadow-md transition-all">
-            <HiOutlineSparkles className="h-5 w-5 text-amber-200" />
-            + Add Refurbished / 2nd Hand Product
-          </button>
-          <button
             onClick={() => navigate("/seller/products/add")}
             className="flex items-center gap-2 bg-black text-primary-foreground px-4 py-2 rounded-xl hover:bg-slate-800 transition-colors">
             <HiOutlinePlus className="h-5 w-5" />
@@ -800,11 +794,6 @@ const ProductManagement = () => {
                           <p className="text-sm font-medium text-slate-900">
                             {p.name}
                           </p>
-                          {p.conditionType === 'refurbished' && (
-                            <span className="bg-gradient-to-r from-orange-500 to-amber-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-2xs">
-                              Refurbished {p.refurbishedDetails?.grade ? `(${p.refurbishedDetails.grade.split(' ')[0]})` : ''}
-                            </span>
-                          )}
                         </div>
                         {String(p.approvalStatus || "").toLowerCase() === "pending" ? (
                           <p className="text-[10px] font-medium text-amber-600">

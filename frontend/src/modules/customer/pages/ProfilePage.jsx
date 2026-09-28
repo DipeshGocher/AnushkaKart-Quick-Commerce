@@ -143,7 +143,7 @@ const ProfilePage = () => {
 
                 {/* Menu Sections */}
                 <div className="space-y-4">
-                    {/* Account Section - Cart and Wishlist removed */}
+                    {/* Account Section */}
                     <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm">
                         <div className="px-4 py-3 bg-slate-50/80 border-b border-slate-100">
                             <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{t('personalAccount')}</p>
@@ -180,6 +180,13 @@ const ProfilePage = () => {
                                 sub={t('manageLocations')}
                                 path="/addresses"
                                 badgeBg="bg-amber-50/90 border-amber-100 text-amber-600"
+                            />
+                            <MenuItem
+                                icon={Heart}
+                                label={t('wishlist')}
+                                sub={t('savedItems')}
+                                path="/wishlist"
+                                badgeBg="bg-rose-50/90 border-rose-100 text-rose-600"
                             />
                         </div>
                     </div>

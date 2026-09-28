@@ -11,12 +11,16 @@ import { useLocation as useAppLocation } from '../context/LocationContext';
 import LocationDrawer from '../components/shared/LocationDrawer';
 import EmptyCartAnimation from '../components/shared/EmptyCartAnimation';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import PageSkeleton from '@/shared/components/PageSkeleton';
+import { motion, useReducedMotion } from 'framer-motion';
 
 const CartPage = ({ asOverlay = false, onClose }) => {
   const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
   const { 
     groceryCart, 
     groceryCartTotal,
+    loading,
     removeFromCart,
     updateQuantity
   } = useCart();
@@ -91,8 +95,15 @@ const CartPage = ({ asOverlay = false, onClose }) => {
 
   const displayAddress = currentLocation?.address || currentLocation?.formattedAddress || currentLocation?.name || "Select delivery location";
 
+  if (loading && !asOverlay) return <PageSkeleton variant="rows" />;
+
   return (
-    <div className={`bg-[#f1f4f8] font-sans antialiased text-slate-900 ${asOverlay ? 'h-full overflow-y-auto relative pb-32' : 'min-h-screen pb-64 md:pb-32'}`}>
+    <motion.div
+      initial={asOverlay || reduceMotion ? false : { opacity: 0.94, top: 20 }}
+      animate={{ opacity: 1, top: 0 }}
+      transition={{ duration: reduceMotion ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
+      className={`relative bg-[#f1f4f8] font-sans antialiased text-slate-900 ${asOverlay ? 'h-full overflow-y-auto pb-32' : 'min-h-screen pb-64 md:pb-32'}`}
+    >
       <LocationDrawer isOpen={isLocationOpen} onClose={() => setIsLocationOpen(false)} />
 
       {/* Top Header */}
@@ -343,7 +354,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };
 

@@ -1,13 +1,15 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
-  Package, ChevronRight, CheckCircle2, Loader2, ChevronLeft, 
+  Package, ChevronRight, CheckCircle2, ChevronLeft,
   Search, SlidersHorizontal, ShoppingBag, 
   X, RotateCcw, AlertCircle, Clock
 } from 'lucide-react';
 import { customerApi } from '../services/customerApi';
 import { getOrderStatusLabel, getLegacyStatusFromOrder } from '@/shared/utils/orderStatus';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import PageSkeleton from '@/shared/components/PageSkeleton';
+import { motion, useReducedMotion } from 'framer-motion';
 
 const PROMO_BANNERS = [
   {
@@ -23,6 +25,7 @@ const PROMO_BANNERS = [
 
 const OrdersPage = () => {
   const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -72,18 +75,16 @@ const OrdersPage = () => {
   }, [orders, searchQuery]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white font-sans">
-        <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-white shadow-md border border-slate-100">
-          <Loader2 className="animate-spin text-orange-600" size={24} />
-          <span className="text-sm font-semibold text-slate-700">Loading your orders…</span>
-        </div>
-      </div>
-    );
+    return <PageSkeleton variant="rows" />;
   }
 
   return (
-    <div className="min-h-screen bg-[#f1f4f8] pb-24 font-sans antialiased text-slate-900">
+    <motion.div
+      initial={reduceMotion ? false : { opacity: 0.94, top: 20 }}
+      animate={{ opacity: 1, top: 0 }}
+      transition={{ duration: reduceMotion ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
+      className="relative min-h-screen bg-[#f1f4f8] pb-24 font-sans antialiased text-slate-900"
+    >
       {/* Top Header */}
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 py-3.5 border-b border-slate-200/80 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -297,7 +298,7 @@ const OrdersPage = () => {
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

@@ -265,21 +265,6 @@ const SidebarContent = ({ items, title, onClose, openMenu, handleToggle, hovered
         </p>
         <AnimatePresence>
           {items.map((item, idx) => {
-            if (item.isSectionHeader) {
-              return (
-                <div key={`header-${idx}`} className="pt-4 pb-1 px-1">
-                  <div className="h-px bg-white/10 w-full mb-2.5" />
-                  <div className="px-2 py-1 rounded-md bg-blue-950/40 border border-blue-500/20 flex items-center justify-between">
-                    <span className="text-[9px] font-black text-blue-300 uppercase tracking-widest">
-                      {item.label}
-                    </span>
-                    <span className="text-[8px] bg-blue-500/30 text-blue-200 px-1 py-0.2 rounded font-black">
-                      C2C
-                    </span>
-                  </div>
-                </div>
-              );
-            }
             return (
               <SidebarItem
                 key={idx}

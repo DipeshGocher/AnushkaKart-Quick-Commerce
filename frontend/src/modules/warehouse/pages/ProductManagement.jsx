@@ -594,12 +594,6 @@ const ProductManagement = () => {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={() => navigate("/warehouse/products/add-refurbished")}
-            className="flex items-center space-x-2 bg-gradient-to-r from-orange-500 to-amber-600 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-orange-500/20 hover:brightness-110 transition-all active:scale-95 cursor-pointer">
-            <HiOutlineSparkles className="h-4 w-4 text-amber-200" />
-            <span>+ ADD REFURBISHED / 2ND HAND</span>
-          </button>
-          <button
             onClick={() => navigate("/warehouse/products/add")}
             className="flex items-center space-x-2 bg-primary text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:bg-primary-600 transition-all active:scale-95 cursor-pointer">
             <HiOutlinePlus className="h-4 w-4" />
@@ -795,11 +789,6 @@ const ProductManagement = () => {
                           <p className="text-sm font-medium text-slate-900">
                             {p.name}
                           </p>
-                          {p.conditionType === 'refurbished' && (
-                            <span className="bg-gradient-to-r from-orange-500 to-amber-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-2xs">
-                              Refurbished {p.refurbishedDetails?.grade ? `(${p.refurbishedDetails.grade.split(' ')[0]})` : ''}
-                            </span>
-                          )}
                         </div>
                         {String(p.approvalStatus || "").toLowerCase() === "pending" ? (
                           <p className="text-[10px] font-medium text-amber-600">

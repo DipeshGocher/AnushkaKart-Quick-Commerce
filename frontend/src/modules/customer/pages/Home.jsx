@@ -14,7 +14,7 @@ import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import CardGiftcardIcon from "@mui/icons-material/CardGiftcard";
 import VerifiedIcon from "@mui/icons-material/Verified";
 
-import { motion, useScroll, useTransform } from "framer-motion";
+import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
 import { isMobileOrWebView } from "@/core/utils/deviceUtils";
 import { customerApi } from "../services/customerApi";
 import { toast } from "sonner";
@@ -46,6 +46,7 @@ import BestsellersSection from "../components/home/BestsellersSection";
 import MonthlyBasketSection from "../components/home/MonthlyBasketSection";
 import CategoryShowcase from "../components/home/CategoryShowcase";
 import FestivalDealsSection from "../components/home/FestivalDealsSection";
+import PageSkeleton from '@/shared/components/PageSkeleton';
 
 const DEFAULT_CATEGORY_THEME = {
   gradient: "linear-gradient(to bottom, var(--primary), var(--brand-400))",
@@ -146,7 +147,7 @@ const ALL_CATEGORY = {
   name: "All",
   icon: "🌟",
   theme: DEFAULT_CATEGORY_THEME,
-  headerColor: "#0e7490",
+  headerColor: "#3478d3",
   headerFontColor: "#111111",
   headerIconColor: "#111111",
   banner: {
@@ -392,7 +393,9 @@ const Home = () => {
           const catName = cat.name;
           const meta = CATEGORY_METADATA[catName] || CATEGORY_METADATA[catName.toUpperCase()] || { icon: "✨", theme: DEFAULT_CATEGORY_THEME, banner: { title: catName.toUpperCase(), subtitle: "TOP PICKS", floatingElements: "sparkles" } };
           const IconComp = (cat.iconId && ICON_COMPONENTS[cat.iconId]) || meta.icon || "✨";
-          return { ...cat, id: cat._id, icon: IconComp, theme: meta.theme, banner: { ...meta.banner, textColor: "text-white" } };
+          const uploadedImage = cat.image && !cat.image.includes('via.placeholder.com') ? cat.image : null;
+          const imageIcon = cat.iconImage || cat.iconUrl || (typeof cat.icon === 'string' && cat.icon.includes('/') ? cat.icon : null) || uploadedImage;
+          return { ...cat, id: cat._id, icon: imageIcon || IconComp, theme: meta.theme, banner: { ...meta.banner, textColor: "text-white" } };
         });
         nextHomeData.formattedHeaders = formattedHeaders;
         const allHeaderFromAdmin = formattedHeaders.find((h) => (h.slug?.toLowerCase() === "all") || (h.name?.toLowerCase() === "all"));
@@ -588,7 +591,11 @@ const Home = () => {
     <div className="min-h-screen pt-[254px] md:pt-[264px] bg-[#f1f4f8]">
       <MainLocationHeader categories={displayCategories} activeCategory={activeCategory} onCategorySelect={setActiveCategory} />
 
-      <>
+      {isLoading ? <PageSkeleton variant="home-content" /> : <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      >
         {(() => {
           const isAllCategory = !activeCategory || activeCategory._id === "all" || activeCategory.id === "all";
           const hasVideo = settings?.homeVideoBanner?.isVisible && settings.homeVideoBanner.videoUrl && isAllCategory;
@@ -627,8 +634,16 @@ const Home = () => {
             />
           </div>
         </div>
+        <AnimatePresence initial={false} mode="wait">
         {expandedCategoryId && (
-          <div className="px-4 mb-5 pb-10 relative z-50 animate-in slide-in-from-top-2 fade-in duration-300">
+          <motion.div
+            key={String(expandedCategoryId)}
+            initial={{ height: 0, opacity: 0, y: -16 }}
+            animate={{ height: 'auto', opacity: 1, y: 0 }}
+            exit={{ height: 0, opacity: 0, y: -16 }}
+            transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+            className="px-4 mb-5 pb-10 relative z-50 overflow-hidden"
+          >
             <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-100 shadow-sm">
               <div className="flex items-center justify-between mb-3 px-1">
                 <h4 className="text-sm font-bold text-slate-800">
@@ -704,8 +719,9 @@ const Home = () => {
                 );
               })()}
             </div>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
         
         <LowestPriceSection products={displayProducts} onSeeAll={() => navigate("/category/all")} />
         <MonthlyBasketSection />
@@ -729,7 +745,7 @@ const Home = () => {
             <SectionRenderer sections={sectionsForRenderer.filter(s => s.displayType !== "multiple_banners")} productsById={productsById} categoriesById={displayCategoryMap} subcategoriesById={displaySubcategoryMap} />
           </div>
         )}
-      </>
+      </motion.div>}
     </div>
   );
 };

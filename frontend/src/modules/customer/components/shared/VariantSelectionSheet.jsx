@@ -1,12 +1,10 @@
 import React, { useRef } from 'react';
 import { motion, AnimatePresence, useAnimation, useDragControls } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { X, Minus, Plus } from 'lucide-react';
-import Lottie from 'lottie-react';
+import { X, Minus, Plus, Package } from 'lucide-react';
 import { useVariantSelection } from '../../context/VariantSelectionContext';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '@core/context/AuthContext';
-import fruitBasketAnimation from '../../../../assets/FruitBasket.json';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 
 const VariantSelectionSheet = () => {
@@ -144,12 +142,12 @@ const VariantSelectionSheet = () => {
                         </button>
 
                         <div className="flex-1 overflow-y-auto" ref={scrollRef}>
-                            {/* Lottie Animation / Header */}
+                            {/* Product header */}
                             <div className={`w-full flex flex-col items-center justify-center pt-2 pb-6 px-4 ${
                                 isRefurbished ? 'bg-blue-50/70' : 'bg-orange-50/50'
                             }`}>
-                                <div className="w-40 h-40 md:w-48 md:h-48">
-                                    <Lottie animationData={fruitBasketAnimation} loop={true} />
+                                <div className="w-24 h-24 md:w-28 md:h-28 rounded-3xl bg-white/80 flex items-center justify-center shadow-sm">
+                                    <Package size={42} className="text-orange-500" strokeWidth={1.6} />
                                 </div>
                                 <h2 className="text-xl font-black text-slate-800 text-center mt-2">
                                     Select Variants
@@ -240,7 +238,7 @@ const VariantSelectionSheet = () => {
                                 onClick={() => {
                                     closeVariantSelection();
                                     if (totalSelectedVariants > 0) {
-                                        navigate(isRefurbished ? '/marketplace/cart' : '/checkout');
+                                        navigate('/checkout');
                                     }
                                 }}
                                 className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
