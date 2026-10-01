@@ -50,7 +50,7 @@ const CategoryShowcase = ({ categoryMap, subcategoryMap, activeHeaderId }) => {
                 onClick={() => handleSubcategoryClick(category._id, sub._id)}
                 className="flex flex-col items-center gap-1.5 cursor-pointer group"
               >
-                <div className="w-full aspect-[4/5] rounded-[14px] bg-[#FFF0E6] border border-orange-100/60 flex items-center justify-center p-2 transition-all relative overflow-hidden">
+                <div className="w-full aspect-[4/5] rounded-[14px] bg-[#EFF6FF] border border-orange-100/60 flex items-center justify-center p-2 transition-all relative overflow-hidden">
                   <img
                     src={applyCloudinaryTransform(sub.image || "https://cdn-icons-png.flaticon.com/128/2321/2321801.png")}
                     alt={sub.name}

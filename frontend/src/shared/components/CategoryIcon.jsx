@@ -1,16 +1,19 @@
 import React from 'react';
-import { getIconSvg } from '../constants/categoryIcons';
+import {
+  getFontAwesomeIconMarkup,
+  resolveFontAwesomeCategoryIcon,
+} from '../constants/fontAwesomeCategoryIcons';
 import { Image } from 'lucide-react';
 
 const CategoryIcon = ({ iconId, imageUrl, alt = 'Category', className = 'w-6 h-6', fallbackClassName = 'w-5 h-5' }) => {
-  // Priority: SVG icon > Image URL > Fallback
-  if (iconId && getIconSvg(iconId)) {
-    return (
-      <div 
-        className={className}
-        dangerouslySetInnerHTML={{ __html: getIconSvg(iconId) }}
-      />
-    );
+  const iconMarkup = getFontAwesomeIconMarkup(iconId);
+  if (iconMarkup) {
+    return <span aria-hidden="true" className={className + " text-black [&_svg]:h-full [&_svg]:w-full"} dangerouslySetInnerHTML={{ __html: iconMarkup }} />;
+  }
+
+  const FontAwesomeIcon = resolveFontAwesomeCategoryIcon(iconId, alt);
+  if (FontAwesomeIcon) {
+    return <FontAwesomeIcon aria-hidden="true" className={className + " text-black"} />;
   }
 
   if (imageUrl) {

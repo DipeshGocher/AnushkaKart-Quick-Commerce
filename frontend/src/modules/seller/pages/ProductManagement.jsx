@@ -204,6 +204,7 @@ const ProductManagement = () => {
     header: "",
     subcategory: "",
     status: "active",
+    isFeatured: false,
     tags: "",
     weight: "",
     brand: "",
@@ -356,6 +357,7 @@ const ProductManagement = () => {
       if (formData.category) data.append("categoryId", formData.category);
       if (formData.subcategory) data.append("subcategoryId", formData.subcategory);
       data.append("status", formData.status);
+      data.append("isFeatured", String(formData.isFeatured));
       data.append("brand", formData.brand);
       data.append("weight", formData.weight);
       data.append("tags", formData.tags);
@@ -517,6 +519,7 @@ const ProductManagement = () => {
         category: freshItem.categoryId?._id || freshItem.categoryId || "",
         subcategory: freshItem.subcategoryId?._id || freshItem.subcategoryId || "",
         status: freshItem.status || "active",
+        isFeatured: Boolean(freshItem.isFeatured),
         tags: Array.isArray(freshItem.tags) ? freshItem.tags.join(", ") : freshItem.tags || "",
         weight: freshItem.weight || "",
         brand: freshItem.brand || "",
@@ -551,6 +554,7 @@ const ProductManagement = () => {
         category: "",
         header: "",
         status: "active",
+        isFeatured: false,
         tags: "",
         weight: "",
         brand: "",
@@ -1084,6 +1088,10 @@ const ProductManagement = () => {
                         <option value="inactive">DRAFT</option>
                       </select>
                     </div>
+                    <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-slate-800">
+                      <input type="checkbox" checked={formData.isFeatured} onChange={(event) => setFormData({ ...formData, isFeatured: event.target.checked })} className="h-4 w-4 accent-amber-500" />
+                      Feature in Top Deals
+                    </label>
                   </div>
                 </div>
 

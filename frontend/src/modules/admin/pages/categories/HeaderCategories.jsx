@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import Card from "@shared/components/ui/Card";
 import Badge from "@shared/components/ui/Badge";
 import {
@@ -8,19 +8,15 @@ import {
   Trash,
   Trash2,
   X,
-  Upload,
-  Image,
-  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { adminApi } from "../../services/adminApi";
 import { toast } from "sonner";
 import IconSelector from "@shared/components/IconSelector";
+import CategoryIcon from "@shared/components/CategoryIcon";
 import Pagination from "@shared/components/ui/Pagination";
-import { getIconSvg } from "@shared/constants/categoryIcons";
-
-// Emojis for Header Categories
+import { getFontAwesomeIconId } from "@shared/constants/fontAwesomeCategoryIcons";
 
 const makeSlug = (value) =>
   String(value || "")
@@ -37,6 +33,7 @@ const HeaderCategories = () => {
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCatalogType, setSelectedCatalogType] = useState("grocery");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isIconSelectorOpen, setIsIconSelectorOpen] = useState(false);
@@ -58,53 +55,18 @@ const HeaderCategories = () => {
     sortOrder: 0,
     headerColor: "#FF1E1E",
     headerFontColor: "#111111",
-    headerIconColor: "#111111",
+    headerIconColor: "#000000",
   });
-
-  const [imageFile, setImageFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
-  const fileInputRef = useRef(null);
-
-  const iconComponents = {
-    electronics: "📱",
-    fashion: "👕",
-    home: "🏠",
-    food: "🍔",
-    sports: "⚽",
-    books: "📚",
-    beauty: "💄",
-    toys: "🧸",
-    automotive: "🚗",
-    pets: "🐾",
-    health: "💊",
-    garden: "🌱",
-    office: "💼",
-    music: "🎵",
-    jewelry: "💎",
-    baby: "🍼",
-    tools: "🔧",
-    luggage: "🧳",
-    art: "🎨",
-    grocery: "🛒",
-    beverages: "🥤",
-    dairy: "🥛",
-    bakery: "🥐",
-    snacks: "🍿",
-    meat: "🥩",
-    cleaning: "🧹",
-    stationery: "✏️",
-    festival: "🎉",
-  };
 
   useEffect(() => {
     const timer = setTimeout(() => fetchCategories(1), 400);
     return () => clearTimeout(timer);
-  }, [searchTerm, pageSize]);
+  }, [searchTerm, pageSize, selectedCatalogType]);
 
   const fetchCategories = async (requestedPage = 1) => {
     setIsLoading(true);
     try {
-      const params = { type: "header", catalogType: "grocery", page: requestedPage, limit: pageSize };
+      const params = { type: "header", catalogType: selectedCatalogType, page: requestedPage, limit: pageSize };
       if (searchTerm) params.search = searchTerm;
       const res = await adminApi.getCategories(params);
       if (res.data.success) {
@@ -112,9 +74,11 @@ const HeaderCategories = () => {
         const list = Array.isArray(payload.items) ? payload.items : [];
         const allCats = res.data.results || [];
         const headers = list.length > 0 ? list : allCats.filter((c) => c.type === "header");
-        const groceryHeaders = headers.filter((c) => c.catalogType !== "refurbished");
-        setCategories(groceryHeaders);
-        setTotal(typeof payload.total === "number" ? payload.total : groceryHeaders.length);
+        const catalogHeaders = selectedCatalogType === "refurbished"
+          ? headers.filter((c) => c.catalogType === "refurbished")
+          : headers.filter((c) => c.catalogType !== "refurbished");
+        setCategories(catalogHeaders);
+        setTotal(typeof payload.total === "number" ? payload.total : catalogHeaders.length);
         setPage(typeof payload.page === "number" ? payload.page : requestedPage);
       }
     } catch (error) {
@@ -148,17 +112,13 @@ const HeaderCategories = () => {
     setSelectedItems([]);
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setImageFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
-    }
-  };
-
   const handleSave = async () => {
     if (!formData.name) {
       toast.error("Name is required");
+      return;
+    }
+    if (!formData.iconId) {
+      toast.error("Select a Font Awesome category icon");
       return;
     }
 
@@ -170,10 +130,6 @@ const HeaderCategories = () => {
           dataToSend.append(key, formData[key]);
         }
       });
-
-      if (imageFile) {
-        dataToSend.append("image", imageFile);
-      }
 
       if (editingItem) {
         await adminApi.updateCategory(editingItem._id || editingItem.id, dataToSend);
@@ -214,7 +170,7 @@ const HeaderCategories = () => {
       description: "",
       status: "active",
       type: "header",
-      catalogType: "grocery",
+      catalogType: selectedCatalogType,
       parentId: null,
       iconId: "",
       adminCommission: "",
@@ -222,10 +178,8 @@ const HeaderCategories = () => {
       sortOrder: 0,
       headerColor: "#FF1E1E",
       headerFontColor: "#111111",
-      headerIconColor: "#111111",
+      headerIconColor: "#000000",
     });
-    setImageFile(null);
-    setPreviewUrl(null);
     setIsAddModalOpen(true);
   };
 
@@ -239,15 +193,16 @@ const HeaderCategories = () => {
       type: "header",
       catalogType: item.catalogType || "grocery",
       parentId: item.parentId || null,
-      iconId: item.iconId || "",
+      iconId: String(item.iconId || "").startsWith("fa6svg:")
+        ? item.iconId
+        : getFontAwesomeIconId(item.iconId, item.name),
       adminCommission: item.adminCommission ?? "",
       handlingFees: item.handlingFees ?? "",
       sortOrder: item.sortOrder || 0,
       headerColor: item.headerColor || "#FF1E1E",
       headerFontColor: item.headerFontColor || "#FFFFFF",
-      headerIconColor: item.headerIconColor || "#111111",
+      headerIconColor: "#000000",
     });
-    setPreviewUrl(item.image || null);
     setIsAddModalOpen(true);
   };
 
@@ -266,6 +221,26 @@ const HeaderCategories = () => {
           <Plus className="w-5 h-5" />
           Add New Header
         </button>
+      </div>
+
+      <div className="flex w-fit gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1">
+        {[
+          ["grocery", "Quick Commerce"],
+          ["refurbished", "E-commerce"],
+        ].map(([catalogType, label]) => (
+          <button
+            key={catalogType}
+            type="button"
+            onClick={() => {
+              setSelectedCatalogType(catalogType);
+              setPage(1);
+              setSelectedItems([]);
+            }}
+            className={"rounded-lg px-4 py-2 text-sm font-semibold transition-colors " + (selectedCatalogType === catalogType ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900")}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       <Card className="border-none shadow-sm">
@@ -307,7 +282,7 @@ const HeaderCategories = () => {
                   />
                 </th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Image
+                  Icon
                 </th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Name
@@ -360,26 +335,13 @@ const HeaderCategories = () => {
                     </td>
                     <td className="py-3 px-4">
                       <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center border border-gray-200">
-                        {cat.iconId && iconComponents[cat.iconId] ? (
-                          <div className="text-2xl flex items-center justify-center">
-                            {iconComponents[cat.iconId]}
-                          </div>
-                        ) : cat.iconId && getIconSvg(cat.iconId) ? (
-                          <div
-                            className="w-6 h-6 text-brand-600"
-                            dangerouslySetInnerHTML={{
-                              __html: getIconSvg(cat.iconId),
-                            }}
-                          />
-                        ) : cat.image ? (
-                          <img
-                            src={cat.image}
-                            alt={cat.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <Image className="w-5 h-5 text-gray-400" />
-                        )}
+                        <CategoryIcon
+                          iconId={cat.iconId}
+                          imageUrl={cat.image}
+                          alt={cat.name}
+                          className="h-full w-full text-black"
+                          fallbackClassName="w-5 h-5"
+                        />
                       </div>
                     </td>
                     <td className="py-3 px-4 font-medium text-gray-900">
@@ -466,126 +428,22 @@ const HeaderCategories = () => {
                 onWheel={(e) => e.stopPropagation()}
                 onTouchMove={(e) => e.stopPropagation()}
               >
-                {/* Icon/Image Selection */}
-                <div className="flex flex-col items-center gap-4">
-                  <div className="flex gap-4">
-                    {/* SVG Icon Display */}
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="w-24 h-24 rounded-full bg-linear-to-br from-brand-50 to-purple-50 border-2 border-brand-200 flex items-center justify-center relative">
-                        {formData.iconId && iconComponents[formData.iconId] ? (
-                          <div className="text-4xl flex items-center justify-center">
-                            {iconComponents[formData.iconId]}
-                          </div>
-                        ) : formData.iconId && getIconSvg(formData.iconId) ? (
-                          <div
-                            className="w-12 h-12 text-brand-600"
-                            dangerouslySetInnerHTML={{
-                              __html: getIconSvg(formData.iconId),
-                            }}
-                          />
-                        ) : (
-                          <Sparkles className="w-10 h-10 text-brand-300" />
-                        )}
-                        {formData.iconId && (
-                          <button
-                            type="button"
-                            onClick={() => setFormData((prev) => ({ ...prev, iconId: "" }))}
-                            className="absolute -top-1 -right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-md"
-                            title="Remove Icon">
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setIsIconSelectorOpen(true)}
-                          className="px-3 py-1.5 text-xs font-semibold bg-black text-primary-foreground rounded-lg hover:bg-brand-700 transition-colors">
-                          {formData.iconId ? 'Change Icon' : 'Select Icon'}
-                        </button>
-                        {formData.iconId && (
-                          <button
-                            type="button"
-                            onClick={() => setFormData((prev) => ({ ...prev, iconId: "" }))}
-                            className="px-2.5 py-1.5 text-xs font-semibold bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-1"
-                            title="Remove Icon">
-                            <X className="w-3.5 h-3.5" />
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* OR Divider */}
-                    <div className="flex items-center">
-                      <span className="text-gray-400 font-medium">OR</span>
-                    </div>
-
-                    {/* Image Upload */}
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="relative">
-                        <div
-                          onClick={() => fileInputRef.current?.click()}
-                          className="w-24 h-24 rounded-full bg-gray-50 border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-brand-500 overflow-hidden transition-colors">
-                          {previewUrl ? (
-                            <img
-                              src={previewUrl}
-                              alt="Preview"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="text-center">
-                              <Upload className="w-8 h-8 text-gray-400 mx-auto" />
-                              <span className="text-xs text-gray-500 mt-1">
-                                Upload
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        {previewUrl && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setImageFile(null);
-                              setPreviewUrl(null);
-                            }}
-                            className="absolute -top-1 -right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-md"
-                            title="Remove Image">
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        className="hidden"
-                        onChange={handleImageChange}
-                        accept="image/*"
-                      />
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-gray-500 font-medium">Custom Image</span>
-                        {previewUrl && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setImageFile(null);
-                              setPreviewUrl(null);
-                            }}
-                            className="px-2 py-1 text-xs font-semibold bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-1"
-                            title="Remove Image">
-                            <X className="w-3.5 h-3.5" />
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                <div className="flex flex-col items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 py-5">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full border border-slate-200 bg-white">
+                    <CategoryIcon
+                      iconId={formData.iconId}
+                      alt={formData.name}
+                      className="h-9 w-9 text-black"
+                    />
                   </div>
-                  <p className="text-xs text-gray-500 text-center">
-                    Choose an SVG icon or upload a custom image
-                    <br />
-                    <span className="font-semibold text-gray-500">Recommended Size: 400 × 400 px (Ratio 1:1)</span>
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsIconSelectorOpen(true)}
+                    className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                  >
+                    {formData.iconId ? "Change Font Awesome Icon" : "Select Font Awesome Icon"}
+                  </button>
+                  <p className="text-xs text-slate-500">Font Awesome Free Classic · black</p>
                 </div>
 
                 {/* Header Color Picker */}
@@ -656,38 +514,6 @@ const HeaderCategories = () => {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-gray-700">
-                        Active Tab / Icon Color
-                      </label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={formData.headerIconColor || "#111111"}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            headerIconColor: e.target.value,
-                          })
-                        }
-                        className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer bg-transparent p-0 overflow-hidden shrink-0"
-                      />
-                      <input
-                        type="text"
-                        value={formData.headerIconColor || "#111111"}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            headerIconColor: e.target.value,
-                          })
-                        }
-                        className="flex-1 px-3 py-2 rounded-lg border border-gray-300 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-                        placeholder="#111111"
-                      />
-                    </div>
-                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -813,6 +639,7 @@ const HeaderCategories = () => {
         {isIconSelectorOpen && (
           <IconSelector
             selectedIcon={formData.iconId}
+            catalogType={formData.catalogType}
             onSelect={(iconId) => {
               setFormData({ ...formData, iconId });
               setIsIconSelectorOpen(false);

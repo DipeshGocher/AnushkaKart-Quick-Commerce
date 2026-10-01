@@ -240,7 +240,7 @@ const EmptyCartAnimation = ({ onActionClick }) => {
         <Link
           to="/categories"
           onClick={onActionClick}
-          className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-2xl text-sm sm:text-base font-extrabold text-white bg-[#FF5722] hover:bg-[#F4511E] active:bg-[#E64A19] shadow-lg shadow-orange-500/30 hover:shadow-orange-500/40 transition-all cursor-pointer"
+          className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-2xl text-sm sm:text-base font-extrabold text-white bg-[#2875E8] hover:bg-[#F4511E] active:bg-[#E64A19] shadow-lg shadow-orange-500/30 hover:shadow-orange-500/40 transition-all cursor-pointer"
         >
           <ShoppingBag className="w-5 h-5 shrink-0" />
           <span>Start Shopping</span>

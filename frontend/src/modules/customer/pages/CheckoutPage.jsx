@@ -899,7 +899,7 @@ const CheckoutPage = () => {
                   contact: user?.phone || orderAddress.phone || "",
                 },
                 theme: {
-                  color: "#FF5722", // AnushkaStore Primary Orange
+                  color: "#2875E8", // AnushkaStore Primary Orange
                 },
                 modal: {
                   ondismiss: function() {

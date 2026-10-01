@@ -28,7 +28,7 @@ const AccordionItem = ({ title, children, id, icon, expandedSections, toggleSect
                 <div className="flex items-center gap-3">
                     <div className={cn(
                         "w-8 h-8 rounded-xl flex items-center justify-center transition-all shadow-2xs",
-                        isOpen ? "bg-[#FF5722] text-white" : "bg-[#FFF0E6] text-[#FF5722] group-hover:bg-[#FFE0D1]"
+                        isOpen ? "bg-[#2875E8] text-white" : "bg-[#EFF6FF] text-[#2875E8] group-hover:bg-[#FFE0D1]"
                     )}>
                         {icon}
                     </div>
@@ -39,7 +39,7 @@ const AccordionItem = ({ title, children, id, icon, expandedSections, toggleSect
                 </div>
                 <motion.div
                     animate={{ rotate: isOpen ? 180 : 0 }}
-                    className={cn("transition-colors", isOpen ? "text-[#FF5722]" : "text-slate-400")}
+                    className={cn("transition-colors", isOpen ? "text-[#2875E8]" : "text-slate-400")}
                 >
                     <ChevronDown size={18} strokeWidth={3} />
                 </motion.div>
@@ -65,11 +65,11 @@ const AccordionItem = ({ title, children, id, icon, expandedSections, toggleSect
 
 const HIGHLIGHT_ICON_MAP = {
     // Grocery & Food
-    leaf: { emoji: "🌿", bg: "bg-[#FFF0E6] border-[#FFD0B5] text-[#D9480F]" },
+    leaf: { emoji: "🌿", bg: "bg-[#EFF6FF] border-[#FFD0B5] text-[#D9480F]" },
     avocado: { emoji: "🥑", bg: "bg-[#EEF2FF] border-[#C7D2FE] text-[#1E3A8A]" },
     zap: { emoji: "⚡", bg: "bg-[#FFF4EC] border-[#FFE4D6] text-[#E65100]" },
     sprout: { emoji: "🌱", bg: "bg-[#E0F2FE] border-[#BAE6FD] text-[#0369A1]" },
-    wheat: { emoji: "🌾", bg: "bg-[#FFF0E6] border-[#FFD0B5] text-[#D9480F]" },
+    wheat: { emoji: "🌾", bg: "bg-[#EFF6FF] border-[#FFD0B5] text-[#D9480F]" },
     sugarfree: { emoji: "🍬", bg: "bg-[#F3E8FF] border-[#E9D5FF] text-[#6B21A8]" },
     sun: { emoji: "☀️", bg: "bg-[#FFF4EC] border-[#FFE4D6] text-[#E65100]" },
     smile: { emoji: "🚫", bg: "bg-[#E0F2FE] border-[#BAE6FD] text-[#0369A1]" },
@@ -106,7 +106,7 @@ const HIGHLIGHT_ICON_MAP = {
 
     // Trust, Service & Kits
     shield: { emoji: "🛡️", bg: "bg-[#EEF2FF] border-[#C7D2FE] text-[#1E3A8A]" },
-    heart: { emoji: "❤️", bg: "bg-[#FFF0E6] border-[#FFD0B5] text-[#D9480F]" },
+    heart: { emoji: "❤️", bg: "bg-[#EFF6FF] border-[#FFD0B5] text-[#D9480F]" },
     star: { emoji: "⭐", bg: "bg-[#FEF3C7] border-[#FDE68A] text-[#B45309]" },
     truck: { emoji: "🚚", bg: "bg-[#EEF2FF] border-[#C7D2FE] text-[#1E3A8A]" },
     repeat: { emoji: "🔄", bg: "bg-[#F0FDF4] border-[#BBF7D0] text-[#15803D]" },
@@ -1275,7 +1275,7 @@ const ProductDetailSheet = () => {
                                                 className={cn(
                                                     "h-1.5 rounded-full transition-all duration-300",
                                                     i === activeImageIndex
-                                                        ? (isRefurbishedProduct ? "w-6 bg-blue-600" : "w-6 bg-[#FF5722]")
+                                                        ? (isRefurbishedProduct ? "w-6 bg-blue-600" : "w-6 bg-[#2875E8]")
                                                         : (isRefurbishedProduct ? "w-1.5 bg-blue-200" : "w-1.5 bg-orange-200")
                                                 )}
                                             />
@@ -1304,7 +1304,7 @@ const ProductDetailSheet = () => {
                                                     i === activeImageIndex
                                                         ? (isRefurbishedProduct
                                                             ? "border-blue-600 shadow-md shadow-blue-100 ring-2 ring-blue-100 bg-white scale-95"
-                                                            : "border-[#FF5722] shadow-md shadow-orange-100 ring-2 ring-orange-100 bg-white scale-95")
+                                                            : "border-[#2875E8] shadow-md shadow-orange-100 ring-2 ring-orange-100 bg-white scale-95")
                                                         : "border-slate-200 bg-slate-50 hover:border-slate-300"
                                                 )}
                                             >
@@ -1327,7 +1327,7 @@ const ProductDetailSheet = () => {
                                         "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] font-black uppercase border",
                                         isRefurbishedProduct
                                             ? "bg-blue-50 text-blue-700 border-blue-200"
-                                            : "bg-[#FFF0E6] text-[#D9480F] border-[#FFD0B5]"
+                                            : "bg-[#EFF6FF] text-[#D9480F] border-[#FFD0B5]"
                                     )}>
                                         {isRefurbishedProduct ? "✨ Certified Refurbished" : "✨ Quality Fresh"}
                                     </div>
@@ -1358,7 +1358,7 @@ const ProductDetailSheet = () => {
                                                     "text-xs font-black px-2 py-0.5 rounded-lg uppercase tracking-wide border",
                                                     isRefurbishedProduct
                                                         ? "bg-blue-50 text-blue-600 border-blue-200"
-                                                        : "bg-[#FFF0E6] text-[#FF5722] border-orange-200/80"
+                                                        : "bg-[#EFF6FF] text-[#2875E8] border-orange-200/80"
                                                 )}>
                                                     {selectedVariant
                                                         ? Math.round(((selectedVariant.price - selectedVariant.salePrice) / selectedVariant.price) * 100)
@@ -1384,7 +1384,7 @@ const ProductDetailSheet = () => {
                                                 "bg-indigo-50 border-indigo-200 text-indigo-700",
                                                 "bg-teal-50 border-teal-200 text-teal-800"
                                             ] : [
-                                                "bg-[#FFF0E6] border-[#FFD0B5] text-[#D9480F]",
+                                                "bg-[#EFF6FF] border-[#FFD0B5] text-[#D9480F]",
                                                 "bg-[#EEF2FF] border-[#C7D2FE] text-[#1E3A8A]",
                                                 "bg-[#FFF4EC] border-[#FFE4D6] text-[#E65100]",
                                                 "bg-[#E0F2FE] border-[#BAE6FD] text-[#0369A1]"
@@ -1614,7 +1614,7 @@ const ProductDetailSheet = () => {
                                     {(isRefurbishedProduct ? refurbishedCartCount : groceryCartCount) > 0 && (
                                         <div className={cn(
                                             "absolute -top-1.5 -right-1.5 text-white text-[11px] font-black w-5 h-5 rounded-full flex shrink-0 items-center justify-center shadow-md animate-in zoom-in duration-200",
-                                            isRefurbishedProduct ? "bg-blue-600" : "bg-[#FF5722]"
+                                            isRefurbishedProduct ? "bg-blue-600" : "bg-[#2875E8]"
                                         )}>
                                             {(isRefurbishedProduct ? refurbishedCartCount : groceryCartCount) > 99 ? '99+' : (isRefurbishedProduct ? refurbishedCartCount : groceryCartCount)}
                                         </div>
@@ -1627,7 +1627,7 @@ const ProductDetailSheet = () => {
                                         "flex-1 text-white h-14 rounded-2xl flex items-center justify-between px-2 shadow-lg border border-white/20",
                                         isRefurbishedProduct
                                             ? "bg-gradient-to-r from-blue-600 to-indigo-600 shadow-blue-500/25"
-                                            : "bg-gradient-to-r from-[#FF5722] to-[#FF7043] shadow-orange-500/25"
+                                            : "bg-gradient-to-r from-[#2875E8] to-[#FF7043] shadow-orange-500/25"
                                     )}>
                                         <motion.button
                                             whileTap={{ scale: 0.8 }}
@@ -1667,7 +1667,7 @@ const ProductDetailSheet = () => {
                                             "flex-1 text-white h-14 rounded-2xl font-black text-sm flex items-center justify-between px-6 shadow-xl transition-all border border-white/20 active:opacity-90",
                                             isRefurbishedProduct
                                                 ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 shadow-blue-500/25"
-                                                : "bg-gradient-to-r from-[#FF5722] to-[#FF6D00] shadow-orange-500/25"
+                                                : "bg-gradient-to-r from-[#2875E8] to-[#1F66D3] shadow-orange-500/25"
                                         )}
                                     >
                                         <span className="uppercase tracking-wider font-black text-[13px]">ADD TO CART</span>

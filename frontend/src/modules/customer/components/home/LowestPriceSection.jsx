@@ -34,7 +34,7 @@ const LowestPriceSection = ({ products, onSeeAll }) => {
       <div className="w-full overflow-hidden leading-none z-10 -mb-1">
         <svg
           viewBox="0 0 1200 20"
-          className="w-full h-4 md:h-6 text-[#FFF0E6] fill-current preserve-3d"
+          className="w-full h-4 md:h-6 text-[#EFF6FF] fill-current preserve-3d"
           preserveAspectRatio="none"
         >
           <path d="M0,10 Q15,20 30,10 Q45,0 60,10 Q75,20 90,10 Q105,0 120,10 Q135,20 150,10 Q165,0 180,10 Q195,20 210,10 Q225,0 240,10 Q255,20 270,10 Q285,0 300,10 Q315,20 330,10 Q345,0 360,10 Q375,20 390,10 Q405,0 420,10 Q435,20 450,10 Q465,0 480,10 Q495,20 510,10 Q525,0 540,10 Q555,20 570,10 Q585,0 600,10 Q615,20 630,10 Q645,0 660,10 Q675,20 690,10 Q705,0 720,10 Q735,20 750,10 Q765,0 780,10 Q795,20 810,10 Q825,0 840,10 Q855,20 870,10 Q875,0 890,10 Q905,20 920,10 Q935,0 950,10 Q965,20 980,10 Q995,0 1010,10 Q1025,20 1040,10 Q1055,0 1070,10 Q1085,20 1100,10 Q1115,0 1130,10 Q1145,20 1160,10 Q1175,0 1190,10 Q1200,15 1200,20 L0,20 Z" />
@@ -42,12 +42,12 @@ const LowestPriceSection = ({ products, onSeeAll }) => {
       </div>
 
       {/* Light Orange Background Container */}
-      <div className="relative bg-gradient-to-b from-[#FFF0E6] via-[#FFF6EF] to-[#FFFBF7] pt-4 pb-3 md:pt-6 md:pb-5 border-b border-orange-100/70 shadow-2xs">
+      <div className="relative bg-gradient-to-b from-[#EFF6FF] via-[#FFF6EF] to-[#FFFBF7] pt-4 pb-3 md:pt-6 md:pb-5 border-b border-orange-100/70 shadow-2xs">
         <div className="container mx-auto px-4 md:px-8 lg:px-[50px] relative z-10">
           <div className="flex justify-between items-center mb-4 md:mb-6 px-1">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center text-primary shrink-0">
-                <ShoppingBag size={14} className="fill-current text-[#FF5722]" />
+                <ShoppingBag size={14} className="fill-current text-[#2875E8]" />
               </div>
               <h3 className="text-base md:text-lg font-black text-[#1A1A1A] tracking-tight leading-none">
                 Today's Deals
@@ -58,7 +58,7 @@ const LowestPriceSection = ({ products, onSeeAll }) => {
             </div>
             <button
               onClick={onSeeAll}
-              className="flex items-center gap-0.5 text-[#FF5722] hover:text-orange-600 font-bold text-xs md:text-sm transition-colors whitespace-nowrap cursor-pointer">
+              className="flex items-center gap-0.5 text-[#2875E8] hover:text-orange-600 font-bold text-xs md:text-sm transition-colors whitespace-nowrap cursor-pointer">
               See All
               <ChevronRight size={13} strokeWidth={3} />
             </button>

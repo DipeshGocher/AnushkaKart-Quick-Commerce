@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  ChevronLeft, ShoppingBag, MapPin, Plus, Minus, 
-  Trash2, Heart, Zap, ArrowRight, Sparkles, Clock, Smartphone
+  ChevronLeft, MapPin, Plus, Minus,
+  Trash2, Heart, ArrowRight, Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCart } from '../context/CartContext';
@@ -102,12 +102,12 @@ const CartPage = ({ asOverlay = false, onClose }) => {
       initial={asOverlay || reduceMotion ? false : { opacity: 0.94, top: 20 }}
       animate={{ opacity: 1, top: 0 }}
       transition={{ duration: reduceMotion ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
-      className={`relative bg-[#f1f4f8] font-sans antialiased text-slate-900 ${asOverlay ? 'h-full overflow-y-auto pb-32' : 'min-h-screen pb-64 md:pb-32'}`}
+      className={`relative bg-white font-sans antialiased text-[#212121] ${asOverlay ? 'h-full overflow-y-auto pb-32' : 'min-h-screen pb-64 md:pb-32'}`}
     >
       <LocationDrawer isOpen={isLocationOpen} onClose={() => setIsLocationOpen(false)} />
 
       {/* Top Header */}
-      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 py-3.5 border-b border-slate-200/80 flex items-center justify-between">
+      <div className="sticky top-0 z-30 bg-white px-4 py-3.5 border-b border-[#e5e5e5] flex items-center justify-between">
         <div className="flex items-center gap-2 flex-1">
           <button
             onClick={() => (asOverlay && onClose ? onClose() : navigate(-1))}
@@ -116,7 +116,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
             <ChevronLeft size={24} className="text-slate-800" />
           </button>
           <div>
-            <h1 className="text-lg font-bold text-slate-900 tracking-tight leading-tight">My Cart</h1>
+            <h1 className="text-lg font-bold text-[#212121] tracking-tight leading-tight">My Cart</h1>
             {activeCart.length > 0 && (
               <p className="text-[11px] text-slate-500 font-semibold">
                 {activeCart.length} {activeCart.length === 1 ? 'item' : 'items'} in grocery basket
@@ -131,43 +131,41 @@ const CartPage = ({ asOverlay = false, onClose }) => {
       {/* Delivery Address Bar */}
       <div 
         onClick={() => setIsLocationOpen(true)}
-        className="bg-white border-b border-slate-200/80 px-4 py-2.5 flex items-center justify-between gap-2 cursor-pointer hover:bg-slate-50/80 transition-colors shadow-2xs"
+        className="bg-[#f5f5f5] mx-4 my-3 rounded-xl px-3 py-3 flex items-center justify-between gap-2 cursor-pointer hover:bg-slate-100 transition-colors"
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <MapPin size={16} className="text-[#FF5722] shrink-0" />
+          <MapPin size={16} className="text-[#212121] shrink-0" />
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold text-slate-400 leading-tight">Deliver to:</p>
-            <p className="text-xs font-bold text-slate-800 truncate leading-tight mt-0.5">
+            <p className="text-[11px] font-semibold text-[#616161] leading-tight">Deliver to:</p>
+            <p className="text-sm font-semibold text-[#212121] truncate leading-tight mt-0.5">
               {displayAddress}
             </p>
           </div>
         </div>
-        <span className="text-xs font-extrabold px-2.5 py-1 rounded-lg shrink-0 border text-orange-700 bg-orange-50 border-orange-200">
+        <span className="text-xs font-bold px-2.5 py-1 rounded-lg shrink-0 border border-[#d6d6d6] text-[#212121] bg-white">
           Change
         </span>
       </div>
 
       {/* Main Cart Items Content */}
-      <div className="max-w-2xl mx-auto px-3 sm:px-4 pt-3">
+      <div className="max-w-2xl mx-auto px-4 pt-1">
         {activeCart.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-0">
             {activeCart.map((item) => {
               const mrp = Number(item.price || 0);
               const sale = Number(item.salePrice || 0);
               const unitPrice = sale > 0 && sale < mrp ? sale : mrp;
               const hasDiscount = mrp > unitPrice;
               const discountPercent = hasDiscount ? Math.round(((mrp - unitPrice) / mrp) * 100) : 0;
-              const lineTotal = Math.round(unitPrice * Number(item.quantity || 1));
-
               return (
                 <div 
                   key={`${item.id || item._id}-${item.variantSku || ''}`}
-                  className="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200/80 shadow-2xs"
+                  className="bg-white py-4 border-b border-[#e5e5e5]"
                 >
                   <div className="flex gap-3.5">
                     {/* Left Column: Image Box + Stepper underneath */}
                     <div className="flex flex-col items-center shrink-0">
-                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-slate-50 border border-slate-100 p-1.5 flex items-center justify-center overflow-hidden">
+                      <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-lg bg-[#f5f5f5] p-1.5 flex items-center justify-center overflow-hidden">
                         <img
                           src={applyCloudinaryTransform(item.image || item.mainImage)}
                           alt={item.name}
@@ -177,7 +175,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                       </div>
 
                       {/* Quantity Stepper */}
-                      <div className="mt-2.5 flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white shadow-2xs">
+                      <div className="mt-2.5 flex items-center border border-[#d6d6d6] rounded-lg overflow-hidden bg-white">
                         <button
                           onClick={() => handleQuantityMinus(item)}
                           className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition active:scale-90 cursor-pointer"
@@ -201,51 +199,40 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                     {/* Right Column: Product Info & Pricing */}
                     <div className="flex-1 min-w-0 flex flex-col justify-between">
                       <div>
-                        <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-snug line-clamp-2">
+                        <h3 className="text-sm sm:text-base font-medium text-[#212121] leading-snug line-clamp-2">
                           {item.name}
                         </h3>
 
-                        <p className="text-[11px] font-semibold text-slate-500 mt-1">
+                        <p className="text-sm font-normal text-[#757575] mt-1">
                           {item.variantName || item.weight || item.unit || '1 Unit'}
                         </p>
-
-                        <div className="mt-1.5 flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-[10px] font-extrabold px-2 py-0.5 rounded-md border border-emerald-200">
-                            ★ Assured
-                          </span>
-                        </div>
 
                         {/* Price Row */}
                         <div className="mt-2 flex items-baseline gap-2 flex-wrap">
                           {hasDiscount && (
-                            <span className="text-[11px] sm:text-xs font-bold text-emerald-600">
+                            <span className="text-sm sm:text-base font-bold text-[#16864a]">
                               ↓ {discountPercent}%
                             </span>
                           )}
                           {hasDiscount && (
-                            <span className="text-xs text-slate-400 line-through font-semibold">
+                            <span className="text-sm text-[#757575] line-through font-normal">
                               ₹{mrp}
                             </span>
                           )}
-                          <span className="text-sm sm:text-base font-black text-slate-900">
+                          <span className="text-base sm:text-lg font-bold text-[#212121]">
                             ₹{unitPrice}
                           </span>
                         </div>
                       </div>
 
-                      {/* Delivery Speed Indicator */}
-                      <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-slate-600">
-                        <Clock size={13} className="text-emerald-600" />
-                        <span>Delivery in 10-15 mins</span>
-                      </div>
                     </div>
                   </div>
 
                   {/* Actions Row */}
-                  <div className="border-t border-slate-100 mt-3 pt-2.5 grid grid-cols-3 gap-1">
+                  <div className="mt-4 grid grid-cols-3 gap-2">
                     <button
                       onClick={() => handleRemove(item)}
-                      className="py-1.5 px-2 rounded-lg text-xs font-bold text-slate-600 hover:text-rose-600 hover:bg-rose-50/60 transition cursor-pointer flex items-center justify-center gap-1"
+                      className="py-2 px-2 rounded-xl border border-[#d6d6d6] text-xs sm:text-sm font-bold text-[#424242] hover:bg-slate-50 transition cursor-pointer flex items-center justify-center gap-1"
                     >
                       <Trash2 size={13} />
                       <span>Remove</span>
@@ -253,7 +240,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
 
                     <button
                       onClick={() => handleMoveToWishlist(item)}
-                      className="py-1.5 px-2 rounded-lg text-xs font-bold text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition cursor-pointer flex items-center justify-center gap-1"
+                      className="py-2 px-2 rounded-xl border border-[#d6d6d6] text-xs sm:text-sm font-bold text-[#424242] hover:bg-slate-50 transition cursor-pointer flex items-center justify-center gap-1"
                     >
                       <Heart size={13} />
                       <span className="truncate">Move to Wishlist</span>
@@ -261,9 +248,8 @@ const CartPage = ({ asOverlay = false, onClose }) => {
 
                     <button
                       onClick={() => handleBuyNow(item)}
-                      className="py-1.5 px-2 rounded-lg text-xs font-extrabold text-slate-900 hover:text-orange-600 hover:bg-slate-50 transition cursor-pointer flex items-center justify-center gap-1"
+                      className="py-2 px-2 rounded-xl border border-[#d6d6d6] text-xs sm:text-sm font-bold text-[#212121] hover:bg-slate-50 transition cursor-pointer flex items-center justify-center gap-1"
                     >
-                      <Zap size={13} className="text-amber-500" />
                       <span>Buy Now</span>
                     </button>
                   </div>
@@ -272,7 +258,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
             })}
 
             {/* Price Details Card */}
-            <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs space-y-2.5">
+            <div className="bg-white py-4 space-y-2.5">
               <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
                 Price Details ({activeCart.length} {activeCart.length === 1 ? 'Item' : 'Items'})
               </h4>
@@ -289,18 +275,13 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                 </div>
               )}
 
-              <div className="flex justify-between text-xs sm:text-sm font-semibold text-slate-600">
-                <span>Delivery Fee</span>
-                <span className="text-emerald-600 font-bold">FREE</span>
-              </div>
-
               <div className="border-t border-slate-100 pt-2.5 flex justify-between text-sm sm:text-base font-black text-slate-900">
                 <span>Total Amount</span>
                 <span>₹{activeTotal}</span>
               </div>
 
               {totalSavings > 0 && (
-                <p className="text-[11.5px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-100">
+                  <p className="text-sm font-medium text-[#16864a] bg-[#e7f8ef] px-3 py-2 rounded-lg">
                   You will save ₹{totalSavings} on this order!
                 </p>
               )}
@@ -346,7 +327,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
             <Link
               to="/checkout"
               onClick={onClose}
-              className="bg-[#FF5722] hover:bg-[#F4511E] active:scale-95 text-white font-black text-xs sm:text-sm px-7 py-3.5 rounded-xl shadow-md shadow-orange-500/25 transition-all flex items-center gap-2 cursor-pointer shrink-0"
+              className="bg-[#ffdf00] hover:bg-[#f5d500] active:scale-95 text-[#212121] font-bold text-sm sm:text-base px-7 py-3.5 rounded-xl transition-all flex items-center gap-2 cursor-pointer shrink-0"
             >
               <span>Proceed to buy</span>
               <ArrowRight size={16} strokeWidth={2.5} />

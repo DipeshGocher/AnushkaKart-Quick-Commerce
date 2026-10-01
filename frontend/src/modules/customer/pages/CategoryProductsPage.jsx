@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, Search, SlidersHorizontal, ArrowUpDown, X, Check, Filter } from 'lucide-react';
+import { ChevronLeft, Search, ShoppingCart, ArrowUpDown, SlidersHorizontal, X, Check, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 
 import ProductCard from '../components/shared/ProductCard';
+import FlipkartCatalogCard from '../components/shared/FlipkartCatalogCard';
 import ProductDetailSheet from '../components/shared/ProductDetailSheet';
 import { useProductDetail } from '../context/ProductDetailContext';
 import { customerApi } from '../services/customerApi';
@@ -18,8 +19,10 @@ import { useSettings } from '@core/context/SettingsContext';
 import Lottie from 'lottie-react';
 
 const SORT_OPTIONS = [
-    { id: 'price_desc', label: 'Price: High to Low' },
-    { id: 'discount', label: 'Discount: High to Low' },
+    { id: 'default', label: 'Relevance' },
+    { id: 'price_asc', label: 'Price – Low to High' },
+    { id: 'price_desc', label: 'Price – High to Low' },
+    { id: 'discount', label: 'Discount' },
     { id: 'name', label: 'Name: A to Z' }
 ];
 
@@ -43,20 +46,26 @@ const CategoryProductsPage = () => {
     const location = useLocation();
     const { currentLocation } = useAppLocation();
     const { settings } = useSettings();
+    const { groceryCartCount } = useCart();
+    const { openProduct } = useProductDetail();
     const initialSubcategoryId = location.state?.activeSubcategoryId || 'all';
 
     const [selectedSubCategory, setSelectedSubCategory] = useState(initialSubcategoryId);
-    const [selectedTag, setSelectedTag] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
-    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [sortBy, setSortBy] = useState('default');
     const [isSortOpen, setIsSortOpen] = useState(false);
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
 
     const [category, setCategory] = useState(null);
-    const [subCategories, setSubCategories] = useState([{ id: 'all', name: 'All', icon: 'https://cdn-icons-png.flaticon.com/128/2321/2321831.png' }]);
+    const [subCategories, setSubCategories] = useState([{ id: 'all', name: 'All', icon: '' }]);
     const [products, setProducts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [noServiceData, setNoServiceData] = useState(null);
+
+    const sidebarRef = useRef(null);
+    const searchInputRef = useRef(null);
+    const productGridRef = useRef(null);
 
     // Load fallback Lottie
     useEffect(() => {
@@ -74,30 +83,36 @@ const CategoryProductsPage = () => {
 
             const isAllCategory = !catId || catId === 'all' || catId.toLowerCase() === 'all';
 
-            // 1. Fetch category tree first to resolve actual Category _id and subcategories
+            // 1. Fetch category tree to resolve hierarchy and subcategories
             const catRes = await customerApi.getCategories({ tree: true });
             const tree = catRes.data?.results || catRes.data?.result || [];
 
             let targetCategory = null;
             let targetSubCategory = null;
+            let matchedLevel = 'unknown'; // 'header' | 'category' | 'subcategory'
 
             if (isAllCategory) {
                 targetCategory = { _id: 'all', name: "All Products", children: [] };
+                matchedLevel = 'all';
             } else {
+                // Walk the tree to find the matching category at any level
                 for (const header of tree) {
                     if (matchCategoryItem(header, catId)) {
                         targetCategory = header;
+                        matchedLevel = 'header';
                         break;
                     }
                     for (const cat of (header.children || [])) {
                         if (matchCategoryItem(cat, catId)) {
                             targetCategory = cat;
+                            matchedLevel = 'category';
                             break;
                         }
                         for (const sub of (cat.children || [])) {
                             if (matchCategoryItem(sub, catId)) {
                                 targetCategory = cat;
                                 targetSubCategory = sub;
+                                matchedLevel = 'subcategory';
                                 break;
                             }
                         }
@@ -107,14 +122,15 @@ const CategoryProductsPage = () => {
                 }
             }
 
-            // Fallback category header if not found in tree
+            // Fallback if not found in tree
             if (!targetCategory && !isAllCategory) {
                 targetCategory = { _id: catId, name: catId, children: [] };
+                matchedLevel = 'category'; // assume category level
             }
 
             setCategory({ id: targetCategory?._id || catId, name: targetCategory?.name || catId });
 
-            // Extract ONLY subcategories belonging to this targetCategory
+            // Build subcategories for the sidebar
             if (isAllCategory) {
                 const allSubs = [];
                 tree.forEach(header => {
@@ -122,30 +138,36 @@ const CategoryProductsPage = () => {
                         allSubs.push({
                             id: c._id,
                             name: c.name,
-                            icon: c.image || 'https://cdn-icons-png.flaticon.com/128/2321/2321801.png',
+                            icon: c.image || '',
                             children: c.children || []
                         });
                     });
                 });
-                setSubCategories([{ id: 'all', name: 'All', icon: 'https://cdn-icons-png.flaticon.com/128/2321/2321831.png' }, ...allSubs]);
+                setSubCategories([{ id: 'all', name: 'All', icon: targetCategory?.image || '' }, ...allSubs]);
             } else if (targetCategory) {
                 const subs = (targetCategory.children || []).map(s => ({
                     id: s._id,
                     name: s.name,
-                    icon: s.image || s.icon || 'https://cdn-icons-png.flaticon.com/128/2321/2321801.png',
+                    icon: s.image || s.icon || '',
                     children: s.children || []
                 }));
-                setSubCategories([{ id: 'all', name: 'All', icon: targetCategory.image || 'https://cdn-icons-png.flaticon.com/128/2321/2321831.png' }, ...subs]);
+                setSubCategories([{ id: 'all', name: 'All', icon: targetCategory.image || '' }, ...subs]);
             }
 
             if (targetSubCategory) {
                 setSelectedSubCategory(targetSubCategory._id);
             }
 
-            // 2. Build product API params with resolved categoryId
+            // 2. Build product API params — use the RIGHT parameter based on hierarchy level
             const productParams = { limit: 200 };
             if (targetCategory?._id && targetCategory._id !== 'all') {
-                productParams.categoryId = targetCategory._id;
+                if (matchedLevel === 'header') {
+                    // Header level → use headerId param so backend fetches all children
+                    productParams.headerId = targetCategory._id;
+                } else {
+                    // Category or subcategory level → use categoryId
+                    productParams.categoryId = targetCategory._id;
+                }
             }
             if (hasValidLocation) {
                 productParams.lat = currentLocation.latitude;
@@ -178,38 +200,55 @@ const CategoryProductsPage = () => {
                     deliveryTime: "8-15 mins"
                 }));
 
-                // Strict category filtering: Only keep products that belong to targetCategory
+                // Build a set of valid IDs (targetCategory + all its children at every level + parent)
                 const validCategoryIds = new Set();
                 if (targetCategory && targetCategory._id !== 'all') {
                     validCategoryIds.add(String(targetCategory._id));
+                    if (targetCategory.parentId) validCategoryIds.add(String(targetCategory.parentId));
                     (targetCategory.children || []).forEach(sub => {
                         validCategoryIds.add(String(sub._id));
                         (sub.children || []).forEach(child => validCategoryIds.add(String(child._id)));
                     });
                 }
 
-                const targetCatNameNorm = targetCategory ? normalizeText(targetCategory.name) : '';
-
                 const categoryProducts = formattedProds.filter(p => {
+                    // "All" mode — show everything
                     if (!targetCategory || targetCategory._id === 'all') return true;
 
+                    // Extract all category references from the product
                     const prodCatId = String(p.categoryId?._id || p.categoryId || '');
                     const prodSubId = String(p.subcategoryId?._id || p.subcategoryId || '');
-                    const prodHeadId = String(p.headerCategoryId?._id || p.headerCategoryId || '');
+                    const prodHeadId = String(p.headerId?._id || p.headerId || '');
 
+                    // Match against valid IDs (category + all subcategories + header + parent)
                     if (validCategoryIds.has(prodCatId) || validCategoryIds.has(prodSubId) || validCategoryIds.has(prodHeadId)) {
                         return true;
                     }
 
-                    const prodCatName = normalizeText(p.categoryName || p.categoryId?.name || p.headerCategoryName || '');
-                    if (prodCatName && targetCatNameNorm && (prodCatName === targetCatNameNorm || prodCatName.includes(targetCatNameNorm) || targetCatNameNorm.includes(prodCatName))) {
+                    // Name-based fuzzy match as fallback
+                    const targetCatNameNorm = normalizeText(targetCategory.name);
+                    const prodCatName = normalizeText(p.categoryId?.name || '');
+                    const prodHeadName = normalizeText(p.headerId?.name || '');
+                    const prodSubName = normalizeText(p.subcategoryId?.name || '');
+                    if (targetCatNameNorm && (
+                        prodCatName === targetCatNameNorm ||
+                        prodCatName.includes(targetCatNameNorm) ||
+                        targetCatNameNorm.includes(prodCatName) ||
+                        prodSubName === targetCatNameNorm ||
+                        prodSubName.includes(targetCatNameNorm) ||
+                        targetCatNameNorm.includes(prodSubName) ||
+                        prodHeadName === targetCatNameNorm ||
+                        prodHeadName.includes(targetCatNameNorm) ||
+                        targetCatNameNorm.includes(prodHeadName)
+                    )) {
                         return true;
                     }
 
                     return false;
                 });
 
-                setProducts(categoryProducts);
+                // Set products (use filtered products, or fallback to formattedProds if API already filtered)
+                setProducts(categoryProducts.length > 0 ? categoryProducts : formattedProds);
             } else {
                 setProducts([]);
             }
@@ -223,37 +262,26 @@ const CategoryProductsPage = () => {
     useEffect(() => {
         fetchData();
         setSelectedSubCategory(location.state?.activeSubcategoryId || 'all');
-        setSelectedTag('all');
     }, [catId, location.state?.activeSubcategoryId, currentLocation?.latitude, currentLocation?.longitude]);
 
-    const safeProducts = useMemo(() => (Array.isArray(products) ? products : []), [products]);
-
-    // Extract quick tags for top filter bar based on selected subcategory or products in current category
-    const availableTags = useMemo(() => {
-        const tagsSet = new Set();
-        
-        const matchedSub = subCategories.find(s => s.id === selectedSubCategory);
-        if (matchedSub && Array.isArray(matchedSub.children) && matchedSub.children.length > 0) {
-            matchedSub.children.forEach(c => tagsSet.add(c.name));
-        } else {
-            const activeProds = safeProducts.filter(p => {
-                if (selectedSubCategory === 'all') return true;
-                const subId = String(p.subcategoryId?._id || p.subcategoryId || '');
-                return subId === selectedSubCategory;
-            });
-
-            activeProds.forEach(p => {
-                const words = (p.name || '').split(/[\s,/-]+/);
-                words.forEach(w => {
-                    const clean = w.replace(/[^a-zA-Z]/g, '');
-                    if (clean.length > 3 && !['with', 'pack', 'fresh', 'best', 'super', 'item', 'unit', 'gram', 'packet'].includes(clean.toLowerCase())) {
-                        tagsSet.add(clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase());
-                    }
-                });
-            });
+    // Scroll sidebar active item into view
+    useEffect(() => {
+        if (sidebarRef.current) {
+            const activeEl = sidebarRef.current.querySelector('[data-active="true"]');
+            if (activeEl) {
+                activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
         }
-        return Array.from(tagsSet).slice(0, 10);
-    }, [subCategories, selectedSubCategory, safeProducts]);
+    }, [selectedSubCategory]);
+
+    // Scroll product grid to top when subcategory changes
+    useEffect(() => {
+        if (productGridRef.current) {
+            productGridRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [selectedSubCategory]);
+
+    const safeProducts = useMemo(() => (Array.isArray(products) ? products : []), [products]);
 
     // Filter and Sort Logic
     const filteredAndSortedProducts = useMemo(() => {
@@ -264,29 +292,40 @@ const CategoryProductsPage = () => {
             const matchedSub = subCategories.find(s => s.id === selectedSubCategory);
             const matchedSubNameNorm = matchedSub ? normalizeText(matchedSub.name) : '';
 
+            // Collect all child IDs of the selected subcategory for broader matching
+            const matchedChildIds = new Set([selectedSubCategory]);
+            if (matchedSub?.children) {
+                matchedSub.children.forEach(child => {
+                    matchedChildIds.add(String(child._id || child.id || ''));
+                });
+            }
+
             result = result.filter(p => {
                 const subId = String(p.subcategoryId?._id || p.subcategoryId || p.subCategory || '');
                 const catIdObj = String(p.categoryId?._id || p.categoryId || '');
-                if (subId === selectedSubCategory || catIdObj === selectedSubCategory) return true;
+                const headId = String(p.headerId?._id || p.headerId || '');
 
-                const prodSubName = normalizeText(p.subcategoryName || p.subcategoryId?.name || '');
-                if (prodSubName && matchedSubNameNorm && (prodSubName === matchedSubNameNorm || prodSubName.includes(matchedSubNameNorm))) {
+                // Direct ID match at any level
+                if (matchedChildIds.has(subId) || matchedChildIds.has(catIdObj) || catIdObj === selectedSubCategory || subId === selectedSubCategory) {
+                    return true;
+                }
+
+                // Name-based fallback
+                const prodSubName = normalizeText(p.subcategoryId?.name || '');
+                const prodCatName = normalizeText(p.categoryId?.name || '');
+                if (matchedSubNameNorm && (
+                    prodSubName === matchedSubNameNorm ||
+                    prodSubName.includes(matchedSubNameNorm) ||
+                    prodCatName === matchedSubNameNorm ||
+                    prodCatName.includes(matchedSubNameNorm)
+                )) {
                     return true;
                 }
                 return false;
             });
         }
 
-        // 2. Tag Filter (Top Horizontal Pills)
-        if (selectedTag !== 'all') {
-            const tagLower = selectedTag.toLowerCase();
-            result = result.filter(p => 
-                (p.name || '').toLowerCase().includes(tagLower) ||
-                (p.tags && p.tags.some(t => t.toLowerCase().includes(tagLower)))
-            );
-        }
-
-        // 3. Search Query Filter
+        // 2. Search Query Filter
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase().trim();
             result = result.filter(p =>
@@ -296,8 +335,10 @@ const CategoryProductsPage = () => {
             );
         }
 
-        // 4. Sorting
-        if (sortBy === 'price_desc') {
+        // 3. Sorting
+        if (sortBy === 'price_asc') {
+            result.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+        } else if (sortBy === 'price_desc') {
             result.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
         } else if (sortBy === 'discount') {
             const getDiscount = (p) => {
@@ -312,120 +353,99 @@ const CategoryProductsPage = () => {
         }
 
         return result;
-    }, [safeProducts, selectedSubCategory, selectedTag, searchQuery, sortBy]);
+    }, [safeProducts, selectedSubCategory, searchQuery, sortBy]);
+
+    const handleSubCategoryClick = useCallback((subId) => {
+        setSelectedSubCategory(subId);
+    }, []);
 
     return (
-        <div className="bg-[#f8fafc] min-h-screen w-full flex flex-col font-sans select-none overflow-hidden">
-            {/* Header */}
-            <header className="sticky top-0 z-50 bg-white border-b border-slate-200/80 h-14 px-3 sm:px-4 flex items-center justify-between shadow-2xs">
-                {isSearchOpen ? (
-                    <div className="flex items-center gap-2 w-full animate-in fade-in duration-200">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                            <input
-                                type="text"
-                                autoFocus
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Search products in this category..."
-                                className="w-full pl-9 pr-8 py-1.5 rounded-full bg-slate-100 text-xs sm:text-sm font-bold text-slate-800 outline-none border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
-                            />
-                            {searchQuery && (
-                                <button
-                                    onClick={() => setSearchQuery('')}
-                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-                                >
-                                    <X size={14} />
-                                </button>
-                            )}
-                        </div>
-                        <button
-                            onClick={() => {
-                                setIsSearchOpen(false);
-                                setSearchQuery('');
-                            }}
-                            className="text-xs font-black text-slate-600 hover:text-slate-900 px-2 py-1"
-                        >
-                            Cancel
-                        </button>
-                    </div>
-                ) : (
-                    <>
-                        <div className="flex items-center gap-2.5 min-w-0">
-                            <button
-                                onClick={() => navigate(-1)}
-                                className="p-1.5 hover:bg-slate-100 rounded-full transition-colors flex items-center justify-center shrink-0"
-                            >
-                                <ChevronLeft size={22} className="text-slate-800" />
-                            </button>
-                            <div className="flex flex-col min-w-0">
-                                <h1 className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight truncate">
-                                    {category?.name || catId}
-                                </h1>
-                                <span className="text-[10px] sm:text-[11px] font-bold text-slate-400">
-                                    {filteredAndSortedProducts.length} products
-                                </span>
-                            </div>
-                        </div>
+        <div className="fk-category-page">
+            {/* ── Flipkart-style Blue Header ── */}
+            <header className="fk-category-header">
+                <div className="fk-header-top">
+                    <button
+                        onClick={() => navigate(-1)}
+                        className="fk-header-back"
+                        aria-label="Go back"
+                    >
+                        <ChevronLeft size={24} strokeWidth={2.5} />
+                    </button>
 
-                        <div className="flex items-center gap-2">
+                    <div className="fk-search-bar">
+                        <Search size={18} className="fk-search-icon" />
+                        <input
+                            ref={searchInputRef}
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onFocus={() => setIsSearchFocused(true)}
+                            onBlur={() => setIsSearchFocused(false)}
+                            placeholder="Search for products"
+                            className="fk-search-input"
+                        />
+                        {searchQuery && (
                             <button
-                                onClick={() => setIsSearchOpen(true)}
-                                className="p-2 text-slate-700 hover:bg-slate-100 rounded-full transition-colors"
-                                title="Search"
+                                onClick={() => setSearchQuery('')}
+                                className="fk-search-clear"
                             >
-                                <Search size={20} />
+                                <X size={16} />
                             </button>
-                        </div>
-                    </>
-                )}
+                        )}
+                    </div>
+
+                    <button
+                        onClick={() => navigate('/cart')}
+                        className="fk-header-cart"
+                        aria-label="Open cart"
+                    >
+                        <ShoppingCart size={24} strokeWidth={2} />
+                        {groceryCartCount > 0 && (
+                            <span className="fk-cart-badge">{groceryCartCount}</span>
+                        )}
+                    </button>
+                </div>
             </header>
 
-            {/* Main Body (Split into Left Subcategories Sidebar + Right Products Grid) */}
-            <div className="flex-1 flex overflow-hidden h-[calc(100vh-3.5rem)]">
-                {/* Left Sidebar: Subcategories (Blinkit Style) */}
-                <aside className="w-20 sm:w-24 md:w-28 bg-slate-50/80 border-r border-slate-200/80 flex flex-col shrink-0 overflow-y-auto hide-scrollbar py-1 select-none">
+            {/* ── Main Body: Sidebar + Products ── */}
+            <div className="fk-category-body">
+                {/* Left Sidebar – Subcategory list with thumbnails */}
+                <aside ref={sidebarRef} className="fk-sidebar">
                     {subCategories.map((sub) => {
                         const isActive = selectedSubCategory === sub.id;
                         return (
                             <button
                                 key={sub.id}
-                                onClick={() => {
-                                    setSelectedSubCategory(sub.id);
-                                    setSelectedTag('all');
-                                }}
+                                data-active={isActive}
+                                onClick={() => handleSubCategoryClick(sub.id)}
                                 className={cn(
-                                    "w-full py-2.5 px-1 flex flex-col items-center gap-1.5 transition-all relative cursor-pointer group",
-                                    isActive
-                                        ? "bg-white text-emerald-800 font-extrabold shadow-2xs"
-                                        : "text-slate-600 hover:text-slate-900 font-medium hover:bg-slate-100/60"
+                                    "fk-sidebar-item",
+                                    isActive && "fk-sidebar-item--active"
                                 )}
                             >
-                                {/* Active Indicator Bar on Left Edge */}
-                                {isActive && (
-                                    <motion.span 
-                                        layoutId="activeSubCategoryBar"
-                                        className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-9 bg-emerald-500 rounded-r-full" 
-                                    />
-                                )}
-
-                                {/* Icon Circle */}
                                 <div className={cn(
-                                    "w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center p-1 transition-all overflow-hidden shrink-0",
-                                    isActive
-                                        ? "bg-emerald-50/90 border-2 border-emerald-500 shadow-xs scale-105"
-                                        : "bg-white border border-slate-200/90 group-hover:border-slate-300"
+                                    "fk-sidebar-thumb",
+                                    isActive && "fk-sidebar-thumb--active"
                                 )}>
-                                    <img
-                                        src={sub.icon}
-                                        alt={sub.name}
-                                        className="w-full h-full object-contain mix-blend-multiply"
-                                        onError={(e) => { e.target.src = "https://cdn-icons-png.flaticon.com/128/2321/2321801.png"; }}
-                                    />
+                                    {sub.icon ? (
+                                        <img
+                                            src={applyCloudinaryTransform(sub.icon, 'f_auto,q_auto,w_120')}
+                                            alt={sub.name}
+                                            className="fk-sidebar-img"
+                                            onError={(e) => {
+                                                e.target.style.display = 'none';
+                                            }}
+                                        />
+                                    ) : (
+                                        <span className="fk-sidebar-placeholder">
+                                            {sub.name.charAt(0).toUpperCase()}
+                                        </span>
+                                    )}
                                 </div>
-
-                                {/* Title */}
-                                <span className="text-[10px] sm:text-[11px] text-center leading-tight line-clamp-2 px-1 tracking-tight">
+                                <span className={cn(
+                                    "fk-sidebar-label",
+                                    isActive && "fk-sidebar-label--active"
+                                )}>
                                     {sub.name}
                                 </span>
                             </button>
@@ -433,124 +453,127 @@ const CategoryProductsPage = () => {
                     })}
                 </aside>
 
-                {/* Right Content Panel: Top Filter/Sort Pills + Product Grid */}
-                <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-white">
-                    {/* Top Filter & Sort Bar */}
-                    <div className="bg-white border-b border-slate-100 px-3 py-2 flex items-center gap-2 overflow-x-auto hide-scrollbar shrink-0 z-20">
-                        {/* Sort Dropdown Button */}
-                        <div className="relative shrink-0">
-                            <button
-                                onClick={() => setIsSortOpen(!isSortOpen)}
-                                className={cn(
-                                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap shadow-2xs",
-                                    sortBy !== 'default'
-                                        ? "bg-emerald-50 border-emerald-500 text-emerald-700"
-                                        : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
-                                )}
-                            >
-                                <ArrowUpDown size={13} className="shrink-0" />
-                                <span>{SORT_OPTIONS.find(s => s.id === sortBy)?.label || 'Sort'}</span>
-                            </button>
-
-                            {/* Sort Popover Modal */}
-                            {isSortOpen && (
-                                <>
-                                    <div className="fixed inset-0 z-40" onClick={() => setIsSortOpen(false)} />
-                                    <div className="absolute left-0 mt-2 w-48 bg-white rounded-2xl border border-slate-200 shadow-xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
-                                        <div className="px-3 py-1.5 border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                            Sort Products By
-                                        </div>
-                                        {SORT_OPTIONS.map((opt) => (
-                                            <button
-                                                key={opt.id}
-                                                onClick={() => {
-                                                    setSortBy(opt.id);
-                                                    setIsSortOpen(false);
-                                                }}
-                                                className={cn(
-                                                    "w-full text-left px-3 py-2 text-xs font-bold transition-colors flex items-center justify-between",
-                                                    sortBy === opt.id
-                                                        ? "bg-emerald-50 text-emerald-700"
-                                                        : "text-slate-700 hover:bg-slate-50"
-                                                )}
-                                            >
-                                                <span>{opt.label}</span>
-                                                {sortBy === opt.id && <Check size={14} className="text-emerald-600" />}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </>
-                            )}
-                        </div>
-
-                        {/* Level-2 / Quick Tag Filters */}
+                {/* Right Panel: Sort/Filter + Products Grid */}
+                <main className="fk-products-panel">
+                    {/* Sort & Filter Bar */}
+                    <div className="fk-sort-filter-bar">
                         <button
-                            onClick={() => setSelectedTag('all')}
+                            onClick={() => {
+                                setIsSortOpen(!isSortOpen);
+                                setIsFilterOpen(false);
+                            }}
                             className={cn(
-                                "px-3 py-1.5 rounded-full border text-xs font-extrabold whitespace-nowrap transition-all shrink-0 cursor-pointer shadow-2xs",
-                                selectedTag === 'all'
-                                    ? "bg-slate-900 border-slate-900 text-white"
-                                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                                "fk-sf-button",
+                                sortBy !== 'default' && "fk-sf-button--active"
                             )}
                         >
-                            All
+                            <ArrowUpDown size={14} />
+                            <span>Sort</span>
                         </button>
 
-                        {availableTags.map((tag) => (
-                            <button
-                                key={tag}
-                                onClick={() => setSelectedTag(selectedTag === tag ? 'all' : tag)}
-                                className={cn(
-                                    "px-3 py-1.5 rounded-full border text-xs font-extrabold whitespace-nowrap transition-all shrink-0 cursor-pointer shadow-2xs",
-                                    selectedTag === tag
-                                        ? "bg-emerald-600 border-emerald-600 text-white"
-                                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                                )}
-                            >
-                                {tag}
-                            </button>
-                        ))}
+                        <div className="fk-sf-divider" />
+
+                        <button
+                            onClick={() => {
+                                setIsFilterOpen(!isFilterOpen);
+                                setIsSortOpen(false);
+                            }}
+                            className="fk-sf-button"
+                        >
+                            <SlidersHorizontal size={14} />
+                            <span>Filter</span>
+                        </button>
                     </div>
 
-                    {/* Products Grid Area */}
-                    <div className="flex-1 overflow-y-auto p-2.5 sm:p-3.5 bg-slate-50/50">
+                    {/* Sort Dropdown */}
+                    <AnimatePresence>
+                        {isSortOpen && (
+                            <>
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="fk-overlay"
+                                    onClick={() => setIsSortOpen(false)}
+                                />
+                                <motion.div
+                                    initial={{ opacity: 0, y: -8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -8 }}
+                                    transition={{ duration: 0.15 }}
+                                    className="fk-sort-dropdown"
+                                >
+                                    <div className="fk-sort-title">SORT BY</div>
+                                    {SORT_OPTIONS.map((opt) => (
+                                        <button
+                                            key={opt.id}
+                                            onClick={() => {
+                                                setSortBy(opt.id);
+                                                setIsSortOpen(false);
+                                            }}
+                                            className={cn(
+                                                "fk-sort-option",
+                                                sortBy === opt.id && "fk-sort-option--active"
+                                            )}
+                                        >
+                                            <span>{opt.label}</span>
+                                            {sortBy === opt.id && (
+                                                <Check size={16} className="fk-sort-check" />
+                                            )}
+                                        </button>
+                                    ))}
+                                </motion.div>
+                            </>
+                        )}
+                    </AnimatePresence>
+
+                    {/* Products Grid */}
+                    <div ref={productGridRef} className="fk-products-grid-container">
                         {isLoading ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-3">
-                                {[...Array(8)].map((_, i) => (
-                                    <div key={i} className="h-64 rounded-2xl bg-slate-200/60 animate-pulse" />
+                            <div className="fk-skeleton-grid">
+                                {[...Array(6)].map((_, i) => (
+                                    <div key={i} className="fk-skeleton-card">
+                                        <div className="fk-skeleton-image" />
+                                        <div className="fk-skeleton-lines">
+                                            <div className="fk-skeleton-line fk-skeleton-line--long" />
+                                            <div className="fk-skeleton-line fk-skeleton-line--medium" />
+                                            <div className="fk-skeleton-line fk-skeleton-line--short" />
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
                         ) : filteredAndSortedProducts.length === 0 ? (
-                            <div className="w-full h-full min-h-[300px] flex flex-col items-center justify-center text-center p-6">
-                                <div className="w-48 h-48 mb-4">
+                            <div className="fk-empty-state">
+                                <div className="fk-empty-lottie">
                                     {noServiceData ? (
                                         <Lottie animationData={noServiceData} loop={true} />
                                     ) : (
-                                        <div className="w-48 h-48 bg-slate-100 rounded-full" />
+                                        <div className="fk-empty-circle" />
                                     )}
                                 </div>
-                                <h3 className="text-lg font-black text-slate-800 mb-1">
-                                    No Products Found
-                                </h3>
-                                <p className="text-xs text-slate-500 font-semibold max-w-xs mb-4">
-                                    No items match your selected filters or search query in this category.
+                                <h3 className="fk-empty-title">No Products Found</h3>
+                                <p className="fk-empty-desc">
+                                    No items match your selected filters in this category.
                                 </p>
                                 <button
                                     onClick={() => {
                                         setSelectedSubCategory('all');
-                                        setSelectedTag('all');
                                         setSearchQuery('');
                                         setSortBy('default');
                                     }}
-                                    className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-emerald-700 active:scale-95 transition-all shadow-md shadow-emerald-600/20"
+                                    className="fk-empty-reset"
                                 >
                                     Reset Filters
                                 </button>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-3 pb-24">
+                            <div className="fk-products-grid">
                                 {filteredAndSortedProducts.map((product) => (
-                                    <ProductCard key={product.id || product._id} product={product} layout="grid" />
+                                    <FlipkartCatalogCard
+                                        key={product.id || product._id}
+                                        product={product}
+                                        onProductClick={openProduct}
+                                    />
                                 ))}
                             </div>
                         )}
@@ -561,20 +584,550 @@ const CategoryProductsPage = () => {
             <MiniCart />
             <ProductDetailSheet />
 
+            {/* ── Scoped Styles ── */}
             <style dangerouslySetInnerHTML={{
                 __html: `
-                    .hide-scrollbar::-webkit-scrollbar {
-                        display: none;
+                /* ─── Page Container (Locked to viewport between header & bottom nav) ─── */
+                .fk-category-page {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+                    display: flex;
+                    flex-direction: column;
+                    background: #ffffff;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                    -webkit-font-smoothing: antialiased;
+                    overflow: hidden;
+                    z-index: 40;
+                }
+                @media (min-width: 768px) {
+                    .fk-category-page {
+                        bottom: 0;
                     }
-                    .hide-scrollbar {
-                        -ms-overflow-style: none;
-                        scrollbar-width: none;
+                }
+
+                /* ─── Flipkart Blue Header ─── */
+                .fk-category-header {
+                    flex-shrink: 0;
+                    height: 56px;
+                    z-index: 20;
+                    background: #2874f0;
+                    box-shadow: 0 2px 8px rgba(40, 116, 240, 0.25);
+                }
+
+                .fk-header-top {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding: 8px 12px;
+                    height: 56px;
+                }
+
+                .fk-header-back {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 50%;
+                    color: #fff;
+                    background: transparent;
+                    border: none;
+                    cursor: pointer;
+                    flex-shrink: 0;
+                    transition: background 0.15s;
+                }
+                .fk-header-back:active {
+                    background: rgba(255,255,255,0.15);
+                }
+
+                /* ─── Search Bar (Rounded, White) ─── */
+                .fk-search-bar {
+                    flex: 1;
+                    display: flex;
+                    align-items: center;
+                    background: #fff;
+                    border-radius: 24px;
+                    padding: 0 14px;
+                    height: 38px;
+                    gap: 8px;
+                    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+                }
+
+                .fk-search-icon {
+                    color: #878787;
+                    flex-shrink: 0;
+                }
+
+                .fk-search-input {
+                    flex: 1;
+                    border: none;
+                    outline: none;
+                    background: transparent;
+                    font-size: 14px;
+                    color: #212121;
+                    font-weight: 400;
+                    min-width: 0;
+                }
+                .fk-search-input::placeholder {
+                    color: #878787;
+                    font-weight: 400;
+                }
+
+                .fk-search-clear {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: #878787;
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    padding: 2px;
+                }
+
+                /* ─── Cart Icon ─── */
+                .fk-header-cart {
+                    position: relative;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 40px;
+                    height: 40px;
+                    color: #fff;
+                    background: transparent;
+                    border: none;
+                    cursor: pointer;
+                    flex-shrink: 0;
+                    border-radius: 50%;
+                    transition: background 0.15s;
+                }
+                .fk-header-cart:active {
+                    background: rgba(255,255,255,0.15);
+                }
+
+                .fk-cart-badge {
+                    position: absolute;
+                    top: 2px;
+                    right: 1px;
+                    min-width: 18px;
+                    height: 18px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: #ff6161;
+                    color: #fff;
+                    font-size: 10px;
+                    font-weight: 700;
+                    border-radius: 9px;
+                    padding: 0 4px;
+                    line-height: 1;
+                    border: 1.5px solid #2874f0;
+                }
+
+                /* ─── Body (Sidebar + Products) ─── */
+                .fk-category-body {
+                    flex: 1;
+                    min-height: 0;
+                    height: 100%;
+                    display: flex;
+                    overflow: hidden;
+                    position: relative;
+                }
+
+                /* ─── Left Sidebar (Independently scrollable) ─── */
+                .fk-sidebar {
+                    width: 80px;
+                    min-width: 80px;
+                    height: 100%;
+                    max-height: 100%;
+                    background: #fff;
+                    border-right: 1px solid #e0e0e0;
+                    overflow-y: auto;
+                    overflow-x: hidden;
+                    flex-shrink: 0;
+                    scrollbar-width: none;
+                    -ms-overflow-style: none;
+                    overscroll-behavior-y: contain;
+                    -webkit-overflow-scrolling: touch;
+                    touch-action: pan-y;
+                    padding-bottom: 30px;
+                }
+                .fk-sidebar::-webkit-scrollbar {
+                    display: none;
+                }
+
+                .fk-sidebar-item {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    width: 100%;
+                    padding: 10px 4px;
+                    gap: 6px;
+                    border: none;
+                    background: #fff;
+                    cursor: pointer;
+                    transition: background 0.15s;
+                    position: relative;
+                    border-bottom: 1px solid #f5f5f5;
+                }
+                .fk-sidebar-item:active {
+                    background: #f5f5f5;
+                }
+
+                .fk-sidebar-item--active {
+                    background: #f1f3f6;
+                }
+                .fk-sidebar-item--active::before {
+                    content: '';
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    bottom: 0;
+                    width: 3px;
+                    background: #2874f0;
+                    border-radius: 0 3px 3px 0;
+                }
+
+                .fk-sidebar-thumb {
+                    width: 52px;
+                    height: 52px;
+                    border-radius: 50%;
+                    overflow: hidden;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: #f9f9f9;
+                    border: 2px solid transparent;
+                    transition: border-color 0.2s, box-shadow 0.2s;
+                    flex-shrink: 0;
+                }
+                .fk-sidebar-thumb--active {
+                    border-color: #2874f0;
+                    box-shadow: 0 0 0 2px rgba(40, 116, 240, 0.15);
+                    background: #fff;
+                }
+
+                .fk-sidebar-img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: contain;
+                    mix-blend-mode: multiply;
+                    padding: 4px;
+                }
+
+                .fk-sidebar-placeholder {
+                    font-size: 18px;
+                    font-weight: 700;
+                    color: #2874f0;
+                    line-height: 1;
+                }
+
+                .fk-sidebar-label {
+                    font-size: 10px;
+                    font-weight: 500;
+                    color: #666;
+                    text-align: center;
+                    line-height: 1.2;
+                    display: -webkit-box;
+                    -webkit-line-clamp: 2;
+                    -webkit-box-orient: vertical;
+                    overflow: hidden;
+                    word-break: break-word;
+                    max-width: 100%;
+                    padding: 0 2px;
+                }
+                .fk-sidebar-label--active {
+                    color: #2874f0;
+                    font-weight: 700;
+                }
+
+                /* ─── Products Panel ─── */
+                .fk-products-panel {
+                    flex: 1;
+                    min-width: 0;
+                    min-height: 0;
+                    height: 100%;
+                    max-height: 100%;
+                    display: flex;
+                    flex-direction: column;
+                    overflow: hidden;
+                    background: #fff;
+                    position: relative;
+                }
+
+                /* ─── Sort & Filter Bar ─── */
+                .fk-sort-filter-bar {
+                    display: flex;
+                    align-items: center;
+                    background: #fff;
+                    border-bottom: 1px solid #e0e0e0;
+                    height: 44px;
+                    min-height: 44px;
+                    flex-shrink: 0;
+                    z-index: 10;
+                }
+
+                .fk-sf-button {
+                    flex: 1;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 6px;
+                    height: 100%;
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: #212121;
+                    transition: color 0.15s;
+                }
+                .fk-sf-button:active {
+                    background: #f5f5f5;
+                }
+                .fk-sf-button--active {
+                    color: #2874f0;
+                }
+
+                .fk-sf-divider {
+                    width: 1px;
+                    height: 24px;
+                    background: #e0e0e0;
+                    flex-shrink: 0;
+                }
+
+                /* ─── Sort Dropdown ─── */
+                .fk-overlay {
+                    position: fixed;
+                    inset: 0;
+                    z-index: 50;
+                    background: rgba(0,0,0,0.25);
+                }
+
+                .fk-sort-dropdown {
+                    position: absolute;
+                    top: 44px;
+                    left: 0;
+                    right: 0;
+                    background: #fff;
+                    z-index: 60;
+                    border-bottom: 1px solid #e0e0e0;
+                    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+                }
+
+                .fk-sort-title {
+                    padding: 12px 16px 8px;
+                    font-size: 11px;
+                    font-weight: 700;
+                    color: #878787;
+                    letter-spacing: 0.5px;
+                    border-bottom: 1px solid #f0f0f0;
+                }
+
+                .fk-sort-option {
+                    width: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 12px 16px;
+                    font-size: 14px;
+                    font-weight: 500;
+                    color: #212121;
+                    background: none;
+                    border: none;
+                    border-bottom: 1px solid #f5f5f5;
+                    cursor: pointer;
+                    text-align: left;
+                    transition: background 0.1s;
+                }
+                .fk-sort-option:last-child {
+                    border-bottom: none;
+                }
+                .fk-sort-option:active {
+                    background: #f5f5f5;
+                }
+                .fk-sort-option--active {
+                    color: #2874f0;
+                    font-weight: 600;
+                    background: #f5f9ff;
+                }
+
+                .fk-sort-check {
+                    color: #2874f0;
+                    flex-shrink: 0;
+                }
+
+                /* ─── Products Grid Area (Independently scrollable) ─── */
+                .fk-products-grid-container {
+                    flex: 1;
+                    min-height: 0;
+                    height: 100%;
+                    max-height: 100%;
+                    overflow-y: auto;
+                    overflow-x: hidden;
+                    padding: 0;
+                    scrollbar-width: none;
+                    -ms-overflow-style: none;
+                    overscroll-behavior-y: contain;
+                    -webkit-overflow-scrolling: touch;
+                    touch-action: pan-y;
+                    background: #ffffff;
+                }
+                .fk-products-grid-container::-webkit-scrollbar {
+                    display: none;
+                }
+
+                .fk-products-grid {
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 14px 10px;
+                    padding: 10px 10px 40px;
+                    background: #ffffff;
+                }
+
+                /* ─── Skeleton Loading ─── */
+                .fk-skeleton-grid {
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 14px 10px;
+                    padding: 10px;
+                    background: #ffffff;
+                }
+
+                .fk-skeleton-card {
+                    background: #fff;
+                    border-radius: 8px;
+                    overflow: hidden;
+                    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+                }
+
+                .fk-skeleton-image {
+                    width: 100%;
+                    aspect-ratio: 1;
+                    background: linear-gradient(110deg, #f0f0f0 25%, #e0e0e0 37%, #f0f0f0 63%);
+                    background-size: 200% 100%;
+                    animation: fk-shimmer 1.4s ease infinite;
+                }
+
+                .fk-skeleton-lines {
+                    padding: 10px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 6px;
+                }
+
+                .fk-skeleton-line {
+                    height: 10px;
+                    border-radius: 4px;
+                    background: linear-gradient(110deg, #f0f0f0 25%, #e0e0e0 37%, #f0f0f0 63%);
+                    background-size: 200% 100%;
+                    animation: fk-shimmer 1.4s ease infinite;
+                }
+                .fk-skeleton-line--long { width: 90%; }
+                .fk-skeleton-line--medium { width: 65%; }
+                .fk-skeleton-line--short { width: 40%; }
+
+                @keyframes fk-shimmer {
+                    0% { background-position: 200% 0; }
+                    100% { background-position: -200% 0; }
+                }
+
+                /* ─── Empty State ─── */
+                .fk-empty-state {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    text-align: center;
+                    padding: 40px 24px;
+                    min-height: 60vh;
+                }
+
+                .fk-empty-lottie {
+                    width: 160px;
+                    height: 160px;
+                    margin-bottom: 16px;
+                }
+
+                .fk-empty-circle {
+                    width: 100%;
+                    height: 100%;
+                    border-radius: 50%;
+                    background: #f0f0f0;
+                }
+
+                .fk-empty-title {
+                    font-size: 17px;
+                    font-weight: 700;
+                    color: #212121;
+                    margin-bottom: 4px;
+                }
+
+                .fk-empty-desc {
+                    font-size: 13px;
+                    color: #878787;
+                    max-width: 260px;
+                    margin-bottom: 20px;
+                    line-height: 1.4;
+                }
+
+                .fk-empty-reset {
+                    padding: 10px 28px;
+                    border-radius: 4px;
+                    background: #2874f0;
+                    color: #fff;
+                    font-size: 14px;
+                    font-weight: 600;
+                    border: none;
+                    cursor: pointer;
+                    box-shadow: 0 2px 8px rgba(40,116,240,0.25);
+                    transition: background 0.15s;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+                .fk-empty-reset:active {
+                    background: #1a5dc8;
+                }
+
+                /* ─── Responsive ─── */
+                @media (min-width: 640px) {
+                    .fk-sidebar {
+                        width: 96px;
+                        min-width: 96px;
                     }
+                    .fk-sidebar-thumb {
+                        width: 60px;
+                        height: 60px;
+                    }
+                    .fk-sidebar-label {
+                        font-size: 11px;
+                    }
+                    .fk-products-grid {
+                        grid-template-columns: repeat(3, 1fr);
+                    }
+                    .fk-skeleton-grid {
+                        grid-template-columns: repeat(3, 1fr);
+                    }
+                }
+
+                @media (min-width: 1024px) {
+                    .fk-sidebar {
+                        width: 110px;
+                        min-width: 110px;
+                    }
+                    .fk-products-grid {
+                        grid-template-columns: repeat(4, 1fr);
+                    }
+                    .fk-skeleton-grid {
+                        grid-template-columns: repeat(4, 1fr);
+                    }
+                }
                 `}} />
         </div>
     );
 };
 
 export default CategoryProductsPage;
-
-

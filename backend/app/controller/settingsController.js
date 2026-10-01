@@ -135,6 +135,7 @@ const updateSettingsSchema = Joi.object({
     sellerEditRequiresApproval: Joi.boolean(),
   }).unknown(false),
   categoriesBanner: Joi.object({
+    presetVersion: Joi.number().integer().min(0),
     image: Joi.string().allow("").max(2000),
     badgeText: Joi.string().allow("").max(100),
     title: Joi.string().allow("").max(500),
@@ -144,6 +145,7 @@ const updateSettingsSchema = Joi.object({
     banners: Joi.array().items(
       Joi.object({
         image: Joi.string().allow("").max(2000),
+        headerCategoryId: Joi.string().allow("").max(100),
         badgeText: Joi.string().allow("").max(100),
         title: Joi.string().allow("").max(500),
         buttonText: Joi.string().allow("").max(100),

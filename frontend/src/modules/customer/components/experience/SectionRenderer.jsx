@@ -76,6 +76,14 @@ const SectionRenderer = ({ sections = [], productsById = {}, categoriesById = {}
         );
         const heading = section.title;
 
+        // Skip "Explore Top Categories"
+        if (
+          heading?.trim().toLowerCase().includes("explore top categories") ||
+          section?.title?.trim().toLowerCase().includes("explore top categories")
+        ) {
+          return null;
+        }
+
         if (section.displayType === "banners") {
           const items = section.config?.banners?.items || [];
           if (!items.length) return null;

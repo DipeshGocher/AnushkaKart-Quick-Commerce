@@ -10,6 +10,7 @@ import Card from "@shared/components/ui/Card";
 import Modal from "@shared/components/ui/Modal";
 import { useToast } from "@shared/components/ui/Toast";
 import { cn } from "@/lib/utils";
+import { getDefaultHomeHeroBanners, MIN_HOME_HERO_BANNERS } from "@shared/constants/homeHeroDefaults";
 
 const emptyBannerItem = () => ({
   imageUrl: "",
@@ -59,7 +60,7 @@ export default function HeroCategoriesPerPage() {
             label: "Home",
             pageType: "home",
             headerId: null,
-            bannerCount: homeBanners.length,
+            bannerCount: homeBanners.length < MIN_HOME_HERO_BANNERS ? getDefaultHomeHeroBanners().length : homeBanners.length,
             categoryCount: homeCatIds.length,
           },
         ];
@@ -111,7 +112,9 @@ export default function HeroCategoriesPerPage() {
       const items = result.banners?.items || [];
       const catIds = result.categoryIds || [];
       setFormBanners(
-        items.length
+        row.pageType === "home" && items.length < MIN_HOME_HERO_BANNERS
+          ? getDefaultHomeHeroBanners().map((banner) => ({ ...banner, isUploading: false }))
+          : items.length
           ? items.map((b) => ({ ...b, isUploading: false }))
           : [emptyBannerItem()]
       );
@@ -173,6 +176,10 @@ export default function HeroCategoriesPerPage() {
     }));
 
     if (!editingRow) return;
+    if (editingRow.pageType === "home" && items.length < MIN_HOME_HERO_BANNERS) {
+      showToast(`Add at least ${MIN_HOME_HERO_BANNERS} home banners.`, "error");
+      return;
+    }
     setSaving(true);
     try {
       await adminApi.setHeroConfig({
@@ -334,6 +341,11 @@ export default function HeroCategoriesPerPage() {
                   Add banner
                 </button>
               </div>
+              {editingRow.pageType === "home" && (
+                <p className="mb-3 text-xs text-slate-500">
+                  Home includes 7 Anushka Store banners by default. Replace or add images here; keep at least 6 slides. They rotate every 4.5 seconds.
+                </p>
+              )}
               <div className="space-y-3 max-h-48 overflow-y-auto">
                 {formBanners.map((item, idx) => (
                   <Card key={idx} className="p-3 bg-white border-slate-100">

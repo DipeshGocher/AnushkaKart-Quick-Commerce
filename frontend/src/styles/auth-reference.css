@@ -1,0 +1,71 @@
+.auth-reference {
+  overflow-x: hidden;
+}
+
+.auth-reference-content {
+  min-height: 100vh;
+}
+
+.auth-reference input:not([type="checkbox"]):not([type="radio"]),
+.auth-reference select,
+.auth-reference textarea {
+  min-height: 58px;
+  border-color: #2868df;
+  border-radius: 12px;
+  background-color: #fff;
+  color: #252932;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.auth-reference input::placeholder,
+.auth-reference textarea::placeholder {
+  color: #858991;
+  font-weight: 400;
+}
+
+.auth-reference input:focus,
+.auth-reference select:focus,
+.auth-reference textarea:focus {
+  border-color: #2868df;
+  box-shadow: 0 0 0 2px rgb(40 104 223 / 12%);
+}
+
+.auth-reference button[type="submit"] {
+  min-height: 60px;
+  border: 0;
+  border-radius: 9px;
+  background: #ff641d !important;
+  color: #fff !important;
+  font-size: 16px;
+  font-weight: 700;
+  box-shadow: 0 10px 22px rgb(255 100 29 / 16%);
+}
+
+.auth-reference button[type="submit"]:hover {
+  background: #ed5712 !important;
+}
+
+.auth-reference button[class*="from-orange-"],
+.auth-reference button[class*="from-amber-"] {
+  background: #ff641d !important;
+  color: #fff !important;
+}
+
+.auth-reference a,
+.auth-reference-footer button,
+.auth-reference-footer span {
+  color: #2468d8;
+}
+
+@media (max-width: 640px) {
+  .auth-reference-content {
+    min-height: 100svh;
+    padding-top: 7rem;
+    padding-bottom: 5rem;
+  }
+
+  .auth-reference-brand {
+    margin-bottom: 3.5rem;
+  }
+}

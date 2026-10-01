@@ -91,13 +91,14 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
     const hideCartRoutes = ['/checkout', '/search', '/chat'];
 
     // If props are passed, use them. Otherwise, use route-based logic.
-    const showHeader = showHeaderProp !== undefined ? showHeaderProp : (!hideHeaderRoutes.includes(path) && !path.startsWith('/category') && !path.startsWith('/orders'));
+    const isHierarchicalProduct = Boolean(new URLSearchParams(location.search).get('id') || (path.split('/').filter(Boolean).length >= 2 && !['category', 'orders', 'profile', 'seller', 'admin', 'delivery'].includes(path.split('/').filter(Boolean)[0])));
+    const showHeader = showHeaderProp !== undefined ? showHeaderProp : (!hideHeaderRoutes.includes(path) && !path.startsWith('/category') && !path.startsWith('/orders') && !path.startsWith('/products') && !path.startsWith('/product') && !isHierarchicalProduct);
     const showBottomNav = showBottomNavProp !== undefined ? showBottomNavProp : !hideBottomNavRoutes.includes(path);
     const showCart = showCartProp !== undefined ? showCartProp : (!hideCartRoutes.includes(path) && !path.startsWith('/orders'));
 
     // Condition to hide the MobileFooterMessage ("Sab kuchh ek basket mein") on specific pages
     const hideFooterMessageRoutes = ['/profile', '/profile/edit'];
-    const showFooterMessage = showBottomNav && !hideFooterMessageRoutes.includes(path) && !path.startsWith('/category');
+    const showFooterMessage = showBottomNav && !hideFooterMessageRoutes.includes(path) && !path.startsWith('/category') && !path.startsWith('/products') && !path.startsWith('/product') && !isHierarchicalProduct;
 
     // Hide elements on mobile only when product detail is open
     // On desktop, we want to keep the header visible even if the modal is open
@@ -105,7 +106,7 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
     const finalShowBottomNavMobile = showBottomNav && !isProductDetailOpen;
     const finalShowFooterMessageMobile = showFooterMessage && !isProductDetailOpen;
     return (
-        <div className="min-h-screen bg-[#f1f4f8] flex flex-col font-sans">
+        <div className="customer-app min-h-screen bg-white flex flex-col font-sans">
             {/* Header logic: Always show on desktop if showHeader is true. On mobile, hide if product detail is open. */}
             {showHeader && (
                 <>

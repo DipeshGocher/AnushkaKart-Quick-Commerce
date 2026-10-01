@@ -1,20 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Search, ShoppingCart, User, MapPin, CloudRain, Sun, Snowflake, Cloud, CloudLightning, Wind } from 'lucide-react';
+import { Search, ShoppingCart, User, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '../../context/CartContext';
 import { useLocation as useAppLocation } from "../../context/LocationContext";
 import { useSettings } from '@core/context/SettingsContext';
 import LocationDrawer from '../shared/LocationDrawer';
-const WeatherIconMap = {
-    CloudRain,
-    Sun,
-    Snowflake,
-    Cloud,
-    CloudLightning,
-    Wind
-};
-
 const Header = () => {
     const { settings } = useSettings();
     const { cartCount } = useCart();
@@ -75,11 +66,8 @@ const Header = () => {
         return () => clearTimeout(timeout);
     }, [typingState]);
 
-    const weatherEnabled = settings?.weather?.isEnabled !== false; // Default true
-    const ActiveWeatherIcon = settings?.weather?.icon ? WeatherIconMap[settings.weather.icon] : CloudRain;
-
     return (
-        <header className="absolute top-0 md:top-8 left-0 right-0 z-[200] px-4 py-4 md:py-0 bg-[radial-gradient(ellipse_at_15%_-20%,rgba(255,255,255,0.4),transparent_45%),linear-gradient(115deg,#3278d7_0%,#3d83df_52%,#5a9ae8_100%)] md:bg-none">
+        <header className="customer-standard-header absolute top-0 md:top-8 left-0 right-0 z-[200] px-4 py-4 md:py-0 bg-[#eaf4ff] md:bg-none">
             <div className="container mx-auto max-w-6xl">
                 {/* Mobile Top Row: Location & Profile */}
                 <div className="md:hidden flex items-center justify-between mb-4 px-2 animate-in slide-in-from-top duration-500">
@@ -115,14 +103,6 @@ const Header = () => {
                         <Link to="/" className="flex items-center gap-2">
                             <img src={settings?.logoUrl || "/logo.png"} alt={settings?.appName || "AnushkaStore"} className="h-10 md:h-12 w-auto object-contain" />
                         </Link>
-
-                        {/* Weather Widget */}
-                        {weatherEnabled && (
-                            <div className="hidden md:flex items-center gap-1.5 rounded-xl border border-white/35 bg-black/20 px-3 py-2 text-sm font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-xl">
-                                {ActiveWeatherIcon && <ActiveWeatherIcon size={16} className="text-white" />}
-                                <span>{settings?.weather?.condition || 'Rain'}</span>
-                            </div>
-                        )}
 
                         {/* Location Selector (Desktop ONLY) */}
                         <button

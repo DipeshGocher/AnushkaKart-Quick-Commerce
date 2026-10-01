@@ -4,7 +4,7 @@ import { useAuth } from '@core/context/AuthContext';
 import { customerApi } from '../services/customerApi';
 import { invalidateCache } from '@core/api/dedupe';
 import { toast } from 'sonner';
-import { ChevronLeft, ArrowRight, ShoppingBag, ShieldCheck } from 'lucide-react';
+import { ArrowRight, ShoppingBag, ShieldCheck } from 'lucide-react';
 import { useSettings } from '@core/context/SettingsContext';
 import { useTranslation } from '@core/context/LanguageContext';
 import SignInCard2 from '@/components/ui/sign-in-card-2';
@@ -133,10 +133,10 @@ const CustomerAuth = () => {
         <SignInCard2
             onBack={handleClose}
             icon={showOtp ? ShieldCheck : ShoppingBag}
-            iconBg="bg-gradient-to-br from-[#FF5722] via-[#FF6D00] to-[#0F172A] text-white"
+            iconBg="bg-gradient-to-br from-[#2875E8] to-[#1559bd] text-white"
             iconColor="text-white"
-            title={!showOtp ? (isLogin ? 'Welcome Back' : 'Create Account') : 'Verify OTP'}
-            subtitle={!showOtp ? (isLogin ? 'Login to access your orders' : 'Register to get started') : `${t('sentTo')} +91 ${formData.phone}`}
+            title={!showOtp ? (isLogin ? 'Log in for the best experience' : 'Create your account') : 'Verify with OTP'}
+            subtitle={!showOtp ? (isLogin ? 'Enter your phone number to continue' : 'Enter your details to get started') : `${t('sentTo')} +91 ${formData.phone}`}
             logoUrl={settings?.logoUrl || "/logo.png"}
             appName="Anushka Store"
             bgImageUrl="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1920&q=80"
@@ -147,7 +147,7 @@ const CustomerAuth = () => {
                         <button
                             type="button"
                             onClick={() => setIsLogin(!isLogin)}
-                            className="text-[#FF5722] font-bold hover:underline transition-colors ml-0.5"
+                            className="text-[#2875E8] font-bold hover:underline transition-colors ml-0.5"
                         >
                             {isLogin ? 'Create an account' : 'Login'}
                         </button>
@@ -169,7 +169,7 @@ const CustomerAuth = () => {
                                     name="name"
                                     value={formData.name}
                                     placeholder="Enter Full Name"
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm font-semibold text-[#0F172A] outline-none placeholder:text-slate-400 focus:bg-white focus:border-[#FF5722] focus:ring-2 focus:ring-[#FF5722]/20 transition-all"
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm font-semibold text-[#0F172A] outline-none placeholder:text-slate-400 focus:bg-white focus:border-[#2875E8] focus:ring-2 focus:ring-blue-100 transition-all"
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                 />
                             </div>
@@ -182,7 +182,7 @@ const CustomerAuth = () => {
                                     name="referralCode"
                                     value={formData.referralCode}
                                     placeholder="Enter Referral Code"
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm font-semibold text-[#0F172A] outline-none placeholder:text-slate-400 focus:bg-white focus:border-[#FF5722] focus:ring-2 focus:ring-[#FF5722]/20 transition-all uppercase"
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm font-semibold text-[#0F172A] outline-none placeholder:text-slate-400 focus:bg-white focus:border-[#2875E8] focus:ring-2 focus:ring-blue-100 transition-all uppercase"
                                     onChange={(e) => setFormData({ ...formData, referralCode: e.target.value.toUpperCase() })}
                                 />
                             </div>
@@ -191,9 +191,9 @@ const CustomerAuth = () => {
 
                     <div>
                         <label className="block text-[11px] font-bold tracking-wider text-[#0F172A] uppercase mb-1.5 px-0.5">
-                            PHONE NUMBER
+                            MOBILE NUMBER
                         </label>
-                        <div className="relative flex items-center border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#FF5722] focus-within:ring-2 focus-within:ring-[#FF5722]/20 transition-all bg-slate-50 focus-within:bg-white">
+                        <div className="relative flex items-center border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#2875E8] focus-within:ring-2 focus-within:ring-blue-100 transition-all bg-slate-50 focus-within:bg-white">
                             <div className="pl-4 pr-3 py-3.5 font-bold text-[#0F172A] text-sm border-r border-slate-200/80 bg-slate-100/70 shrink-0">
                                 +91
                             </div>
@@ -216,62 +216,34 @@ const CustomerAuth = () => {
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full mt-3 relative bg-gradient-to-r from-[#FF5722] via-[#FF6D00] to-[#0F172A] hover:from-[#FF6D00] hover:to-[#0F172A] active:scale-[0.99] text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md shadow-orange-500/25 focus:outline-none disabled:opacity-50 flex items-center justify-center gap-2 text-sm cursor-pointer"
+                        className="w-full mt-3 relative bg-[#ff641d] hover:bg-[#ed5712] active:scale-[0.99] text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md shadow-orange-500/20 focus:outline-none disabled:opacity-50 flex items-center justify-center gap-2 text-sm cursor-pointer"
                     >
-                        <span>{isLoading ? t('pleaseWait') : (isLogin ? 'Send OTP' : 'Create Account')}</span>
+                        <span>{isLoading ? t('pleaseWait') : (isLogin ? 'Continue' : 'Create Account')}</span>
                         <ArrowRight className="w-4 h-4" />
                     </button>
                 </form>
             ) : (
                 <>
-                    <div className="flex items-center justify-start gap-2 mb-4">
-                        <button
-                            onClick={() => setShowOtp(false)}
-                            className="text-slate-500 hover:text-[#0F172A] transition-colors p-1"
-                        >
-                            <ChevronLeft size={20} />
-                        </button>
-                        <span className="text-xs font-semibold text-slate-600">Change number</span>
-                    </div>
-
                     <form onSubmit={handleVerifyOtp} className="space-y-6">
-                        <div className="flex justify-center gap-2">
-                            {[...Array(4)].map((_, i) => (
-                                <input
-                                    key={i}
-                                    type="tel"
-                                    maxLength={1}
-                                    className="w-12 h-14 bg-slate-50 border border-slate-200 rounded-xl text-center text-xl font-bold text-[#0F172A] outline-none focus:bg-white focus:border-[#FF5722] focus:ring-2 focus:ring-[#FF5722]/20 transition-all"
-                                    value={formData.otp[i] || ''}
-                                    onKeyDown={(e) => {
-                                        const target = /** @type {HTMLInputElement} */ (e.currentTarget);
-                                        if (e.key === 'Backspace' && !target.value && i > 0) {
-                                            const prev = /** @type {HTMLInputElement | null} */ (target.previousElementSibling);
-                                            if (prev) prev.focus();
-                                        }
-                                    }}
-                                    onChange={(e) => {
-                                        const target = /** @type {HTMLInputElement} */ (e.currentTarget);
-                                        const val = target.value;
-                                        if (val && i < 3) {
-                                            const next = /** @type {HTMLInputElement | null} */ (target.nextElementSibling);
-                                            if (next) next.focus();
-                                        }
-                                        const otpArr = formData.otp.split('');
-                                        otpArr[i] = val;
-                                        setFormData({ ...formData, otp: otpArr.join('') });
-                                    }}
-                                />
-                            ))}
-                        </div>
+                        <input
+                            type="tel"
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            maxLength={4}
+                            aria-label="OTP"
+                            placeholder="XXXX"
+                            className="w-full text-center tracking-[0.3em] text-2xl font-semibold"
+                            value={formData.otp}
+                            onChange={(e) => setFormData({ ...formData, otp: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                        />
 
                         <div className="space-y-4">
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full relative bg-gradient-to-r from-[#FF5722] via-[#FF6D00] to-[#0F172A] hover:from-[#FF6D00] hover:to-[#0F172A] active:scale-[0.99] text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md shadow-orange-500/25 focus:outline-none disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
+                                className="w-full relative bg-[#ff641d] hover:bg-[#ed5712] active:scale-[0.99] text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md shadow-orange-500/20 focus:outline-none disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
                             >
-                                <span>{isLoading ? t('verifying') : t('verifyProceed')}</span>
+                                <span>{isLoading ? t('verifying') : 'Verify'}</span>
                                 <ArrowRight className="w-4 h-4" />
                             </button>
                             <div className="flex justify-center">
@@ -279,9 +251,18 @@ const CustomerAuth = () => {
                                     type="button"
                                     disabled={timer > 0}
                                     onClick={handleSendOtp}
-                                    className={`text-xs font-semibold ${timer > 0 ? 'text-slate-400' : 'text-[#FF5722] hover:underline'}`}
+                                    className={`text-xs font-semibold ${timer > 0 ? 'text-slate-400' : 'text-[#2875E8] hover:underline'}`}
                                 >
                                     {timer > 0 ? `${t('resendIn')} ${timer}s` : t('resendCode')}
+                                </button>
+                            </div>
+                            <div className="flex justify-center">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowOtp(false)}
+                                    className="text-sm font-semibold text-[#2468d8] hover:underline"
+                                >
+                                    Change Mobile Number
                                 </button>
                             </div>
                         </div>

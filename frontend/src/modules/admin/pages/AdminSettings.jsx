@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@shared/components/ui/Toast';
 import { adminApi } from '../services/adminApi';
 import { useSettings } from '@core/context/SettingsContext';
+import { CATEGORY_BANNER_PRESET_VERSION, getDefaultCategoryBannerItems } from '@shared/constants/categoryBannerPresets';
 
 import { EMOJIS } from '@shared/utils/emojis';
 
@@ -51,8 +52,22 @@ const AdminSettings = () => {
     const [activeTab, setActiveTab] = useState('general');
     const [logoUploading, setLogoUploading] = useState(false);
     const [faviconUploading, setFaviconUploading] = useState(false);
+    const [bannerHeaderCategories, setBannerHeaderCategories] = useState([]);
     const logoInputRef = useRef(null);
     const faviconInputRef = useRef(null);
+
+    useEffect(() => {
+        if (activeTab !== 'categoriesBanner') return;
+        let isCurrent = true;
+        adminApi.getCategories({ type: 'header', catalogType: 'all', page: 1, limit: 100 })
+            .then((res) => {
+                const payload = res.data?.result || {};
+                const items = Array.isArray(payload.items) ? payload.items : (res.data?.results || []);
+                if (isCurrent) setBannerHeaderCategories(items.filter((item) => item.type === 'header'));
+            })
+            .catch((error) => console.error('Failed to load header categories for banners', error));
+        return () => { isCurrent = false; };
+    }, [activeTab]);
 
     const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
     const [emojiPickerPos, setEmojiPickerPos] = useState({ top: 0, left: 0 });
@@ -96,6 +111,8 @@ const AdminSettings = () => {
         },
         categoriesBanner: {
             image: '',
+            presetVersion: 0,
+            banners: [],
             badgeText: 'KIRANA STORE',
             title: 'Everything you need, in one place',
             buttonText: 'Shop Now',
@@ -113,6 +130,21 @@ const AdminSettings = () => {
         },
     };
     const [settings, setSettings] = useState(defaultSettings);
+
+    useEffect(() => {
+        if (activeTab !== 'categoriesBanner' || isLoading || bannerHeaderCategories.length === 0) return;
+        setSettings((current) => {
+            if (Number(current.categoriesBanner?.presetVersion || 0) >= CATEGORY_BANNER_PRESET_VERSION) return current;
+            return {
+                ...current,
+                categoriesBanner: {
+                    ...current.categoriesBanner,
+                    presetVersion: CATEGORY_BANNER_PRESET_VERSION,
+                    banners: getDefaultCategoryBannerItems(bannerHeaderCategories),
+                },
+            };
+        });
+    }, [activeTab, isLoading, bannerHeaderCategories]);
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -186,7 +218,7 @@ const AdminSettings = () => {
             ...prev,
             productApproval: {
                 ...(prev.productApproval || {}),
-                [field]: !Boolean(prev.productApproval?.[field]),
+                [field]: !prev.productApproval?.[field],
             },
         }));
     };
@@ -281,7 +313,7 @@ const AdminSettings = () => {
                     ...(prev.categoriesBanner || {}),
                     banners: [
                         ...currentBanners,
-                        { image: '', badgeText: 'KIRANA STORE', title: '', buttonText: 'Shop Now', buttonLink: '/' }
+                        { image: '', headerCategoryId: '', badgeText: 'KIRANA STORE', title: '', buttonText: 'Shop Now', buttonLink: '/' }
                     ]
                 }
             };
@@ -1009,7 +1041,7 @@ const AdminSettings = () => {
                                     <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                                         Categories Promotional Banner
                                     </h3>
-                                    <p className="text-xs text-slate-400 font-semibold mt-1">Upload and toggle the promotional banner visible to customers in mobile view.</p>
+                                    <p className="text-xs text-slate-400 font-semibold mt-1">The category banners shown in the app are listed below. Replace an image here and save to update it.</p>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-xs font-bold text-slate-500">Visible to Users</span>
@@ -1045,7 +1077,7 @@ const AdminSettings = () => {
                                         </button>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div className="space-y-4">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">Banner Image {index + 1} <span className="font-semibold text-slate-400 normal-case tracking-normal">(Recommended: 600 × 250 px)</span></label>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">Banner Image {index + 1} <span className="font-semibold text-slate-400 normal-case tracking-normal">(Recommended: 600 × 180 px)</span></label>
                                                 <div
                                                     onClick={() => triggerBannerUpload(index)}
                                                     className={cn(
@@ -1070,12 +1102,26 @@ const AdminSettings = () => {
                                                         <div className="space-y-2">
                                                             <Upload className="h-6 w-6 text-slate-400 mx-auto" />
                                                             <p className="text-xs font-bold text-slate-500">Upload Banner</p>
-                                                            <p className="text-[10px] text-slate-400 font-semibold uppercase">600 x 250 px</p>
+                                                            <p className="text-[10px] text-slate-400 font-semibold uppercase">600 x 180 px</p>
                                                         </div>
                                                     )}
                                                 </div>
                                             </div>
                                             <div className="space-y-4 pt-4">
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Header Category</label>
+                                                    <select
+                                                        value={banner.headerCategoryId || ''}
+                                                        onChange={(e) => handleBannerItemChange(index, 'headerCategoryId', e.target.value)}
+                                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500/20"
+                                                    >
+                                                        <option value="">Choose a header category</option>
+                                                        {bannerHeaderCategories.map((category) => (
+                                                            <option key={category._id || category.id} value={category._id || category.id}>{category.name}</option>
+                                                        ))}
+                                                    </select>
+                                                    <p className="text-[10px] text-slate-400">This banner appears when customers select this category.</p>
+                                                </div>
                                                 <div className="space-y-2">
                                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Link URL</label>
                                                     <input 

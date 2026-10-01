@@ -3,6 +3,7 @@ import express from "express";
 import request from "supertest";
 
 const mockGetProducts = jest.fn((req, res) => res.status(200).json({ route: "list" }));
+const mockGetHeaderProducts = jest.fn((req, res) => res.status(200).json({ route: "header-products" }));
 const mockGetProductById = jest.fn((req, res) =>
   res.status(200).json({ route: "by-id", id: req.params.id }),
 );
@@ -12,6 +13,7 @@ const mockGetSellerProducts = jest.fn((req, res) =>
 
 jest.unstable_mockModule("../app/controller/productController.js", () => ({
   getProducts: mockGetProducts,
+  getHeaderProducts: mockGetHeaderProducts,
   getSellerProducts: mockGetSellerProducts,
   createProduct: jest.fn((req, res) => res.status(201).json({})),
   updateProduct: jest.fn((req, res) => res.status(200).json({})),
@@ -52,6 +54,17 @@ describe("product routes ordering", () => {
     expect(response.statusCode).toBe(200);
     expect(response.body.route).toBe("seller-me");
     expect(mockGetSellerProducts).toHaveBeenCalledTimes(1);
+    expect(mockGetProductById).not.toHaveBeenCalled();
+  });
+
+  test("GET /header-products is not shadowed by dynamic /:id route", async () => {
+    const app = express();
+    app.use("/products", productRoutes);
+
+    const response = await request(app).get("/products/header-products");
+    expect(response.statusCode).toBe(200);
+    expect(response.body.route).toBe("header-products");
+    expect(mockGetHeaderProducts).toHaveBeenCalledTimes(1);
     expect(mockGetProductById).not.toHaveBeenCalled();
   });
 

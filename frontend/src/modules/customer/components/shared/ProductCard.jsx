@@ -7,6 +7,7 @@ import { useCart } from "../../context/CartContext";
 import { useToast } from "@shared/components/ui/Toast";
 import { useCartAnimation } from "../../context/CartAnimationContext";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { getProductUrl } from "@/core/utils/productUrl";
 import { motion, AnimatePresence } from "framer-motion";
 import { useProductDetail } from "../../context/ProductDetailContext";
 import ParticleBurst from "./ParticleBurst";
@@ -88,9 +89,9 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
 
     const handleProductClick = React.useCallback(
       (e) => {
-        if (openProduct) {
+        if (product) {
           e.preventDefault();
-          openProduct(product);
+          navigate(getProductUrl(product));
         }
       },
       [openProduct, product],
@@ -215,9 +216,7 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
       <div
         className={cn(
           "group relative flex flex-col justify-between transition-all duration-300 cursor-pointer shadow-2xs hover:shadow-md",
-          isRefurbished
-            ? "bg-gradient-to-b from-[#F0F7FF] via-[#F8FAFC] to-white border border-blue-200/70 hover:border-blue-300"
-            : "bg-gradient-to-b from-[#FFF5EE] via-[#FFF9F5] to-white border border-orange-200/70 hover:border-orange-300",
+          "customer-product-card bg-white border border-slate-200/80 hover:border-blue-200",
           compact ? "p-1.5 sm:p-2 rounded-xl" : "p-2.5 sm:p-3 rounded-2xl",
           layout === "list" ? "flex-row items-center gap-3 py-3" : "h-full",
           className
@@ -229,7 +228,7 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
           onClick={toggleWishlist}
           className={cn(
             "absolute z-20 rounded-full bg-white/90 backdrop-blur-md shadow-2xs flex items-center justify-center hover:bg-white hover:scale-105 active:scale-90 transition-all border",
-            isRefurbished ? "border-blue-100" : "border-orange-100",
+            "border-slate-200",
             compact ? "top-1.5 right-1.5 w-6 h-6" : "top-2.5 right-2.5 sm:top-3 sm:right-3 w-7 h-7 sm:w-8 sm:h-8"
           )}
           title="Wishlist"
@@ -297,7 +296,7 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
           <div>
             <h4 className={cn(
               "font-extrabold text-[#0F172A] leading-snug line-clamp-2 transition-colors",
-              isRefurbished ? "group-hover:text-blue-600" : "group-hover:text-[#FF5722]",
+              "group-hover:text-[#2875E8]",
               compact ? "text-[11px] sm:text-xs" : "text-xs sm:text-sm"
             )}>
               {product.name}
@@ -350,9 +349,7 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
                 <div 
                   className={cn(
                     "flex items-center justify-between rounded-lg text-white shadow-2xs",
-                    addBtnBg ? addBtnBg : (isRefurbished
-                      ? "bg-gradient-to-r from-blue-600 to-indigo-600"
-                      : "bg-gradient-to-r from-[#FF5722] to-[#FF6D00]"),
+                    addBtnBg ? addBtnBg : "bg-[#2875E8]",
                     compact ? "h-6.5 min-w-[55px]" : "h-8 min-w-[70px]"
                   )}
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
@@ -378,9 +375,7 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
                   onClick={handleAddToCart}
                   className={cn(
                     "rounded-lg border-2 flex items-center justify-center font-black uppercase active:scale-95 transition-all shadow-2xs cursor-pointer",
-                    addBtnClass ? addBtnClass : (isRefurbished
-                      ? "border-blue-600 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white"
-                      : "border-[#FF5722] bg-[#FFF0E6] text-[#FF5722] hover:bg-[#FF5722] hover:text-white"),
+                    addBtnClass ? addBtnClass : "border-[#2875E8] bg-blue-50 text-[#2875E8] hover:bg-[#2875E8] hover:text-white",
                     compact ? "h-6.5 min-w-[55px] px-2 text-[10px]" : "h-8 min-w-[70px] px-3.5 text-[12px]"
                   )}
                   title="Add to Cart"

@@ -1,4 +1,6 @@
+import mongoose from "mongoose";
 import Product from "../models/product.js";
+import Category from "../models/category.js";
 import Order from "../models/order.js";
 import Review from "../models/review.js";
 import { handleResponse } from "../utils/helper.js";
@@ -299,6 +301,7 @@ export const getProducts = async (req, res) => {
       approvalStatus,
       sellerId,
       featured,
+      newArrivals,
       categoryId,
       subcategoryId,
       headerId,
@@ -334,63 +337,117 @@ export const getProducts = async (req, res) => {
     if (search) {
       const term = String(search).trim();
       if (term) {
-        if (isProductTextSearchEnabled() && term.length >= 3) {
-          query.$text = { $search: term };
-        } else {
-          const englishTerm = await translateToEnglish(term);
-          const originalWords = term.split(/\s+/).filter(Boolean);
-          const englishWords = englishTerm.split(/\s+/).filter(Boolean);
-          const orClauses = [];
+        let extractedMaxPrice = null;
+        let extractedMinPrice = null;
+        let cleanedTerm = term;
 
-          if (originalWords.length > 0) {
-            orClauses.push({
-              $and: originalWords.map((word) => {
-                const regex = buildSearchRegexWithSynonyms(word);
-                return {
-                  $or: [
-                    { name: regex },
-                    { tags: regex },
-                    { description: regex }
-                  ]
-                };
-              })
-            });
-          }
+        const underMatch = term.match(/(?:under|below|less\s+than|upto|sub)\s*(\d+(?:\.\d+)?)/i);
+        if (underMatch) {
+          extractedMaxPrice = Number(underMatch[1]);
+          cleanedTerm = cleanedTerm.replace(underMatch[0], "").trim();
+        }
 
-          if (englishWords.length > 0 && englishTerm.toLowerCase() !== term.toLowerCase()) {
-            orClauses.push({
-              $and: englishWords.map((word) => {
-                const regex = buildSearchRegexWithSynonyms(word);
-                return {
-                  $or: [
-                    { name: regex },
-                    { tags: regex },
-                    { description: regex }
-                  ]
-                };
-              })
-            });
-          }
+        const aboveMatch = term.match(/(?:above|over|more\s+than)\s*(\d+(?:\.\d+)?)/i);
+        if (aboveMatch) {
+          extractedMinPrice = Number(aboveMatch[1]);
+          cleanedTerm = cleanedTerm.replace(aboveMatch[0], "").trim();
+        }
 
-          if (orClauses.length > 1) {
-            if (query.$or) {
-              query.$and = query.$and || [];
-              query.$and.push({ $or: query.$or });
-              query.$and.push({ $or: orClauses });
-              delete query.$or;
-            } else {
-              query.$or = orClauses;
-            }
-          } else if (orClauses.length === 1) {
-            if (query.$or) {
-              query.$and = query.$and || [];
-              query.$and.push({ $or: query.$or });
-              query.$and.push(orClauses[0]);
-              delete query.$or;
-            } else {
-              Object.assign(query, orClauses[0]);
+        const rangeMatch = term.match(/(\d+(?:\.\d+)?)\s*(?:-|to)\s*(\d+(?:\.\d+)?)/i);
+        if (rangeMatch) {
+          extractedMinPrice = Number(rangeMatch[1]);
+          extractedMaxPrice = Number(rangeMatch[2]);
+          cleanedTerm = cleanedTerm.replace(rangeMatch[0], "").trim();
+        }
+
+        if (extractedMaxPrice != null || extractedMinPrice != null) {
+          const priceFilter = {};
+          if (extractedMaxPrice != null) priceFilter.$lte = extractedMaxPrice;
+          if (extractedMinPrice != null) priceFilter.$gte = extractedMinPrice;
+          query.$and = query.$and || [];
+          query.$and.push({
+            $or: [{ price: priceFilter }, { salePrice: priceFilter }]
+          });
+        }
+
+        const searchRegexForCat = new RegExp(
+          (cleanedTerm || term).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+          "i"
+        );
+        let matchedCategoryIds = [];
+        try {
+          const matchedCats = await Category.find({
+            name: searchRegexForCat,
+            status: "active"
+          }).select("_id parentId type").lean();
+          if (matchedCats.length > 0) {
+            matchedCategoryIds = matchedCats.map((c) => c._id);
+            const subCats = await Category.find({
+              parentId: { $in: matchedCategoryIds },
+              status: "active"
+            }).select("_id").lean();
+            if (subCats.length > 0) {
+              matchedCategoryIds = matchedCategoryIds.concat(subCats.map((s) => s._id));
             }
           }
+        } catch (catErr) {
+          console.error("Error matching categories for search:", catErr);
+        }
+
+        const effectiveTerm = cleanedTerm || term;
+        const englishTerm = await translateToEnglish(effectiveTerm);
+        const originalWords = effectiveTerm.split(/\s+/).filter(Boolean);
+        const englishWords = englishTerm.split(/\s+/).filter(Boolean);
+        const orClauses = [];
+
+        const buildFieldOr = (regex) => [
+          { name: regex },
+          { brand: regex },
+          { tags: regex },
+          { description: regex },
+          ...(matchedCategoryIds.length > 0
+            ? [
+                { categoryId: { $in: matchedCategoryIds } },
+                { subcategoryId: { $in: matchedCategoryIds } },
+                { headerId: { $in: matchedCategoryIds } }
+              ]
+            : [])
+        ];
+
+        if (originalWords.length > 0) {
+          orClauses.push({
+            $and: originalWords.map((word) => {
+              const regex = buildSearchRegexWithSynonyms(word);
+              return { $or: buildFieldOr(regex) };
+            })
+          });
+        }
+
+        if (englishWords.length > 0 && englishTerm.toLowerCase() !== effectiveTerm.toLowerCase()) {
+          orClauses.push({
+            $and: englishWords.map((word) => {
+              const regex = buildSearchRegexWithSynonyms(word);
+              return { $or: buildFieldOr(regex) };
+            })
+          });
+        }
+
+        if (matchedCategoryIds.length > 0) {
+          orClauses.push({
+            $or: [
+              { categoryId: { $in: matchedCategoryIds } },
+              { subcategoryId: { $in: matchedCategoryIds } },
+              { headerId: { $in: matchedCategoryIds } }
+            ]
+          });
+        }
+
+        if (orClauses.length > 1) {
+          query.$and = query.$and || [];
+          query.$and.push({ $or: orClauses });
+        } else if (orClauses.length === 1) {
+          query.$and = query.$and || [];
+          query.$and.push(orClauses[0]);
         }
       }
     }
@@ -400,9 +457,103 @@ export const getProducts = async (req, res) => {
     const finalCategoryId = category || categoryId;
     const finalSubcategoryId = subcategory || subcategoryId;
 
-    if (finalHeaderId && finalHeaderId !== "all") query.headerId = finalHeaderId;
-    if (finalCategoryId && finalCategoryId !== "all") query.categoryId = finalCategoryId;
-    if (finalSubcategoryId && finalSubcategoryId !== "all") query.subcategoryId = finalSubcategoryId;
+    if (finalHeaderId && finalHeaderId !== "all") {
+      try {
+        const childCats = await Category.find({ parentId: finalHeaderId, type: "category" }).select("_id").lean();
+        const childCatIds = childCats.map((c) => c._id);
+        const subCats = childCatIds.length > 0
+          ? await Category.find({ parentId: { $in: childCatIds }, type: "subcategory" }).select("_id").lean()
+          : [];
+        const subCatIds = subCats.map((s) => s._id);
+
+        const headerOrClauses = [
+          { headerId: finalHeaderId },
+          ...(childCatIds.length > 0 ? [{ categoryId: { $in: childCatIds } }] : []),
+          ...(subCatIds.length > 0 ? [{ subcategoryId: { $in: subCatIds } }] : []),
+        ];
+
+        if (query.$or) {
+          query.$and = query.$and || [];
+          query.$and.push({ $or: query.$or });
+          query.$and.push({ $or: headerOrClauses });
+          delete query.$or;
+        } else {
+          query.$or = headerOrClauses;
+        }
+      } catch (err) {
+        query.headerId = finalHeaderId;
+      }
+    }
+    if (finalCategoryId && finalCategoryId !== "all") {
+      try {
+        const catDoc = await Category.findById(finalCategoryId).select("type parentId").lean();
+        if (catDoc?.type === "header") {
+          const childCats = await Category.find({ parentId: finalCategoryId, type: "category" }).select("_id").lean();
+          const childCatIds = childCats.map((c) => c._id);
+          const subCats = childCatIds.length > 0
+            ? await Category.find({ parentId: { $in: childCatIds }, type: "subcategory" }).select("_id").lean()
+            : [];
+          const subCatIds = subCats.map((s) => s._id);
+          const catOrClauses = [
+            { headerId: finalCategoryId },
+            ...(childCatIds.length > 0 ? [{ categoryId: { $in: childCatIds } }] : []),
+            ...(subCatIds.length > 0 ? [{ subcategoryId: { $in: subCatIds } }] : []),
+          ];
+          if (query.$or) {
+            query.$and = query.$and || [];
+            query.$and.push({ $or: query.$or });
+            query.$and.push({ $or: catOrClauses });
+            delete query.$or;
+          } else {
+            query.$or = catOrClauses;
+          }
+        } else if (catDoc?.type === "subcategory") {
+          const catOr = [
+            { subcategoryId: finalCategoryId },
+            { categoryId: finalCategoryId }
+          ];
+          if (query.$or) {
+            query.$and = query.$and || [];
+            query.$and.push({ $or: query.$or });
+            query.$and.push({ $or: catOr });
+            delete query.$or;
+          } else {
+            query.$or = catOr;
+          }
+        } else {
+          const subCats = await Category.find({ parentId: finalCategoryId }).select("_id").lean();
+          const subCatIds = subCats.map((s) => s._id);
+          const catOrClauses = [
+            { categoryId: finalCategoryId },
+            ...(subCatIds.length > 0 ? [{ subcategoryId: { $in: subCatIds } }] : []),
+          ];
+          if (query.$or) {
+            query.$and = query.$and || [];
+            query.$and.push({ $or: query.$or });
+            query.$and.push({ $or: catOrClauses });
+            delete query.$or;
+          } else {
+            query.$or = catOrClauses;
+          }
+        }
+      } catch (err) {
+        query.categoryId = finalCategoryId;
+      }
+    }
+    if (finalSubcategoryId && finalSubcategoryId !== "all") {
+      const subOr = [
+        { subcategoryId: finalSubcategoryId },
+        { categoryId: finalSubcategoryId }
+      ];
+      if (query.$or) {
+        query.$and = query.$and || [];
+        query.$and.push({ $or: query.$or });
+        query.$and.push({ $or: subOr });
+        delete query.$or;
+      } else {
+        query.$or = subOr;
+      }
+    }
 
     const requestedSellerIds = parseSellerIdFilters({ sellerId, sellerIds });
     const coords = parseCustomerCoordinates({ lat, lng });
@@ -412,7 +563,11 @@ export const getProducts = async (req, res) => {
     const effectiveLat = coords.valid ? coords.lat : 22.7196;
     const effectiveLng = coords.valid ? coords.lng : 75.8577;
 
-    const shouldApplyLocationFilter = enforceRadius && conditionType !== "refurbished";
+    // Featured products are curated for the home page and should not disappear
+    // from Top Deals solely because their seller is outside the local radius.
+    const isCuratedHomeFeed = featured === "true" || newArrivals === "true" || Boolean(search) || req.query.allProducts === "true" || req.query.random === "true";
+    const shouldApplyLocationFilter =
+      enforceRadius && conditionType !== "refurbished" && !isCuratedHomeFeed;
     if (shouldApplyLocationFilter) {
       const nearbySellerIds = await getNearbySellerIdsForCustomer(
         effectiveLat,
@@ -423,6 +578,11 @@ export const getProducts = async (req, res) => {
       const finalSellerIds = requestedSellerIds.length
         ? requestedSellerIds.filter((id) => nearbySet.has(String(id)))
         : nearbySellerIds;
+
+      const mixedSellerIds = [
+        ...finalSellerIds.map(String),
+        ...finalSellerIds.filter((id) => mongoose.Types.ObjectId.isValid(id)).map((id) => new mongoose.Types.ObjectId(id)),
+      ];
 
       if (requestedSellerIds.length > 0) {
         // If specific sellers were requested but none are nearby, return empty
@@ -441,42 +601,35 @@ export const getProducts = async (req, res) => {
           delete query.$or;
           query.$and.push({
             $or: [
-              { sellerId: { $in: finalSellerIds } },
-              { warehouseId: { $in: finalSellerIds } }
+              { sellerId: { $in: mixedSellerIds } },
+              { warehouseId: { $in: mixedSellerIds } }
             ]
           });
         } else {
           query.$or = [
-            { sellerId: { $in: finalSellerIds } },
-            { warehouseId: { $in: finalSellerIds } }
+            { sellerId: { $in: mixedSellerIds } },
+            { warehouseId: { $in: mixedSellerIds } }
           ];
         }
       } else {
-        // Nearby sellers + warehouses only (monthly kits included via warehouseId)
-        if (!finalSellerIds.length) {
-          return handleResponse(res, 200, "No products available in your area", {
-            items: [],
-            page: 1,
-            limit: 24,
-            total: 0,
-            totalPages: 1,
-          });
-        }
-        if (query.$or) {
-          query.$and = query.$and || [];
-          query.$and.push({ $or: query.$or });
-          delete query.$or;
-          query.$and.push({
-            $or: [
-              { sellerId: { $in: finalSellerIds } },
-              { warehouseId: { $in: finalSellerIds } },
-            ]
-          });
-        } else {
-          query.$or = [
-            { sellerId: { $in: finalSellerIds } },
-            { warehouseId: { $in: finalSellerIds } },
-          ];
+        // Nearby sellers + warehouses only (fallback to all if no nearby found)
+        if (finalSellerIds.length > 0) {
+          if (query.$or) {
+            query.$and = query.$and || [];
+            query.$and.push({ $or: query.$or });
+            delete query.$or;
+            query.$and.push({
+              $or: [
+                { sellerId: { $in: mixedSellerIds } },
+                { warehouseId: { $in: mixedSellerIds } },
+              ]
+            });
+          } else {
+            query.$or = [
+              { sellerId: { $in: mixedSellerIds } },
+              { warehouseId: { $in: mixedSellerIds } },
+            ];
+          }
         }
       }
     }
@@ -674,9 +827,9 @@ export const getSellerProducts = async (req, res) => {
         .select(
           "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants highlights conditionType refurbishedDetails createdAt",
         )
-        .populate("headerId", "name")
-        .populate("categoryId", "name")
-        .populate("subcategoryId", "name")
+        .populate("headerId", "name slug")
+        .populate("categoryId", "name slug")
+        .populate("subcategoryId", "name slug")
         .populate("sellerId", "shopName")
         .populate("warehouseId", "name")
         .sort(sortQuery)
@@ -925,6 +1078,39 @@ export const createProduct = async (req, res) => {
     // Normalize subcategoryId: if empty/invalid ObjectId, set to null so Mongoose schema accepts it
     if (!productData.subcategoryId || !mongoose.Types.ObjectId.isValid(String(productData.subcategoryId))) {
       productData.subcategoryId = null;
+    } else {
+      productData.subcategoryId = new mongoose.Types.ObjectId(String(productData.subcategoryId));
+      if (!productData.categoryId || !productData.headerId) {
+        const subCat = await Category.findById(productData.subcategoryId).select("parentId type").lean();
+        if (subCat && subCat.parentId) {
+          if (!productData.categoryId) productData.categoryId = subCat.parentId;
+          if (!productData.headerId) {
+            const parentCat = await Category.findById(subCat.parentId).select("parentId type").lean();
+            if (parentCat && parentCat.parentId) {
+              productData.headerId = parentCat.parentId;
+            }
+          }
+        }
+      }
+    }
+
+    if (productData.categoryId && mongoose.Types.ObjectId.isValid(String(productData.categoryId))) {
+      productData.categoryId = new mongoose.Types.ObjectId(String(productData.categoryId));
+      if (!productData.headerId) {
+        const cat = await Category.findById(productData.categoryId).select("parentId type").lean();
+        if (cat && cat.parentId) {
+          productData.headerId = cat.parentId;
+        }
+      }
+    }
+    if (productData.headerId && mongoose.Types.ObjectId.isValid(String(productData.headerId))) {
+      productData.headerId = new mongoose.Types.ObjectId(String(productData.headerId));
+    }
+    if (productData.sellerId && mongoose.Types.ObjectId.isValid(String(productData.sellerId))) {
+      productData.sellerId = new mongoose.Types.ObjectId(String(productData.sellerId));
+    }
+    if (productData.warehouseId && mongoose.Types.ObjectId.isValid(String(productData.warehouseId))) {
+      productData.warehouseId = new mongoose.Types.ObjectId(String(productData.warehouseId));
     }
 
     // Auto-generate product SKU if missing
@@ -1156,7 +1342,34 @@ export const updateProduct = async (req, res) => {
     if (productData.subcategoryId !== undefined) {
       if (!productData.subcategoryId || !mongoose.Types.ObjectId.isValid(String(productData.subcategoryId))) {
         productData.subcategoryId = null;
+      } else {
+        productData.subcategoryId = new mongoose.Types.ObjectId(String(productData.subcategoryId));
+        if (!productData.categoryId) {
+          const subCat = await Category.findById(productData.subcategoryId).select("parentId type").lean();
+          if (subCat && subCat.parentId) {
+            productData.categoryId = subCat.parentId;
+            if (!productData.headerId) {
+              const parentCat = await Category.findById(subCat.parentId).select("parentId type").lean();
+              if (parentCat && parentCat.parentId) {
+                productData.headerId = parentCat.parentId;
+              }
+            }
+          }
+        }
       }
+    }
+
+    if (productData.categoryId && mongoose.Types.ObjectId.isValid(String(productData.categoryId))) {
+      productData.categoryId = new mongoose.Types.ObjectId(String(productData.categoryId));
+      if (!productData.headerId) {
+        const cat = await Category.findById(productData.categoryId).select("parentId type").lean();
+        if (cat && cat.parentId) {
+          productData.headerId = cat.parentId;
+        }
+      }
+    }
+    if (productData.headerId && mongoose.Types.ObjectId.isValid(String(productData.headerId))) {
+      productData.headerId = new mongoose.Types.ObjectId(String(productData.headerId));
     }
 
     const skuBaseName = productData.name || product.name;
@@ -1297,20 +1510,14 @@ export const deleteProduct = async (req, res) => {
 ================================ */
 export const getProductById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const targetId = req.query.id || req.params.id;
+    const id = targetId;
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
     const enforceRadius = isCustomerVisibilityRequest(req);
 
     let nearbySellerSet = null;
     const coords = parseCustomerCoordinates(req.query || {});
-    if (enforceRadius) {
-      if (!coords.valid) {
-        return handleResponse(
-          res,
-          400,
-          "lat and lng are required for customer product visibility",
-        );
-      }
+    if (enforceRadius && coords.valid) {
       const nearbySellerIds = await getNearbySellerIdsForCustomer(
         coords.lat,
         coords.lng,
@@ -1327,9 +1534,9 @@ export const getProductById = async (req, res) => {
           .select(
             "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId isMonthlyKit status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants highlights createdAt",
           )
-          .populate("headerId", "name")
-          .populate("categoryId", "name")
-          .populate("subcategoryId", "name")
+          .populate("headerId", "name slug")
+          .populate("categoryId", "name slug")
+          .populate("subcategoryId", "name slug")
           .populate("sellerId", "shopName")
           .populate("warehouseId", "name")
           .lean();
@@ -1372,7 +1579,7 @@ export const getProductById = async (req, res) => {
       }
 
       const fulfillmentId = sellerIdForProduct || warehouseIdForProduct;
-      if (!nearbySellerSet || !fulfillmentId || !nearbySellerSet.has(String(fulfillmentId))) {
+      if (req.query.allProducts !== "true" && coords.valid && nearbySellerSet && (!fulfillmentId || !nearbySellerSet.has(String(fulfillmentId)))) {
         return handleResponse(res, 404, "Product not available in your area");
       }
     }
@@ -1620,3 +1827,124 @@ export const rejectProduct = async (req, res) => {
     return handleResponse(res, 500, error.message);
   }
 };
+
+/* ================================================================
+   GET PRODUCTS BY ALL HEADER CATEGORIES (For Home "All" Tab)
+   Returns line-wise header categories with up to max products each
+================================================================ */
+export const getHeaderProducts = async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit || "10", 10)), 20);
+    const { lat, lng } = req.query;
+
+    const headers = await Category.find({ type: "header", status: "active" })
+      .sort({ sortOrder: 1, name: 1, _id: 1 })
+      .lean();
+
+    const filteredHeaders = headers.filter(
+      (h) => (h.slug?.toLowerCase() !== "all") && (h.name?.toLowerCase() !== "all")
+    );
+
+    if (!filteredHeaders.length) {
+      return handleResponse(res, 200, "No header categories found", []);
+    }
+
+    const enforceRadius = isCustomerVisibilityRequest(req);
+    const coords = parseCustomerCoordinates({ lat, lng });
+    const effectiveLat = coords.valid ? coords.lat : 22.7196;
+    const effectiveLng = coords.valid ? coords.lng : 75.8577;
+
+    let sellerFilter = null;
+    if (enforceRadius) {
+      try {
+        const nearbySellerIds = await getNearbySellerIdsForCustomer(effectiveLat, effectiveLng);
+        if (nearbySellerIds && nearbySellerIds.length > 0) {
+          sellerFilter = {
+            $or: [
+              { sellerId: { $in: nearbySellerIds } },
+              { warehouseId: { $in: nearbySellerIds } }
+            ]
+          };
+        }
+      } catch (err) {
+        // Fallback without seller filter
+      }
+    }
+
+    const results = await Promise.all(
+      filteredHeaders.map(async (header) => {
+        try {
+          const childCats = await Category.find({ parentId: header._id, type: "category" }).select("_id").lean();
+          const childCatIds = childCats.map((c) => c._id);
+          const subCats = childCatIds.length > 0
+            ? await Category.find({ parentId: { $in: childCatIds }, type: "subcategory" }).select("_id").lean()
+            : [];
+          const subCatIds = subCats.map((s) => s._id);
+
+          const categoryOrClauses = [
+            { headerId: header._id },
+            ...(childCatIds.length > 0 ? [{ categoryId: { $in: childCatIds } }] : []),
+            ...(subCatIds.length > 0 ? [{ subcategoryId: { $in: subCatIds } }] : []),
+          ];
+
+          const prodQuery = {
+            status: "active",
+            approvalStatus: { $ne: "rejected" },
+            conditionType: { $ne: "refurbished" },
+            $or: categoryOrClauses,
+          };
+
+          if (sellerFilter) {
+            prodQuery.$and = [sellerFilter];
+          }
+
+          let items = await Product.find(prodQuery)
+            .select("_id name slug price salePrice mainImage variants rating ratingsCount weight unit brand isFeatured")
+            .sort({ isFeatured: -1, createdAt: -1 })
+            .limit(limit)
+            .lean();
+
+          if ((!items || items.length === 0) && sellerFilter) {
+            delete prodQuery.$and;
+            items = await Product.find(prodQuery)
+              .select("_id name slug price salePrice mainImage variants rating ratingsCount weight unit brand isFeatured")
+              .sort({ isFeatured: -1, createdAt: -1 })
+              .limit(limit)
+              .lean();
+          }
+
+          if (!items || items.length === 0) {
+            return null;
+          }
+
+          return {
+            header: {
+              _id: header._id,
+              name: header.name,
+              slug: header.slug,
+              image: header.image || null,
+              iconId: header.iconId || null,
+            },
+            products: items.map((p) => ({
+              ...p,
+              id: p._id,
+              image: p.mainImage || (p.variants?.[0]?.images?.[0]) || "",
+              price: p.salePrice || p.price,
+              originalPrice: p.price,
+              weight: p.weight || "1 unit",
+              rating: p.rating || 5.0,
+            })),
+          };
+        } catch (catErr) {
+          return null;
+        }
+      })
+    );
+
+    const validSections = results.filter(Boolean);
+    return handleResponse(res, 200, "Header products fetched successfully", validSections);
+  } catch (error) {
+    return handleResponse(res, 500, error.message);
+  }
+};
+

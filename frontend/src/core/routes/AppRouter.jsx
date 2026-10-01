@@ -50,6 +50,7 @@ const KitDetailPage = lazy(() => import('../../modules/customer/pages/KitDetailP
 const CheckoutPage = lazy(() => import('../../modules/customer/pages/CheckoutPage'));
 const PaymentStatusPage = lazy(() => import('../../modules/customer/pages/PaymentStatusPage'));
 const SearchPage = lazy(() => import('../../modules/customer/pages/SearchPage'));
+const ProductsPage = lazy(() => import('../../modules/customer/pages/ProductsPage'));
 const WalletPage = lazy(() => import('../../modules/customer/pages/WalletPage'));
 const NotificationsPage = lazy(() => import('../../modules/customer/pages/NotificationsPage'));
 
@@ -236,7 +237,12 @@ const AppRouter = () => {
                         { path: 'profile/edit', element: <ProtectedRoute><EditProfilePage /></ProtectedRoute> },
                         { path: 'wallet', element: <ProtectedRoute><WalletPage /></ProtectedRoute> },
                         { path: 'notifications', element: <ProtectedRoute><NotificationsPage /></ProtectedRoute> },
+                        { path: 'products', element: <ProductsPage /> },
+                        { path: 'product', element: <ProductsPage /> },
                         { path: 'search', element: <SearchPage /> },
+                        { path: ':headerSlug/:categorySlug/:subCategorySlug/:productSlug', element: <ProductDetailPage /> },
+                        { path: ':headerSlug/:categorySlug/:productSlug', element: <ProductDetailPage /> },
+                        { path: ':headerSlug/:productSlug', element: <ProductDetailPage /> },
                     ]
                 },
                 {

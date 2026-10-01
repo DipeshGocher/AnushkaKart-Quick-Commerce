@@ -1,6 +1,7 @@
 import express from "express";
 import {
     getProducts,
+    getHeaderProducts,
     getSellerProducts,
     createProduct,
     updateProduct,
@@ -26,6 +27,7 @@ const router = express.Router();
 
 // Public routes with optional auth (to detect admin/seller vs customer)
 router.get("/", optionalVerifyToken, getProducts);
+router.get("/header-products", optionalVerifyToken, getHeaderProducts);
 
 // Seller protected routes
 router.get("/seller/me", verifyToken, allowRoles("seller", "warehouse"), requireApprovedSeller, getSellerProducts);

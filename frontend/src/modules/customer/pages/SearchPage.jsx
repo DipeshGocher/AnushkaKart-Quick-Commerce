@@ -1,358 +1,409 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation as useRouterLocation } from 'react-router-dom';
-import { Search, Mic, ArrowLeft, X, TrendingUp, ChevronRight, History } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Search, 
+  ArrowLeft, 
+  X, 
+  ArrowUpRight, 
+  History, 
+  TrendingUp, 
+  ImageOff,
+  Clock
+} from 'lucide-react';
 import { customerApi } from '../services/customerApi';
-import ProductCard from '../components/shared/ProductCard';
-import { useProductDetail } from '../context/ProductDetailContext';
-import { useSettings } from '@core/context/SettingsContext';
-import { cn } from '@/lib/utils';
-import { useLocation as useAppLocation } from '../context/LocationContext';
 import { getJSON, setJSON, STORAGE_KEYS } from '@core/utils/storage';
-import Lottie from 'lottie-react';
+import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import { getProductUrl } from '@/core/utils/productUrl';
+import { cn } from '@/lib/utils';
+
+const DEFAULT_POPULAR_SUGGESTIONS = [
+  {
+    term: 'mobile 5g',
+    categoryName: 'in Mobiles',
+    image: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?auto=format&fit=crop&q=80&w=200',
+  },
+  {
+    term: 'mobile',
+    categoryName: 'in Mobiles',
+    image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=200',
+  },
+  {
+    term: 'mobile under 10000',
+    categoryName: '',
+    image: 'https://images.unsplash.com/photo-1580910051074-3eb694886505?auto=format&fit=crop&q=80&w=200',
+  },
+  {
+    term: 'motorola mobile 5g',
+    categoryName: '',
+    image: 'https://images.unsplash.com/photo-1567581935884-3349723552ca?auto=format&fit=crop&q=80&w=200',
+  },
+  {
+    term: '4g mobile',
+    categoryName: '',
+    image: 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&q=80&w=200',
+  },
+  {
+    term: 'samsung 5g mobile',
+    categoryName: '',
+    image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?auto=format&fit=crop&q=80&w=200',
+  },
+  {
+    term: 'vivo mobile 5g',
+    categoryName: '',
+    image: 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?auto=format&fit=crop&q=80&w=200',
+  },
+  {
+    term: 'realme 5g mobile',
+    categoryName: '',
+    image: 'https://images.unsplash.com/photo-1574944985070-8f3ebc6b79d2?auto=format&fit=crop&q=80&w=200',
+  },
+  {
+    term: 'gaming mobile 5g',
+    categoryName: '',
+    image: 'https://images.unsplash.com/photo-1533228876829-65c94e7b5025?auto=format&fit=crop&q=80&w=200',
+  },
+  {
+    term: 'sony mobile 5g',
+    categoryName: '',
+    image: 'https://images.unsplash.com/photo-1585060544812-6b45742d762f?auto=format&fit=crop&q=80&w=200',
+  },
+  {
+    term: 'chana',
+    categoryName: 'in Groceries',
+    image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=200',
+  },
+  {
+    term: 'laptop',
+    categoryName: 'in Electronics',
+    image: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&q=80&w=200',
+  },
+];
 
 const SearchPage = () => {
-    const navigate = useNavigate();
-    const location = useRouterLocation();
-    const { isOpen: isProductDetailOpen } = useProductDetail();
-    const { settings } = useSettings();
-    const { currentLocation } = useAppLocation();
-    const appName = settings?.appName || 'App';
+  const navigate = useNavigate();
+  const location = useRouterLocation();
+  const inputRef = useRef(null);
 
-    // Get initial query from URL state or params
-    const initialQuery = location.state?.query || new URLSearchParams(location.search).get('q') || '';
+  const initialQuery = location.state?.query || new URLSearchParams(location.search).get('q') || '';
+  const [query, setQuery] = useState(initialQuery);
+  const [liveProducts, setLiveProducts] = useState([]);
+  const [liveCategories, setLiveCategories] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-    const [query, setQuery] = useState(initialQuery);
-    const [results, setResults] = useState([]);
-    const [allProducts, setAllProducts] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [isListening, setIsListening] = useState(false);
-    const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
-    const [noServiceData, setNoServiceData] = useState(null);
+  // Recent Searches in LocalStorage
+  const [pastSearches, setPastSearches] = useState(() => {
+    const saved = getJSON(STORAGE_KEYS.RECENT_SEARCHES, []);
+    return Array.isArray(saved) ? saved.filter((s) => typeof s === 'string') : [];
+  });
 
-    // Manage Recent Searches with LocalStorage
-    const [pastSearches, setPastSearches] = useState(() => {
-        const saved = getJSON(STORAGE_KEYS.RECENT_SEARCHES, []);
-        return Array.isArray(saved) ? saved.filter((s) => typeof s === 'string') : [];
+  // Focus input on mount
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  // Save to history helper
+  const saveSearch = (term) => {
+    const clean = term?.trim();
+    if (!clean) return;
+    const updated = [clean, ...pastSearches.filter((s) => s.toLowerCase() !== clean.toLowerCase())].slice(0, 12);
+    setPastSearches(updated);
+    setJSON(STORAGE_KEYS.RECENT_SEARCHES, updated);
+  };
+
+  const handleRemoveSearch = (e, term) => {
+    e.stopPropagation();
+    const updated = pastSearches.filter((s) => s !== term);
+    setPastSearches(updated);
+    setJSON(STORAGE_KEYS.RECENT_SEARCHES, updated);
+  };
+
+  const handleClearAllHistory = () => {
+    setPastSearches([]);
+    setJSON(STORAGE_KEYS.RECENT_SEARCHES, []);
+  };
+
+  // Navigate to /products on search
+  const executeSearch = (searchTerm) => {
+    const finalTerm = (searchTerm || query).trim();
+    if (!finalTerm) return;
+    saveSearch(finalTerm);
+    navigate(`/products?q=${encodeURIComponent(finalTerm)}`);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      executeSearch(query);
+    }
+  };
+
+  // Live suggestions query debounce
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setLiveProducts([]);
+      setLiveCategories([]);
+      return;
+    }
+
+    let isCurrent = true;
+    const timer = setTimeout(async () => {
+      setIsLoading(true);
+      try {
+        const [prodRes, catRes] = await Promise.allSettled([
+          customerApi.getProducts({ search: trimmed, limit: 8 }),
+          customerApi.getCategories?.() || Promise.resolve({ data: [] }),
+        ]);
+
+        if (!isCurrent) return;
+
+        if (prodRes.status === 'fulfilled') {
+          const data = prodRes.value?.data || prodRes.value;
+          const items = Array.isArray(data?.results)
+            ? data.results
+            : Array.isArray(data?.result?.items)
+            ? data.result.items
+            : Array.isArray(data?.result)
+            ? data.result
+            : [];
+          setLiveProducts(items);
+        }
+
+        if (catRes.status === 'fulfilled') {
+          const rawCats = catRes.value?.data?.categories || catRes.value?.data || [];
+          const matched = (Array.isArray(rawCats) ? rawCats : []).filter((c) =>
+            c.name?.toLowerCase().includes(trimmed.toLowerCase())
+          );
+          setLiveCategories(matched.slice(0, 4));
+        }
+      } catch (err) {
+        console.error('Failed to fetch live suggestions:', err);
+      } finally {
+        if (isCurrent) setIsLoading(false);
+      }
+    }, 200);
+
+    return () => {
+      isCurrent = false;
+      clearTimeout(timer);
+    };
+  }, [query]);
+
+  // Build suggestion rows (Image 2 layout)
+  const suggestions = useMemo(() => {
+    const trimmed = query.trim().toLowerCase();
+
+    // When query is typed:
+    if (trimmed) {
+      const items = [];
+
+      // 1. Category matches (e.g. "mobilesh in Mobiles")
+      liveCategories.forEach((cat) => {
+        items.push({
+          term: trimmed,
+          categoryName: `in ${cat.name}`,
+          image: cat.image,
+          type: 'category',
+        });
+      });
+
+      // 2. Product title matches
+      liveProducts.forEach((p) => {
+        const title = p.name || '';
+        const img = p.image || p.mainImage || p.variants?.[0]?.images?.[0];
+        const catName = p.categoryName || p.categoryId?.name;
+        items.push({
+          term: title,
+          categoryName: catName ? `in ${catName}` : '',
+          image: img,
+          type: 'product',
+          product: p,
+        });
+      });
+
+      // 3. Fallback popular suggestions that match the search substring
+      const matchedPopular = DEFAULT_POPULAR_SUGGESTIONS.filter((s) =>
+        s.term.toLowerCase().includes(trimmed)
+      );
+      matchedPopular.forEach((pop) => {
+        if (!items.some((it) => it.term.toLowerCase() === pop.term.toLowerCase())) {
+          items.push(pop);
+        }
+      });
+
+      // If user typed something specific, make sure exact term is at top
+      if (!items.some((it) => it.term.toLowerCase() === trimmed)) {
+        items.unshift({
+          term: query.trim(),
+          categoryName: '',
+          image: null,
+          type: 'exact',
+        });
+      }
+
+      return items;
+    }
+
+    // When query is empty:
+    // Show past searches + popular suggestions
+    const items = [];
+
+    pastSearches.forEach((pastTerm) => {
+      const matchedPop = DEFAULT_POPULAR_SUGGESTIONS.find(
+        (s) => s.term.toLowerCase() === pastTerm.toLowerCase()
+      );
+      items.push({
+        term: pastTerm,
+        categoryName: matchedPop?.categoryName || '',
+        image: matchedPop?.image || null,
+        isRecent: true,
+      });
     });
 
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    DEFAULT_POPULAR_SUGGESTIONS.forEach((pop) => {
+      if (!items.some((it) => it.term.toLowerCase() === pop.term.toLowerCase())) {
+        items.push(pop);
+      }
+    });
 
-    useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 768);
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
+    return items;
+  }, [query, liveProducts, liveCategories, pastSearches]);
 
-    // Debounce Logic
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedQuery(query);
-        }, 400);
-        return () => clearTimeout(timer);
-    }, [query]);
+  return (
+    <div className="min-h-screen bg-white font-sans text-slate-800 pb-16">
+      {/* 1. Header (Soft light blue background matching Image 2) */}
+      <header className="sticky top-0 z-40 bg-[#dbeafe] border-b border-blue-200/60 px-3.5 pt-3 pb-2.5 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          {/* Back Arrow */}
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="p-1 -ml-1 text-slate-800 hover:text-slate-950 active:scale-95 transition-transform"
+            aria-label="Back"
+          >
+            <ArrowLeft size={22} strokeWidth={2.2} />
+          </button>
 
-    // Voice Search Logic (Enhanced)
-    const handleVoiceSearch = () => {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            alert('Voice search is not supported in your browser. Please try Chrome.');
-            return;
-        }
-
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'en-IN';
-        recognition.continuous = false;
-        recognition.interimResults = true;
-
-        recognition.onstart = () => {
-            setIsListening(true);
-            setQuery(''); // Clear previous search if starting fresh
-        };
-
-        recognition.onend = () => setIsListening(false);
-
-        recognition.onresult = (event) => {
-            let transcript = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                transcript += event.results[i][0].transcript;
-            }
-
-            if (transcript) {
-                setQuery(transcript);
-                // Save to history only if it's the final result
-                if (event.results[event.results.length - 1].isFinal) {
-                    saveSearch(transcript);
-                }
-            }
-        };
-
-        recognition.onerror = (event) => {
-            console.error('Speech recognition error:', event.error);
-            setIsListening(false);
-            if (event.error === 'not-allowed') {
-                alert('Microphone access denied. Please enable it in your browser settings.');
-            } else {
-                console.warn('Voice recognition stopped due to error:', event.error);
-            }
-        };
-
-        try {
-            recognition.start();
-        } catch (e) {
-            console.error('Recognition start error:', e);
-            setIsListening(false);
-        }
-    };
-
-    // Fetch products
-    useEffect(() => {
-        const fetchProducts = async () => {
-            const hasValidLocation =
-                Number.isFinite(currentLocation?.latitude) &&
-                Number.isFinite(currentLocation?.longitude);
-            if (!hasValidLocation) {
-                setAllProducts([]);
-                setIsLoading(false);
-                return;
-            }
-            setIsLoading(true);
-            try {
-                const params = {
-                    limit: 100,
-                    lat: currentLocation.latitude,
-                    lng: currentLocation.longitude,
-                };
-
-                if (debouncedQuery.trim()) {
-                    params.search = debouncedQuery.trim();
-                }
-
-                const response = await customerApi.getProducts(params);
-                if (response.data.success) {
-                    const rawResult = response.data.result;
-                    const dbProds = Array.isArray(response.data.results)
-                        ? response.data.results
-                        : Array.isArray(rawResult?.items)
-                            ? rawResult.items
-                            : Array.isArray(rawResult)
-                                ? rawResult
-                                : [];
-                    const formattedProds = dbProds.map(p => ({
-                        ...p,
-                        id: p._id,
-                        image:
-                            p.mainImage ||
-                            p.image ||
-                            "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=400&h=400",
-                        price: p.salePrice || p.price,
-                        originalPrice: p.price,
-                        weight: p.weight || '1 unit',
-                        deliveryTime: '8-15 mins'
-                    }));
-                    setAllProducts(formattedProds);
-                }
-            } catch (error) {
-                console.error('Error fetching products:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchProducts();
-    }, [currentLocation?.latitude, currentLocation?.longitude, debouncedQuery]);
-
-    // Save search term to history
-    const saveSearch = (term) => {
-        if (!term.trim()) return;
-        const updated = [term, ...pastSearches.filter(s => s !== term)].slice(0, 10);
-        setPastSearches(updated);
-        setJSON(STORAGE_KEYS.RECENT_SEARCHES, updated);
-    };
-
-    // Remove specific search term
-    const handleRemoveSearch = (e, term) => {
-        e.stopPropagation();
-        const updated = pastSearches.filter(s => s !== term);
-        setPastSearches(updated);
-        setJSON(STORAGE_KEYS.RECENT_SEARCHES, updated);
-    };
-
-    // Trigger save on Enter or clicking a result
-    const handleKeyDown = (e) => {
-        if (e.key === 'Enter' && query.trim()) {
-            saveSearch(query);
-        }
-    };
-
-    // Real-time filtering logic
-    const filteredResults = useMemo(() => {
-        if (!debouncedQuery.trim()) return [];
-        // Since backend handles the search filtering now, we can just return allProducts
-        // or apply a soft local filter if needed, but returning allProducts is generally fine 
-        // because they matched the search API query.
-        return allProducts;
-    }, [debouncedQuery, allProducts]);
-
-    useEffect(() => {
-        setResults(filteredResults);
-    }, [filteredResults]);
-
-    // Dynamically load no-service Lottie when results are empty
-    useEffect(() => {
-        if (!isLoading) {
-            import('@/assets/lottie/animation.json')
-                .then((m) => setNoServiceData(m.default))
-                .catch(() => { });
-        }
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Lowest Price Section
-    const lowestPriceProducts = useMemo(() => {
-        return [...allProducts]
-            .sort((a, b) => a.price - b.price)
-            .slice(0, 10);
-    }, [allProducts]);
-
-    const handleClear = () => {
-        setQuery('');
-        setResults([]);
-    };
-
-    return (
-        <div className="min-h-screen bg-[#f1f4f8] font-outfit">
-            {/* Header / Search Input */}
-            <div className={cn(
-                "sticky top-0 z-50 bg-linear-to-r from-primary to-[var(--brand-400)] shadow-[0_4px_20px_rgba(0,0,0,0.12)] relative overflow-hidden",
-                isProductDetailOpen && "hidden md:block"
-            )}>
-                {/* Decorative background elements */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl pointer-events-none" />
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12 blur-xl pointer-events-none" />
-
-                <div className="px-4 pt-5 pb-6 flex items-center md:justify-center gap-3 relative z-10">
-                    <button
-                        onClick={() => navigate(-1)}
-                        className="flex items-center justify-center w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full text-white backdrop-blur-md border border-white/10 transition-all flex-shrink-0 shadow-sm active:scale-90"
-                    >
-                        <ArrowLeft size={22} strokeWidth={2.5} />
-                    </button>
-
-                    <div className="flex-1 relative md:flex-none md:w-[500px] lg:w-[600px]">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
-                            <Search size={18} strokeWidth={3} className="text-slate-400" />
-                        </div>
-                        <input
-                            autoFocus
-                            type="text"
-                            placeholder='Search items, categories...'
-                            value={query}
-                            onKeyDown={handleKeyDown}
-                            onChange={(e) => setQuery(e.target.value)}
-                            className="w-full h-12 bg-white rounded-2xl pl-11 pr-14 shadow-xl shadow-black/10 border-none outline-none text-slate-800 font-bold placeholder:text-slate-400 placeholder:font-medium focus:ring-4 focus:ring-white/20 transition-all"
-                        />
-
-                        {/* Integrated Actions inside Search Input */}
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 z-20 flex items-center gap-1">
-                            {query && (
-                                <button
-                                    onClick={handleClear}
-                                    className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"
-                                >
-                                    <X size={12} strokeWidth={3} className="text-slate-600" />
-                                </button>
-                            )}
-                            <div className="w-[1px] h-6 bg-slate-100 mx-1" />
-                            <button
-                                onClick={handleVoiceSearch}
-                                className={cn(
-                                    "p-2 transition-all rounded-full relative",
-                                    isListening ? "text-red-500 bg-red-50 scale-110" : "text-slate-400 hover:text-primary hover:bg-slate-50"
-                                )}
-                            >
-                                <Mic size={20} strokeWidth={2.5} className={cn(isListening && "animate-pulse")} />
-                                {isListening && (
-                                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-ping" />
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="p-5 space-y-10 pb-24">
-                {/* Search Results List */}
-                {query ? (
-                    <section>
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-black text-slate-800 tracking-tight">
-                                Search Results
-                            </h2>
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{results.length} found</span>
-                        </div>
-
-                        {isLoading || debouncedQuery !== query ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-3 md:gap-x-4 gap-y-6 md:gap-y-10">
-                                {[...Array(8)].map((_, i) => (
-                                    <div key={i} className="w-full h-64 bg-slate-50/50 border border-slate-100 rounded-3xl animate-pulse flex flex-col p-3">
-                                        <div className="w-full aspect-square bg-slate-100/50 rounded-2xl mb-4" />
-                                        <div className="h-4 bg-slate-100/50 rounded-md w-3/4 mb-2" />
-                                        <div className="h-3 bg-slate-100/50 rounded-md w-1/2" />
-                                    </div>
-                                ))}
-                            </div>
-                        ) : results.length > 0 ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-3 md:gap-x-4 gap-y-6 md:gap-y-10">
-                                {results.map((product) => (
-                                    <div key={product.id} onClick={() => saveSearch(query)} className="flex justify-center">
-                                        <ProductCard product={product} compact={isMobile} />
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="py-16 flex flex-col items-center text-center">
-                                <div className="w-48 h-48 md:w-64 md:h-64 mb-6">
-                                    {noServiceData ? (
-                                        <Lottie animationData={noServiceData} loop={true} />
-                                    ) : (
-                                        <div className="w-48 h-48 md:w-64 md:h-64" />
-                                    )}
-                                </div>
-                                <h3 className="text-xl font-black text-slate-800 tracking-tight mb-2">No items found</h3>
-                                <p className="text-slate-500 font-medium max-w-xs">We couldn't find anything for "{query}". Try different keywords!</p>
-                            </div>
-                        )}
-                    </section>
-                ) : (
-                    <>
-                        {/* 1. Lowest Price Ever Section */}
-                        <section>
-                            <div className="flex justify-between items-center mb-5">
-                                <h2 className="text-xl font-black text-slate-800 tracking-tight">Lowest Price Ever!</h2>
-                                <button
-                                    className="flex items-center gap-1 md:gap-1.5 px-3 py-1 md:px-4 md:py-1.5 bg-slate-50 hover:bg-slate-100 rounded-full text-xs md:text-sm font-black transition-all"
-                                    style={{ color: settings?.primaryColor || 'var(--primary)' }}
-                                    onClick={() => navigate('/category/all')}
-                                >
-                                    See All <ChevronRight size={14} strokeWidth={3} />
-                                </button>
-                            </div>
-                            <div className="flex gap-2 md:gap-4 overflow-x-auto no-scrollbar -mx-5 px-5 pb-3 snap-x">
-                                {isLoading && allProducts.length === 0 ? (
-                                    [...Array(4)].map((_, i) => (
-                                        <div key={i} className="min-w-[126px] sm:min-w-[136px] md:min-w-[148px] h-52 md:h-64 bg-slate-50 rounded-2xl animate-pulse" />
-                                    ))
-                                ) : lowestPriceProducts.map((product) => (
-                                    <div key={product.id} className="min-w-[126px] sm:min-w-[136px] md:min-w-[148px] snap-start">
-                                        <ProductCard product={product} compact={isMobile} />
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-                    </>
-                )}
-            </div>
+          {/* Search Pill Input (matching Image 2) */}
+          <div className="flex-1 bg-white rounded-full border border-sky-300 px-3.5 py-1.5 flex items-center gap-2 shadow-xs focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
+            <Search size={18} className="text-slate-400 shrink-0" strokeWidth={2.2} />
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Search for products, categories..."
+              className="w-full bg-transparent text-[14.5px] font-medium text-slate-900 placeholder:text-slate-400 outline-none"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery('');
+                  inputRef.current?.focus();
+                }}
+                className="p-0.5 text-slate-400 hover:text-slate-600 rounded-full"
+                aria-label="Clear"
+              >
+                <X size={16} strokeWidth={2.5} />
+              </button>
+            )}
+          </div>
         </div>
-    );
+      </header>
+
+      {/* 2. Suggestions / Recent Searches List (matching Image 2) */}
+      <main className="w-full bg-white divide-y divide-slate-100">
+        {/* If recent searches exist and query is empty, show a small header */}
+        {!query.trim() && pastSearches.length > 0 && (
+          <div className="flex items-center justify-between px-4 py-2 bg-slate-50/70 border-b border-slate-100 text-xs text-slate-500 font-semibold">
+            <span className="flex items-center gap-1.5">
+              <Clock size={13} className="text-slate-400" />
+              <span>Recent Searches</span>
+            </span>
+            <button
+              type="button"
+              onClick={handleClearAllHistory}
+              className="text-primary hover:underline text-[11px]"
+            >
+              Clear All
+            </button>
+          </div>
+        )}
+
+        {suggestions.map((item, index) => {
+          return (
+            <div
+              key={`${item.term}-${index}`}
+              onClick={() => {
+                if (item.product) {
+                  navigate(getProductUrl(item.product));
+                } else {
+                  executeSearch(item.term);
+                }
+              }}
+              className="flex items-center justify-between px-4 py-3 hover:bg-slate-50/80 active:bg-slate-100 cursor-pointer transition-colors"
+            >
+              <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                {/* Left Thumbnail (matching Image 2 phone/product icon) */}
+                <div className="w-9 h-11 shrink-0 rounded-xs bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden p-0.5">
+                  {item.image ? (
+                    <img
+                      src={applyCloudinaryTransform(item.image, 'f_auto,q_auto,w_100')}
+                      alt={item.term}
+                      className="w-full h-full object-contain"
+                    />
+                  ) : item.isRecent ? (
+                    <History size={17} className="text-slate-400" />
+                  ) : (
+                    <Search size={16} className="text-slate-400" />
+                  )}
+                </div>
+
+                {/* Center Text (Bold term + Optional blue category) */}
+                <div className="min-w-0 flex-1 flex flex-col justify-center">
+                  <span className="text-[14px] font-semibold text-slate-900 truncate leading-snug">
+                    {item.term}
+                  </span>
+                  {item.categoryName && (
+                    <span className="text-[12px] font-medium text-blue-600 truncate leading-tight mt-0.5">
+                      {item.categoryName}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Right: Diagonal Arrow (matching Image 2) or Remove for recent */}
+              <div className="flex items-center gap-1 pl-2">
+                {item.isRecent && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleRemoveSearch(e, item.term)}
+                    className="p-1.5 text-slate-300 hover:text-slate-500 rounded-full active:scale-90"
+                    title="Remove from history"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    executeSearch(item.term);
+                  }}
+                  className="p-1 text-slate-400 hover:text-slate-600 rounded-full"
+                  aria-label="Search this term"
+                >
+                  <ArrowUpRight size={18} strokeWidth={1.8} />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </main>
+    </div>
+  );
 };
 
 export default SearchPage;

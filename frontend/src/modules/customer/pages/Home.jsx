@@ -27,6 +27,7 @@ import SectionRenderer from "../components/experience/SectionRenderer";
 import ExperienceBannerCarousel from "../components/experience/ExperienceBannerCarousel";
 import { useLocation } from "../context/LocationContext";
 import { useSettings } from "@core/context/SettingsContext";
+import { useAuth } from "@core/context/AuthContext";
 import Lottie from "lottie-react";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
 import { getJSON, remove as removeStorage, STORAGE_KEYS } from "@core/utils/storage";
@@ -46,7 +47,14 @@ import BestsellersSection from "../components/home/BestsellersSection";
 import MonthlyBasketSection from "../components/home/MonthlyBasketSection";
 import CategoryShowcase from "../components/home/CategoryShowcase";
 import FestivalDealsSection from "../components/home/FestivalDealsSection";
+import AllCategoriesGreeting from "../components/home/AllCategoriesGreeting";
+import TopDealsOnProducts from "../components/home/TopDealsOnProducts";
+import HeaderCategoryProductsSection from "../components/home/HeaderCategoryProductsSection";
+import NewArrivalsSection from "../components/home/NewArrivalsSection";
+import quickCommerceBanner from "@/assets/quick_commerce_banner.png";
+import ForYouProductsSection from "../components/home/ForYouProductsSection";
 import PageSkeleton from '@/shared/components/PageSkeleton';
+import { getDefaultHomeHeroBanners, MIN_HOME_HERO_BANNERS } from '@shared/constants/homeHeroDefaults';
 
 const DEFAULT_CATEGORY_THEME = {
   gradient: "linear-gradient(to bottom, var(--primary), var(--brand-400))",
@@ -187,6 +195,7 @@ const getCachedHomePageData = (location) =>
 
 const Home = () => {
   const { scrollY } = useScroll();
+  const { user } = useAuth();
   const { isOpen: isProductDetailOpen } = useProductDetail();
   const { currentLocation } = useLocation();
   const { settings } = useSettings();
@@ -393,8 +402,7 @@ const Home = () => {
           const catName = cat.name;
           const meta = CATEGORY_METADATA[catName] || CATEGORY_METADATA[catName.toUpperCase()] || { icon: "✨", theme: DEFAULT_CATEGORY_THEME, banner: { title: catName.toUpperCase(), subtitle: "TOP PICKS", floatingElements: "sparkles" } };
           const IconComp = (cat.iconId && ICON_COMPONENTS[cat.iconId]) || meta.icon || "✨";
-          const uploadedImage = cat.image && !cat.image.includes('via.placeholder.com') ? cat.image : null;
-          const imageIcon = cat.iconImage || cat.iconUrl || (typeof cat.icon === 'string' && cat.icon.includes('/') ? cat.icon : null) || uploadedImage;
+          const imageIcon = cat.iconImage || cat.iconUrl || null;
           return { ...cat, id: cat._id, icon: imageIcon || IconComp, theme: meta.theme, banner: { ...meta.banner, textColor: "text-white" } };
         });
         nextHomeData.formattedHeaders = formattedHeaders;
@@ -503,6 +511,21 @@ const Home = () => {
   useEffect(() => { if (!isInstantBannerJump) return; const id = requestAnimationFrame(() => setIsInstantBannerJump(false)); return () => cancelAnimationFrame(id); }, [isInstantBannerJump]);
 
   const productsById = useMemo(() => { const map = {}; displayProducts.forEach((p) => { map[p._id || p.id] = p; }); return map; }, [displayProducts]);
+  const isAllCategorySelected = !activeCategory || activeCategory._id === "all" || activeCategory.id === "all";
+  const firstName = String(user?.firstName || user?.name || '').trim().split(/\s+/)[0] || 'Guest';
+  const allMainCategories = useMemo(() => {
+    const headerOrder = new Map(displayCategories.map((header, index) => [String(header._id || header.id), index]));
+    return Object.values(displayCategoryMap)
+      .filter((category) => category.type === 'category')
+      .sort((first, second) => {
+        const firstParent = String(first.parentId?._id || first.parentId || first.headerId?._id || first.headerId || '');
+        const secondParent = String(second.parentId?._id || second.parentId || second.headerId?._id || second.headerId || '');
+        return (headerOrder.get(firstParent) ?? Number.MAX_SAFE_INTEGER) - (headerOrder.get(secondParent) ?? Number.MAX_SAFE_INTEGER)
+          || Number(first.sortOrder || 0) - Number(second.sortOrder || 0)
+          || first.name.localeCompare(second.name);
+      })
+      .map((category) => ({ id: category._id || category.id, name: category.name, image: category.image || category.iconImage || '' }));
+  }, [displayCategories, displayCategoryMap]);
   const effectiveQuickCategories = useMemo(() => {
     if (activeCategory && activeCategory._id !== "all" && activeCategory.id !== "all") {
       const activeHeaderId = String(activeCategory._id || activeCategory.id);
@@ -568,7 +591,12 @@ const Home = () => {
     }
   }, [activeCategory, effectiveQuickCategories]);
 
-  const sectionsForRenderer = displayHeaderSections.length ? displayHeaderSections : displayExperienceSections;
+  const sectionsForRenderer = useMemo(() => {
+    const raw = displayHeaderSections.length ? displayHeaderSections : displayExperienceSections;
+    return raw.filter(
+      (s) => !s.title?.trim().toLowerCase().includes("explore top categories")
+    );
+  }, [displayHeaderSections, displayExperienceSections]);
   const isMobile = useMemo(() => isMobileOrWebView(), []);
   const opacity = useTransform(scrollY, (heroVisible && !isMobile) ? [0, 300] : [0, 0], [1, 0.6]);
   const y = useTransform(scrollY, (heroVisible && !isMobile) ? [0, 300] : [0, 0], [0, 80]);
@@ -588,7 +616,7 @@ const Home = () => {
   };
 
   return (
-    <div className="min-h-screen pt-[254px] md:pt-[264px] bg-[#f1f4f8]">
+    <div className="min-h-screen pt-[290px] md:pt-[264px] bg-white">
       <MainLocationHeader categories={displayCategories} activeCategory={activeCategory} onCategorySelect={setActiveCategory} />
 
       {isLoading ? <PageSkeleton variant="home-content" /> : <motion.div
@@ -597,9 +625,12 @@ const Home = () => {
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       >
         {(() => {
-          const isAllCategory = !activeCategory || activeCategory._id === "all" || activeCategory.id === "all";
-          const hasVideo = settings?.homeVideoBanner?.isVisible && settings.homeVideoBanner.videoUrl && isAllCategory;
-          const hasBanners = heroConfig.banners?.items?.length > 0;
+          const hasVideo = settings?.homeVideoBanner?.isVisible && settings.homeVideoBanner.videoUrl && isAllCategorySelected;
+          const configuredBanners = heroConfig.banners?.items || [];
+          const homeBanners = isAllCategorySelected && configuredBanners.length < MIN_HOME_HERO_BANNERS
+            ? getDefaultHomeHeroBanners()
+            : configuredBanners;
+          const hasBanners = homeBanners.length > 0;
           if (!hasVideo && !hasBanners) return null;
 
           const combinedItems = [];
@@ -610,30 +641,56 @@ const Home = () => {
             });
           }
           if (hasBanners) {
-            combinedItems.push(...heroConfig.banners.items);
+            combinedItems.push(...homeBanners);
           }
 
           return (
-            <motion.div ref={heroRef} className="block md:hidden will-change-transform pt-2" style={isMobile ? { opacity: 1 } : { opacity, y, scale, pointerEvents }}>
-              <div className="mx-4 mt-12 mb-1 relative overflow-hidden rounded-[24px] shadow-md z-20">
-                <ExperienceBannerCarousel section={{ title: "" }} items={combinedItems} fullWidth edgeToEdge />
+            <motion.div ref={heroRef} className="block md:hidden will-change-transform pt-0" style={isMobile ? { opacity: 1 } : { opacity, y, scale, pointerEvents }}>
+              <div className="mx-4 mt-2.5 mb-1 relative z-20">
+                <ExperienceBannerCarousel section={{ title: "" }} items={combinedItems} fullWidth edgeToEdge showDots showContentOverlay={false} />
               </div>
             </motion.div>
           );
         })()}
 
-        <div className="mt-4 md:mt-6">
-          <FestivalDealsSection />
-        </div>
+        {isAllCategorySelected && <AllCategoriesGreeting categories={allMainCategories} firstName={firstName} />}
+        {isAllCategorySelected && <TopDealsOnProducts latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} />}
+        {isAllCategorySelected && <HeaderCategoryProductsSection latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} />}
+        {isAllCategorySelected && <NewArrivalsSection latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} />}
 
-        <div className="w-full z-[60] bg-transparent pt-1 pb-2 mb-2">
+        {isAllCategorySelected && (
+          <div
+            className="mx-3.5 md:mx-6 mt-4 mb-2 overflow-hidden rounded-2xl md:rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-slate-100/80 bg-white cursor-pointer hover:opacity-95 transition-all"
+            onClick={() => {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+              navigate("/category/all");
+            }}
+          >
+            <img
+              src={quickCommerceBanner}
+              alt="Anushka Store Quick Commerce - Daily Essentials Delivered in Minutes"
+              className="w-full h-auto object-cover block"
+              loading="lazy"
+            />
+          </div>
+        )}
+
+        {isAllCategorySelected && <ForYouProductsSection />}
+
+        {!isAllCategorySelected && (
+          <div className="mt-4 md:mt-6">
+            <FestivalDealsSection />
+          </div>
+        )}
+
+        {!isAllCategorySelected && <div className="w-full z-[60] bg-transparent pt-1 pb-2 mb-2">
           <div className="relative mt-2 md:mt-8 z-30">
             <QuickCategorySlider
               categories={effectiveQuickCategories}
               onCategoryClick={(id) => setExpandedCategoryId(expandedCategoryId === id ? null : id)}
             />
           </div>
-        </div>
+        </div>}
         <AnimatePresence initial={false} mode="wait">
         {expandedCategoryId && (
           <motion.div
@@ -723,24 +780,28 @@ const Home = () => {
         )}
         </AnimatePresence>
         
-        <LowestPriceSection products={displayProducts} onSeeAll={() => navigate("/category/all")} />
-        <MonthlyBasketSection />
-        <CategoryShowcase
+        {!isAllCategorySelected && <LowestPriceSection products={displayProducts} onSeeAll={() => navigate("/category/all")} />}
+        {!isAllCategorySelected && <MonthlyBasketSection />}
+        {!isAllCategorySelected && (
+          <CategoryShowcase
           categoryMap={displayCategoryMap}
           subcategoryMap={displaySubcategoryMap}
           activeHeaderId={activeCategory && activeCategory._id !== "all" && activeCategory.id !== "all" ? (activeCategory._id || activeCategory.id) : null}
         />
+        )}
         
-        {sectionsForRenderer.filter(s => s.displayType === "multiple_banners").length > 0 && (
+        {!isAllCategorySelected && sectionsForRenderer.filter(s => s.displayType === "multiple_banners").length > 0 && (
           <div className="container mx-auto px-4 md:px-8 lg:px-[50px] py-2 md:py-4">
             <SectionRenderer sections={sectionsForRenderer.filter(s => s.displayType === "multiple_banners")} productsById={productsById} categoriesById={displayCategoryMap} subcategoriesById={displaySubcategoryMap} />
           </div>
         )}
 
-        <OfferSections sections={displayOfferSections} noServiceData={noServiceData} />
-        <BestsellersSection config={bestsellerConfig} categoryMap={displayCategoryMap} subcategoryMap={displaySubcategoryMap} />
+        {!isAllCategorySelected && (
+          <OfferSections sections={displayOfferSections} noServiceData={noServiceData} />
+        )}
+        {!isAllCategorySelected && <BestsellersSection config={bestsellerConfig} categoryMap={displayCategoryMap} subcategoryMap={displaySubcategoryMap} />}
 
-        {sectionsForRenderer.filter(s => s.displayType !== "multiple_banners").length > 0 && (
+        {!isAllCategorySelected && sectionsForRenderer.filter(s => s.displayType !== "multiple_banners").length > 0 && (
           <div className="container mx-auto px-4 md:px-8 lg:px-[50px] py-4 md:py-8">
             <SectionRenderer sections={sectionsForRenderer.filter(s => s.displayType !== "multiple_banners")} productsById={productsById} categoriesById={displayCategoryMap} subcategoriesById={displaySubcategoryMap} />
           </div>

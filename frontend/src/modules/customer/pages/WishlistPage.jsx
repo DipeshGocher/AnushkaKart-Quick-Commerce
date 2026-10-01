@@ -118,7 +118,7 @@ const WishlistPage = () => {
 
             <button
               onClick={() => navigate('/categories')}
-              className="w-full py-3.5 px-6 text-white text-sm font-extrabold rounded-2xl transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2 bg-[#FF5722] hover:bg-orange-600 shadow-orange-500/25"
+              className="w-full py-3.5 px-6 text-white text-sm font-extrabold rounded-2xl transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2 bg-[#2875E8] hover:bg-orange-600 shadow-orange-500/25"
             >
               <span>Explore Grocery Items</span>
               <ArrowRight size={16} />

@@ -207,6 +207,10 @@ const settingSchema = new mongoose.Schema(
             },
         },
         categoriesBanner: {
+            presetVersion: {
+                type: Number,
+                default: 0,
+            },
             image: {
                 type: String,
                 default: "",
@@ -234,6 +238,7 @@ const settingSchema = new mongoose.Schema(
             banners: [
                 {
                     image: { type: String, default: "" },
+                    headerCategoryId: { type: String, default: "" },
                     badgeText: { type: String, default: "KIRANA STORE" },
                     title: { type: String, default: "Everything you need, in one place" },
                     buttonText: { type: String, default: "Shop Now" },

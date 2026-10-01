@@ -1,183 +1,140 @@
-import React, { useState } from 'react';
-import { categoryIcons, refurbishedCategoryIcons } from '../constants/categoryIcons';
-import { Search, X } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { createElement, useMemo, useState } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { Search, X } from "lucide-react";
+import { motion } from "framer-motion";
+import { fontAwesomeFreeClassicIcons } from "../constants/fontAwesomeFreeClassicCatalog";
+import { getFontAwesomeIconId } from "../constants/fontAwesomeCategoryIcons";
 
-const IconSelector = ({ selectedIcon, onSelect, onClose, electronicsOnly = false, catalogType }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+const PAGE_SIZE = 96;
+const QUICK_COMMERCE_TERMS = /apple|basket|bowl|bread|broom|burger|bottle|cake|candy|carrot|cheese|chicken|coffee|cookie|cupcake|dairy|dish|drink|egg|fish|food|glass|grocery|house|ice.?cream|kitchen|leaf|lemon|milk|mug|pepper|pizza|salad|seed|shop|soap|store|utensil|vegetable|water|wheat|wine|bag|cart/i;
+const E_COMMERCE_TERMS = /bag|basket|box|camera|car|cart|chair|computer|credit|desktop|dress|gift|headphone|jewel|laptop|mobile|package|phone|shoe|shirt|shopping|store|tablet|tag|toy|truck|tv|wallet|watch|book|ball|bike|bicycle|game|sofa|couch|keyboard|mouse|printer|plug|light|fan|speaker|sport|gem|ring|suitcase/i;
 
-  const isElectronics = electronicsOnly || catalogType === "refurbished";
-  const sourceIcons = isElectronics ? refurbishedCategoryIcons : categoryIcons;
+const IconSelector = ({ selectedIcon, onSelect, onClose, catalogType }) => {
+  const [library, setLibrary] = useState(catalogType === "refurbished" ? "ecommerce" : "quick-commerce");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const normalizedSelection = getFontAwesomeIconId(selectedIcon);
 
-  const iconComponents = {
-    // Electronics & Gadget Icons
-    smartphone: "📱",
-    laptop: "💻",
-    tablet: "📱",
-    headphones: "🎧",
-    smartwatch: "⌚",
-    tv: "📺",
-    gamepad: "🎮",
-    camera: "📷",
-    desktop: "🖥️",
-    earbuds: "🎧",
-    speaker: "🔊",
-    usb: "💾",
-    powerbank: "🔋",
-    remote: "🎛️",
-    microphone: "🎙️",
-    webcam: "📹",
-    radio: "📻",
-    cable: "🔌",
-    handheld_game: "👾",
-    gadgets: "⚡",
+  const relevantIcons = useMemo(() => {
+    const pattern = library === "quick-commerce"
+      ? QUICK_COMMERCE_TERMS
+      : library === "ecommerce"
+        ? E_COMMERCE_TERMS
+        : null;
+    return pattern
+      ? fontAwesomeFreeClassicIcons.filter((icon) => pattern.test(icon.name))
+      : fontAwesomeFreeClassicIcons;
+  }, [library]);
 
-    // General Category Icons
-    electronics: "📱",
-    fashion: "👕",
-    home: "🏠",
-    food: "🍔",
-    sports: "⚽",
-    books: "📚",
-    beauty: "💄",
-    toys: "🧸",
-    automotive: "🚗",
-    pets: "🐾",
-    health: "💊",
-    garden: "🌱",
-    office: "💼",
-    music: "🎵",
-    jewelry: "💎",
-    baby: "🍼",
-    tools: "🔧",
-    luggage: "🧳",
-    art: "🎨",
-    grocery: "🛒",
-    beverages: "🥤",
-    dairy: "🥛",
-    bakery: "🥐",
-    snacks: "🍿",
-    meat: "🥩",
-    cleaning: "🧹",
-    stationery: "✏️",
-    festival: "🎉",
+  const filteredIcons = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return relevantIcons;
+    return relevantIcons.filter((icon) => icon.name.toLowerCase().includes(query));
+  }, [relevantIcons, searchTerm]);
+
+  const selectLibrary = (nextLibrary) => {
+    setLibrary(nextLibrary);
+    setVisibleCount(PAGE_SIZE);
   };
 
-  const filteredIcons = sourceIcons.filter(icon =>
-    icon.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const selectIcon = ({ componentName, Icon }) => {
+    const svg = renderToStaticMarkup(createElement(Icon));
+    onSelect("fa6svg:" + componentName + ":" + encodeURIComponent(svg));
+  };
 
   return (
-    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-3 sm:p-6 bg-black/50 backdrop-blur-sm">
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
+        initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-
-        {/* Header */}
-        <div className="p-6 border-b border-gray-100 flex justify-between items-center shrink-0">
+        exit={{ opacity: 0, scale: 0.97 }}
+        className="w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 sm:px-7">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">Select Electronic Category Icon</h2>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              {isElectronics ? "Electronics & Gadget Icons" : "General Category Icons"}
+            <h2 className="text-lg font-bold text-slate-900 sm:text-xl">Select Header Category Icon</h2>
+            <p className="mt-1 text-xs font-medium text-slate-500">
+              Font Awesome Free Classic · {fontAwesomeFreeClassicIcons.length} icons · black
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors">
-            <X className="w-6 h-6" />
+          <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-500 hover:bg-slate-100" aria-label="Close icon selector">
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Search */}
-        <div className="p-4 border-b border-gray-100 shrink-0">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search electronic icons (e.g. mobile, laptop, earbuds, tv)..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-            />
-          </div>
+        <div className="flex flex-wrap gap-2 border-b border-slate-100 px-5 py-3 sm:px-7">
+          {[
+            ["quick-commerce", "Quick Commerce"],
+            ["ecommerce", "E-commerce"],
+            ["all", "All Free Icons"],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => selectLibrary(id)}
+              className={"rounded-full border px-4 py-2 text-sm font-semibold transition-colors " + (library === id ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50")}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
-        {/* Icon Grid */}
-        <div className="p-6 overflow-y-auto flex-1 min-h-0">
-          <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-3">
-            {filteredIcons.map((icon) => (
-              <button
-                key={icon.id}
-                type="button"
-                onClick={() => onSelect(icon.id)}
-                className={`
-                  flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl transition-all duration-300 group
-                  ${selectedIcon === icon.id
-                    ? 'bg-brand-50 shadow-sm border border-brand-200'
-                    : 'bg-white hover:bg-slate-50 border border-slate-100 hover:border-slate-200 hover:shadow-sm'
-                  }
-                `}
-                title={icon.name}>
-                <div
-                  className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.1)] ${selectedIcon === icon.id
-                      ? 'bg-brand-100/50 text-brand-600 scale-110'
-                      : 'bg-slate-50 text-slate-500 group-hover:bg-brand-50 group-hover:text-brand-500 group-hover:scale-105'
-                    }`}
-                >
-                  {iconComponents[icon.id] ? (
-                    <span 
-                      className="transition-all duration-300 drop-shadow-sm"
-                      style={{
-                        fontSize: selectedIcon === icon.id ? '28px' : '24px',
-                        filter: selectedIcon === icon.id ? 'none' : 'grayscale(15%) opacity(90%)'
-                      }}
-                    >
-                      {iconComponents[icon.id]}
-                    </span>
-                  ) : (
-                    <div
-                      className="w-6 h-6 transition-all duration-300"
-                      dangerouslySetInnerHTML={{ __html: icon.svg }}
-                    />
-                  )}
-                </div>
-                <span className={`text-[11px] sm:text-xs mt-3 text-center line-clamp-1 font-semibold transition-colors duration-300 ${
-                  selectedIcon === icon.id ? 'text-brand-700' : 'text-slate-600'
-                }`}>
-                  {icon.name}
-                </span>
-              </button>
-            ))}
-          </div>
+        <div className="border-b border-slate-100 px-5 py-3 sm:px-7">
+          <label className="relative block">
+            <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
+            <input
+              value={searchTerm}
+              onChange={(event) => {
+                setSearchTerm(event.target.value);
+                setVisibleCount(PAGE_SIZE);
+              }}
+              placeholder={"Search all " + fontAwesomeFreeClassicIcons.length + " free icons..."}
+              className="h-12 w-full rounded-xl border border-slate-300 pl-11 pr-4 text-sm outline-none focus:border-slate-600 focus:ring-2 focus:ring-slate-200"
+            />
+          </label>
+          <p className="mt-2 text-xs text-slate-500">
+            {searchTerm ? filteredIcons.length + " matching icons" : filteredIcons.length + " icons · showing " + Math.min(visibleCount, filteredIcons.length)}
+          </p>
+        </div>
 
-          {filteredIcons.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              No electronic icons found matching "{searchTerm}"
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+          {filteredIcons.length ? (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 sm:gap-3 md:grid-cols-7 lg:grid-cols-8">
+              {filteredIcons.slice(0, visibleCount).map(({ id, name, Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => selectIcon({ componentName: id.slice(4), Icon })}
+                  title={name}
+                  aria-label={"Select " + name + " icon"}
+                  className={"flex min-h-24 flex-col items-center justify-center gap-2 rounded-xl border p-3 transition-colors " + (normalizedSelection === id || selectedIcon === id ? "border-slate-900 bg-slate-100" : "border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50")}
+                >
+                  <Icon aria-hidden="true" className="h-7 w-7 text-black" />
+                  <span className="w-full truncate text-center text-[11px] font-medium text-slate-600">{name}</span>
+                </button>
+              ))}
             </div>
+          ) : (
+            <p className="py-12 text-center text-sm text-slate-500">No Font Awesome icons match “{searchTerm}”.</p>
+          )}
+          {visibleCount < filteredIcons.length && (
+            <button
+              type="button"
+              onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
+              className="mx-auto mt-5 block rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+            >
+              Load more icons
+            </button>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
+        <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-7">
           {selectedIcon ? (
-            <button
-              type="button"
-              onClick={() => {
-                onSelect("");
-                onClose();
-              }}
-              className="px-3.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors flex items-center gap-1.5">
-              <X className="w-4 h-4" />
-              Remove Selected Icon
+            <button type="button" onClick={() => onSelect("")} className="text-sm font-semibold text-slate-600 hover:text-black">
+              Remove selected icon
             </button>
-          ) : <div />}
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 font-medium transition-colors text-sm">
+          ) : <span />}
+          <button type="button" onClick={onClose} className="rounded-lg bg-black px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
             Done
           </button>
         </div>

@@ -1,6 +1,6 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import { motion, useMotionValue } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   applyCloudinaryTransform,
   buildCloudinarySrcSet,
@@ -12,9 +12,7 @@ import { isMobileOrWebView } from "@/core/utils/deviceUtils";
 
 const BANNER_CHUNK_SIZE = 20;
 
-const ExperienceBannerCarousel = ({ section, items, fullWidth = false, slideGap = 0, edgeToEdge = false }) => {
-  if (!items.length) return null;
-
+const ExperienceBannerCarousel = ({ section, items, fullWidth = false, slideGap = 0, edgeToEdge = false, showDots = false, showContentOverlay = true }) => {
   const navigate = useNavigate();
   const [activeIndex, setActiveIndex] = React.useState(0);
   const [visibleCount, setVisibleCount] = React.useState(() =>
@@ -22,7 +20,7 @@ const ExperienceBannerCarousel = ({ section, items, fullWidth = false, slideGap 
   );
   const visibleItems = items.slice(0, visibleCount);
   const totalItems = visibleItems.length;
-  const x = useMotionValue(0);
+  const currentSlideIsVideo = Boolean(visibleItems[activeIndex]?.isVideo);
   const containerRef = React.useRef(null);
   const hasMore = visibleCount < items.length;
 
@@ -39,17 +37,16 @@ const ExperienceBannerCarousel = ({ section, items, fullWidth = false, slideGap 
   React.useEffect(() => {
     if (totalItems <= 1) return;
 
-    const currentSlide = visibleItems[activeIndex];
     // If current slide is video, do not auto-advance with setInterval. 
     // The video's onEnded event will handle it.
-    if (currentSlide?.isVideo) return;
+    if (currentSlideIsVideo) return;
 
     const intervalId = setInterval(() => {
       setActiveIndex((prev) => (prev + 1) % totalItems);
     }, 4500);
 
     return () => clearInterval(intervalId);
-  }, [totalItems, activeIndex, visibleItems]);
+  }, [totalItems, activeIndex, currentSlideIsVideo]);
 
   React.useEffect(() => {
     if (!hasMore) return;
@@ -88,7 +85,9 @@ const ExperienceBannerCarousel = ({ section, items, fullWidth = false, slideGap 
         try {
           const urlObj = new URL(route);
           route = urlObj.pathname + urlObj.search;
-        } catch(e) {}
+        } catch {
+          route = banner.linkValue.trim();
+        }
       }
       if (route.startsWith('/') || route.startsWith('?')) {
         navigate(route);
@@ -101,7 +100,9 @@ const ExperienceBannerCarousel = ({ section, items, fullWidth = false, slideGap 
         try {
           const urlObj = new URL(route);
           route = urlObj.pathname + urlObj.search;
-        } catch(e) {}
+        } catch {
+          route = banner.linkValue.trim();
+        }
       }
       if (route.startsWith('/') || route.startsWith('?')) {
         navigate(route);
@@ -113,8 +114,11 @@ const ExperienceBannerCarousel = ({ section, items, fullWidth = false, slideGap 
     }
   };
 
+  if (!items.length) return null;
+
   return (
-    <div className={cn("overflow-hidden touch-pan-y", fullWidth && "w-screen relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw]")}>
+    <div className="w-full">
+      <div className={cn("overflow-hidden touch-pan-y", fullWidth && "rounded-[20px] shadow-md")}>
       <motion.div
         ref={containerRef}
         drag="x"
@@ -198,7 +202,7 @@ const ExperienceBannerCarousel = ({ section, items, fullWidth = false, slideGap 
             )}
             
             {/* Title & Subtitle Overlay */}
-            {(banner.title || banner.subtitle) && (
+            {showContentOverlay && (banner.title || banner.subtitle) && (
               <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/70 via-black/20 to-transparent p-6 sm:p-8 md:p-10 pointer-events-none">
                 {banner.title && <h3 className="text-white font-black text-xl sm:text-2xl md:text-3xl drop-shadow-md">{banner.title}</h3>}
                 {banner.subtitle && <p className="text-white/90 font-medium text-sm sm:text-base md:text-lg mt-1.5 drop-shadow-md">{banner.subtitle}</p>}
@@ -207,6 +211,24 @@ const ExperienceBannerCarousel = ({ section, items, fullWidth = false, slideGap 
           </div>
         ))}
       </motion.div>
+      </div>
+      {showDots && fullWidth && totalItems > 1 && (
+        <div className="mt-1.5 flex items-center justify-center gap-1.5 rounded-b-[20px] bg-white px-2 py-1.5" role="tablist" aria-label="Home banners">
+          {visibleItems.map((item, index) => (
+            <button
+              key={`${item.imageUrl || item.videoUrl || 'banner'}-${index}`}
+              type="button"
+              onClick={() => setActiveIndex(index)}
+              className="relative h-1.5 w-5 overflow-hidden rounded-full bg-slate-300"
+              aria-label={`Show banner ${index + 1}`}
+              aria-selected={index === activeIndex}
+              role="tab"
+            >
+              <span className={`absolute inset-y-0 left-0 rounded-full bg-[#222] ${index === activeIndex ? currentSlideIsVideo ? 'w-full' : 'home-banner-dot-progress' : 'w-0'}`} />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

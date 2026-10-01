@@ -117,6 +117,7 @@ const AddProduct = () => {
     subcategory: "",
     header: "",
     status: "active",
+    isFeatured: false,
     tags: "",
     weight: "",
     brand: "",
@@ -252,6 +253,7 @@ const AddProduct = () => {
       data.append("countryOfOrigin", formData.countryOfOrigin);
       data.append("fssaiLicense", formData.fssaiLicense);
       data.append("status", formData.status);
+      data.append("isFeatured", String(formData.isFeatured));
 
       // Map top-level price/stock from first variant for indexing/listing
       data.append("price", firstVariant.price);
@@ -422,6 +424,10 @@ const AddProduct = () => {
                 <option value="inactive">DRAFT</option>
               </select>
             </div>
+            <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-slate-800">
+              <input type="checkbox" checked={formData.isFeatured} onChange={(event) => setFormData({ ...formData, isFeatured: event.target.checked })} className="h-4 w-4 accent-amber-500" />
+              Feature in Top Deals
+            </label>
           </div>
         </div>
 

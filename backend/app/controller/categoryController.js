@@ -27,7 +27,7 @@ function normalizeParentId(parentId) {
   const raw = String(parentId).trim();
   if (!raw || raw === "null" || raw === "undefined") return null;
   if (!mongoose.Types.ObjectId.isValid(raw)) return "__INVALID__";
-  return raw;
+  return new mongoose.Types.ObjectId(raw);
 }
 
 async function validateParentForType(type, parentId) {
