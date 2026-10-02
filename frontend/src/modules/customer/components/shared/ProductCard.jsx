@@ -265,20 +265,9 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
 
         {/* Top Image Section - Clean White Inner Box (like Saathi Grow UI) */}
         <div className={cn(
-          "relative w-full overflow-hidden flex items-center justify-center p-1 bg-white rounded-xl shadow-2xs border border-white/80", 
-          compact ? "h-24 sm:h-28" : layout === "list" ? "w-[90px] h-[90px] shrink-0" : "aspect-square"
+          "customer-product-clean-image relative w-full overflow-hidden flex items-center justify-center p-0 bg-[#f8f9fa] rounded-2xl",
+compact ? "h-24 sm:h-28" : layout === "list" ? "w-[90px] h-[90px] shrink-0" : "aspect-square"
         )}>
-          {/* Discount Badge (Top-Left Speech Bubble) */}
-          {discountText && (
-            <div className={cn(
-              "absolute top-0 left-0 z-10 text-white font-black rounded-[8px_8px_8px_0px] shadow-2xs tracking-tight leading-none select-none border",
-              isRefurbished ? "bg-[#1E3A8A] border-blue-800/50" : "bg-[#0F172A] border-slate-700/50",
-              compact ? "text-[8.5px] px-1.5 py-0.5" : "text-[9.5px] px-2.5 py-1"
-            )}>
-              {discountText}
-            </div>
-          )}
-
           {/* Product Image */}
           <img
             ref={imageRef}
@@ -286,7 +275,10 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
             alt={product.name}
             loading={priority ? "eager" : "lazy"}
             fetchPriority={priority ? "high" : "auto"}
-            className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500"
+            className={cn(
+              "w-full h-full group-hover:scale-105 transition-transform duration-500",
+              (typeof (product.mainImage || product.image) === 'string' && (product.mainImage || product.image).toLowerCase().includes('.png')) ? 'is-png-image object-contain p-2' : 'object-cover'
+            )}
           />
         </div>
 
@@ -295,7 +287,7 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
           {/* Title & Weight */}
           <div>
             <h4 className={cn(
-              "font-extrabold text-[#0F172A] leading-snug line-clamp-2 transition-colors",
+              "font-semibold text-[#212121] leading-tight truncate transition-colors",
               "group-hover:text-[#2875E8]",
               compact ? "text-[11px] sm:text-xs" : "text-xs sm:text-sm"
             )}>
@@ -328,7 +320,7 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
             {/* Price Line */}
             <div className="flex items-center gap-1 flex-wrap">
               <span className={cn(
-                "font-black text-[#0F172A] tracking-tight leading-none",
+                "font-semibold text-[#212121] leading-tight",
                 compact ? "text-xs sm:text-sm" : "text-[13.5px] sm:text-[15.5px]"
               )}>
                 ₹{product.price}
@@ -339,6 +331,11 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
                   compact ? "text-[9px]" : "text-[10px]"
                 )}>
                   ₹{product.originalPrice}
+                </span>
+              )}
+            {product.originalPrice > product.price && Number(product.originalPrice) > 0 && (
+                <span className="text-[#388e3c] font-semibold text-[11px] leading-tight">
+                  {Math.round(((Number(product.originalPrice) - Number(product.price)) / Number(product.originalPrice)) * 100)}% off
                 </span>
               )}
             </div>

@@ -1,3 +1,5 @@
+@import "./customer-typography.css";
+
 /* Customer storefront theme. Scoped to CustomerLayout so operational portals keep their own UI. */
 .customer-app {
   --primary: #2875e8;
@@ -15,13 +17,14 @@
   --brand-800: #17458e;
   --brand-900: #173b72;
   --customer-mini-cart-color: #2875e8;
-  --customer-page: #f7f9fc;
+  --customer-page: #ffffff;
   --customer-header: #eaf4ff;
-  --customer-text: #101828;
-  --customer-muted: #667085;
+  --customer-text: #212121;
+  --customer-muted: #757575;
   --customer-border: #e4e9f1;
-  background: var(--customer-page);
+  background: #ffffff;
   color: var(--customer-text);
+  font-family: var(--fk-font);
 }
 
 .customer-app h1,
@@ -29,7 +32,7 @@
 .customer-app h3,
 .customer-app h4 {
   color: var(--customer-text);
-  letter-spacing: -0.025em;
+  font-family: var(--fk-font);
 }
 
 .customer-app > main {
@@ -135,14 +138,45 @@
 
 .customer-location-header .customer-delivery-card {
   background: rgba(225, 239, 255, 0.82) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid #c2dafa !important;
-  border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(40, 117, 232, 0.06) !important;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(40, 117, 232, 0.08) !important;
   color: #182230;
 }
 
-.customer-location-header .customer-delivery-label {
-  color: #1764cf !important;
+.customer-location-header .customer-delivery-card svg.customer-delivery-icon,
+.customer-location-header .customer-delivery-card .customer-delivery-icon {
+  color: #2875E8 !important;
+}
+
+.customer-location-header .customer-delivery-card .customer-delivery-label {
+  color: #2875E8 !important;
+}
+
+.customer-location-header .customer-delivery-card .customer-delivery-address {
+  color: #64748b !important;
+}
+
+.customer-header-delivery-time,
+.customer-location-header .customer-header-delivery-time {
+  background: linear-gradient(135deg, #ff9f43 0%, #ff793f 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 3px 10px rgba(255, 122, 0, 0.25) !important;
+  border-radius: 12px;
+}
+
+.customer-location-header .customer-header-delivery-time,
+.customer-location-header div.customer-header-delivery-time,
+.customer-location-header .customer-header-delivery-time *,
+.customer-location-header .customer-header-delivery-time span,
+.customer-location-header .customer-header-delivery-time .text-white,
+.customer-header-delivery-time,
+.customer-header-delivery-time *,
+.customer-header-delivery-time span {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
 }
 
 .customer-location-header .customer-category-nav-item {
@@ -433,7 +467,7 @@
 
 .customer-edit-profile-page {
   min-height: 100vh;
-  background: #f2f4f7 !important;
+  background: #ffffff !important;
   color: #172033;
 }
 
@@ -601,7 +635,9 @@
 
 .customer-categories-header {
   min-height: 56px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  background-color: #ffffff !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
 }
 
 @keyframes home-banner-dot-fill {
@@ -614,17 +650,19 @@
 }
 
 .customer-app .customer-categories-header h1 {
-  color: #fff;
+  color: #111827;
 }
 
 .customer-category-sidebar {
-  width: clamp(76px, 25vw, 96px);
+  width: clamp(76px, 24vw, 88px);
   top: var(--category-header-height, 56px);
   height: 100%;
   scrollbar-width: none;
   overflow-x: hidden;
   overflow-y: auto !important;
   overscroll-behavior: contain;
+  background: #f1f2f5;
+  border-right: 1px solid #e5e7eb;
 }
 
 .customer-category-sidebar::-webkit-scrollbar {
@@ -633,11 +671,20 @@
 
 .customer-category-sidebar-item {
   position: relative;
+  height: 82px;
   min-height: 82px;
-  padding-top: 7px;
-  padding-bottom: 7px;
+  max-height: 82px;
+  padding: 0 4px;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center;
+  gap: 4px;
   color: #73819a;
   background: #f1f2f5;
+  border-bottom: 1px solid #e2e4e8;
+  box-sizing: border-box;
 }
 
 .customer-category-sidebar-item.is-active {
@@ -652,8 +699,8 @@
   left: 0;
   top: 0;
   bottom: 0;
-  width: 4px;
-  border-radius: 0 4px 4px 0;
+  width: 3.5px;
+  border-radius: 0 3px 3px 0;
   background: #245bd6;
 }
 
@@ -689,35 +736,121 @@
   height: 106px;
 }
 
-.customer-category-tile-image img {
-  mix-blend-mode: multiply;
+.customer-category-tile-image {
+  width: 64px;
+  height: 64px;
+  max-width: 64px;
+  max-height: 64px;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  padding: 6px;
+  border-radius: 18px;
+  background-color: #eff5ff;
+  border: 1px solid #e0edfd;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.04);
+  transition: transform 0.15s ease, border-color 0.15s ease;
 }
 
-.customer-category-tile-image {
-  width: min(64px, 100%);
-  flex: 0 0 auto;
-  padding: 5px;
-  border-radius: 18px;
+.customer-category-tile-image img {
+  width: 100%;
+  height: 100%;
+  max-height: 44px;
+  max-width: 44px;
+  object-fit: contain;
+  mix-blend-mode: multiply;
 }
 
 .customer-category-content .grid.grid-cols-3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  column-gap: 8px;
-  row-gap: 14px;
+  column-gap: 14px;
+  row-gap: 18px;
 }
 
 .customer-category-content .grid.grid-cols-3 > a > span:last-child {
-  font-size: 10px;
-  line-height: 1.15;
+  font-size: 10.5px;
+  line-height: 13px;
+  max-width: 74px;
+  text-align: center;
+}
+
+/* All Product Cards Clean Image Box with subtle off-white background and NO borders */
+.customer-product-clean-image,
+.fk-product-image-box {
+  background-color: #f8f9fa !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
+/* Flipkart Catalog Card in 3-column Grid */
+.fk-catalog-card {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.fk-catalog-card .customer-product-clean-image {
+  width: 100% !important;
+  max-width: 100% !important;
+  aspect-ratio: 1 / 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  background-color: #f8f9fa !important;
+  padding: 0 !important;
+}
+
+/* Product images: Cover full width & height of card. For PNG cutouts, adjust with contain */
+.customer-product-clean-image img:not(.is-png-image),
+.fk-catalog-card .customer-product-clean-image img:not(.is-png-image) {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+.customer-product-clean-image img.is-png-image,
+.fk-catalog-card .customer-product-clean-image img.is-png-image {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  padding: 6px !important;
+  display: block !important;
+}
+
+/* Ensure search input on products page and headers have no outline or focus ring */
+.customer-products-search-box,
+.customer-products-search-box input,
+.customer-products-search-box input:focus,
+.customer-header-search input:focus,
+header input:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+  -webkit-tap-highlight-color: transparent;
 }
 
 @media (min-width: 600px) {
   .customer-category-sidebar {
-    width: 128px;
+    width: 110px;
   }
 
   .customer-category-sidebar-item {
-    min-height: 96px;
+    height: 90px;
+    min-height: 90px;
+    max-height: 90px;
   }
 
   .customer-category-banner-image {
@@ -729,7 +862,10 @@
   }
 
   .customer-category-tile-image {
-    width: min(76px, 100%);
+    width: 74px;
+    height: 74px;
+    max-width: 74px;
+    max-height: 74px;
   }
 }
 

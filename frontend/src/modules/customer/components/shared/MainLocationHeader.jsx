@@ -9,8 +9,8 @@ import { cn } from "@/lib/utils";
 import { useCart } from "../../context/CartContext";
 import { customerApi } from "../../services/customerApi";
 import CategoryIcon from "@shared/components/CategoryIcon";
-import { buildMiniCartColor, getCustomerHeaderColor } from "../../utils/headerTheme";
-import { MapPin } from 'lucide-react';
+import { MapPin, Home, ChevronRight } from 'lucide-react';
+import { getCustomerHeaderColor, buildMiniCartColor } from "../../utils/headerTheme";
 
 
 // MUI Icons
@@ -133,10 +133,6 @@ const MainLocationHeader = ({
 
   // Horizontal scroll for categories navigation
   const navRef = useRef(null);
-  const mobileNavRef = useRef(null);
-  const mobileNavGroupRef = useRef(null);
-  const mobileNavPausedRef = useRef(false);
-  const mobileNavResumeTimerRef = useRef(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
 
@@ -163,50 +159,6 @@ const MainLocationHeader = ({
     }
   }, [categories]);
 
-  useEffect(() => {
-    const el = mobileNavRef.current;
-    if (!el || categories.length < 2) return undefined;
-
-    let frameId;
-    let lastTick;
-    mobileNavPausedRef.current = false;
-    const initialGroupWidth = mobileNavGroupRef.current?.offsetWidth || 0;
-    if (initialGroupWidth > 0) el.scrollLeft = initialGroupWidth;
-    const advance = (time) => {
-      const groupWidth = mobileNavGroupRef.current?.offsetWidth || 0;
-      if (lastTick !== undefined && !mobileNavPausedRef.current && groupWidth > 0) {
-        el.scrollLeft += Math.min(time - lastTick, 64) * 0.06;
-        if (el.scrollLeft >= groupWidth * 3) el.scrollLeft -= groupWidth;
-      }
-      lastTick = time;
-      frameId = window.requestAnimationFrame(advance);
-    };
-    frameId = window.requestAnimationFrame(advance);
-    return () => {
-      window.cancelAnimationFrame(frameId);
-      window.clearTimeout(mobileNavResumeTimerRef.current);
-    };
-  }, [categories.length]);
-
-  const pauseMobileCategoryScroll = () => {
-    mobileNavPausedRef.current = true;
-    window.clearTimeout(mobileNavResumeTimerRef.current);
-  };
-
-  const resumeMobileCategoryScroll = () => {
-    window.clearTimeout(mobileNavResumeTimerRef.current);
-    mobileNavResumeTimerRef.current = window.setTimeout(() => {
-      mobileNavPausedRef.current = false;
-    }, 300);
-  };
-
-  const handleMobileCategoryScroll = () => {
-    const el = mobileNavRef.current;
-    const groupWidth = mobileNavGroupRef.current?.offsetWidth || 0;
-    if (!el || groupWidth <= 0) return;
-    if (el.scrollLeft >= groupWidth * 3) el.scrollLeft -= groupWidth;
-    else if (el.scrollLeft < groupWidth) el.scrollLeft += groupWidth;
-  };
 
   const handleScroll = (direction) => {
     if (navRef.current) {
@@ -390,16 +342,37 @@ const MainLocationHeader = ({
                 data-lenis-prevent
                 data-lenis-prevent-touch
                 onClick={() => setIsLocationOpen(true)}
-                className="customer-delivery-card flex min-w-0 max-w-[360px] items-center gap-2 rounded-xl px-3 py-2 text-left transition-transform active:scale-[0.99]"
+                className="customer-delivery-card flex min-w-0 max-w-[320px] h-[40px] items-center gap-2 rounded-xl border border-blue-100/90 bg-blue-50/65 px-3 text-left shadow-[0_2px_8px_rgba(40,117,232,0.06)] backdrop-blur-xl transition-transform active:scale-[0.99]"
               >
-                <MapPin className="h-4 w-4 shrink-0 text-[#2875E8]" />
-                <span className="customer-delivery-label shrink-0 text-[11px] font-bold">Delivering to</span>
-                <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-slate-800">
-                  {isFetchingLocation ? "Detecting location..." : [currentLocation.pincode, currentLocation.city && `${currentLocation.city} Division`].filter(Boolean).join(" - ") || currentLocation.name}
+                <MapPin className="customer-delivery-icon h-4 w-4 shrink-0 text-[#2875E8]" style={{ color: '#2875E8' }} />
+                <span className="customer-delivery-label shrink-0 text-[11.5px] font-black text-[#2875E8] tracking-tight uppercase" style={{ color: '#2875E8' }}>HOME</span>
+                <span className="customer-delivery-address min-w-0 flex-1 truncate text-[11px] font-medium text-slate-500" style={{ color: '#64748b' }}>
+                  {isFetchingLocation ? "Detecting location..." : (currentLocation.name || currentLocation.city || "Select address")}
                 </span>
-                  <span className="hidden max-w-[180px] truncate text-[10px] text-slate-800 lg:block">{currentLocation.name}</span>
-                <ChevronDownIcon sx={{ fontSize: 17, color: "#667085" }} className="shrink-0" />
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-400" style={{ color: '#94a3b8' }} />
               </button>
+
+              {/* 30 min Delivery Time Badge */}
+              <div 
+                className="customer-header-delivery-time hidden sm:flex shrink-0 h-[40px] px-3.5 rounded-xl items-center justify-center gap-1 shadow-[0_3px_10px_rgba(255,122,0,0.25)] select-none"
+                style={{
+                  background: 'linear-gradient(135deg, #ff9f43 0%, #ff793f 100%)',
+                  color: '#ffffff'
+                }}
+              >
+                <span 
+                  className="text-[20px] font-black leading-none tracking-tight"
+                  style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
+                >
+                  30
+                </span>
+                <span 
+                  className="text-[12px] font-bold leading-none lowercase"
+                  style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
+                >
+                  min
+                </span>
+              </div>
             </div>
 
             {/* Center Section: Highly Visible Search Bar */}
@@ -501,20 +474,42 @@ const MainLocationHeader = ({
               </div>
             </div>
 
-            {/* Location bar over the glossy header */}
-            <div className="flex justify-start pt-0.5">
+            {/* Location bar + 30 min delivery time */}
+            <div className="flex items-center gap-2 w-full pt-0.5">
               <button
                 type="button"
                 onClick={() => setIsLocationOpen(true)}
-                className="customer-delivery-card w-full flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/65 px-3 py-2.5 text-left shadow-[0_3px_12px_rgba(40,117,232,0.08)] backdrop-blur-xl cursor-pointer active:scale-[0.99] transition-transform"
+                className="customer-delivery-card flex-1 min-w-0 h-[40px] flex items-center gap-2 rounded-xl border border-blue-100/90 bg-blue-50/65 px-3 text-left shadow-[0_2px_8px_rgba(40,117,232,0.06)] backdrop-blur-xl cursor-pointer active:scale-[0.99] transition-transform"
               >
-                <MapPin className="h-4 w-4 shrink-0 text-[#2875E8]" />
-                <span className="customer-delivery-label shrink-0 text-[11px] font-bold">Delivering to</span>
-                <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-slate-800">
-                    {isFetchingLocation ? "Detecting location..." : currentLocation.name}
+                <MapPin className="customer-delivery-icon h-4 w-4 shrink-0 text-[#2875E8]" style={{ color: '#2875E8' }} />
+                <span className="customer-delivery-label shrink-0 text-[11.5px] font-black text-[#2875E8] tracking-tight uppercase" style={{ color: '#2875E8' }}>HOME</span>
+                <span className="customer-delivery-address min-w-0 flex-1 truncate text-[11px] font-medium text-slate-500" style={{ color: '#64748b' }}>
+                  {isFetchingLocation ? "Detecting location..." : (currentLocation.name || currentLocation.city || "Select address")}
                 </span>
-                <ChevronDownIcon sx={{ color: "#667085", fontSize: 18 }} className="shrink-0" />
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-400" style={{ color: '#94a3b8' }} />
               </button>
+
+              {/* 30 min Delivery Time Badge */}
+              <div 
+                className="customer-header-delivery-time shrink-0 h-[40px] px-3.5 rounded-xl flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(255,122,0,0.25)] select-none"
+                style={{
+                  background: 'linear-gradient(135deg, #ff9f43 0%, #ff793f 100%)',
+                  color: '#ffffff'
+                }}
+              >
+                <span 
+                  className="text-[20px] font-black leading-none tracking-tight"
+                  style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
+                >
+                  30
+                </span>
+                <span 
+                  className="text-[12px] font-bold leading-none lowercase"
+                  style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
+                >
+                  min
+                </span>
+              </div>
             </div>
             </motion.div>
 
@@ -555,35 +550,15 @@ const MainLocationHeader = ({
                 style={{ height: mobileNavHeight, opacity: mobileNavOpacity, marginTop: mobileNavMargin, pointerEvents: mobileNavPointerEvents }}
                 className="relative z-10 overflow-hidden"
               >
-                <div
-                  ref={mobileNavRef}
-                  onTouchStart={pauseMobileCategoryScroll}
-                  onTouchEnd={resumeMobileCategoryScroll}
-                  onTouchCancel={resumeMobileCategoryScroll}
-                  onWheel={() => {
-                    pauseMobileCategoryScroll();
-                    resumeMobileCategoryScroll();
-                  }}
-                  onScroll={handleMobileCategoryScroll}
-                  className="h-20 overflow-x-auto overflow-y-hidden pb-0 no-scrollbar"
-                >
-                  <div className="flex w-max">
-                    {[0, 1, 2, 3, 4].map((copy) => (
-                      <div
-                        key={`mobile-category-copy-${copy}`}
-                        ref={copy === 0 ? mobileNavGroupRef : undefined}
-                        aria-hidden={copy > 0}
-                        className="flex h-20 shrink-0 items-end gap-1 px-2"
-                      >
-                        {categories.map((cat) => (
-                          <CategoryNavColumn
-                            key={`${copy}-${cat.id || cat._id}`}
-                            cat={cat}
-                            isActive={String(activeCategory?._id || activeCategory?.id || "") === String(cat._id || cat.id || "")}
-                            onCategorySelect={onCategorySelect}
-                          />
-                        ))}
-                      </div>
+                <div className="h-20 overflow-x-auto overflow-y-hidden pb-0 no-scrollbar">
+                  <div className="flex h-20 shrink-0 items-end gap-1 px-2">
+                    {categories.map((cat) => (
+                      <CategoryNavColumn
+                        key={cat.id || cat._id}
+                        cat={cat}
+                        isActive={String(activeCategory?._id || activeCategory?.id || "") === String(cat._id || cat.id || "")}
+                        onCategorySelect={onCategorySelect}
+                      />
                     ))}
                   </div>
                 </div>

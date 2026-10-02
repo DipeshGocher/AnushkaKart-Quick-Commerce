@@ -1,0 +1,658 @@
+/* ==========================================================================
+   CUSTOMER PANEL TYPOGRAPHY SYSTEM — FLIPKART-STYLE
+   Scoped exclusively to .customer-app and .customer-panel.
+   Admin, Seller, and Delivery Partner panels remain untouched.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. DESIGN TOKENS & FONT FAMILY
+   -------------------------------------------------------------------------- */
+.customer-app,
+.customer-panel {
+  --fk-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --fk-font-regular: 400;
+  --fk-font-medium: 500;
+  --fk-font-semibold: 600;
+  --fk-font-bold: 700;
+
+  /* Flipkart-Style Color Tokens */
+  --fk-color-text-main: #212121;
+  --fk-color-text-secondary: #666666;
+  --fk-color-text-muted: #757575;
+  --fk-color-text-subtle: #878787;
+  --fk-color-text-brand: #2874f0;
+  --fk-color-discount: #388e3c;
+  --fk-color-error: #d32f2f;
+  --fk-color-placeholder: #888888;
+
+  font-family: var(--fk-font);
+  color: var(--fk-color-text-main);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Ensure all customer children inherit Inter */
+.customer-app button,
+.customer-app input,
+.customer-app optgroup,
+.customer-app select,
+.customer-app textarea,
+.customer-app h1,
+.customer-app h2,
+.customer-app h3,
+.customer-app h4,
+.customer-app h5,
+.customer-app h6,
+.customer-app p,
+.customer-app a,
+.customer-app span {
+  font-family: var(--fk-font);
+}
+
+/* Clamp excessive 800/900 weights down to clean 700 inside customer panel */
+.customer-app :is(.font-black, .font-extrabold) {
+  font-weight: 700 !important;
+}
+
+/* --------------------------------------------------------------------------
+   2. GLOBAL TEXT HIERARCHY SCALE
+   -------------------------------------------------------------------------- */
+
+/* Display / Large Heading: 24–28px, Weight: 700, Line-height: 32–36px */
+.customer-app .fk-display-heading,
+.customer-app h1:not([class*="text-"]) {
+  font-family: var(--fk-font);
+  font-size: clamp(24px, 2.5vw, 28px);
+  line-height: clamp(32px, 3.2vw, 36px);
+  font-weight: var(--fk-font-bold);
+  color: var(--fk-color-text-main);
+  letter-spacing: -0.02em;
+}
+
+/* Section Heading: 20–24px (mobile 20–22px), Weight: 700, Line-height: 28–32px */
+.customer-app .fk-section-heading,
+.customer-app h2:not([class*="text-"]) {
+  font-family: var(--fk-font);
+  font-size: clamp(20px, 2.2vw, 24px);
+  line-height: clamp(26px, 2.8vw, 32px);
+  font-weight: var(--fk-font-bold);
+  color: var(--fk-color-text-main);
+  letter-spacing: -0.015em;
+}
+
+/* Sub Heading: 16–18px, Weight: 600, Line-height: 24px */
+.customer-app .fk-sub-heading,
+.customer-app h3:not([class*="text-"]) {
+  font-family: var(--fk-font);
+  font-size: clamp(16px, 1.8vw, 18px);
+  line-height: 24px;
+  font-weight: var(--fk-font-semibold);
+  color: var(--fk-color-text-main);
+}
+
+/* Normal Body Text: 14–16px (mobile 14–15px), Weight: 400, Line-height: 20–24px */
+.customer-app .fk-body {
+  font-family: var(--fk-font);
+  font-size: clamp(14px, 1.4vw, 16px);
+  line-height: clamp(20px, 2vw, 24px);
+  font-weight: var(--fk-font-regular);
+  color: var(--fk-color-text-main);
+}
+
+/* Secondary Text: 12–14px, Weight: 400, Line-height: 18–20px */
+.customer-app .fk-secondary-text,
+.customer-app .fk-body-secondary {
+  font-family: var(--fk-font);
+  font-size: clamp(12px, 1.2vw, 14px);
+  line-height: clamp(18px, 1.8vw, 20px);
+  font-weight: var(--fk-font-regular);
+  color: var(--fk-color-text-muted);
+}
+
+/* Small Label: 11–13px, Weight: 500, Line-height: 16px */
+.customer-app .fk-small-label {
+  font-family: var(--fk-font);
+  font-size: clamp(11px, 1.1vw, 13px);
+  line-height: 16px;
+  font-weight: var(--fk-font-medium);
+  color: var(--fk-color-text-secondary);
+}
+
+/* --------------------------------------------------------------------------
+   3. PRODUCT CARD TYPOGRAPHY (FLIPKART-STYLE)
+   -------------------------------------------------------------------------- */
+
+/* Product Title: Single line with ellipsis (...) if long, font-weight: 600, 13–14px */
+.customer-app .fk-product-title,
+.customer-app .customer-product-card h4,
+.customer-app .customer-product-card .product-title {
+  font-family: var(--fk-font);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: #212121;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+  max-width: 100%;
+  min-width: 0;
+}
+@media (min-width: 768px) {
+  .customer-app .fk-product-title,
+  .customer-app .customer-product-card h4,
+  .customer-app .customer-product-card .product-title {
+    font-size: 14px;
+    line-height: 20px;
+  }
+}
+
+/* Product Brand: 12–13px, Weight: 500, Color: #666666 */
+.customer-app .fk-product-brand {
+  font-family: var(--fk-font);
+  font-size: clamp(12px, 1.2vw, 13px);
+  font-weight: var(--fk-font-medium);
+  color: var(--fk-color-text-secondary);
+  line-height: 16px;
+}
+
+/* Product Price: font size & boldness same as product title (13–14px, font-weight: 600) */
+.customer-app .fk-product-price {
+  font-family: var(--fk-font);
+  font-size: 13px;
+  font-weight: 600;
+  color: #212121;
+  line-height: 1.2;
+}
+@media (min-width: 768px) {
+  .customer-app .fk-product-price {
+    font-size: 14px;
+  }
+}
+
+/* Original/MRP Price: 12px, Weight: 400, Color: #878787, line-through */
+.customer-app .fk-product-mrp {
+  font-family: var(--fk-font);
+  font-size: 12px;
+  font-weight: 400;
+  color: #878787;
+  text-decoration: line-through;
+  line-height: 1.2;
+}
+
+/* Discount: 12px, Weight: 600, Color: #388e3c (Green) */
+.customer-app .fk-product-discount {
+  font-family: var(--fk-font);
+  font-size: 12px;
+  font-weight: 600;
+  color: #388e3c;
+  line-height: 1.2;
+}
+
+/* Delivery Information: 12–13px, Weight: 400, Color: #666666 */
+.customer-app .fk-product-delivery {
+  font-family: var(--fk-font);
+  font-size: clamp(12px, 1.2vw, 13px);
+  font-weight: var(--fk-font-regular);
+  color: var(--fk-color-text-secondary);
+  line-height: 16px;
+}
+
+/* Rating Badge: Rating number 12–13px (600), Review count 12px (400) */
+.customer-app .fk-rating-badge {
+  font-family: var(--fk-font);
+  font-size: clamp(11.5px, 1.2vw, 13px);
+  font-weight: var(--fk-font-semibold);
+  line-height: 1;
+}
+.customer-app .fk-rating-count {
+  font-family: var(--fk-font);
+  font-size: 12px;
+  font-weight: var(--fk-font-regular);
+  color: var(--fk-color-text-subtle);
+  line-height: 1;
+}
+
+/* Sponsored Tag: 11–12px, Weight: 400, Color: #777777 */
+.customer-app .fk-sponsored {
+  font-family: var(--fk-font);
+  font-size: clamp(11px, 1.1vw, 12px);
+  font-weight: var(--fk-font-regular);
+  color: #777777;
+  line-height: 14px;
+}
+
+/* --------------------------------------------------------------------------
+   4. CATEGORY NAMES & HEADINGS
+   -------------------------------------------------------------------------- */
+
+/* Category Name: 14–16px (mobile 12–14px), 500–600, 20px, #424242, center */
+.customer-app .fk-category-name,
+.customer-app .customer-category-tile-label {
+  font-family: var(--fk-font);
+  font-size: clamp(12px, 1.4vw, 15px);
+  line-height: 20px;
+  font-weight: var(--fk-font-medium);
+  color: #424242;
+  text-align: center;
+}
+
+/* Main Category Heading: 20–24px, Weight: 700, Color: #212121 */
+.customer-app .fk-category-heading {
+  font-family: var(--fk-font);
+  font-size: clamp(20px, 2.2vw, 24px);
+  line-height: clamp(26px, 2.8vw, 32px);
+  font-weight: var(--fk-font-bold);
+  color: var(--fk-color-text-main);
+}
+
+/* "View All" / "See All": 14–15px, Weight: 600, primary brand color */
+.customer-app .fk-view-all {
+  font-family: var(--fk-font);
+  font-size: clamp(13px, 1.4vw, 15px);
+  font-weight: var(--fk-font-semibold);
+  color: var(--fk-color-text-brand);
+  line-height: 20px;
+}
+
+/* --------------------------------------------------------------------------
+   5. HEADER & SEARCH BAR
+   -------------------------------------------------------------------------- */
+
+.customer-app input::placeholder,
+.customer-location-header input::placeholder {
+  font-family: var(--fk-font);
+  font-size: clamp(13.5px, 1.4vw, 15px);
+  font-weight: var(--fk-font-regular);
+  color: var(--fk-color-placeholder) !important;
+}
+
+.customer-app input,
+.customer-location-header input {
+  font-family: var(--fk-font);
+  font-size: clamp(14px, 1.5vw, 16px);
+  font-weight: var(--fk-font-regular);
+  color: var(--fk-color-text-main);
+}
+
+/* Header navigation links */
+.customer-app .customer-header-nav-link {
+  font-family: var(--fk-font);
+  font-size: clamp(14px, 1.4vw, 15px);
+  font-weight: var(--fk-font-medium);
+}
+
+/* Cart badge count: 11–12px, Weight: 700 */
+.customer-app .fk-cart-badge,
+.customer-location-header .cart-badge {
+  font-family: var(--fk-font);
+  font-size: 11px;
+  font-weight: var(--fk-font-bold);
+}
+
+/* --------------------------------------------------------------------------
+   6. HOME PAGE SECTION HEADERS & SUBTITLES
+   -------------------------------------------------------------------------- */
+
+.customer-app .fk-home-section-title {
+  font-family: var(--fk-font);
+  font-size: clamp(20px, 2.2vw, 24px);
+  line-height: clamp(28px, 3vw, 32px);
+  font-weight: var(--fk-font-bold);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-home-section-subtitle {
+  font-family: var(--fk-font);
+  font-size: clamp(13px, 1.3vw, 14px);
+  font-weight: var(--fk-font-regular);
+  color: var(--fk-color-text-muted);
+  line-height: 20px;
+}
+
+/* --------------------------------------------------------------------------
+   7. ACCOUNT / PROFILE PAGE
+   -------------------------------------------------------------------------- */
+
+.customer-app .fk-account-heading {
+  font-family: var(--fk-font);
+  font-size: clamp(22px, 2.4vw, 26px);
+  line-height: clamp(28px, 3vw, 32px);
+  font-weight: var(--fk-font-bold);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-account-item {
+  font-family: var(--fk-font);
+  font-size: clamp(15px, 1.6vw, 18px);
+  font-weight: var(--fk-font-regular);
+  color: #333333;
+}
+
+.customer-app .fk-account-item-active {
+  font-family: var(--fk-font);
+  font-size: clamp(15px, 1.6vw, 18px);
+  font-weight: var(--fk-font-medium);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-account-status {
+  font-family: var(--fk-font);
+  font-size: clamp(12px, 1.3vw, 14px);
+  font-weight: var(--fk-font-regular);
+  color: var(--fk-color-text-muted);
+}
+
+.customer-app .fk-account-badge {
+  font-family: var(--fk-font);
+  font-size: clamp(12px, 1.3vw, 14px);
+  font-weight: var(--fk-font-medium);
+}
+
+/* --------------------------------------------------------------------------
+   8. BUTTONS
+   -------------------------------------------------------------------------- */
+
+.customer-app .fk-btn-primary {
+  font-family: var(--fk-font);
+  font-size: clamp(14px, 1.5vw, 16px);
+  font-weight: var(--fk-font-semibold);
+  line-height: 20px;
+}
+
+.customer-app .fk-btn-secondary {
+  font-family: var(--fk-font);
+  font-size: clamp(14px, 1.5vw, 16px);
+  font-weight: var(--fk-font-medium);
+  line-height: 20px;
+}
+
+.customer-app .fk-btn-small {
+  font-family: var(--fk-font);
+  font-size: clamp(12px, 1.3vw, 14px);
+  font-weight: var(--fk-font-semibold);
+  line-height: 18px;
+}
+
+/* --------------------------------------------------------------------------
+   9. PRICE / OFFER / DEAL SECTIONS
+   -------------------------------------------------------------------------- */
+
+.customer-app .fk-offer-title {
+  font-family: var(--fk-font);
+  font-size: clamp(16px, 1.8vw, 18px);
+  font-weight: var(--fk-font-semibold);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-offer-price {
+  font-family: var(--fk-font);
+  font-size: clamp(18px, 2.2vw, 22px);
+  font-weight: var(--fk-font-bold);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-offer-discount {
+  font-family: var(--fk-font);
+  font-size: clamp(13px, 1.4vw, 15px);
+  font-weight: var(--fk-font-semibold);
+  color: var(--fk-color-discount);
+}
+
+.customer-app .fk-offer-oldprice {
+  font-family: var(--fk-font);
+  font-size: clamp(13px, 1.3vw, 14px);
+  font-weight: var(--fk-font-regular);
+  color: var(--fk-color-text-subtle);
+  text-decoration: line-through;
+}
+
+/* --------------------------------------------------------------------------
+   10. PRODUCT DETAILS PAGE
+   -------------------------------------------------------------------------- */
+
+.customer-app .fk-detail-name {
+  font-family: var(--fk-font);
+  font-size: clamp(20px, 2.2vw, 24px);
+  line-height: clamp(28px, 3vw, 32px);
+  font-weight: var(--fk-font-semibold);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-detail-price {
+  font-family: var(--fk-font);
+  font-size: clamp(22px, 2.6vw, 28px);
+  font-weight: var(--fk-font-bold);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-detail-mrp {
+  font-family: var(--fk-font);
+  font-size: 14px;
+  font-weight: var(--fk-font-regular);
+  color: var(--fk-color-text-subtle);
+  text-decoration: line-through;
+}
+
+.customer-app .fk-detail-discount {
+  font-family: var(--fk-font);
+  font-size: clamp(14px, 1.5vw, 16px);
+  font-weight: var(--fk-font-semibold);
+  color: var(--fk-color-discount);
+}
+
+.customer-app .fk-detail-section-heading {
+  font-family: var(--fk-font);
+  font-size: clamp(18px, 2vw, 20px);
+  font-weight: var(--fk-font-semibold);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-detail-desc {
+  font-family: var(--fk-font);
+  font-size: clamp(14px, 1.5vw, 16px);
+  font-weight: var(--fk-font-regular);
+  line-height: clamp(22px, 2.4vw, 24px);
+  color: #424242;
+}
+
+.customer-app .fk-detail-spec-heading {
+  font-family: var(--fk-font);
+  font-size: clamp(18px, 2vw, 20px);
+  font-weight: var(--fk-font-semibold);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-detail-spec-text {
+  font-family: var(--fk-font);
+  font-size: 14px;
+  font-weight: var(--fk-font-regular);
+  color: #555555;
+}
+
+/* --------------------------------------------------------------------------
+   11. CART PAGE
+   -------------------------------------------------------------------------- */
+
+.customer-app .fk-cart-heading {
+  font-family: var(--fk-font);
+  font-size: clamp(22px, 2.3vw, 24px);
+  font-weight: var(--fk-font-bold);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-cart-title {
+  font-family: var(--fk-font);
+  font-size: clamp(14px, 1.5vw, 16px);
+  font-weight: var(--fk-font-medium);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-cart-price {
+  font-family: var(--fk-font);
+  font-size: clamp(16px, 1.8vw, 18px);
+  font-weight: var(--fk-font-bold);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-cart-qty {
+  font-family: var(--fk-font);
+  font-size: clamp(14px, 1.5vw, 16px);
+  font-weight: var(--fk-font-medium);
+}
+
+.customer-app .fk-cart-total {
+  font-family: var(--fk-font);
+  font-size: clamp(20px, 2.3vw, 24px);
+  font-weight: var(--fk-font-bold);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-cart-savings {
+  font-family: var(--fk-font);
+  font-size: clamp(13px, 1.35vw, 14px);
+  font-weight: var(--fk-font-semibold);
+  color: var(--fk-color-discount);
+}
+
+/* --------------------------------------------------------------------------
+   12. CHECKOUT PAGE
+   -------------------------------------------------------------------------- */
+
+.customer-app .fk-checkout-heading {
+  font-family: var(--fk-font);
+  font-size: clamp(18px, 2vw, 20px);
+  font-weight: var(--fk-font-semibold);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-checkout-address {
+  font-family: var(--fk-font);
+  font-size: clamp(14px, 1.5vw, 16px);
+  font-weight: var(--fk-font-regular);
+  color: #424242;
+}
+
+.customer-app .fk-checkout-name {
+  font-family: var(--fk-font);
+  font-size: clamp(14px, 1.5vw, 16px);
+  font-weight: var(--fk-font-semibold);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-checkout-payment {
+  font-family: var(--fk-font);
+  font-size: clamp(14px, 1.5vw, 16px);
+  font-weight: var(--fk-font-medium);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-checkout-payable {
+  font-family: var(--fk-font);
+  font-size: clamp(20px, 2.3vw, 24px);
+  font-weight: var(--fk-font-bold);
+  color: var(--fk-color-text-main);
+}
+
+/* --------------------------------------------------------------------------
+   13. ORDERS PAGE
+   -------------------------------------------------------------------------- */
+
+.customer-app .fk-order-heading {
+  font-family: var(--fk-font);
+  font-size: clamp(20px, 2.3vw, 24px);
+  font-weight: var(--fk-font-bold);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-order-id {
+  font-family: var(--fk-font);
+  font-size: clamp(12px, 1.3vw, 14px);
+  font-weight: var(--fk-font-medium);
+  color: var(--fk-color-text-secondary);
+}
+
+.customer-app .fk-order-title {
+  font-family: var(--fk-font);
+  font-size: clamp(14px, 1.45vw, 15px);
+  font-weight: var(--fk-font-medium);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-order-status {
+  font-family: var(--fk-font);
+  font-size: clamp(13px, 1.35vw, 14px);
+  font-weight: var(--fk-font-semibold);
+}
+
+.customer-app .fk-order-date {
+  font-family: var(--fk-font);
+  font-size: clamp(12px, 1.25vw, 13px);
+  font-weight: var(--fk-font-regular);
+  color: var(--fk-color-text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   14. FORMS / INPUTS
+   -------------------------------------------------------------------------- */
+
+.customer-app .fk-input-label {
+  font-family: var(--fk-font);
+  font-size: clamp(13px, 1.35vw, 14px);
+  font-weight: var(--fk-font-medium);
+  color: #333333;
+}
+
+.customer-app .fk-input-text {
+  font-family: var(--fk-font);
+  font-size: clamp(14px, 1.5vw, 16px);
+  font-weight: var(--fk-font-regular);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-input-placeholder::placeholder {
+  font-family: var(--fk-font);
+  font-size: clamp(14px, 1.5vw, 16px);
+  font-weight: var(--fk-font-regular);
+  color: var(--fk-color-placeholder);
+}
+
+.customer-app .fk-input-error {
+  font-family: var(--fk-font);
+  font-size: clamp(12px, 1.25vw, 13px);
+  font-weight: var(--fk-font-medium);
+  color: var(--fk-color-error);
+}
+
+.customer-app .fk-input-helper {
+  font-family: var(--fk-font);
+  font-size: clamp(12px, 1.25vw, 13px);
+  font-weight: var(--fk-font-regular);
+  color: var(--fk-color-text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   15. NOTIFICATIONS / TOASTS
+   -------------------------------------------------------------------------- */
+
+.customer-app .fk-notif-title {
+  font-family: var(--fk-font);
+  font-size: clamp(14px, 1.45vw, 15px);
+  font-weight: var(--fk-font-semibold);
+  color: var(--fk-color-text-main);
+}
+
+.customer-app .fk-notif-body {
+  font-family: var(--fk-font);
+  font-size: clamp(13px, 1.35vw, 14px);
+  font-weight: var(--fk-font-regular);
+  color: var(--fk-color-text-secondary);
+}
+
+.customer-app .fk-notif-timestamp {
+  font-family: var(--fk-font);
+  font-size: clamp(11px, 1.15vw, 12px);
+  font-weight: var(--fk-font-regular);
+  color: var(--fk-color-text-subtle);
+}
