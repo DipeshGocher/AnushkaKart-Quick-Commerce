@@ -701,7 +701,7 @@ const Home = () => {
             transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
             className="px-4 mb-5 pb-10 relative z-50 overflow-hidden"
           >
-            <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-100 shadow-sm">
+            <div className="bg-white rounded-2xl p-3 border border-slate-100 shadow-sm">
               <div className="flex items-center justify-between mb-3 px-1">
                 <h4 className="text-sm font-bold text-slate-800">
                   {effectiveQuickCategories.find(c => String(c.id || c._id) === String(expandedCategoryId))?.name || displayCategoryMap[expandedCategoryId]?.name} {getTranslatedText("Subcategories")}

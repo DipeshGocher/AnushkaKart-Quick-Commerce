@@ -61,16 +61,22 @@ const TopDealsOnProducts = ({ latitude, longitude }) => {
 
   return (
     <section className="mx-4 mt-4 rounded-[24px] bg-[#ffd21f] px-3 py-4 shadow-[0_8px_22px_rgba(173,126,0,0.12)]" aria-label="Top Deals On Products">
-      <h2 className="mb-3 px-1 text-[20px] font-bold leading-tight tracking-tight text-[#1d1d1d]">Top Deals On Products</h2>
+      <h2 className="fk-section-heading mb-3 px-1">Top Deals On Products</h2>
 
       {isLoading && products.length === 0 ? (
-        <div className="grid grid-cols-2 gap-3" aria-label="Loading featured products">
-          {[0, 1].map((index) => <div key={index} className="h-56 animate-pulse rounded-[18px] bg-white/70" />)}
+        <div className="grid grid-cols-3 gap-2.5" aria-label="Loading featured products">
+          {[0, 1, 2].map((index) => (
+            <div key={index} className="flex flex-col gap-2">
+              <div className="aspect-square animate-pulse rounded-[16px] bg-white/70" />
+              <div className="h-3 w-3/4 animate-pulse rounded bg-white/50" />
+              <div className="h-3 w-1/2 animate-pulse rounded bg-white/50" />
+            </div>
+          ))}
         </div>
       ) : products.length === 0 ? (
-        <p className="rounded-[18px] bg-white/75 px-4 py-6 text-center text-sm font-medium text-[#333]">Featured products will appear here.</p>
+        <p className="fk-body rounded-[18px] bg-white/75 px-4 py-6 text-center text-[#333]">Featured products will appear here.</p>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
           {products.map((product) => {
             const id = product._id || product.id;
             const originalPrice = Number(product.price || product.variants?.[0]?.price) || 0;
@@ -78,22 +84,55 @@ const TopDealsOnProducts = ({ latitude, longitude }) => {
             const hasDiscount = salePrice > 0 && originalPrice > salePrice;
             const currentPrice = hasDiscount ? salePrice : originalPrice;
             const image = product.mainImage || product.variants?.[0]?.images?.[0] || product.image;
+            const isPng = typeof image === 'string' && (image.toLowerCase().endsWith('.png') || image.toLowerCase().includes('.png?') || image.toLowerCase().includes('/png'));
+            const discountPercent = hasDiscount && originalPrice > 0 ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : 0;
 
             return (
-              <Link key={id} to={`/product/${id}`} className="min-w-0 rounded-[18px] bg-white p-2.5 shadow-[0_3px_12px_rgba(91,66,0,0.1)] transition-transform active:scale-[0.98]">
-                <span className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-[13px] bg-[#f5f7fb]">
+              <Link
+                key={id}
+                to={`/product/${id}`}
+                className="group flex flex-col min-w-0 transition-transform active:scale-[0.98]"
+              >
+                {/* Image Card Box - Full Card Cover Image with NO inner padding */}
+                <div className="customer-product-clean-image relative aspect-square w-full rounded-2xl bg-[#f8f9fa] p-0 flex items-center justify-center overflow-hidden">
                   {image ? (
-                    <img src={applyCloudinaryTransform(image, 'f_auto,q_auto,w_400')} alt={product.name} loading="lazy" className="h-full w-full object-contain" />
+                    <img
+                      src={applyCloudinaryTransform(image, 'f_auto,q_auto,w_300')}
+                      alt={product.name}
+                      loading="lazy"
+                      className={`h-full w-full transition-transform duration-200 group-hover:scale-105 ${
+                        isPng ? 'is-png-image object-contain p-2' : 'object-cover'
+                      }`}
+                    />
                   ) : (
-                    <ImageOff size={32} className="text-slate-400" aria-hidden="true" />
+                    <ImageOff size={28} className="text-slate-400" aria-hidden="true" />
                   )}
-                </span>
-                <span className="mt-1.5 block truncate text-[13px] font-medium leading-tight text-slate-900">{product.name}</span>
-                <span className="mt-0.5 flex items-center gap-1.5 leading-none">
-                  {hasDiscount && <span className="text-[11px] sm:text-[12px] text-slate-400 line-through font-normal">{formatPrice(originalPrice)}</span>}
-                  <span className="text-[13px] sm:text-[14px] font-bold text-slate-900">{formatPrice(currentPrice)}</span>
-                  {hasDiscount && <span className="text-[11px] sm:text-[12px] font-bold text-[#16a34a]">{Math.round((1 - salePrice / originalPrice) * 100)}% OFF</span>}
-                </span>
+                </div>
+
+                {/* Details OUTSIDE the Image Card Box: Only Product Name & Price */}
+                <div className="mt-1.5 flex flex-col px-0.5 min-w-0">
+                  {/* Product Name (Single line with ellipsis) */}
+                  <h4 className="fk-product-title truncate text-[13px] font-semibold text-[#212121] leading-tight group-hover:text-[#2874f0]">
+                    {product.name}
+                  </h4>
+
+                  {/* Price Row: Selling Price, Cut MRP (if discount), and Green % off */}
+                  <div className="mt-0.5 flex items-baseline gap-1.5 flex-wrap leading-tight">
+                    <span className="fk-product-price text-[13px] font-semibold text-[#212121]">
+                      {formatPrice(currentPrice)}
+                    </span>
+                    {hasDiscount && (
+                      <span className="fk-product-mrp text-[12px] text-slate-400 line-through font-normal">
+                        {formatPrice(originalPrice)}
+                      </span>
+                    )}
+                    {hasDiscount && (
+                      <span className="fk-product-discount text-[12px] font-semibold text-[#388e3c]">
+                        {discountPercent}% off
+                      </span>
+                    )}
+                  </div>
+                </div>
               </Link>
             );
           })}

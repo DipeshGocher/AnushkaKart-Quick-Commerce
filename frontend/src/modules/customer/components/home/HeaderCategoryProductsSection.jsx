@@ -158,7 +158,7 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
               <div className="flex items-center justify-between px-4 mb-3">
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-5 bg-[#2874f0] rounded-full" />
-                  <h2 className="text-[17px] sm:text-[19px] font-bold text-[#111111] tracking-tight">
+                  <h2 className="fk-section-heading">
                     {headerName}
                   </h2>
                 </div>
@@ -169,7 +169,7 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
                       window.scrollTo(0, 0);
                       navigate('/category/' + headerId);
                     }}
-                    className="text-xs font-bold text-[#2874f0] hover:underline flex items-center gap-0.5 active:opacity-75"
+                    className="fk-view-all flex items-center gap-0.5 active:opacity-75"
                   >
                     <span>See All</span>
                     <ChevronRight size={14} className="stroke-[2.5]" />
@@ -196,14 +196,16 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
                 const rating =
                   Number(product.rating) > 0 ? Number(product.rating) : 5.0;
 
+                const isPng = typeof image === 'string' && (image.toLowerCase().endsWith('.png') || image.toLowerCase().includes('.png?') || image.toLowerCase().includes('/png'));
+
                 return (
                   <Link
                     key={id}
                     to={getProductUrl(product)}
                     className="group flex flex-col active:scale-[0.98] transition-transform"
                   >
-                    {/* Div k andar ka background a little offwhite jesa ki given image me hai */}
-                    <div className="relative aspect-square w-full rounded-2xl bg-[#f6f7f9] p-3 border border-[#edf0f4] flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:border-slate-300">
+                    {/* Clean Full Cover Image Container - NO nested div look */}
+                    <div className="customer-product-clean-image relative aspect-square w-full rounded-2xl bg-[#f8f9fa] p-0 flex items-center justify-center overflow-hidden">
                       {image ? (
                         <img
                           src={applyCloudinaryTransform(
@@ -212,7 +214,9 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
                           )}
                           alt={product.name}
                           loading="lazy"
-                          className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                          className={`w-full h-full group-hover:scale-105 transition-transform duration-300 ${
+                            isPng ? 'is-png-image object-contain p-2' : 'object-cover'
+                          }`}
                         />
                       ) : (
                         <ImageOff
@@ -221,35 +225,26 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
                           aria-hidden="true"
                         />
                       )}
-
-                      {/* Rating Badge (5.0 ★) at bottom-left inside image container */}
-                      <div className="absolute bottom-2 left-2 bg-white/95 px-1.5 py-0.5 rounded-[4px] shadow-2xs border border-slate-200/50 flex items-center gap-0.5 text-[10px] font-bold text-slate-800">
-                        <span>{rating.toFixed(1)}</span>
-                        <Star
-                          size={10}
-                          className="fill-[#16a34a] text-[#16a34a]"
-                        />
-                      </div>
                     </div>
 
-                    {/* OUTSIDE the div: Product Name */}
-                    <h3 className="mt-1.5 px-0.5 text-[13px] font-medium text-slate-900 truncate leading-tight group-hover:text-primary transition-colors">
+                    {/* Product Name (Single line with ellipsis) */}
+                    <h4 className="fk-product-title truncate text-[13px] font-semibold text-[#212121] leading-tight mt-1.5 px-0.5 group-hover:text-[#2874f0] transition-colors">
                       {product.name}
-                    </h3>
+                    </h4>
 
-                    {/* OUTSIDE the div: Price and Name pass pass */}
-                    <div className="mt-0.5 px-0.5 flex items-center gap-1.5 leading-none">
-                      {hasDiscount && (
-                        <span className="text-[11px] sm:text-[12px] text-slate-400 line-through font-normal">
-                          {formatPrice(originalPrice)}
-                        </span>
-                      )}
-                      <span className="text-[13px] sm:text-[14px] font-bold text-slate-900">
+                    {/* Price Row: Selling Price, Cut MRP (if discount), and Green % off */}
+                    <div className="mt-0.5 px-0.5 flex items-baseline gap-1.5 leading-tight flex-wrap">
+                      <span className="fk-product-price text-[13px] font-semibold text-[#212121]">
                         {formatPrice(currentPrice)}
                       </span>
                       {hasDiscount && (
-                        <span className="text-[11px] sm:text-[12px] font-bold text-[#16a34a]">
-                          {discountPercent}% OFF
+                        <span className="fk-product-mrp text-[12px] text-slate-400 line-through font-normal">
+                          {formatPrice(originalPrice)}
+                        </span>
+                      )}
+                      {hasDiscount && (
+                        <span className="fk-product-discount text-[12px] font-semibold text-[#388e3c]">
+                          {discountPercent}% off
                         </span>
                       )}
                     </div>

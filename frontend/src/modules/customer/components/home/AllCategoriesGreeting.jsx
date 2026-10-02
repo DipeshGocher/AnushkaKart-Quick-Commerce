@@ -19,13 +19,13 @@ const AllCategoriesGreeting = ({ categories, firstName }) => {
             to={`/category/${category.id}`}
             className="flex w-[108px] shrink-0 snap-start flex-col rounded-[18px] bg-white p-2.5 shadow-[0_3px_12px_rgba(88,68,12,0.1)] transition-transform active:scale-[0.97]"
           >
-            <span className="flex h-[84px] w-full items-center justify-center overflow-hidden rounded-[13px] bg-[#f4f7ff]">
+            <span className="flex h-[84px] w-full items-center justify-center overflow-hidden rounded-[14px] bg-[#eff5ff] border border-[#dbeafe]/70 p-1.5">
               {category.image ? (
                 <img
                   src={applyCloudinaryTransform(category.image, 'f_auto,q_auto,w_240')}
                   alt=""
                   loading="lazy"
-                  className="h-full w-full object-contain"
+                  className="h-full w-full object-contain mix-blend-multiply"
                 />
               ) : (
                 <ShoppingBag size={32} className="text-[#2875e8]" aria-hidden="true" />

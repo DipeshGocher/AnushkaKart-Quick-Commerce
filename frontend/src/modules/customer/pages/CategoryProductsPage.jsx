@@ -264,12 +264,12 @@ const CategoryProductsPage = () => {
         setSelectedSubCategory(location.state?.activeSubcategoryId || 'all');
     }, [catId, location.state?.activeSubcategoryId, currentLocation?.latitude, currentLocation?.longitude]);
 
-    // Scroll sidebar active item into view
+    // Scroll horizontal subcategory active item into view
     useEffect(() => {
         if (sidebarRef.current) {
             const activeEl = sidebarRef.current.querySelector('[data-active="true"]');
             if (activeEl) {
-                activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                activeEl.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
             }
         }
     }, [selectedSubCategory]);
@@ -407,178 +407,177 @@ const CategoryProductsPage = () => {
                 </div>
             </header>
 
-            {/* ── Main Body: Sidebar + Products ── */}
-            <div className="fk-category-body">
-                {/* Left Sidebar – Subcategory list with thumbnails */}
-                <aside ref={sidebarRef} className="fk-sidebar">
-                    {subCategories.map((sub) => {
-                        const isActive = selectedSubCategory === sub.id;
-                        return (
-                            <button
-                                key={sub.id}
-                                data-active={isActive}
-                                onClick={() => handleSubCategoryClick(sub.id)}
-                                className={cn(
-                                    "fk-sidebar-item",
-                                    isActive && "fk-sidebar-item--active"
-                                )}
-                            >
-                                <div className={cn(
-                                    "fk-sidebar-thumb",
-                                    isActive && "fk-sidebar-thumb--active"
-                                )}>
-                                    {sub.icon ? (
-                                        <img
-                                            src={applyCloudinaryTransform(sub.icon, 'f_auto,q_auto,w_120')}
-                                            alt={sub.name}
-                                            className="fk-sidebar-img"
-                                            onError={(e) => {
-                                                e.target.style.display = 'none';
-                                            }}
-                                        />
-                                    ) : (
-                                        <span className="fk-sidebar-placeholder">
-                                            {sub.name.charAt(0).toUpperCase()}
-                                        </span>
-                                    )}
-                                </div>
-                                <span className={cn(
-                                    "fk-sidebar-label",
-                                    isActive && "fk-sidebar-label--active"
-                                )}>
-                                    {sub.name}
-                                </span>
-                            </button>
-                        );
-                    })}
-                </aside>
-
-                {/* Right Panel: Sort/Filter + Products Grid */}
-                <main className="fk-products-panel">
-                    {/* Sort & Filter Bar */}
-                    <div className="fk-sort-filter-bar">
-                        <button
-                            onClick={() => {
-                                setIsSortOpen(!isSortOpen);
-                                setIsFilterOpen(false);
-                            }}
-                            className={cn(
-                                "fk-sf-button",
-                                sortBy !== 'default' && "fk-sf-button--active"
-                            )}
-                        >
-                            <ArrowUpDown size={14} />
-                            <span>Sort</span>
-                        </button>
-
-                        <div className="fk-sf-divider" />
-
-                        <button
-                            onClick={() => {
-                                setIsFilterOpen(!isFilterOpen);
-                                setIsSortOpen(false);
-                            }}
-                            className="fk-sf-button"
-                        >
-                            <SlidersHorizontal size={14} />
-                            <span>Filter</span>
-                        </button>
-                    </div>
-
-                    {/* Sort Dropdown */}
-                    <AnimatePresence>
-                        {isSortOpen && (
-                            <>
-                                <motion.div
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    className="fk-overlay"
-                                    onClick={() => setIsSortOpen(false)}
-                                />
-                                <motion.div
-                                    initial={{ opacity: 0, y: -8 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -8 }}
-                                    transition={{ duration: 0.15 }}
-                                    className="fk-sort-dropdown"
-                                >
-                                    <div className="fk-sort-title">SORT BY</div>
-                                    {SORT_OPTIONS.map((opt) => (
-                                        <button
-                                            key={opt.id}
-                                            onClick={() => {
-                                                setSortBy(opt.id);
-                                                setIsSortOpen(false);
-                                            }}
-                                            className={cn(
-                                                "fk-sort-option",
-                                                sortBy === opt.id && "fk-sort-option--active"
-                                            )}
-                                        >
-                                            <span>{opt.label}</span>
-                                            {sortBy === opt.id && (
-                                                <Check size={16} className="fk-sort-check" />
-                                            )}
-                                        </button>
-                                    ))}
-                                </motion.div>
-                            </>
-                        )}
-                    </AnimatePresence>
-
-                    {/* Products Grid */}
-                    <div ref={productGridRef} className="fk-products-grid-container">
-                        {isLoading ? (
-                            <div className="fk-skeleton-grid">
-                                {[...Array(6)].map((_, i) => (
-                                    <div key={i} className="fk-skeleton-card">
-                                        <div className="fk-skeleton-image" />
-                                        <div className="fk-skeleton-lines">
-                                            <div className="fk-skeleton-line fk-skeleton-line--long" />
-                                            <div className="fk-skeleton-line fk-skeleton-line--medium" />
-                                            <div className="fk-skeleton-line fk-skeleton-line--short" />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : filteredAndSortedProducts.length === 0 ? (
-                            <div className="fk-empty-state">
-                                <div className="fk-empty-lottie">
-                                    {noServiceData ? (
-                                        <Lottie animationData={noServiceData} loop={true} />
-                                    ) : (
-                                        <div className="fk-empty-circle" />
-                                    )}
-                                </div>
-                                <h3 className="fk-empty-title">No Products Found</h3>
-                                <p className="fk-empty-desc">
-                                    No items match your selected filters in this category.
-                                </p>
+            {/* ── Top Horizontal Round Subcategories Row ── */}
+            {subCategories && subCategories.length > 0 && (
+                <div className="fk-subcat-section">
+                    <div ref={sidebarRef} className="fk-subcat-scroll">
+                        {subCategories.map((sub) => {
+                            const isActive = selectedSubCategory === sub.id;
+                            return (
                                 <button
-                                    onClick={() => {
-                                        setSelectedSubCategory('all');
-                                        setSearchQuery('');
-                                        setSortBy('default');
-                                    }}
-                                    className="fk-empty-reset"
+                                    key={sub.id}
+                                    type="button"
+                                    data-active={isActive}
+                                    onClick={() => handleSubCategoryClick(sub.id)}
+                                    className={cn(
+                                        "fk-subcat-btn",
+                                        isActive && "fk-subcat-btn--active"
+                                    )}
                                 >
-                                    Reset Filters
+                                    <div className={cn(
+                                        "fk-subcat-round",
+                                        isActive && "fk-subcat-round--active"
+                                    )}>
+                                        {sub.icon ? (
+                                            <img
+                                                src={applyCloudinaryTransform(sub.icon, 'f_auto,q_auto,w_120')}
+                                                alt={sub.name}
+                                                className="fk-subcat-img"
+                                                onError={(e) => {
+                                                    e.target.style.display = 'none';
+                                                }}
+                                            />
+                                        ) : (
+                                            <span className="fk-subcat-placeholder">
+                                                {sub.name === 'All' ? 'All' : sub.name.charAt(0).toUpperCase()}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <span className={cn(
+                                        "fk-subcat-name",
+                                        isActive && "fk-subcat-name--active"
+                                    )}>
+                                        {sub.name}
+                                    </span>
                                 </button>
-                            </div>
-                        ) : (
-                            <div className="fk-products-grid">
-                                {filteredAndSortedProducts.map((product) => (
-                                    <FlipkartCatalogCard
-                                        key={product.id || product._id}
-                                        product={product}
-                                        onProductClick={openProduct}
-                                    />
-                                ))}
-                            </div>
-                        )}
+                            );
+                        })}
                     </div>
-                </main>
+                </div>
+            )}
+
+            {/* ── Sort & Filter Bar ── */}
+            <div className="fk-sort-filter-bar">
+                <button
+                    onClick={() => {
+                        setIsSortOpen(!isSortOpen);
+                        setIsFilterOpen(false);
+                    }}
+                    className={cn(
+                        "fk-sf-button",
+                        sortBy !== 'default' && "fk-sf-button--active"
+                    )}
+                >
+                    <ArrowUpDown size={14} />
+                    <span>Sort</span>
+                </button>
+
+                <div className="fk-sf-divider" />
+
+                <button
+                    onClick={() => {
+                        setIsFilterOpen(!isFilterOpen);
+                        setIsSortOpen(false);
+                    }}
+                    className="fk-sf-button"
+                >
+                    <SlidersHorizontal size={14} />
+                    <span>Filter</span>
+                </button>
+            </div>
+
+            {/* Sort Dropdown */}
+            <AnimatePresence>
+                {isSortOpen && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fk-overlay"
+                            onClick={() => setIsSortOpen(false)}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, y: -8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            transition={{ duration: 0.15 }}
+                            className="fk-sort-dropdown"
+                        >
+                            <div className="fk-sort-title">SORT BY</div>
+                            {SORT_OPTIONS.map((opt) => (
+                                <button
+                                    key={opt.id}
+                                    onClick={() => {
+                                        setSortBy(opt.id);
+                                        setIsSortOpen(false);
+                                    }}
+                                    className={cn(
+                                        "fk-sort-option",
+                                        sortBy === opt.id && "fk-sort-option--active"
+                                    )}
+                                >
+                                    <span>{opt.label}</span>
+                                    {sortBy === opt.id && (
+                                        <Check size={16} className="fk-sort-check" />
+                                    )}
+                                </button>
+                            ))}
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+
+            {/* Products Grid */}
+            <div ref={productGridRef} className="fk-products-grid-container">
+                {isLoading ? (
+                    <div className="fk-skeleton-grid">
+                        {[...Array(6)].map((_, i) => (
+                            <div key={i} className="fk-skeleton-card">
+                                <div className="fk-skeleton-image" />
+                                <div className="fk-skeleton-lines">
+                                    <div className="fk-skeleton-line fk-skeleton-line--long" />
+                                    <div className="fk-skeleton-line fk-skeleton-line--medium" />
+                                    <div className="fk-skeleton-line fk-skeleton-line--short" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : filteredAndSortedProducts.length === 0 ? (
+                    <div className="fk-empty-state">
+                        <div className="fk-empty-lottie">
+                            {noServiceData ? (
+                                <Lottie animationData={noServiceData} loop={true} />
+                            ) : (
+                                <div className="fk-empty-circle" />
+                            )}
+                        </div>
+                        <h3 className="fk-empty-title">No Products Found</h3>
+                        <p className="fk-empty-desc">
+                            No items match your selected filters in this category.
+                        </p>
+                        <button
+                            onClick={() => {
+                                setSelectedSubCategory('all');
+                                setSearchQuery('');
+                                setSortBy('default');
+                            }}
+                            className="fk-empty-reset"
+                        >
+                            Reset Filters
+                        </button>
+                    </div>
+                ) : (
+                    <div className="fk-products-grid grid grid-cols-3 gap-1.5 p-1.5 pb-16 w-full max-w-full">
+                        {filteredAndSortedProducts.map((product) => (
+                            <FlipkartCatalogCard
+                                key={product.id || product._id}
+                                product={product}
+                                onProductClick={openProduct}
+                            />
+                        ))}
+                    </div>
+                )}
             </div>
 
             <MiniCart />
@@ -608,13 +607,13 @@ const CategoryProductsPage = () => {
                     }
                 }
 
-                /* ─── Flipkart Blue Header ─── */
+                /* ─── Skyblue Header ─── */
                 .fk-category-header {
                     flex-shrink: 0;
                     height: 56px;
                     z-index: 20;
-                    background: #2874f0;
-                    box-shadow: 0 2px 8px rgba(40, 116, 240, 0.25);
+                    background: #0ea5e9;
+                    box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25);
                 }
 
                 .fk-header-top {
@@ -726,72 +725,52 @@ const CategoryProductsPage = () => {
                     border: 1.5px solid #2874f0;
                 }
 
-                /* ─── Body (Sidebar + Products) ─── */
-                .fk-category-body {
-                    flex: 1;
-                    min-height: 0;
-                    height: 100%;
-                    display: flex;
-                    overflow: hidden;
-                    position: relative;
+                /* ─── Horizontal Subcategories Row (Round shape above products) ─── */
+                .fk-subcat-section {
+                    flex-shrink: 0;
+                    width: 100%;
+                    background: #ffffff;
+                    border-bottom: 1px solid #f1f3f6;
+                    padding: 8px 0 6px;
+                    z-index: 15;
                 }
 
-                /* ─── Left Sidebar (Independently scrollable) ─── */
-                .fk-sidebar {
-                    width: 80px;
-                    min-width: 80px;
-                    height: 100%;
-                    max-height: 100%;
-                    background: #fff;
-                    border-right: 1px solid #e0e0e0;
-                    overflow-y: auto;
-                    overflow-x: hidden;
-                    flex-shrink: 0;
+                .fk-subcat-scroll {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 12px;
+                    overflow-x: auto;
+                    overflow-y: hidden;
+                    padding: 0 12px;
                     scrollbar-width: none;
                     -ms-overflow-style: none;
-                    overscroll-behavior-y: contain;
                     -webkit-overflow-scrolling: touch;
-                    touch-action: pan-y;
-                    padding-bottom: 30px;
+                    scroll-behavior: smooth;
                 }
-                .fk-sidebar::-webkit-scrollbar {
+                .fk-subcat-scroll::-webkit-scrollbar {
                     display: none;
                 }
 
-                .fk-sidebar-item {
+                .fk-subcat-btn {
                     display: flex;
                     flex-direction: column;
                     align-items: center;
-                    justify-content: center;
-                    width: 100%;
-                    padding: 10px 4px;
-                    gap: 6px;
+                    width: 60px;
+                    min-width: 60px;
+                    gap: 4px;
                     border: none;
-                    background: #fff;
+                    background: transparent;
                     cursor: pointer;
-                    transition: background 0.15s;
-                    position: relative;
-                    border-bottom: 1px solid #f5f5f5;
+                    padding: 2px 0;
+                    outline: none;
+                    transition: transform 0.15s ease;
+                    -webkit-tap-highlight-color: transparent;
                 }
-                .fk-sidebar-item:active {
-                    background: #f5f5f5;
-                }
-
-                .fk-sidebar-item--active {
-                    background: #f1f3f6;
-                }
-                .fk-sidebar-item--active::before {
-                    content: '';
-                    position: absolute;
-                    left: 0;
-                    top: 0;
-                    bottom: 0;
-                    width: 3px;
-                    background: #2874f0;
-                    border-radius: 0 3px 3px 0;
+                .fk-subcat-btn:active {
+                    transform: scale(0.95);
                 }
 
-                .fk-sidebar-thumb {
+                .fk-subcat-round {
                     width: 52px;
                     height: 52px;
                     border-radius: 50%;
@@ -799,36 +778,38 @@ const CategoryProductsPage = () => {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    background: #f9f9f9;
-                    border: 2px solid transparent;
-                    transition: border-color 0.2s, box-shadow 0.2s;
+                    background: #eff5ff;
+                    border: 1.5px solid #dbeafe;
+                    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.05);
+                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
                     flex-shrink: 0;
                 }
-                .fk-sidebar-thumb--active {
+                .fk-subcat-round--active {
                     border-color: #2874f0;
-                    box-shadow: 0 0 0 2px rgba(40, 116, 240, 0.15);
-                    background: #fff;
+                    background: #e0edfd;
+                    box-shadow: 0 0 0 2px rgba(40, 116, 240, 0.25);
+                    transform: translateY(-1px);
                 }
 
-                .fk-sidebar-img {
+                .fk-subcat-img {
                     width: 100%;
                     height: 100%;
                     object-fit: contain;
-                    mix-blend-mode: multiply;
                     padding: 4px;
+                    mix-blend-mode: multiply;
                 }
 
-                .fk-sidebar-placeholder {
-                    font-size: 18px;
+                .fk-subcat-placeholder {
+                    font-size: 13px;
                     font-weight: 700;
                     color: #2874f0;
                     line-height: 1;
                 }
 
-                .fk-sidebar-label {
-                    font-size: 10px;
+                .fk-subcat-name {
+                    font-size: 10.5px;
                     font-weight: 500;
-                    color: #666;
+                    color: #4b5563;
                     text-align: center;
                     line-height: 1.2;
                     display: -webkit-box;
@@ -836,26 +817,12 @@ const CategoryProductsPage = () => {
                     -webkit-box-orient: vertical;
                     overflow: hidden;
                     word-break: break-word;
-                    max-width: 100%;
-                    padding: 0 2px;
+                    max-width: 60px;
+                    transition: color 0.15s;
                 }
-                .fk-sidebar-label--active {
+                .fk-subcat-name--active {
                     color: #2874f0;
                     font-weight: 700;
-                }
-
-                /* ─── Products Panel ─── */
-                .fk-products-panel {
-                    flex: 1;
-                    min-width: 0;
-                    min-height: 0;
-                    height: 100%;
-                    max-height: 100%;
-                    display: flex;
-                    flex-direction: column;
-                    overflow: hidden;
-                    background: #fff;
-                    position: relative;
                 }
 
                 /* ─── Sort & Filter Bar ─── */
@@ -981,20 +948,26 @@ const CategoryProductsPage = () => {
                 }
 
                 .fk-products-grid {
-                    display: grid;
-                    grid-template-columns: repeat(2, 1fr);
-                    gap: 14px 10px;
-                    padding: 10px 10px 40px;
-                    background: #ffffff;
+                    display: grid !important;
+                    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                    gap: 8px 6px !important;
+                    padding: 8px 6px 40px !important;
+                    background: #ffffff !important;
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    box-sizing: border-box !important;
                 }
 
-                /* ─── Skeleton Loading ─── */
+                /* ─── Skeleton Loading (3 columns) ─── */
                 .fk-skeleton-grid {
-                    display: grid;
-                    grid-template-columns: repeat(2, 1fr);
-                    gap: 14px 10px;
-                    padding: 10px;
-                    background: #ffffff;
+                    display: grid !important;
+                    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                    gap: 8px 6px !important;
+                    padding: 8px 6px 40px !important;
+                    background: #ffffff !important;
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    box-sizing: border-box !important;
                 }
 
                 .fk-skeleton-card {
@@ -1094,35 +1067,46 @@ const CategoryProductsPage = () => {
 
                 /* ─── Responsive ─── */
                 @media (min-width: 640px) {
-                    .fk-sidebar {
-                        width: 96px;
-                        min-width: 96px;
+                    .fk-subcat-btn {
+                        width: 68px;
+                        min-width: 68px;
                     }
-                    .fk-sidebar-thumb {
-                        width: 60px;
-                        height: 60px;
+                    .fk-subcat-round {
+                        width: 58px;
+                        height: 58px;
                     }
-                    .fk-sidebar-label {
+                    .fk-subcat-name {
                         font-size: 11px;
+                        max-width: 68px;
                     }
-                    .fk-products-grid {
-                        grid-template-columns: repeat(3, 1fr);
+                    .fk-products-grid, .fk-skeleton-grid {
+                        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                        gap: 10px 8px !important;
+                        padding: 10px 8px 40px !important;
                     }
-                    .fk-skeleton-grid {
-                        grid-template-columns: repeat(3, 1fr);
+                }
+
+                @media (min-width: 768px) {
+                    .fk-products-grid, .fk-skeleton-grid {
+                        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+                        gap: 12px 10px !important;
+                        padding: 12px 10px 40px !important;
                     }
                 }
 
                 @media (min-width: 1024px) {
-                    .fk-sidebar {
-                        width: 110px;
-                        min-width: 110px;
+                    .fk-subcat-btn {
+                        width: 74px;
+                        min-width: 74px;
                     }
-                    .fk-products-grid {
-                        grid-template-columns: repeat(4, 1fr);
+                    .fk-subcat-round {
+                        width: 62px;
+                        height: 62px;
                     }
-                    .fk-skeleton-grid {
-                        grid-template-columns: repeat(4, 1fr);
+                    .fk-products-grid, .fk-skeleton-grid {
+                        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+                        gap: 16px 12px !important;
+                        padding: 16px 14px 40px !important;
                     }
                 }
                 `}} />

@@ -109,11 +109,11 @@ const ForYouProductsSection = () => {
       <div className="px-3.5 md:px-6 mb-3.5 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-1.5 h-5 bg-[#2874f0] rounded-full" />
-          <h2 className="text-base sm:text-lg font-bold text-gray-900 tracking-tight">
+          <h2 className="fk-section-heading">
             For You
           </h2>
         </div>
-        <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200/60">
+        <span className="fk-small-label bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200/60">
           Suggested
         </span>
       </div>
@@ -140,64 +140,51 @@ const ForYouProductsSection = () => {
             const price = Number(item.salePrice || item.price || 0);
             const originalPrice = Number(item.price || item.originalPrice || 0);
             const showMrp = originalPrice > price;
+            const discountPercent = showMrp && originalPrice > 0 ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0;
             const targetUrl = getProductUrl(item);
+
+            const imageSrc = item.mainImage || item.image || "";
+            const isPng = typeof imageSrc === 'string' && (imageSrc.toLowerCase().endsWith('.png') || imageSrc.toLowerCase().includes('.png?') || imageSrc.toLowerCase().includes('/png'));
 
             return (
               <Link
                 key={id}
                 to={targetUrl}
-                className="group flex flex-col bg-white rounded-2xl border border-gray-100 p-2.5 hover:shadow-md transition-all active:scale-[0.98]"
+                className="group flex flex-col transition-transform active:scale-[0.98] min-w-0"
               >
-                {/* Off-white Image Container (matching Image 2) */}
-                <div className="w-full aspect-square bg-[#f6f7f9] rounded-xl relative flex items-center justify-center p-2.5 overflow-hidden mb-2">
+                {/* Full Cover Image Container - NO nested div look */}
+                <div className="customer-product-clean-image w-full aspect-square bg-[#f8f9fa] rounded-2xl relative flex items-center justify-center p-0 overflow-hidden">
                   <img
-                    src={applyCloudinaryTransform(item.mainImage || item.image, "f_auto,q_auto,w_400")}
+                    src={applyCloudinaryTransform(imageSrc, "f_auto,q_auto,w_400")}
                     alt={item.name}
-                    className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
+                    className={`h-full w-full group-hover:scale-105 transition-transform duration-300 ${
+                      isPng ? 'is-png-image object-contain p-2' : 'object-cover'
+                    }`}
                     loading="lazy"
                   />
-
-                  {/* Badges */}
-                  {item.isFeatured && (
-                    <span className="absolute top-2 left-2 bg-[#f0f0f0] text-gray-700 text-[9px] font-semibold px-1.5 py-0.5 rounded shadow-2xs">
-                      Bought Together
-                    </span>
-                  )}
-
-                  {index % 3 === 0 && (
-                    <span className="absolute top-2 right-2 bg-gray-200/80 text-gray-600 text-[8px] font-bold px-1 rounded">
-                      AD
-                    </span>
-                  )}
-
-                  {/* Rating Tag (bottom-left of image matching Image 2) */}
-                  <div className="absolute bottom-1.5 left-1.5 bg-white/95 backdrop-blur-xs text-[10px] font-bold text-gray-800 px-1.5 py-0.5 rounded flex items-center gap-1 shadow-xs border border-gray-100">
-                    <span>4.2</span>
-                    <Star size={10} className="fill-green-600 text-green-600" />
-                    <span className="text-gray-400 font-normal">|</span>
-                    <span className="text-gray-500 font-normal">74</span>
-                  </div>
                 </div>
 
-                {/* Product Brand & Name below image */}
-                <div className="flex-1 flex flex-col">
-                  <p className="text-xs text-gray-800 font-medium line-clamp-2 leading-snug">
-                    <span className="font-bold text-gray-900 mr-1">
-                      {item.brand || "Fresh"}
-                    </span>
+                {/* Product Name & Price below image */}
+                <div className="flex-1 flex flex-col min-w-0 mt-1.5 px-0.5">
+                  <h4 className="fk-product-title truncate text-[13px] font-semibold text-[#212121] leading-tight">
                     {item.name}
-                  </p>
+                  </h4>
 
-                  {/* Price Row: MRP strikethrough & Selling Price */}
-                  <div className="flex items-center gap-1.5 mt-2">
+                  {/* Price Row: Selling Price, Cut MRP (if discount), and Green % off */}
+                  <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap leading-tight">
+                    <span className="fk-product-price text-[13px] font-semibold text-[#212121]">
+                      ₹{price}
+                    </span>
                     {showMrp && (
-                      <span className="text-[11px] text-gray-400 line-through">
+                      <span className="fk-product-mrp text-[12px] text-slate-400 line-through font-normal">
                         ₹{originalPrice}
                       </span>
                     )}
-                    <span className="text-sm font-bold text-gray-900">
-                      ₹{price}
-                    </span>
+                    {showMrp && (
+                      <span className="fk-product-discount text-[12px] font-semibold text-[#388e3c]">
+                        {discountPercent}% off
+                      </span>
+                    )}
                   </div>
                 </div>
               </Link>

@@ -4,8 +4,6 @@ import {
   ArrowLeft, 
   Search, 
   ShoppingCart, 
-  Star, 
-  ShieldCheck, 
   Heart, 
   ImageOff, 
   X,
@@ -239,17 +237,6 @@ const ProductsPage = () => {
     return list;
   }, [rawProducts, selectedHeaderId, debouncedQuery, allCategoriesMap, allSubcategoriesMap, activeSort]);
 
-  // Delivery estimate display
-  const getDeliveryText = (index) => {
-    const today = new Date();
-    const target = new Date(today);
-    target.setDate(today.getDate() + (index % 3 === 0 ? 1 : 2));
-    const day = target.getDate();
-    const month = target.toLocaleString('en-US', { month: 'short' });
-    const suffix = day === 1 || day === 21 || day === 31 ? 'st' : day === 2 || day === 22 ? 'nd' : day === 3 || day === 23 ? 'rd' : 'th';
-    return `Delivery by ${day}${suffix} ${month}`;
-  };
-
   const handleHeaderCategoryClick = (headerId) => {
     setSelectedHeaderId(headerId);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -257,8 +244,8 @@ const ProductsPage = () => {
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-800 pb-20">
-      {/* 1. Flipkart Blue Top Header */}
-      <header className="sticky top-0 z-40 bg-[#2874f0] px-3 pt-3 pb-2.5 shadow-md">
+      {/* 1. Skyblue Top Header */}
+      <header className="sticky top-0 z-40 bg-[#0ea5e9] px-3 pt-3 pb-2.5 shadow-md">
         <div className="flex items-center gap-2.5">
           {/* Back Button */}
           <button
@@ -278,21 +265,21 @@ const ProductsPage = () => {
             {appName}
           </span>
 
-          {/* White Search Input Field */}
-          <div className="flex-1 bg-white rounded-sm sm:rounded-md px-3 py-1.5 flex items-center gap-2 shadow-xs transition-all">
+          {/* White Search Input Field - Fully Rounded with NO focus border */}
+          <div className="customer-products-search-box flex-1 bg-white rounded-full px-3.5 h-9 flex items-center gap-2 shadow-xs border-0 outline-none focus-within:ring-0">
             <Search size={16} className="text-slate-400 shrink-0" strokeWidth={2.2} />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search for products, brands and more"
-              className="w-full bg-transparent text-[13.5px] font-medium text-slate-900 placeholder:text-slate-400 outline-none"
+              className="w-full bg-transparent text-[13px] font-medium text-slate-900 placeholder:text-slate-400 border-0 outline-none focus:outline-none focus:ring-0 shadow-none ring-0"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="p-0.5 text-slate-400 hover:text-slate-600 rounded-full"
+                className="p-0.5 text-slate-400 hover:text-slate-600 rounded-full outline-none focus:outline-none"
                 aria-label="Clear search"
               >
                 <X size={15} strokeWidth={2.5} />
@@ -318,15 +305,15 @@ const ProductsPage = () => {
       </header>
 
       {/* 2. Header Category Buttons: All, Grocery, Electronics, Mobile etc. */}
-      <div className="sticky top-[53px] z-30 bg-white border-b border-slate-100 px-3 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar shadow-xs">
+      <div className="sticky top-[53px] z-30 bg-white border-b border-slate-100 px-3.5 py-3 min-h-[56px] flex items-center gap-2.5 overflow-x-auto no-scrollbar shadow-2xs">
         {/* All Button (Default) */}
         <button
           type="button"
           onClick={() => handleHeaderCategoryClick('all')}
           className={cn(
-            "px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all shadow-2xs active:scale-95 border",
+            "px-4 py-2 min-h-[36px] rounded-full text-[13px] font-semibold whitespace-nowrap transition-all shadow-2xs active:scale-95 border flex items-center justify-center",
             selectedHeaderId === 'all'
-              ? "bg-[#2874f0] text-white border-[#2874f0] shadow-sm"
+              ? "bg-gradient-to-r from-[#ff9f43] to-[#ff793f] text-white border-transparent shadow-[0_2px_8px_rgba(255,159,67,0.35)]"
               : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
           )}
         >
@@ -342,9 +329,9 @@ const ProductsPage = () => {
               type="button"
               onClick={() => handleHeaderCategoryClick(header._id)}
               className={cn(
-                "px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all shadow-2xs active:scale-95 border flex items-center gap-1.5",
+                "px-4 py-2 min-h-[36px] rounded-full text-[13px] font-semibold whitespace-nowrap transition-all shadow-2xs active:scale-95 border flex items-center justify-center gap-1.5",
                 isSelected
-                  ? "bg-[#2874f0] text-white border-[#2874f0] shadow-sm"
+                  ? "bg-gradient-to-r from-[#ff9f43] to-[#ff793f] text-white border-transparent shadow-[0_2px_8px_rgba(255,159,67,0.35)]"
                   : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
               )}
             >
@@ -358,13 +345,13 @@ const ProductsPage = () => {
           type="button"
           onClick={() => setIsSortModalOpen(true)}
           className={cn(
-            "ml-auto flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs font-semibold whitespace-nowrap transition-all active:scale-95 shrink-0",
+            "ml-auto flex items-center justify-center gap-1.5 px-3.5 py-2 min-h-[36px] rounded-full border text-[13px] font-semibold whitespace-nowrap transition-all active:scale-95 shrink-0",
             activeSort !== 'relevance'
               ? "bg-blue-50 border-blue-400 text-blue-700"
               : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
           )}
         >
-          <SlidersHorizontal size={12} strokeWidth={2.2} />
+          <SlidersHorizontal size={13} strokeWidth={2.2} />
           <span>Sort</span>
         </button>
       </div>
@@ -399,7 +386,7 @@ const ProductsPage = () => {
                 setSearchQuery('');
                 setSelectedHeaderId('all');
               }}
-              className="mt-4 px-4 py-2 bg-[#2874f0] text-white text-xs font-bold rounded-full shadow-xs active:scale-95 transition-transform flex items-center gap-1.5"
+              className="mt-4 px-4 py-2 bg-gradient-to-r from-[#ff9f43] to-[#ff793f] text-white text-xs font-bold rounded-full shadow-xs active:scale-95 transition-transform flex items-center gap-1.5"
             >
               <RotateCcw size={13} />
               <span>Reset & View All Products</span>
@@ -419,18 +406,18 @@ const ProductsPage = () => {
                 product.image ||
                 product.mainImage ||
                 product.variants?.[0]?.images?.[0];
+              const isPng = typeof image === 'string' && (image.toLowerCase().endsWith('.png') || image.toLowerCase().includes('.png?') || image.toLowerCase().includes('/png'));
               const isWish = isInWishlist(id);
               const variantCount = Array.isArray(product.variants) ? product.variants.length : 0;
-              const isSponsored = index === 0 || index === 1;
 
               return (
                 <div
                   key={id}
-                  className="group flex flex-col cursor-pointer active:scale-[0.99] transition-transform"
+                  className="group flex flex-col cursor-pointer active:scale-[0.99] transition-transform min-w-0"
                   onClick={() => navigate(getProductUrl(product))}
                 >
-                  {/* Top Image Box */}
-                  <div className="relative aspect-[4/4.5] w-full rounded-2xl bg-white border border-slate-100/90 flex items-center justify-center p-2.5 overflow-hidden shadow-2xs group-hover:border-slate-300 transition-colors">
+                  {/* Top Image Box - Full Card Cover Image with NO inner padding */}
+                  <div className="customer-product-clean-image relative aspect-[4/4.5] w-full rounded-2xl bg-[#f8f9fa] flex items-center justify-center p-0 overflow-hidden transition-colors">
                     {/* Wishlist Heart */}
                     <button
                       type="button"
@@ -438,7 +425,7 @@ const ProductsPage = () => {
                         e.stopPropagation();
                         toggleWishlist(id);
                       }}
-                      className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-white/85 backdrop-blur-xs text-slate-700 hover:text-red-500 active:scale-90 transition-transform shadow-2xs border border-slate-100"
+                      className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-white/90 backdrop-blur-xs text-slate-700 hover:text-red-500 active:scale-90 transition-transform shadow-2xs border-0"
                       aria-label="Wishlist"
                     >
                       <Heart
@@ -453,7 +440,10 @@ const ProductsPage = () => {
                         src={applyCloudinaryTransform(image, 'f_auto,q_auto,w_400')}
                         alt={product.name}
                         loading="lazy"
-                        className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                        className={cn(
+                          "w-full h-full group-hover:scale-105 transition-transform duration-300",
+                          isPng ? "is-png-image object-contain p-2" : "object-cover"
+                        )}
                       />
                     ) : (
                       <ImageOff size={28} className="text-slate-300" />
@@ -467,63 +457,27 @@ const ProductsPage = () => {
                     )}
                   </div>
 
-                  {/* Sponsored tag */}
-                  {isSponsored && (
-                    <span className="text-[10px] text-slate-400 font-normal leading-none block mt-1.5">
-                      Sponsored
-                    </span>
-                  )}
-
-                  {/* Product Title (2-line clamp) */}
-                  <h3 className={cn(
-                    "text-[13px] font-medium text-slate-900 leading-snug line-clamp-2 min-h-[34px] group-hover:text-[#2874f0] transition-colors",
-                    isSponsored ? "mt-0.5" : "mt-1.5"
-                  )}>
+                  {/* Product Title (Single-line with ellipsis ...) */}
+                  <h3 className="fk-product-title mt-1.5 px-0.5 truncate text-[13px] font-semibold text-[#212121] leading-tight group-hover:text-[#2874f0] transition-colors">
                     {product.name}
                   </h3>
 
-                  {/* Rating & Assured Badge Row */}
-                  <div className="flex items-center gap-1 mt-1">
-                    <div className="flex items-center text-emerald-600">
-                      {[1, 2, 3, 4].map((s) => (
-                        <Star key={s} size={11} className="fill-emerald-600 text-emerald-600" />
-                      ))}
-                      <Star size={11} className="fill-slate-200 text-slate-200" />
-                    </div>
-                    <span className="flex items-center gap-0.5 text-[#2874f0] font-black italic text-[10.5px] ml-1">
-                      <ShieldCheck size={12} className="fill-[#2874f0] text-white" />
-                      Assured
+                  {/* Pricing Row: No gap, same font size/boldness, green % off on the right */}
+                  <div className="mt-0.5 px-0.5 flex items-baseline gap-1.5 leading-tight flex-wrap">
+                    <span className="fk-product-price text-[13px] font-semibold text-[#212121]">
+                      {formatPrice(currentPrice)}
                     </span>
-                  </div>
-
-                  {/* Pricing Row (↓64%  ₹637  ₹231) */}
-                  <div className="mt-1 flex items-baseline gap-1.5 leading-none">
                     {hasDiscount && (
-                      <span className="text-[#16a34a] font-bold text-[13px] flex items-center">
-                        ↓{discountPercent}%
-                      </span>
-                    )}
-                    {hasDiscount && (
-                      <span className="text-[12px] text-slate-400 line-through font-normal">
+                      <span className="fk-product-mrp text-[12px] text-slate-400 line-through font-normal">
                         {formatPrice(originalPrice)}
                       </span>
                     )}
-                    <span className="text-[15px] font-extrabold text-slate-900">
-                      {formatPrice(currentPrice)}
-                    </span>
+                    {hasDiscount && (
+                      <span className="fk-product-discount text-[12px] font-semibold text-[#388e3c]">
+                        {discountPercent}% off
+                      </span>
+                    )}
                   </div>
-
-                  {/* Promotional Badge (Big Billion Days Price) */}
-                  <div className="mt-1">
-                    <span className="bg-purple-100/70 text-purple-800 text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] inline-block">
-                      Big Billion Days Price
-                    </span>
-                  </div>
-
-                  {/* Delivery Timeline */}
-                  <p className="mt-1 text-[11px] text-slate-600 font-medium">
-                    {getDeliveryText(index)}
-                  </p>
                 </div>
               );
             })}

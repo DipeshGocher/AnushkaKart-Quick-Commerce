@@ -131,6 +131,7 @@ const CustomerAuth = () => {
 
     return (
         <SignInCard2
+            containerClassName="customer-app"
             onBack={handleClose}
             icon={showOtp ? ShieldCheck : ShoppingBag}
             iconBg="bg-gradient-to-br from-[#2875E8] to-[#1559bd] text-white"

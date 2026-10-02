@@ -718,8 +718,8 @@ const ProductDetailPage = () => {
                 to={itemTargetUrl}
                 className="group flex flex-col bg-white rounded-2xl border border-gray-100 p-2.5 hover:shadow-md transition-all active:scale-[0.98]"
               >
-                {/* Off-white Image Container */}
-                <div className="w-full aspect-square bg-[#f6f7f9] rounded-xl relative flex items-center justify-center p-2 overflow-hidden mb-2">
+                {/* Pure White Image Container */}
+                <div className="w-full aspect-square bg-white border border-gray-100 rounded-xl relative flex items-center justify-center p-2 overflow-hidden mb-2">
                   <img
                     src={applyCloudinaryTransform(item.mainImage || item.image, 'f_auto,q_auto,w_400')}
                     alt={item.name}
