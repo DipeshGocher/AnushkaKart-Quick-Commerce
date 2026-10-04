@@ -4,6 +4,7 @@ import { getWithDedupe, invalidateCache } from '@core/api/dedupe';
 import { getStoredAuthToken } from '@core/utils/authStorage';
 import {
     getActiveRole,
+    setActiveRole,
     subscribeActiveRole,
 } from '@core/auth/activeRoleStore';
 import {
@@ -192,6 +193,12 @@ export const AuthProvider = ({ children }) => {
             // Backend cart will replace it as soon as fetchCart resolves.
             rawRemove(STORAGE_KEYS.CART);
             rawRemove(STORAGE_KEYS.WISHLIST);
+
+            // IMPORTANT: update the active role store immediately so that
+            // `currentRole` (and therefore `isAuthenticated`) reflects the
+            // new role before `navigate()` fires in the calling component.
+            // Without this, RoleGuard sees the old role and blocks the dashboard.
+            setActiveRole(role);
 
             setAuthData(prev => ({ ...prev, [role]: userData.token }));
             setUser(userData); // Set full data initially

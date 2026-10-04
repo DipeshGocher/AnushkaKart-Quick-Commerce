@@ -4,7 +4,8 @@ import { Heart } from 'lucide-react';
 import { useWishlist } from '../../context/WishlistContext';
 import { useAuth } from '@core/context/AuthContext';
 import { useToast } from '@shared/components/ui/Toast';
-import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import { applyCloudinaryTransform, isPngImage } from '@/core/utils/imageUtils';
+import { cn } from '@/lib/utils';
 
 /**
  * FlipkartCatalogCard
@@ -50,8 +51,8 @@ const FlipkartCatalogCard = ({ product, onProductClick }) => {
             onClick={() => onProductClick && onProductClick(product)}
             className="fk-catalog-card group cursor-pointer flex flex-col select-none w-full min-w-0 max-w-full"
         >
-            {/* Top: Full Card Image Area - NO inner nested div look */}
-            <div className="customer-product-clean-image relative w-full aspect-square bg-[#f8f9fa] rounded-xl sm:rounded-2xl p-0 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:scale-[1.01]">
+            {/* Top: Full Card Image Area with visible off-white / grey background and border */}
+            <div className="customer-product-clean-image relative w-full aspect-square bg-[#f1f3f6] border border-[#e0e3e8] rounded-xl sm:rounded-2xl p-0 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:scale-[1.01] shadow-2xs">
                 {/* Wishlist Heart Button (Top Right) */}
                 <button
                     type="button"
@@ -65,19 +66,22 @@ const FlipkartCatalogCard = ({ product, onProductClick }) => {
                     />
                 </button>
 
-                {/* Centered Product Image - covers full width & height, PNGs adjust to fit */}
+                {/* Centered Product Image */}
                 <img
                     src={applyCloudinaryTransform(rawImage, 'f_auto,q_auto,w_300')}
                     alt={product.name}
                     loading="lazy"
-                    className={`w-full h-full transition-transform duration-200 group-hover:scale-105 ${
-                        isPng ? 'is-png-image object-contain p-1.5' : 'object-cover'
-                    }`}
+                    className={cn(
+                        "w-full h-full transition-transform duration-200 group-hover:scale-105",
+                        isPngImage(rawImage)
+                            ? "is-png-image object-contain p-1"
+                            : "is-normal-image object-cover p-0"
+                    )}
                 />
 
                 {/* Variants Pill (Bottom Right) */}
                 {variantsCount > 1 && (
-                    <span className="absolute bottom-1 right-1 text-[8px] sm:text-[9px] font-bold text-[#2874f0] bg-white border border-[#2874f0]/40 px-1 py-0.2 rounded-full shadow-2xs leading-none">
+                    <span className="absolute bottom-1 right-1 z-10 text-[8px] sm:text-[9px] font-bold text-[#2874f0] bg-white border border-[#2874f0]/40 px-1 py-0.2 rounded-full shadow-2xs leading-none">
                         {variantsCount} options
                     </span>
                 )}

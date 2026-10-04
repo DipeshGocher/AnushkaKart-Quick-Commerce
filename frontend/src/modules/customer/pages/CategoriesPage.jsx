@@ -9,10 +9,17 @@ import { useCart } from '../context/CartContext';
 import CategoryIcon from '@shared/components/CategoryIcon';
 import { CATEGORY_BANNER_PRESET_VERSION, getCategoryBannerPreset } from '@shared/constants/categoryBannerPresets';
 
-const isForYou = (name) => String(name || '').trim().toLowerCase() === 'for you';
+const isAllOrForYou = (cat) => {
+    if (!cat) return false;
+    const name = String(cat.name || '').trim().toLowerCase();
+    const slug = String(cat.slug || '').trim().toLowerCase();
+    return name === 'for you' || name === 'all' || slug === 'all';
+};
 
 const CategoriesPage = () => {
     const [sections, setSections] = useState([]);
+    const [forYouImage, setForYouImage] = useState(null);
+    const [forYouIconId, setForYouIconId] = useState('');
     const [activeHeaderId, setActiveHeaderId] = useState('for_you');
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -34,8 +41,18 @@ const CategoriesPage = () => {
                 if (!response.data?.success) return;
 
                 const tree = response.data.results || response.data.result || response.data.data || [];
+                
+                // Bind "For You" image and icon statically from the "All" category
+                const allHeader = tree.find((h) => {
+                    const slug = String(h?.slug || '').trim().toLowerCase();
+                    const name = String(h?.name || '').trim().toLowerCase();
+                    return slug === 'all' || name === 'all';
+                });
+                const forYouImg = allHeader?.image?.url || (typeof allHeader?.image === 'string' ? allHeader?.image : null);
+                const forYouIcon = allHeader?.iconId || '';
+
                 const parsed = tree
-                    .filter((header) => !isForYou(header.name))
+                    .filter((header) => !isAllOrForYou(header))
                     .map((header) => ({
                         id: header._id || header.id,
                         name: header.name,
@@ -62,6 +79,8 @@ const CategoriesPage = () => {
 
                 if (isMounted) {
                     setSections(parsed);
+                    setForYouImage(forYouImg);
+                    setForYouIconId(forYouIcon);
                     setActiveHeaderId('for_you');
                 }
             } catch (error) {
@@ -257,11 +276,25 @@ const CategoriesPage = () => {
                             onClick={() => selectHeader('for_you')}
                             className={`customer-category-sidebar-item flex w-full flex-col items-center justify-center gap-1 border-b border-[#e2e4e8] px-1 text-center ${isForYouActive ? 'is-active' : ''}`}
                         >
-                            <span className="flex h-[36px] w-[44px] items-center justify-center shrink-0">
-                                <div className="relative flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-b from-[#a855f7] to-[#7c3aed] text-white shadow-xs">
-                                    <ShoppingBag size={20} className="fill-white/20 text-white" />
-                                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-pink-500 text-[8.5px] font-bold text-white shadow-2xs">%</span>
-                                </div>
+                            <span className="flex h-[36px] w-[44px] items-center justify-center shrink-0 overflow-hidden">
+                                {forYouImage ? (
+                                    <img
+                                        src={applyCloudinaryTransform(forYouImage, 'f_auto,q_auto,w_120')}
+                                        alt="For You"
+                                        className="max-h-full max-w-full object-contain"
+                                        loading="lazy"
+                                    />
+                                ) : forYouIconId ? (
+                                    <CategoryIcon
+                                        iconId={forYouIconId}
+                                        className="h-7 w-7 text-slate-500 [&_svg]:h-full [&_svg]:w-full"
+                                    />
+                                ) : (
+                                    <div className="relative flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-b from-[#a855f7] to-[#7c3aed] text-white shadow-xs">
+                                        <ShoppingBag size={20} className="fill-white/20 text-white" />
+                                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-pink-500 text-[8.5px] font-bold text-white shadow-2xs">%</span>
+                                    </div>
+                                )}
                             </span>
                             <span className="line-clamp-2 text-[10px] font-medium leading-[12px] text-center max-w-[70px] break-words">For You</span>
                         </button>

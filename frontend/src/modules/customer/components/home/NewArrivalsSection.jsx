@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Sparkles, Star, ImageOff } from "lucide-react";
 import { customerApi } from "../../services/customerApi";
-import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { applyCloudinaryTransform, isPngImage } from "@/core/utils/imageUtils";
+import { cn } from "@/lib/utils";
 import { getProductUrl } from "@/core/utils/productUrl";
 import { useTranslation } from "@core/context/LanguageContext";
 import { useDynamicTranslation } from "@/core/hooks/useDynamicTranslation";
@@ -140,9 +141,8 @@ const NewArrivalsSection = ({ latitude, longitude }) => {
 
   return (
     <div className="w-full">
-      <div className="w-full h-2.5 bg-[#f1f3f6] border-y border-slate-200/80 my-3.5" />
       <section
-        className="mx-4 mt-1 overflow-hidden rounded-[24px] bg-gradient-to-br from-[#ffd5df] via-[#ffe4eb] to-[#fff0f4] py-5 px-3.5 shadow-[0_8px_25px_rgba(244,114,182,0.15)] border border-pink-200/60"
+        className="mx-4 mt-2 overflow-hidden rounded-[24px] bg-gradient-to-br from-[#ffd5df] via-[#ffe4eb] to-[#fff0f4] py-5 px-3.5 shadow-[0_8px_25px_rgba(244,114,182,0.15)] border border-pink-200/60"
         aria-label="New Arrivals"
       >
       {/* Header with New Icon */}
@@ -177,16 +177,19 @@ const NewArrivalsSection = ({ latitude, longitude }) => {
               to={getProductUrl(product)}
               className="group flex flex-col active:scale-[0.98] transition-transform min-w-0"
             >
-              {/* Full Cover Image Container - NO nested div look */}
-              <div className="customer-product-clean-image relative aspect-square w-full rounded-2xl bg-[#f8f9fa] p-0 flex items-center justify-center overflow-hidden">
+              {/* Full Cover Image Container with visible off-white / grey background and border */}
+              <div className="customer-product-clean-image relative aspect-square w-full rounded-2xl bg-[#f1f3f6] border border-[#e0e3e8] p-0 flex items-center justify-center overflow-hidden shadow-2xs">
                 {image ? (
                   <img
                     src={applyCloudinaryTransform(image, "f_auto,q_auto,w_400")}
                     alt={product.name}
                     loading="lazy"
-                    className={`w-full h-full group-hover:scale-105 transition-transform duration-300 ${
-                      isPng ? 'is-png-image object-contain p-2' : 'object-cover'
-                    }`}
+                    className={cn(
+                      "w-full h-full transition-transform duration-300 group-hover:scale-105",
+                      isPngImage(image)
+                        ? "is-png-image object-contain p-1"
+                        : "is-normal-image object-cover p-0"
+                    )}
                   />
                 ) : (
                   <ImageOff

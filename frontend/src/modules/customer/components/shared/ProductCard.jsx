@@ -6,7 +6,7 @@ import { useWishlist } from "../../context/WishlistContext";
 import { useCart } from "../../context/CartContext";
 import { useToast } from "@shared/components/ui/Toast";
 import { useCartAnimation } from "../../context/CartAnimationContext";
-import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { applyCloudinaryTransform, isPngImage } from "@/core/utils/imageUtils";
 import { getProductUrl } from "@/core/utils/productUrl";
 import { motion, AnimatePresence } from "framer-motion";
 import { useProductDetail } from "../../context/ProductDetailContext";
@@ -263,23 +263,29 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
           )}
         </AnimatePresence>
 
-        {/* Top Image Section - Clean White Inner Box (like Saathi Grow UI) */}
+        {/* Top Image Section - Flipkart-style off-white / grey box with border */}
         <div className={cn(
-          "customer-product-clean-image relative w-full overflow-hidden flex items-center justify-center p-0 bg-[#f8f9fa] rounded-2xl",
-compact ? "h-24 sm:h-28" : layout === "list" ? "w-[90px] h-[90px] shrink-0" : "aspect-square"
+          "customer-product-clean-image relative w-full overflow-hidden flex items-center justify-center p-0 bg-[#f1f3f6] border border-[#e0e3e8] rounded-2xl shadow-2xs",
+          compact ? "h-24 sm:h-28" : layout === "list" ? "w-[90px] h-[90px] shrink-0" : "aspect-square"
         )}>
           {/* Product Image */}
-          <img
-            ref={imageRef}
-            src={applyCloudinaryTransform(product.mainImage || (product.variants?.[0]?.images?.[0]) || product.image || "")}
-            alt={product.name}
-            loading={priority ? "eager" : "lazy"}
-            fetchPriority={priority ? "high" : "auto"}
-            className={cn(
-              "w-full h-full group-hover:scale-105 transition-transform duration-500",
-              (typeof (product.mainImage || product.image) === 'string' && (product.mainImage || product.image).toLowerCase().includes('.png')) ? 'is-png-image object-contain p-2' : 'object-cover'
-            )}
-          />
+          {(() => {
+            const rawImg = product.mainImage || (product.variants?.[0]?.images?.[0]) || product.image || "";
+            const isPng = isPngImage(rawImg);
+            return (
+              <img
+                ref={imageRef}
+                src={applyCloudinaryTransform(rawImg)}
+                alt={product.name}
+                loading={priority ? "eager" : "lazy"}
+                fetchPriority={priority ? "high" : "auto"}
+                className={cn(
+                  "w-full h-full transition-transform duration-500 group-hover:scale-105",
+                  isPng ? "is-png-image object-contain p-1" : "is-normal-image object-cover p-0"
+                )}
+              />
+            );
+          })()}
         </div>
 
         {/* Content Box */}

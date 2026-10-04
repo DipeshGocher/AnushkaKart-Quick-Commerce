@@ -2,14 +2,12 @@ export const CATEGORY_BANNER_PRESET_VERSION = 1;
 
 const CATEGORY_BANNER_PRESETS = [
   { names: ['grocery', 'groceries'], image: '/banners/categories/grocery.png' },
-  { names: ['mobile', 'mobiles', 'smartphones'], image: '/banners/categories/mobile.png' },
-  { names: ['home & kitchen', 'home and kitchen'], image: '/banners/categories/home-kitchen.png' },
-  { names: ['kids', 'kids essentials'], image: '/banners/categories/kids.png' },
+  { names: ['mobile', 'mobiles', 'smartphones', 'sports', 'sports essentials'], image: '/banners/categories/mobile.png' },
+  { names: ['home appliances', 'home & kitchen', 'home and kitchen'], image: '/banners/categories/home-kitchen.png' },
+  { names: ['fashion', 'kids', 'kids essentials'], image: '/banners/categories/kids.png' },
   { names: ['pet supplies', 'pets'], image: '/banners/categories/pet-supplies.png' },
-  { names: ['beauty & skin', 'beauty and skin', 'beauty & personal care'], image: '/banners/categories/beauty-skin.png' },
-  { names: ['sports', 'sports essentials'], image: '/banners/categories/sports.png' },
-  { names: ['electronics', 'electronic'], image: '/banners/categories/electronics.png' },
-  { names: ['wedding', 'weddings'], image: '/banners/categories/wedding.png' },
+  { names: ['beauty & skin', 'beauty and skin', 'beauty & personal care', 'glow beauty', 'beauty'], image: '/banners/categories/beauty-skin.png' },
+  { names: ['electronics', 'electronic', 'smart electronics'], image: '/banners/categories/electronics.png' },
 ];
 
 export const getCategoryBannerPreset = (name) => {

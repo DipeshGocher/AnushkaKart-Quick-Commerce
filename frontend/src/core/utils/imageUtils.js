@@ -87,3 +87,12 @@ export function buildCloudinarySrcSet(
     })
     .join(", ");
 }
+
+/**
+ * Checks whether an image is in PNG format (transparent/cutout).
+ */
+export function isPngImage(url) {
+  if (!url || typeof url !== "string") return false;
+  const clean = url.split("?")[0].toLowerCase();
+  return clean.endsWith(".png") || clean.includes(".png") || clean.includes("/png");
+}

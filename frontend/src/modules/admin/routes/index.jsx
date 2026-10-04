@@ -1,6 +1,7 @@
-import React, { useEffect } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import React, { useEffect, Suspense } from "react";
+import { Outlet, Navigate } from "react-router-dom";
 import DashboardLayout from "@shared/layout/DashboardLayout";
+import PageSkeleton from "@/shared/components/PageSkeleton";
 import { useSupportUnread } from "@core/context/SupportUnreadContext";
 import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
 import {
@@ -24,6 +25,7 @@ import {
   AlertTriangle,
   UserCheck,
   ScrollText,
+  Image as ImageIcon,
 } from "lucide-react";
 
 const Dashboard = React.lazy(() => import("../pages/Dashboard"));
@@ -109,6 +111,7 @@ const WarehouseQueueDashboard = React.lazy(() => import("../pages/WarehouseQueue
 const LegalPageEditor = React.lazy(() => import("../pages/LegalPageEditor"));
 
 const navItems = [
+  // ── CORE MANAGEMENT ──
   {
     label: "Dashboard",
     path: "/admin",
@@ -129,15 +132,27 @@ const navItems = [
   },
   { label: "Products", path: "/admin/products", icon: Box, color: "amber" },
   {
+    label: "Orders",
+    icon: ClipboardList,
+    color: "fuchsia",
+    children: [
+      { label: "All Orders", path: "/admin/orders/all" },
+      { label: "New Orders", path: "/admin/orders/pending" },
+      { label: "Being Prepared", path: "/admin/orders/processed" },
+      { label: "On the Way", path: "/admin/orders/out-for-delivery" },
+      { label: "Delivered", path: "/admin/orders/delivered" },
+      { label: "Cancelled", path: "/admin/orders/cancelled" },
+      { label: "Returned", path: "/admin/orders/returned" },
+      { label: "Return Requests", path: "/admin/returns" },
+    ],
+  },
+  {
     label: "Marketing Tools",
     icon: Sparkles,
     color: "amber",
     children: [
-      { label: "Create Sections", path: "/admin/experience-studio" },
-      { label: "Hero & categories per page", path: "/admin/hero-categories" },
       { label: "Send Notifications", path: "/admin/notifications" },
       { label: "Coupons & Promos", path: "/admin/coupons" },
-      { label: "Offer Sections", path: "/admin/offer-sections" },
     ],
   },
   {
@@ -181,6 +196,8 @@ const navItems = [
       { label: "SOS Alerts", path: "/admin/sos-alerts" },
     ],
   },
+  { label: "Customers", path: "/admin/customers", icon: Users, color: "sky" },
+  { label: "Employees", path: "/admin/employees", icon: UserCheck, color: "green" },
   { label: "Wallet", path: "/admin/wallet", icon: Wallet, color: "violet" },
   {
     label: "Money Requests",
@@ -200,33 +217,6 @@ const navItems = [
     icon: CircleDollarSign,
     color: "green",
   },
-  { label: "Employees", path: "/admin/employees", icon: UserCheck, color: "green" },
-  { label: "Customers", path: "/admin/customers", icon: Users, color: "sky" },
-  { label: "FAQs", path: "/admin/faqs", icon: HelpCircle, color: "pink" },
-  {
-    label: "Home Content",
-    icon: Sparkles,
-    color: "purple",
-    children: [
-      { label: "Bestsellers", path: "/admin/content/bestsellers" },
-      { label: "Festival Deals", path: "/admin/content/festival-deals" },
-    ],
-  },
-  {
-    label: "Orders",
-    icon: ClipboardList,
-    color: "fuchsia",
-    children: [
-      { label: "All Orders", path: "/admin/orders/all" },
-      { label: "New Orders", path: "/admin/orders/pending" },
-      { label: "Being Prepared", path: "/admin/orders/processed" },
-      { label: "On the Way", path: "/admin/orders/out-for-delivery" },
-      { label: "Delivered", path: "/admin/orders/delivered" },
-      { label: "Cancelled", path: "/admin/orders/cancelled" },
-      { label: "Returned", path: "/admin/orders/returned" },
-      { label: "Return Requests", path: "/admin/returns" },
-    ],
-  },
   {
     label: "Fees & Charges",
     path: "/admin/billing",
@@ -240,10 +230,113 @@ const navItems = [
     color: "slate",
   },
   { label: "My Profile", path: "/admin/profile", icon: User, color: "indigo" },
-  { label: "Legal Pages", path: "/admin/legal-pages", icon: ScrollText, color: "slate" },
+
+  // ── SEPARATOR & ADMIN CMS ──
+  {
+    type: "section",
+    label: "Admin CMS",
+  },
+
+  // ── CMS PAGES (Banners, new banners, texts & content) ──
+  {
+    label: "Hero & Page Banners",
+    path: "/admin/hero-categories",
+    icon: ImageIcon,
+    color: "violet",
+  },
+  {
+    label: "Experience Studio",
+    path: "/admin/experience-studio",
+    icon: Sparkles,
+    color: "amber",
+  },
+  {
+    label: "Offer Sections",
+    path: "/admin/offer-sections",
+    icon: Tag,
+    color: "rose",
+  },
+  {
+    label: "Home Content",
+    icon: Sparkles,
+    color: "purple",
+    children: [
+      { label: "Bestsellers", path: "/admin/content/bestsellers" },
+      { label: "Festival Deals", path: "/admin/content/festival-deals" },
+    ],
+  },
+  {
+    label: "FAQs",
+    path: "/admin/faqs",
+    icon: HelpCircle,
+    color: "pink",
+  },
+  {
+    label: "Legal Pages",
+    path: "/admin/legal-pages",
+    icon: ScrollText,
+    color: "slate",
+  },
 ];
 
 const BillingCharges = React.lazy(() => import("../pages/BillingCharges"));
+
+export const adminRoutes = [
+  { index: true, element: <Dashboard /> },
+  { path: "users", element: <UserManagement /> },
+  { path: "profile", element: <AdminProfile /> },
+  {
+    path: "categories",
+    element: <Navigate to="/admin/categories/hierarchy" replace />,
+  },
+  { path: "categories/header", element: <HeaderCategories /> },
+  { path: "categories/level2", element: <Level2Categories /> },
+  { path: "categories/sub", element: <SubCategories /> },
+  { path: "categories/hierarchy", element: <CategoryHierarchy /> },
+  { path: "products", element: <ProductManagement /> },
+  { path: "sellers/active", element: <ActiveSellers /> },
+  { path: "sellers/active/:id", element: <SellerDetail /> },
+  { path: "warehouses/active", element: <ActiveWarehouses /> },
+  { path: "warehouses/pending", element: <PendingWarehouses /> },
+  { path: "warehouse-queues", element: <WarehouseQueueDashboard /> },
+  { path: "support-tickets", element: <SupportTickets /> },
+  { path: "moderation", element: <ReviewModeration /> },
+  { path: "monthly-baskets/categories", element: <MonthlyBasketCategories /> },
+  { path: "monthly-baskets/banners", element: <MonthlyBasketBanners /> },
+  { path: "monthly-baskets/approvals", element: <MonthlyBasketApprovals /> },
+  { path: "monthly-baskets/edit/:id", element: <EditMonthlyKit /> },
+  { path: "content/bestsellers", element: <BestsellerManagement /> },
+  { path: "content/festival-deals", element: <FestivalDealsAdmin /> },
+  { path: "experience-studio", element: <ContentManager /> },
+  { path: "hero-categories", element: <HeroCategoriesPerPage /> },
+  { path: "notifications", element: <NotificationComposer /> },
+  { path: "offers", element: <OffersManagement /> },
+  { path: "offer-sections", element: <OfferSectionsManagement /> },
+  { path: "coupons", element: <CouponManagement /> },
+  { path: "sellers/pending", element: <PendingSellers /> },
+  { path: "seller-locations", element: <SellerLocations /> },
+  { path: "delivery-boys/active", element: <ActiveDeliveryBoys /> },
+  { path: "delivery-boys/pending", element: <PendingDeliveryBoys /> },
+  { path: "tracking", element: <FleetTracking /> },
+  { path: "delivery-funds", element: <DeliveryFunds /> },
+  { path: "sos-alerts", element: <SOSAlerts /> },
+  { path: "wallet", element: <AdminWallet /> },
+  { path: "withdrawals", element: <WithdrawalRequests /> },
+  { path: "seller-transactions", element: <SellerTransactions /> },
+  { path: "cash-collection", element: <CashCollection /> },
+  { path: "employees", element: <EmployeeManagement /> },
+  { path: "employees/:id", element: <EmployeeDetail /> },
+  { path: "customers", element: <CustomerManagement /> },
+  { path: "customers/:id", element: <CustomerDetail /> },
+  { path: "faqs", element: <FAQManagement /> },
+  { path: "orders/:status", element: <OrdersList /> },
+  { path: "orders/view/:orderId", element: <OrderDetail /> },
+  { path: "returns", element: <Returns /> },
+  { path: "billing", element: <BillingCharges /> },
+  { path: "settings", element: <AdminSettings /> },
+  { path: "legal-pages", element: <LegalPageEditor /> },
+  { path: "*", element: <Navigate to="/admin" replace /> },
+];
 
 const AdminRoutes = () => {
   useEffect(() => {
@@ -263,69 +356,9 @@ const AdminRoutes = () => {
 
   return (
     <DashboardLayout navItems={navItemsWithBadges} title="Admin Center">
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/users" element={<UserManagement />} />
-        <Route path="/profile" element={<AdminProfile />} />
-        {/* Lazy routes for new sections */}
-        <Route
-          path="/categories"
-          element={<Navigate to="/admin/categories/header" replace />}
-        />
-        <Route path="/categories/header" element={<HeaderCategories />} />
-        <Route path="/categories/level2" element={<Level2Categories />} />
-        <Route path="/categories/sub" element={<SubCategories />} />
-        <Route path="/categories/hierarchy" element={<CategoryHierarchy />} />
-        <Route path="/products" element={<ProductManagement />} />
-        <Route path="/sellers/active" element={<ActiveSellers />} />
-        <Route path="/sellers/active/:id" element={<SellerDetail />} />
-        {/* Warehouse routes */}
-        <Route path="/warehouses/active" element={<ActiveWarehouses />} />
-        <Route path="/warehouses/pending" element={<PendingWarehouses />} />
-        <Route path="/warehouse-queues" element={<WarehouseQueueDashboard />} />
-        <Route path="/support-tickets" element={<SupportTickets />} />
-        <Route path="/moderation" element={<ReviewModeration />} />
-        {/* Monthly Baskets */}
-        <Route path="/monthly-baskets/categories" element={<MonthlyBasketCategories />} />
-        <Route path="/monthly-baskets/banners" element={<MonthlyBasketBanners />} />
-        <Route path="/monthly-baskets/approvals" element={<MonthlyBasketApprovals />} />
-        <Route path="/monthly-baskets/edit/:id" element={<EditMonthlyKit />} />
-        <Route path="content/bestsellers" element={<BestsellerManagement />} />
-        <Route path="content/festival-deals" element={<FestivalDealsAdmin />} />
-        
-        <Route path="/experience-studio" element={<ContentManager />} />
-        <Route path="/hero-categories" element={<HeroCategoriesPerPage />} />
-        <Route path="/notifications" element={<NotificationComposer />} />
-        <Route path="/offers" element={<OffersManagement />} />
-        <Route path="/offer-sections" element={<OfferSectionsManagement />} />
-        <Route path="/coupons" element={<CouponManagement />} />
-        <Route path="/sellers/pending" element={<PendingSellers />} />
-        <Route path="/seller-locations" element={<SellerLocations />} />
-        <Route path="/delivery-boys/active" element={<ActiveDeliveryBoys />} />
-        <Route
-          path="/delivery-boys/pending"
-          element={<PendingDeliveryBoys />}
-        />
-        <Route path="/tracking" element={<FleetTracking />} />
-        <Route path="/delivery-funds" element={<DeliveryFunds />} />
-        <Route path="/sos-alerts" element={<SOSAlerts />} />
-        <Route path="/wallet" element={<AdminWallet />} />
-        <Route path="/withdrawals" element={<WithdrawalRequests />} />
-        <Route path="/seller-transactions" element={<SellerTransactions />} />
-        <Route path="/cash-collection" element={<CashCollection />} />
-        <Route path="/employees" element={<EmployeeManagement />} />
-        <Route path="/employees/:id" element={<EmployeeDetail />} />
-        <Route path="/customers" element={<CustomerManagement />} />
-        <Route path="/customers/:id" element={<CustomerDetail />} />
-        <Route path="/faqs" element={<FAQManagement />} />
-        <Route path="/orders/:status" element={<OrdersList />} />
-        <Route path="/orders/view/:orderId" element={<OrderDetail />} />
-        <Route path="/returns" element={<Returns />} />
-        <Route path="/billing" element={<BillingCharges />} />
-        <Route path="/settings" element={<AdminSettings />} />
-        <Route path="/legal-pages" element={<LegalPageEditor />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={<PageSkeleton variant="dashboard" />}>
+        <Outlet />
+      </Suspense>
     </DashboardLayout>
   );
 };

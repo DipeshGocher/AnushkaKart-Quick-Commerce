@@ -416,8 +416,8 @@ const ProductsPage = () => {
                   className="group flex flex-col cursor-pointer active:scale-[0.99] transition-transform min-w-0"
                   onClick={() => navigate(getProductUrl(product))}
                 >
-                  {/* Top Image Box - Full Card Cover Image with NO inner padding */}
-                  <div className="customer-product-clean-image relative aspect-[4/4.5] w-full rounded-2xl bg-[#f8f9fa] flex items-center justify-center p-0 overflow-hidden transition-colors">
+                  {/* Top Image Box - Full Card Cover Image with visible off-white / grey background and border */}
+                  <div className="customer-product-clean-image relative aspect-[4/4.5] w-full rounded-2xl bg-[#f1f3f6] border border-[#e0e3e8] flex items-center justify-center p-0 overflow-hidden transition-colors shadow-2xs">
                     {/* Wishlist Heart */}
                     <button
                       type="button"
@@ -441,8 +441,10 @@ const ProductsPage = () => {
                         alt={product.name}
                         loading="lazy"
                         className={cn(
-                          "w-full h-full group-hover:scale-105 transition-transform duration-300",
-                          isPng ? "is-png-image object-contain p-2" : "object-cover"
+                          "w-full h-full transition-transform duration-300 group-hover:scale-105",
+                          isPng
+                            ? "is-png-image object-contain p-1"
+                            : "is-normal-image object-cover p-0"
                         )}
                       />
                     ) : (
@@ -451,7 +453,7 @@ const ProductsPage = () => {
 
                     {/* Variant Pill (e.g. "3 variants") */}
                     {variantCount > 1 && (
-                      <span className="absolute bottom-1.5 right-1.5 bg-white/95 border border-blue-200 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-2xs">
+                      <span className="absolute bottom-1.5 right-1.5 z-10 bg-white/95 border border-blue-200 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-2xs">
                         {variantCount} variants
                       </span>
                     )}

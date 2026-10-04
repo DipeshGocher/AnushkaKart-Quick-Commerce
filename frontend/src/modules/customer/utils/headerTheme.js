@@ -83,13 +83,13 @@ const getThemeColor = (category) => {
   const label = `${category?.name || ''} ${category?.slug || ''}`.toLowerCase();
   const themes = [
     [/grocery|fresh|food|produce|fruit|vegetable/, '#21885d'],
-    [/decor|home|kitchen|household/, '#cb7135'],
+    [/decor|home|kitchen|household|appliance/, '#cb7135'],
     [/agri|garden|plant/, '#718942'],
     [/health|wellness|pharma|medical/, '#258c88'],
-    [/beauty|personal|cosmetic/, '#b53d91'],
+    [/beauty|personal|cosmetic|skin/, '#b53d91'],
     [/fashion|apparel|cloth/, '#9d3e65'],
-    [/wedding/, '#c95f86'],
-    [/electronic|mobile|tech|device/, '#7958bd'],
+    [/mobile|phone|smartphone|device/, '#367fa7'],
+    [/electronic|tech/, '#7958bd'],
     [/kid|baby|toy/, '#8656bd'],
     [/pet|animal/, '#bd8b26'],
     [/sport|fitness/, '#367fa7'],

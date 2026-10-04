@@ -2,10 +2,89 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Star, ChevronRight, ImageOff } from "lucide-react";
 import { customerApi } from "../../services/customerApi";
-import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { applyCloudinaryTransform, isPngImage } from "@/core/utils/imageUtils";
+import { cn } from "@/lib/utils";
 import { getProductUrl } from "@/core/utils/productUrl";
 import { useTranslation } from "@core/context/LanguageContext";
 import { useDynamicTranslation } from "@/core/hooks/useDynamicTranslation";
+import groceryBannerImg from "@/assets/grocery_section_banner.jpg";
+import electronicsBannerImg from "@/assets/banners/electronics_section_banner.jpg";
+import mobilesBannerImg from "@/assets/banners/mobiles_section_banner.jpg";
+import beautyBannerImg from "@/assets/banners/beauty_section_banner.jpg";
+import fashionBannerImg from "@/assets/banners/fashion_section_banner.jpg";
+import homeAppliancesBannerImg from "@/assets/banners/home_appliances_section_banner.jpg";
+
+const getCategoryTheme = (headerName = "", headerSlug = "") => {
+  const text = `${headerName} ${headerSlug}`.toLowerCase();
+
+  if (/grocer/i.test(text)) {
+    return {
+      banner: groceryBannerImg,
+      alt: "Fresh Grocery - Daily Essentials At Your Doorstep",
+      color: "#16a34a", // Vibrant Green matching grocery banner
+      bgGradient: "from-emerald-50 to-green-50",
+      borderColor: "border-emerald-100/70",
+    };
+  }
+
+  if (/electr/i.test(text)) {
+    return {
+      banner: electronicsBannerImg,
+      alt: "Smart Electronics - Latest Tech For A Smarter Tomorrow",
+      color: "#7c3aed", // Vibrant Purple matching electronics banner
+      bgGradient: "from-purple-50 to-indigo-50",
+      borderColor: "border-purple-100/70",
+    };
+  }
+
+  if (/mobil|phone|smartphon/i.test(text)) {
+    return {
+      banner: mobilesBannerImg,
+      alt: "Latest Mobiles - Stay Connected To A Smarter You",
+      color: "#0284c7", // Electric Blue matching mobiles banner
+      bgGradient: "from-sky-50 to-blue-50",
+      borderColor: "border-sky-100/70",
+    };
+  }
+
+  if (/beaut|cosmetic|skin/i.test(text)) {
+    return {
+      banner: beautyBannerImg,
+      alt: "Glow Beauty - Beauty Essentials For A Brighter You",
+      color: "#db2777", // Rich Pink / Magenta matching beauty banner
+      bgGradient: "from-pink-50 to-rose-50",
+      borderColor: "border-pink-100/70",
+    };
+  }
+
+  if (/fashion|cloth|apparel/i.test(text)) {
+    return {
+      banner: fashionBannerImg,
+      alt: "Trendy Fashion - Style For Every You",
+      color: "#9333ea", // Vibrant Violet / Purple matching fashion banner
+      bgGradient: "from-purple-50 to-fuchsia-50",
+      borderColor: "border-purple-100/70",
+    };
+  }
+
+  if (/home|appliance|kitchen/i.test(text)) {
+    return {
+      banner: homeAppliancesBannerImg,
+      alt: "Make it Home - Everyday Essentials For A Better Living",
+      color: "#d97706", // Warm Amber matching home banner
+      bgGradient: "from-amber-50 to-orange-50",
+      borderColor: "border-amber-100/70",
+    };
+  }
+
+  return {
+    banner: null,
+    alt: headerName,
+    color: "#2874f0",
+    bgGradient: "from-blue-50 to-indigo-50",
+    borderColor: "border-blue-100/70",
+  };
+};
 
 const formatPrice = (value) =>
   new Intl.NumberFormat("en-IN", {
@@ -28,7 +107,7 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
     const fetchHeaderProducts = async () => {
       setIsLoading(true);
       try {
-        const params = { limit: 10 };
+        const params = { limit: 12 };
         if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
           params.lat = latitude;
           params.lng = longitude;
@@ -45,12 +124,12 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
           : [];
 
         if (!cancelled) {
-          // Keep only sections with at least 1 product, max 10 products per section
+          // Keep only sections with at least 1 product, up to 12 products per section
           const valid = items
             .filter((s) => s?.products && s.products.length > 0)
             .map((s) => ({
               ...s,
-              products: s.products.slice(0, 10),
+              products: s.products.slice(0, 12),
             }));
           setSections(valid);
           setDisplaySections(valid);
@@ -138,26 +217,28 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full mt-4 md:mt-5">
       {displaySections.map((section) => {
         const header = section.header;
         const products = section.products || [];
         const headerId = header?._id || header?.id;
         const headerName = header?.name || "Category";
+        const theme = getCategoryTheme(headerName, header?.slug || "");
+        const displayProducts = products.slice(0, 12);
 
         return (
           <div key={headerId || headerName} className="w-full">
-            {/* Flipkart-style section divider */}
-            <div className="w-full h-2.5 bg-[#f1f3f6] border-y border-slate-200/80 my-3.5" />
-
             <section
-              className="w-full pb-1"
+              className="w-full mb-6 pt-1"
               aria-label={headerName + ' products'}
             >
               {/* Header Category Name & See All */}
               <div className="flex items-center justify-between px-4 mb-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-5 bg-[#2874f0] rounded-full" />
+                  <div
+                    className="w-1.5 h-5 rounded-full transition-colors"
+                    style={{ backgroundColor: theme.color }}
+                  />
                   <h2 className="fk-section-heading">
                     {headerName}
                   </h2>
@@ -169,17 +250,40 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
                       window.scrollTo(0, 0);
                       navigate('/category/' + headerId);
                     }}
-                    className="fk-view-all flex items-center gap-0.5 active:opacity-75"
+                    className="flex items-center gap-0.5 text-[13px] font-bold active:opacity-75 transition-opacity"
+                    style={{ color: theme.color }}
                   >
                     <span>See All</span>
-                    <ChevronRight size={14} className="stroke-[2.5]" />
+                    <ChevronRight size={14} className="stroke-[2.5]" style={{ color: theme.color }} />
                   </button>
                 )}
               </div>
 
+              {/* Category Section Banner - Helps customer identify category section */}
+              {theme.banner && (
+                <div className="px-4 mb-3.5">
+                  <div
+                    onClick={() => {
+                      if (headerId) {
+                        window.scrollTo(0, 0);
+                        navigate('/category/' + headerId);
+                      }
+                    }}
+                    className={`w-full overflow-hidden rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] border ${theme.borderColor} bg-gradient-to-r ${theme.bgGradient} cursor-pointer active:scale-[0.99] transition-transform`}
+                  >
+                    <img
+                      src={theme.banner}
+                      alt={theme.alt}
+                      className="w-full h-auto object-cover block"
+                      loading="lazy"
+                    />
+                  </div>
+                </div>
+              )}
+
             {/* 2 Products in a row (Grid cols 2) */}
             <div className="grid grid-cols-2 gap-3 px-4">
-              {products.map((product) => {
+              {displayProducts.map((product) => {
                 const id = product._id || product.id;
                 const originalPrice =
                   Number(product.originalPrice ?? product.price) || 0;
@@ -204,8 +308,8 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
                     to={getProductUrl(product)}
                     className="group flex flex-col active:scale-[0.98] transition-transform"
                   >
-                    {/* Clean Full Cover Image Container - NO nested div look */}
-                    <div className="customer-product-clean-image relative aspect-square w-full rounded-2xl bg-[#f8f9fa] p-0 flex items-center justify-center overflow-hidden">
+                    {/* Clean Full Cover Image Container with visible off-white / grey background and border */}
+                    <div className="customer-product-clean-image relative aspect-square w-full rounded-2xl bg-[#f1f3f6] border border-[#e0e3e8] p-0 flex items-center justify-center overflow-hidden shadow-2xs">
                       {image ? (
                         <img
                           src={applyCloudinaryTransform(
@@ -214,9 +318,12 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
                           )}
                           alt={product.name}
                           loading="lazy"
-                          className={`w-full h-full group-hover:scale-105 transition-transform duration-300 ${
-                            isPng ? 'is-png-image object-contain p-2' : 'object-cover'
-                          }`}
+                          className={cn(
+                            "w-full h-full transition-transform duration-300 group-hover:scale-105",
+                            isPngImage(image)
+                              ? "is-png-image object-contain p-1"
+                              : "is-normal-image object-cover p-0"
+                          )}
                         />
                       ) : (
                         <ImageOff

@@ -97,8 +97,10 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
     const showCart = showCartProp !== undefined ? showCartProp : (!hideCartRoutes.includes(path) && !path.startsWith('/orders'));
 
     // Condition to hide the MobileFooterMessage ("Sab kuchh ek basket mein") on specific pages
-    const hideFooterMessageRoutes = ['/profile', '/profile/edit'];
-    const showFooterMessage = showBottomNav && !hideFooterMessageRoutes.includes(path) && !path.startsWith('/category') && !path.startsWith('/products') && !path.startsWith('/product') && !isHierarchicalProduct;
+    const hideFooterMessageRoutes = ['/profile', '/profile/edit', '/categories'];
+    const hideFooterRoutes = ['/categories'];
+    const showFooter = showBottomNav && !hideFooterRoutes.includes(path) && !path.startsWith('/categories');
+    const showFooterMessage = showBottomNav && !hideFooterMessageRoutes.includes(path) && !path.startsWith('/category') && !path.startsWith('/categories') && !path.startsWith('/products') && !path.startsWith('/product') && !isHierarchicalProduct;
 
     // Hide elements on mobile only when product detail is open
     // On desktop, we want to keep the header visible even if the modal is open
@@ -132,7 +134,7 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
             <VariantSelectionSheet />
 
             <div className="hidden md:block">
-                {showBottomNav && <Footer />}
+                {showFooter && <Footer />}
             </div>
 
             {/* Mobile Footer Message logic */}

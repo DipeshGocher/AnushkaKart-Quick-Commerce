@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link, Navigate } from 'react-router-dom';
 import { 
   ArrowLeft, Search, ShoppingCart, Star, Heart, Check, 
   ChevronLeft, ChevronRight, Plus, Minus, ShieldCheck, Tag
@@ -14,8 +14,14 @@ import { getProductUrl } from '@/core/utils/productUrl';
 import { useAuth } from '@core/context/AuthContext';
 import { cn } from '@/lib/utils';
 
+const RESERVED_MODULE_SLUGS = new Set(['admin', 'seller', 'delivery', 'unauthorized', 'marketplace']);
+
 const ProductDetailPage = () => {
   const params = useParams();
+  const headerSlug = String(params.headerSlug || '').toLowerCase();
+  if (headerSlug && RESERVED_MODULE_SLUGS.has(headerSlug)) {
+    return <Navigate to={`/${headerSlug}`} replace />;
+  }
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();

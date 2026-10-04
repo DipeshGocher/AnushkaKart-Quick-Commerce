@@ -1,5 +1,5 @@
 import React, { lazy, useMemo, useEffect, Suspense } from 'react';
-import { createBrowserRouter, RouterProvider, Outlet, Navigate, useOutlet, useLocation, useNavigationType } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Outlet, Navigate, useOutlet, useLocation, useNavigationType, useParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import ProtectedRoute from '../guards/ProtectedRoute';
 import RoleGuard from '../guards/RoleGuard';
@@ -57,7 +57,7 @@ const NotificationsPage = lazy(() => import('../../modules/customer/pages/Notifi
 
 // Lazy load heavy modules
 const SellerModule = lazy(() => import('../../modules/seller/routes/index'));
-const AdminModule = lazy(() => import('../../modules/admin/routes/index'));
+import AdminRoutes, { adminRoutes } from '../../modules/admin/routes/index';
 const DeliveryModule = lazy(() => import('../../modules/delivery/routes/index'));
 const DynamicLegalPage = lazy(() => import('../../shared/components/DynamicLegalPage'));
 
@@ -127,6 +127,22 @@ const CustomerLayoutWrapper = () => {
     );
 };
 
+const RESERVED_CUSTOMER_SLUGS = new Set([
+    'admin', 'seller', 'delivery', 'unauthorized', 'marketplace', 'api', 
+    'login', 'signup', 'categories', 'category', 'product', 'products', 
+    'search', 'orders', 'cart', 'wishlist', 'settings', 'profile', 
+    'wallet', 'notifications', 'checkout', 'support', 'privacy', 'about', 'offers'
+]);
+
+const HierarchicalProductRoute = () => {
+    const { headerSlug } = useParams();
+    const cleanHeader = String(headerSlug || '').toLowerCase();
+    if (cleanHeader && RESERVED_CUSTOMER_SLUGS.has(cleanHeader)) {
+        return <Navigate to={`/${cleanHeader}`} replace />;
+    }
+    return <ProductDetailPage />;
+};
+
 const AppRouter = () => {
     const router = useMemo(() => createBrowserRouter([
         {
@@ -186,14 +202,15 @@ const AppRouter = () => {
                     ),
                 },
                 {
-                    path: 'admin/*',
+                    path: 'admin',
                     element: (
                         <ProtectedRoute>
                             <RoleGuard allowedRoles={[UserRole.ADMIN]}>
-                                <AdminModule />
+                                <AdminRoutes />
                             </RoleGuard>
                         </ProtectedRoute>
                     ),
+                    children: adminRoutes,
                 },
                 {
                     path: 'delivery/*',
@@ -240,9 +257,9 @@ const AppRouter = () => {
                         { path: 'products', element: <ProductsPage /> },
                         { path: 'product', element: <ProductsPage /> },
                         { path: 'search', element: <SearchPage /> },
-                        { path: ':headerSlug/:categorySlug/:subCategorySlug/:productSlug', element: <ProductDetailPage /> },
-                        { path: ':headerSlug/:categorySlug/:productSlug', element: <ProductDetailPage /> },
-                        { path: ':headerSlug/:productSlug', element: <ProductDetailPage /> },
+                        { path: ':headerSlug/:categorySlug/:subCategorySlug/:productSlug', element: <HierarchicalProductRoute /> },
+                        { path: ':headerSlug/:categorySlug/:productSlug', element: <HierarchicalProductRoute /> },
+                        { path: ':headerSlug/:productSlug', element: <HierarchicalProductRoute /> },
                     ]
                 },
                 {

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ImageOff } from 'lucide-react';
 import { customerApi } from '../../services/customerApi';
-import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import { applyCloudinaryTransform, isPngImage } from '@/core/utils/imageUtils';
+import { cn } from '@/lib/utils';
 
 const formatPrice = (value) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
@@ -93,16 +94,19 @@ const TopDealsOnProducts = ({ latitude, longitude }) => {
                 to={`/product/${id}`}
                 className="group flex flex-col min-w-0 transition-transform active:scale-[0.98]"
               >
-                {/* Image Card Box - Full Card Cover Image with NO inner padding */}
-                <div className="customer-product-clean-image relative aspect-square w-full rounded-2xl bg-[#f8f9fa] p-0 flex items-center justify-center overflow-hidden">
+                {/* Image Card Box with visible off-white / grey background and border */}
+                <div className="customer-product-clean-image relative aspect-square w-full rounded-2xl bg-[#f1f3f6] border border-[#e0e3e8] p-0 flex items-center justify-center overflow-hidden shadow-2xs">
                   {image ? (
                     <img
                       src={applyCloudinaryTransform(image, 'f_auto,q_auto,w_300')}
                       alt={product.name}
                       loading="lazy"
-                      className={`h-full w-full transition-transform duration-200 group-hover:scale-105 ${
-                        isPng ? 'is-png-image object-contain p-2' : 'object-cover'
-                      }`}
+                      className={cn(
+                        "h-full w-full transition-transform duration-200 group-hover:scale-105",
+                        isPngImage(image)
+                          ? "is-png-image object-contain p-1"
+                          : "is-normal-image object-cover p-0"
+                      )}
                     />
                   ) : (
                     <ImageOff size={28} className="text-slate-400" aria-hidden="true" />

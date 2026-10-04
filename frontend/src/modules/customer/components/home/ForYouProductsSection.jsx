@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Star, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { customerApi } from "../../services/customerApi";
-import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { applyCloudinaryTransform, isPngImage } from "@/core/utils/imageUtils";
+import { cn } from "@/lib/utils";
 import { getProductUrl } from "@/core/utils/productUrl";
+import forYouIconImg from "@/assets/for_you_flipkart_icon.png";
 
 // Helper to shuffle / interleave products across categories for a diverse "For You" feed
 const shuffleArray = (arr) => {
@@ -101,21 +103,30 @@ const ForYouProductsSection = () => {
   }, [hasMore, isLoading, isLoadingMore, fetchProducts]);
 
   return (
-    <section className="w-full mt-3 mb-2">
-      {/* Flipkart-style stylish separator band */}
-      <div className="w-full h-2.5 bg-[#f1f3f6] border-y border-slate-200/80 mb-4" />
+    <section className="w-full mt-2 mb-4">
+      {/* Centered Flipkart-style "For You" Section Header */}
+      <div className="w-full flex flex-col items-center">
+        <div className="flex flex-col items-center cursor-default select-none pt-1">
+          {/* Exact Flipkart "For You" Icon */}
+          <div className="w-16 h-11 flex items-center justify-center">
+            <img
+              src={forYouIconImg}
+              alt="For You"
+              className="w-full h-full object-contain block drop-shadow-xs"
+            />
+          </div>
 
-      {/* Heading: For You with Flipkart-style accent */}
-      <div className="px-3.5 md:px-6 mb-3.5 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-1.5 h-5 bg-[#2874f0] rounded-full" />
-          <h2 className="fk-section-heading">
+          {/* Text: For You */}
+          <span className="text-[13px] font-bold text-[#1f2937] tracking-tight mt-1 leading-tight">
             For You
-          </h2>
+          </span>
+
+          {/* Flipkart Active Blue Bar Indicator */}
+          <div className="w-16 h-[3px] bg-[#2874f0] rounded-t-full mt-2 relative z-10" />
         </div>
-        <span className="fk-small-label bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200/60">
-          Suggested
-        </span>
+
+        {/* Full-width thin horizontal line directly under the blue bar */}
+        <div className="w-full h-[1px] bg-slate-200/90 -mt-[1px] mb-4" />
       </div>
 
       {/* Initial Loading Skeleton */}
@@ -135,16 +146,23 @@ const ForYouProductsSection = () => {
       {/* 2 Products per row grid matching Image 2 */}
       {products.length > 0 && (
         <div className="grid grid-cols-2 gap-3 px-3.5 md:px-6">
-          {products.map((item, index) => {
+          {products.map((item) => {
             const id = item._id || item.id;
             const price = Number(item.salePrice || item.price || 0);
             const originalPrice = Number(item.price || item.originalPrice || 0);
             const showMrp = originalPrice > price;
-            const discountPercent = showMrp && originalPrice > 0 ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0;
+            const discountPercent =
+              showMrp && originalPrice > 0
+                ? Math.round(((originalPrice - price) / originalPrice) * 100)
+                : 0;
             const targetUrl = getProductUrl(item);
 
             const imageSrc = item.mainImage || item.image || "";
-            const isPng = typeof imageSrc === 'string' && (imageSrc.toLowerCase().endsWith('.png') || imageSrc.toLowerCase().includes('.png?') || imageSrc.toLowerCase().includes('/png'));
+            const isPng =
+              typeof imageSrc === "string" &&
+              (imageSrc.toLowerCase().endsWith(".png") ||
+                imageSrc.toLowerCase().includes(".png?") ||
+                imageSrc.toLowerCase().includes("/png"));
 
             return (
               <Link
@@ -152,14 +170,17 @@ const ForYouProductsSection = () => {
                 to={targetUrl}
                 className="group flex flex-col transition-transform active:scale-[0.98] min-w-0"
               >
-                {/* Full Cover Image Container - NO nested div look */}
-                <div className="customer-product-clean-image w-full aspect-square bg-[#f8f9fa] rounded-2xl relative flex items-center justify-center p-0 overflow-hidden">
+                {/* Full Cover Image Container with visible off-white / grey background and border */}
+                <div className="customer-product-clean-image w-full aspect-square bg-[#f1f3f6] border border-[#e0e3e8] rounded-2xl relative flex items-center justify-center p-0 overflow-hidden shadow-2xs">
                   <img
                     src={applyCloudinaryTransform(imageSrc, "f_auto,q_auto,w_400")}
                     alt={item.name}
-                    className={`h-full w-full group-hover:scale-105 transition-transform duration-300 ${
-                      isPng ? 'is-png-image object-contain p-2' : 'object-cover'
-                    }`}
+                    className={cn(
+                      "h-full w-full transition-transform duration-300 group-hover:scale-105",
+                      isPngImage(imageSrc)
+                        ? "is-png-image object-contain p-1"
+                        : "is-normal-image object-cover p-0"
+                    )}
                     loading="lazy"
                   />
                 </div>

@@ -51,11 +51,21 @@ const CategoryHierarchy = () => {
   const fetchCategories = async () => {
     setIsLoading(true);
     try {
-      const res = await adminApi.getCategoryTree({ catalogType: "grocery" });
-      if (res.data.success) {
-        const tree = res.data.results || res.data.result || [];
-        setCategories(tree.filter((c) => c.catalogType !== "refurbished"));
-      }
+      // Fetch all catalogs so all header categories appear regardless of type
+      const [resMain, resRefurb] = await Promise.allSettled([
+        adminApi.getCategoryTree({ catalogType: "grocery" }),
+        adminApi.getCategoryTree({ catalogType: "refurbished" }),
+      ]);
+      const mainTree = resMain.status === "fulfilled" && resMain.value.data.success
+        ? (resMain.value.data.results || resMain.value.data.result || [])
+        : [];
+      const refurbTree = resRefurb.status === "fulfilled" && resRefurb.value.data.success
+        ? (resRefurb.value.data.results || resRefurb.value.data.result || [])
+        : [];
+      const merged = [...mainTree, ...refurbTree];
+      // Sort by sortOrder ascending
+      merged.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      setCategories(merged);
     } catch (error) {
       toast.error("Failed to fetch category hierarchy");
     } finally {
@@ -79,12 +89,14 @@ const CategoryHierarchy = () => {
 
   const activeLevel2 = useMemo(() => {
     if (!selectedHeader) return [];
-    return selectedHeader.children || [];
+    const children = selectedHeader.children || [];
+    return [...children].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
   }, [selectedHeader]);
 
   const activeSubs = useMemo(() => {
     if (!selectedLevel2) return [];
-    return selectedLevel2.children || [];
+    const children = selectedLevel2.children || [];
+    return [...children].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
   }, [selectedLevel2]);
 
   // Handle Selection

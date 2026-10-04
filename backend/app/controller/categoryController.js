@@ -404,6 +404,12 @@ export const deleteCategory = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const target = await Category.findById(id).select("slug name").lean();
+    if (!target) return handleResponse(res, 404, "Category not found");
+    if (String(target.slug || "").toLowerCase() === "all" || String(target.name || "").toLowerCase() === "all") {
+      return handleResponse(res, 400, "The 'All' category is a core system category and cannot be deleted");
+    }
+
     const deleteWithChildren = async (parentId) => {
       const children = await Category.find({ parentId });
       for (const child of children) {
