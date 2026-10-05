@@ -6,6 +6,7 @@ import { useAuth } from '@core/context/AuthContext';
 import { useToast } from '@shared/components/ui/Toast';
 import { applyCloudinaryTransform, isPngImage } from '@/core/utils/imageUtils';
 import { cn } from '@/lib/utils';
+import { getProductVariantText } from '@/core/utils/productUrl';
 
 /**
  * FlipkartCatalogCard
@@ -89,12 +90,17 @@ const FlipkartCatalogCard = ({ product, onProductClick }) => {
 
             {/* Bottom: Only Product Name & Price (NO external Add button) */}
             <div className="pt-1 px-0.5 flex flex-col flex-1 min-w-0 w-full overflow-hidden">
-                {/* Product Name (Single line with ellipsis) */}
+                {/* 1. Product Name */}
                 <h4 className="fk-product-title truncate text-[11px] sm:text-[12px] font-semibold text-[#212121] leading-tight group-hover:text-[#2874f0] transition-colors">
                     {product.name}
                 </h4>
 
-                {/* Price Row: Selling Price, Cut MRP (if discount), and Green % off */}
+                {/* 2. Variant */}
+                <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5 leading-tight">
+                    {getProductVariantText(product)}
+                </p>
+
+                {/* 3. Price Row: Discount Price, Cut MRP (if discount), and Green % off, else only Original price */}
                 <div className="flex items-center gap-1 mt-0.5 flex-wrap leading-tight">
                     <span className="fk-product-price text-[11px] sm:text-[12px] font-semibold text-[#212121]">
                         ₹{price}

@@ -38,9 +38,9 @@ const QuickCategorySlider = ({ categories, onCategoryClick }) => {
                 key={cat.id}
                 onClick={() => onCategoryClick(cat.id)}
                 className="flex flex-col items-center gap-2 min-w-[88px] max-w-[96px] md:min-w-[104px] md:max-w-[110px] cursor-pointer group/item snap-start transition-all active:scale-95 text-center">
-                {/* Light Skyblue Category Box Container */}
+                {/* Clean Light Grey Category Box Container matching reference design */}
                 <div
-                  className="w-[84px] h-[84px] md:w-[100px] md:h-[100px] bg-[#eff5ff] border border-[#dbeafe]/70 rounded-2xl overflow-hidden flex items-center justify-center shadow-2xs transition-all duration-300 group-hover/item:-translate-y-1 group-hover/item:shadow-sm p-1.5">
+                  className="w-[84px] h-[84px] md:w-[100px] md:h-[100px] bg-[#f4f4f4] border border-[#e5e7eb] rounded-2xl overflow-hidden flex items-center justify-center shadow-2xs transition-all duration-300 group-hover/item:-translate-y-1 group-hover/item:bg-[#eaeaea] group-hover/item:shadow-sm p-1.5">
                   <img
                     src={applyCloudinaryTransform(cat.image, "f_auto,q_auto,w_300,dpr_auto")}
                     alt={cat.name}

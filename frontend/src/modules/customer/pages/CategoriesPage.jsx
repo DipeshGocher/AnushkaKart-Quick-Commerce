@@ -8,6 +8,7 @@ import { useSettings } from '@core/context/SettingsContext';
 import { useCart } from '../context/CartContext';
 import CategoryIcon from '@shared/components/CategoryIcon';
 import { CATEGORY_BANNER_PRESET_VERSION, getCategoryBannerPreset } from '@shared/constants/categoryBannerPresets';
+import { slugify } from '@/core/utils/productUrl';
 
 const isAllOrForYou = (cat) => {
     if (!cat) return false;
@@ -53,27 +54,52 @@ const CategoriesPage = () => {
 
                 const parsed = tree
                     .filter((header) => !isAllOrForYou(header))
-                    .map((header) => ({
-                        id: header._id || header.id,
-                        name: header.name,
-                        image: header.image || '',
-                        iconId: header.iconId || '',
-                        sortOrder: header.sortOrder || 0,
-                        categories: (header.children || []).map((category) => ({
-                            id: category._id || category.id,
-                            name: category.name,
-                            image: category.image || category.icon || '',
-                            sortOrder: category.sortOrder || 0,
-                            subcategories: (category.children || []).map((sub) => ({
-                                id: sub._id || sub.id,
-                                name: sub.name,
-                                image: sub.image || sub.icon || '',
-                                sortOrder: sub.sortOrder || 0,
-                                parentId: category._id || category.id,
-                                headerId: header._id || header.id,
-                            })).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
-                        })).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
-                    }))
+                    .map((header) => {
+                        const hId = header._id || header.id;
+                        const hName = header.name;
+                        const hSlug = header.slug || slugify(hName);
+                        return {
+                            id: hId,
+                            name: hName,
+                            slug: hSlug,
+                            image: header.image || '',
+                            iconId: header.iconId || '',
+                            sortOrder: header.sortOrder || 0,
+                            categories: (header.children || []).map((category) => {
+                                const cId = category._id || category.id;
+                                const cName = category.name;
+                                const cSlug = category.slug || slugify(cName);
+                                return {
+                                    id: cId,
+                                    name: cName,
+                                    slug: cSlug,
+                                    image: category.image || category.icon || '',
+                                    sortOrder: category.sortOrder || 0,
+                                    headerId: hId,
+                                    headerName: hName,
+                                    headerSlug: hSlug,
+                                    subcategories: (category.children || []).map((sub) => {
+                                        const sId = sub._id || sub.id;
+                                        const sName = sub.name;
+                                        const sSlug = sub.slug || slugify(sName);
+                                        return {
+                                            id: sId,
+                                            name: sName,
+                                            slug: sSlug,
+                                            image: sub.image || sub.icon || '',
+                                            sortOrder: sub.sortOrder || 0,
+                                            parentId: cId,
+                                            parentName: cName,
+                                            parentSlug: cSlug,
+                                            headerId: hId,
+                                            headerName: hName,
+                                            headerSlug: hSlug,
+                                        };
+                                    }).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
+                                };
+                            }).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
+                        };
+                    })
                     .filter((header) => header.categories.length > 0)
                     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 
@@ -168,30 +194,63 @@ const CategoriesPage = () => {
         }
     };
 
-    const renderTile = (tile, isSubcategory = false) => (
-        <Link
-            key={tile.id}
-            to={`/category/${tile.id}`}
-            state={isSubcategory ? { activeSubcategoryId: tile.id } : undefined}
-            className="group flex min-w-0 flex-col items-center text-center"
-        >
-            <span className="customer-category-tile-image flex h-[64px] w-[64px] aspect-square items-center justify-center overflow-hidden rounded-[18px] bg-[#eff5ff] border border-[#e0edfd] p-1.5 transition-all duration-150 group-hover:border-[#2874f0]/40 group-active:scale-95 shadow-2xs">
-                {tile.image ? (
-                    <img
-                        src={applyCloudinaryTransform(tile.image, 'f_auto,q_auto,w_240')}
-                        alt={tile.name}
-                        loading="lazy"
-                        className="h-full w-full max-h-[44px] max-w-[44px] object-contain mix-blend-multiply transition-transform group-active:scale-95"
-                    />
-                ) : (
-                    <ShoppingBag size={22} className="text-[#5277c7]" />
-                )}
-            </span>
-            <span className="mt-1.5 line-clamp-2 min-h-[26px] max-w-[74px] text-center text-[10.5px] font-medium leading-[13px] text-[#171717] group-hover:text-[#2874f0]">
-                {tile.name}
-            </span>
-        </Link>
-    );
+    const renderTile = (tile, isSubcategory = false) => {
+        const headerSlug = tile.headerSlug || slugify(tile.headerName || '');
+        const mainSlug = isSubcategory
+            ? (tile.parentSlug || slugify(tile.parentName || ''))
+            : (tile.slug || slugify(tile.name || ''));
+        const subSlug = isSubcategory
+            ? (tile.slug || slugify(tile.name || ''))
+            : '';
+
+        const targetUrl = isSubcategory
+            ? `/category/${headerSlug}/${mainSlug}?sub=${subSlug}`
+            : `/category/${headerSlug}/${mainSlug}`;
+
+        const navState = isSubcategory
+            ? {
+                activeSubcategoryId: tile.id,
+                subCategorySlug: subSlug,
+                subCategoryName: tile.name,
+                activeMainCategoryId: tile.parentId,
+                mainCategorySlug: mainSlug,
+                mainCategoryName: tile.parentName,
+                headerSlug,
+                headerName: tile.headerName,
+            }
+            : {
+                activeMainCategoryId: tile.id,
+                mainCategorySlug: mainSlug,
+                mainCategoryName: tile.name,
+                headerSlug,
+                headerName: tile.headerName,
+            };
+
+        return (
+            <Link
+                key={tile.id}
+                to={targetUrl}
+                state={navState}
+                className="group flex min-w-0 flex-col items-center text-center"
+            >
+                <span className="customer-category-tile-image flex h-[72px] w-[72px] aspect-square items-center justify-center overflow-hidden rounded-[20px] bg-[#f4f4f4] hover:bg-[#eaeaea] border border-[#e5e7eb] p-1.5 transition-all duration-150 group-hover:border-slate-300 group-active:scale-95 shadow-2xs">
+                    {tile.image ? (
+                        <img
+                            src={applyCloudinaryTransform(tile.image, 'f_auto,q_auto,w_300')}
+                            alt={tile.name}
+                            loading="lazy"
+                            className="h-full w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform"
+                        />
+                    ) : (
+                        <ShoppingBag size={24} className="text-slate-400" />
+                    )}
+                </span>
+                <span className="mt-1.5 line-clamp-2 min-h-[26px] max-w-[78px] text-center text-[11px] font-semibold leading-[14px] text-[#0a2540] group-hover:text-primary tracking-tight">
+                    {tile.name}
+                </span>
+            </Link>
+        );
+    };
 
     return (
         <div className="customer-categories-page min-h-screen bg-white pb-24 font-sans">

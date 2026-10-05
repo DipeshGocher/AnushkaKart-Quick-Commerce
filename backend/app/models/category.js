@@ -26,6 +26,10 @@ const categorySchema = new mongoose.Schema(
     image: {
       type: String, // Cloudinary URL
     },
+    banner: {
+      type: String, // Banner URL for CMS
+      trim: true,
+    },
     iconId: {
       type: String, // SVG icon identifier
       trim: true,
@@ -46,6 +50,10 @@ const categorySchema = new mongoose.Schema(
       default: "grocery",
     },
     isKitCategory: {
+      type: Boolean,
+      default: false,
+    },
+    isFeatured: {
       type: Boolean,
       default: false,
     },

@@ -65,3 +65,89 @@ export function getProductUrl(product) {
   const basePath = '/' + segments.join('/');
   return id ? `${basePath}?id=${encodeURIComponent(id)}` : basePath;
 }
+
+/**
+ * Standard product variant label extractor across all pages:
+ * (e.g. 1kg, 128 GB, 500GM, 1 Piece, 1 combo, 1 pack, etc.)
+ */
+export function getProductVariantText(product) {
+  if (!product) return "1 unit";
+
+  // 1. Check first variant name if non-generic
+  const variants = Array.isArray(product.variants) ? product.variants : [];
+  const firstVariant = variants[0];
+  const variantName = String(firstVariant?.name || product.variantName || "").trim();
+
+  if (
+    variantName &&
+    !/^default$/i.test(variantName) &&
+    !/^standard$/i.test(variantName) &&
+    !/^normal$/i.test(variantName) &&
+    !/^none$/i.test(variantName)
+  ) {
+    return variantName;
+  }
+
+  // 2. Check weight field (e.g., "1kg", "500gm", "100g")
+  const weight = String(product.weight || "").trim();
+  if (weight && !/^1\s*unit$/i.test(weight)) {
+    return weight;
+  }
+
+  // 3. Check unit field (e.g., "piece", "combo", "kg", "pack")
+  const unit = String(product.unit || "").trim();
+  if (unit) {
+    return /^\d+/i.test(unit) ? unit : `1 ${unit}`;
+  }
+
+  // 4. Fallback to weight if present or "1 unit"
+  if (weight) {
+    return weight;
+  }
+
+  return "1 unit";
+}
+
+/**
+ * Standard price info extractor across all pages:
+ * - currentPrice (selling price)
+ * - originalPrice (MRP)
+ * - hasDiscount (true only if originalPrice > currentPrice > 0)
+ * - discountPercent
+ */
+export function getProductPriceInfo(product) {
+  if (!product) {
+    return { currentPrice: 0, originalPrice: 0, hasDiscount: false, discountPercent: 0 };
+  }
+
+  const variants = Array.isArray(product.variants) ? product.variants : [];
+  const v = variants[0];
+  const vSalePrice = Number(v?.salePrice || 0);
+  const vPrice = Number(v?.price || 0);
+
+  let currentPrice = Number(product.price || 0);
+  let originalPrice = Number(product.originalPrice ?? product.price ?? 0);
+
+  // If variant has active pricing
+  if (vSalePrice > 0 && vPrice > vSalePrice) {
+    currentPrice = vSalePrice;
+    originalPrice = vPrice;
+  } else if (vPrice > 0 && (!currentPrice || currentPrice === 0)) {
+    currentPrice = vPrice;
+    originalPrice = vPrice;
+  } else if (originalPrice === 0 && currentPrice > 0) {
+    originalPrice = currentPrice;
+  }
+
+  const hasDiscount = originalPrice > currentPrice && currentPrice > 0;
+  const discountPercent = hasDiscount
+    ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
+    : 0;
+
+  return {
+    currentPrice,
+    originalPrice,
+    hasDiscount,
+    discountPercent,
+  };
+}

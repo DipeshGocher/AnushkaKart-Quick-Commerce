@@ -3,6 +3,7 @@ import Product from "../models/product.js";
 import Category from "../models/category.js";
 import Order from "../models/order.js";
 import Review from "../models/review.js";
+import HeroConfig from "../models/heroConfig.js";
 import { handleResponse } from "../utils/helper.js";
 import https from "https";
 
@@ -312,6 +313,8 @@ export const getProducts = async (req, res) => {
       lng,
       conditionType,
       brand,
+      topDeal,
+      isTopDeal,
     } = req.query;
     const enforceRadius = isCustomerVisibilityRequest(req);
 
@@ -655,6 +658,8 @@ export const getProducts = async (req, res) => {
     }
 
     if (featured !== undefined) query.isFeatured = featured === "true";
+    if (topDeal !== undefined) query.isTopDeal = topDeal === "true";
+    if (isTopDeal !== undefined) query.isTopDeal = isTopDeal === "true";
 
     let finalQuery = { ...query };
     if (enforceRadius) {
@@ -693,7 +698,7 @@ export const getProducts = async (req, res) => {
       const [rawProducts, total] = await Promise.all([
         Product.find(finalQuery)
           .select(
-            "name slug description sku price salePrice stock brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants highlights conditionType refurbishedDetails createdAt",
+            "name slug description sku price salePrice stock brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights conditionType refurbishedDetails createdAt",
           )
           // No .populate() — names resolved via cache-backed entityNameCache
           .sort(sortQuery)
@@ -825,7 +830,7 @@ export const getSellerProducts = async (req, res) => {
     ] = await Promise.all([
       Product.find(query)
         .select(
-          "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants highlights conditionType refurbishedDetails createdAt",
+          "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights conditionType refurbishedDetails createdAt",
         )
         .populate("headerId", "name slug")
         .populate("categoryId", "name slug")
@@ -1532,7 +1537,7 @@ export const getProductById = async (req, res) => {
         const query = isObjectId ? { _id: id } : { slug: id };
         return Product.findOne(query)
           .select(
-            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId isMonthlyKit status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants highlights createdAt",
+            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId isMonthlyKit status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights createdAt",
           )
           .populate("headerId", "name slug")
           .populate("categoryId", "name slug")
@@ -1695,7 +1700,7 @@ export const getModerationProducts = async (req, res) => {
       await Promise.all([
         Product.find(moderatedQuery)
           .select(
-            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured variants highlights createdAt",
+            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights createdAt",
           )
           .populate("headerId", "name")
           .populate("categoryId", "name")
@@ -1854,21 +1859,36 @@ export const getHeaderProducts = async (req, res) => {
     const effectiveLat = coords.valid ? coords.lat : 22.7196;
     const effectiveLng = coords.valid ? coords.lng : 75.8577;
 
-    let sellerFilter = null;
-    if (enforceRadius) {
-      try {
-        const nearbySellerIds = await getNearbySellerIdsForCustomer(effectiveLat, effectiveLng);
-        if (nearbySellerIds && nearbySellerIds.length > 0) {
-          sellerFilter = {
-            $or: [
-              { sellerId: { $in: nearbySellerIds } },
-              { warehouseId: { $in: nearbySellerIds } }
-            ]
-          };
+    const [heroConfigs, nearbySellerIds] = await Promise.all([
+      HeroConfig.find({
+        pageType: "header",
+        headerId: { $in: filteredHeaders.map((h) => h._id) },
+      }).lean().catch(() => []),
+      enforceRadius
+        ? getNearbySellerIdsForCustomer(effectiveLat, effectiveLng).catch(() => null)
+        : Promise.resolve(null),
+    ]);
+
+    const bannerByHeaderId = new Map();
+    (heroConfigs || []).forEach((hc) => {
+      if (hc.headerId) {
+        const activeItem = (hc.banners?.items || []).find(
+          (b) => b.status !== "inactive" && b.imageUrl
+        );
+        if (activeItem?.imageUrl) {
+          bannerByHeaderId.set(hc.headerId.toString(), activeItem.imageUrl);
         }
-      } catch (err) {
-        // Fallback without seller filter
       }
+    });
+
+    let sellerFilter = null;
+    if (enforceRadius && nearbySellerIds && nearbySellerIds.length > 0) {
+      sellerFilter = {
+        $or: [
+          { sellerId: { $in: nearbySellerIds } },
+          { warehouseId: { $in: nearbySellerIds } }
+        ]
+      };
     }
 
     const results = await Promise.all(
@@ -1899,7 +1919,7 @@ export const getHeaderProducts = async (req, res) => {
           }
 
           let items = await Product.find(prodQuery)
-            .select("_id name slug price salePrice mainImage variants rating ratingsCount weight unit brand isFeatured")
+            .select("_id name slug price salePrice mainImage variants rating ratingsCount weight unit brand isFeatured isTopDeal")
             .sort({ isFeatured: -1, createdAt: -1 })
             .limit(limit)
             .lean();
@@ -1907,15 +1927,13 @@ export const getHeaderProducts = async (req, res) => {
           if ((!items || items.length === 0) && sellerFilter) {
             delete prodQuery.$and;
             items = await Product.find(prodQuery)
-              .select("_id name slug price salePrice mainImage variants rating ratingsCount weight unit brand isFeatured")
+              .select("_id name slug price salePrice mainImage variants rating ratingsCount weight unit brand isFeatured isTopDeal")
               .sort({ isFeatured: -1, createdAt: -1 })
               .limit(limit)
               .lean();
           }
 
-          if (!items || items.length === 0) {
-            return null;
-          }
+          const cmsBanner = bannerByHeaderId.get(header._id.toString()) || header.banner || null;
 
           return {
             header: {
@@ -1923,17 +1941,28 @@ export const getHeaderProducts = async (req, res) => {
               name: header.name,
               slug: header.slug,
               image: header.image || null,
+              banner: cmsBanner,
               iconId: header.iconId || null,
+              headerColor: header.headerColor || null,
+              headerFontColor: header.headerFontColor || null,
+              sortOrder: header.sortOrder ?? 0,
             },
-            products: items.map((p) => ({
-              ...p,
-              id: p._id,
-              image: p.mainImage || (p.variants?.[0]?.images?.[0]) || "",
-              price: p.salePrice || p.price,
-              originalPrice: p.price,
-              weight: p.weight || "1 unit",
-              rating: p.rating || 5.0,
-            })),
+            products: (items || []).map((p) => {
+              const firstVar = p.variants?.[0];
+              const vSalePrice = Number(firstVar?.salePrice || 0);
+              const vPrice = Number(firstVar?.price || 0);
+              const hasVarDiscount = vSalePrice > 0 && vPrice > vSalePrice;
+
+              return {
+                ...p,
+                id: p._id,
+                image: p.mainImage || (p.variants?.[0]?.images?.[0]) || "",
+                price: hasVarDiscount ? vSalePrice : (p.salePrice || p.price),
+                originalPrice: hasVarDiscount ? vPrice : (p.price || p.salePrice),
+                weight: p.weight || "1 unit",
+                rating: p.rating || 5.0,
+              };
+            }),
           };
         } catch (catErr) {
           return null;

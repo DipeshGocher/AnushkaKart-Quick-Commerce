@@ -143,9 +143,9 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
             </div>
 
             {/* Spacer to push content above the fixed BottomNav */}
-            {finalShowBottomNavMobile && (
+            {showBottomNav && !isProductDetailOpen && (
                 <div 
-                    className="md:hidden w-full shrink-0" 
+                    className="w-full shrink-0" 
                     style={{ height: "calc(4.5rem + env(safe-area-inset-bottom, 0px))" }} 
                     aria-hidden="true" 
                 />
@@ -153,13 +153,7 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
 
             {/* Bottom Nav logic */}
             <div className="md:hidden">
-                {finalShowBottomNavMobile && (
-                    <BottomNav />
-                )}
-            </div>
-            {/* Desktop Bottom Nav doesn't exist usually, but just in case of future changes */}
-            <div className="hidden md:block">
-                {showBottomNav && (
+                {showBottomNav && !isProductDetailOpen && (
                     <BottomNav />
                 )}
             </div>

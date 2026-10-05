@@ -74,6 +74,7 @@ const ProductManagement = () => {
         subcategoryId: '',
         status: 'active',
         isFeatured: false,
+        isTopDeal: false,
         tags: '',
         weight: '',
         brand: '',
@@ -189,6 +190,7 @@ const ProductManagement = () => {
             if (formData.subcategoryId) data.append('subcategoryId', formData.subcategoryId);
             data.append('status', formData.status);
             data.append('isFeatured', String(formData.isFeatured));
+            data.append('isTopDeal', String(formData.isTopDeal));
             data.append('brand', formData.brand);
             data.append('weight', formData.weight);
             data.append('tags', formData.tags);
@@ -333,6 +335,7 @@ const ProductManagement = () => {
                 subcategoryId: item.subcategoryId?._id || item.subcategoryId || '',
                 status: item.status || 'active',
                 isFeatured: item.isFeatured || false,
+                isTopDeal: item.isTopDeal || false,
                 tags: Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || ''),
                 weight: item.weight || '',
                 brand: item.brand || '',
@@ -359,7 +362,7 @@ const ProductManagement = () => {
                 name: '', slug: '', sku: '', description: '', price: '',
                 salePrice: '', stock: '', lowStockAlert: 5, unit: 'packet',
                 header: '', categoryId: '', subcategoryId: '', status: 'active',
-                isFeatured: false, tags: '', weight: '', brand: '',
+                isFeatured: false, isTopDeal: false, tags: '', weight: '', brand: '',
                 shelfLife: '', countryOfOrigin: '', fssaiLicense: '',
                 mainImage: null, galleryImages: [],
                 highlights: [0, 1, 2, 3].map(() => ({ icon: "", label: "" })),
@@ -589,7 +592,15 @@ const ProductManagement = () => {
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="truncate text-[13px] font-semibold leading-5 text-slate-900" title={p.name}>{p.name}</p>
-                                                <p className="truncate text-[10px] font-medium uppercase tracking-widest text-slate-400" title={p.unit}>{p.unit}</p>
+                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                    <p className="truncate text-[10px] font-medium uppercase tracking-widest text-slate-400" title={p.unit}>{p.unit}</p>
+                                                    {p.isFeatured && (
+                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 ring-1 ring-amber-200">Featured</span>
+                                                    )}
+                                                    {p.isTopDeal && (
+                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-50 text-rose-700 ring-1 ring-rose-200">Top Deal</span>
+                                                    )}
+                                                </div>
                                                 {p.approvalStatus === 'rejected' && p.approvalNote ? (
                                                     <p className="truncate text-[10px] font-medium text-rose-500" title={p.approvalNote}>
                                                         Note: {p.approvalNote}
@@ -798,7 +809,19 @@ const ProductManagement = () => {
                                                 type="checkbox"
                                                 checked={formData.isFeatured}
                                                 onChange={(e) => setFormData({ ...formData, isFeatured: e.target.checked })}
-                                                className="h-4 w-4 rounded border-brand-300 text-primary focus:ring-primary"
+                                                className="h-4 w-4 rounded border-brand-300 text-primary focus:ring-primary cursor-pointer"
+                                            />
+                                        </div>
+                                        <div className="mt-3 p-4 bg-rose-50 rounded-2xl border border-rose-100 flex items-center justify-between">
+                                            <div>
+                                                <p className="text-[9px] font-bold text-rose-700 uppercase tracking-widest">Top Deals</p>
+                                                <p className="text-[10px] text-rose-500 font-medium">Show in category Top deals</p>
+                                            </div>
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.isTopDeal}
+                                                onChange={(e) => setFormData({ ...formData, isTopDeal: e.target.checked })}
+                                                className="h-4 w-4 rounded border-rose-300 text-rose-600 focus:ring-rose-500 cursor-pointer"
                                             />
                                         </div>
                                     </div>

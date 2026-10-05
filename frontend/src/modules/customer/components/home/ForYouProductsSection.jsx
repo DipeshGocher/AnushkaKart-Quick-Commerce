@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 import { customerApi } from "../../services/customerApi";
 import { applyCloudinaryTransform, isPngImage } from "@/core/utils/imageUtils";
 import { cn } from "@/lib/utils";
-import { getProductUrl } from "@/core/utils/productUrl";
+import { getProductUrl, getProductVariantText, getProductPriceInfo } from "@/core/utils/productUrl";
 import forYouIconImg from "@/assets/for_you_flipkart_icon.png";
 
 // Helper to shuffle / interleave products across categories for a diverse "For You" feed
@@ -148,21 +148,12 @@ const ForYouProductsSection = () => {
         <div className="grid grid-cols-2 gap-3 px-3.5 md:px-6">
           {products.map((item) => {
             const id = item._id || item.id;
-            const price = Number(item.salePrice || item.price || 0);
-            const originalPrice = Number(item.price || item.originalPrice || 0);
-            const showMrp = originalPrice > price;
-            const discountPercent =
-              showMrp && originalPrice > 0
-                ? Math.round(((originalPrice - price) / originalPrice) * 100)
-                : 0;
+            const { currentPrice, originalPrice, hasDiscount, discountPercent } =
+              getProductPriceInfo(item);
+            const variantText = getProductVariantText(item);
             const targetUrl = getProductUrl(item);
 
             const imageSrc = item.mainImage || item.image || "";
-            const isPng =
-              typeof imageSrc === "string" &&
-              (imageSrc.toLowerCase().endsWith(".png") ||
-                imageSrc.toLowerCase().includes(".png?") ||
-                imageSrc.toLowerCase().includes("/png"));
 
             return (
               <Link
@@ -185,25 +176,35 @@ const ForYouProductsSection = () => {
                   />
                 </div>
 
-                {/* Product Name & Price below image */}
-                <div className="flex-1 flex flex-col min-w-0 mt-1.5 px-0.5">
-                  <h4 className="fk-product-title truncate text-[13px] font-semibold text-[#212121] leading-tight">
+                {/* Product Info Hierarchy (No gaps between name, variant, and price) */}
+                <div className="flex flex-col min-w-0 mt-1.5 px-0.5">
+                  {/* 1. Product Name */}
+                  <h4 className="fk-product-title truncate text-[13px] font-semibold text-[#212121] leading-tight group-hover:text-[#2874f0] transition-colors">
                     {item.name}
                   </h4>
 
-                  {/* Price Row: Selling Price, Cut MRP (if discount), and Green % off */}
-                  <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap leading-tight">
-                    <span className="fk-product-price text-[13px] font-semibold text-[#212121]">
-                      ₹{price}
-                    </span>
-                    {showMrp && (
-                      <span className="fk-product-mrp text-[12px] text-slate-400 line-through font-normal">
-                        ₹{originalPrice}
-                      </span>
-                    )}
-                    {showMrp && (
-                      <span className="fk-product-discount text-[12px] font-semibold text-[#388e3c]">
-                        {discountPercent}% off
+                  {/* 2. Variant */}
+                  <p className="text-[11px] font-medium text-slate-500 leading-tight mt-0.5 truncate">
+                    {variantText}
+                  </p>
+
+                  {/* 3. Price: Discount price, original price with cross line (if discount), else only original price */}
+                  <div className="flex items-baseline gap-1.5 mt-0.5 leading-tight flex-wrap">
+                    {hasDiscount ? (
+                      <>
+                        <span className="fk-product-price text-[13px] font-bold text-[#212121]">
+                          ₹{currentPrice}
+                        </span>
+                        <span className="fk-product-mrp text-[11px] text-slate-400 line-through font-normal">
+                          ₹{originalPrice}
+                        </span>
+                        <span className="fk-product-discount text-[11px] font-bold text-[#16a34a]">
+                          {discountPercent}% off
+                        </span>
+                      </>
+                    ) : (
+                      <span className="fk-product-price text-[13px] font-bold text-[#212121]">
+                        ₹{originalPrice || currentPrice}
                       </span>
                     )}
                   </div>

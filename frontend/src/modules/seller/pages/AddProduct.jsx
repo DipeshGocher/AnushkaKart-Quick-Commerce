@@ -118,6 +118,7 @@ const AddProduct = () => {
     header: "",
     status: "active",
     isFeatured: false,
+    isTopDeal: false,
     tags: "",
     weight: "",
     brand: "",
@@ -254,6 +255,7 @@ const AddProduct = () => {
       data.append("fssaiLicense", formData.fssaiLicense);
       data.append("status", formData.status);
       data.append("isFeatured", String(formData.isFeatured));
+      data.append("isTopDeal", String(formData.isTopDeal));
 
       // Map top-level price/stock from first variant for indexing/listing
       data.append("price", firstVariant.price);
@@ -425,8 +427,12 @@ const AddProduct = () => {
               </select>
             </div>
             <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-slate-800">
-              <input type="checkbox" checked={formData.isFeatured} onChange={(event) => setFormData({ ...formData, isFeatured: event.target.checked })} className="h-4 w-4 accent-amber-500" />
-              Feature in Top Deals
+              <input type="checkbox" checked={formData.isFeatured} onChange={(event) => setFormData({ ...formData, isFeatured: event.target.checked })} className="h-4 w-4 accent-amber-500 cursor-pointer" />
+              Featured Product
+            </label>
+            <label className="mt-2 flex cursor-pointer items-center gap-2 rounded-md border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-900">
+              <input type="checkbox" checked={formData.isTopDeal} onChange={(event) => setFormData({ ...formData, isTopDeal: event.target.checked })} className="h-4 w-4 accent-rose-500 cursor-pointer" />
+              Top Deals Product
             </label>
           </div>
         </div>

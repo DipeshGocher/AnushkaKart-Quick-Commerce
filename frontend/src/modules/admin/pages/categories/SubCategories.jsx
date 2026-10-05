@@ -12,11 +12,13 @@ import {
   Upload,
   Image,
   Filter,
+  Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { adminApi } from "../../services/adminApi";
 import { toast } from "sonner";
+import { invalidateCache } from "@core/api/dedupe";
 
 const makeSlug = (value) =>
   String(value || "")
@@ -50,6 +52,7 @@ const SubCategories = () => {
     status: "active",
     type: "subcategory",
     parentId: "",
+    isFeatured: false,
   });
 
   const [imageFile, setImageFile] = useState(null);
@@ -205,6 +208,7 @@ const SubCategories = () => {
         await adminApi.createCategory(data);
         toast.success("Subcategory created");
       }
+      invalidateCache("/categories");
       setIsAddModalOpen(false);
       setEditingItem(null);
       fetchCategories();
@@ -221,12 +225,32 @@ const SubCategories = () => {
 
     try {
       await adminApi.deleteCategory(deleteTarget._id || deleteTarget.id);
+      invalidateCache("/categories");
       toast.success("Subcategory deleted");
       setIsDeleteModalOpen(false);
       setDeleteTarget(null);
       fetchCategories();
     } catch (error) {
       toast.error("Failed to delete subcategory");
+    }
+  };
+
+  const handleToggleFeatured = async (cat) => {
+    try {
+      const nextFeatured = !cat.isFeatured;
+      const id = cat._id || cat.id;
+      setCategories((prev) =>
+        prev.map((c) =>
+          (c._id || c.id) === id ? { ...c, isFeatured: nextFeatured } : c
+        )
+      );
+      await adminApi.updateCategory(id, { isFeatured: nextFeatured });
+      invalidateCache("/categories");
+      toast.success(nextFeatured ? "Marked as Featured in Best Selling Categories" : "Removed from Featured");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to update featured status");
+      fetchCategories();
     }
   };
 
@@ -239,6 +263,7 @@ const SubCategories = () => {
       status: "active",
       type: "subcategory",
       parentId: "",
+      isFeatured: false,
     });
     setImageFile(null);
     setPreviewUrl(null);
@@ -254,6 +279,7 @@ const SubCategories = () => {
       status: item.status,
       type: "subcategory",
       parentId: item.parentId?._id || item.parentId || "",
+      isFeatured: Boolean(item.isFeatured),
     });
     const currentImage = item.image && typeof item.image === 'object' ? item.image.url : (item.image || null);
     setPreviewUrl(currentImage);
@@ -389,6 +415,9 @@ const SubCategories = () => {
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
+                <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Featured
+                </th>
                 <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -397,13 +426,13 @@ const SubCategories = () => {
             <tbody className="divide-y divide-gray-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan="7" className="text-center py-8 text-gray-500">
+                  <td colSpan="8" className="text-center py-8 text-gray-500">
                     Loading...
                   </td>
                 </tr>
               ) : filteredCategories.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="text-center py-8 text-gray-500">
+                  <td colSpan="8" className="text-center py-8 text-gray-500">
                     No subcategories found
                   </td>
                 </tr>
@@ -457,6 +486,20 @@ const SubCategories = () => {
                           }>
                           {cat.status}
                         </Badge>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleFeatured(cat)}
+                          title={cat.isFeatured ? "Featured in Best Selling Categories (Click to unfeature)" : "Not featured (Click to feature)"}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                            cat.isFeatured
+                              ? "bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 shadow-xs"
+                              : "bg-gray-100 text-gray-400 border border-gray-200 hover:bg-gray-200 hover:text-gray-600"
+                          }`}>
+                          <Star className={`w-3.5 h-3.5 ${cat.isFeatured ? "fill-amber-500 text-amber-500" : ""}`} />
+                          {cat.isFeatured ? "Featured" : "No"}
+                        </button>
                       </td>
                       <td className="py-3 px-4 text-right space-x-2">
                         <button
@@ -639,6 +682,29 @@ const SubCategories = () => {
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                   </select>
+                </div>
+
+                <div className="flex items-center justify-between p-3.5 rounded-xl border border-amber-200 bg-amber-50/60">
+                  <div className="pr-4">
+                    <label
+                      htmlFor="isFeaturedCheckbox"
+                      className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 cursor-pointer">
+                      <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                      Featured Subcategory
+                    </label>
+                    <p className="text-xs text-gray-600 mt-0.5">
+                      Show in &quot;Best Selling Categories&quot; on customer home page
+                    </p>
+                  </div>
+                  <input
+                    id="isFeaturedCheckbox"
+                    type="checkbox"
+                    checked={Boolean(formData.isFeatured)}
+                    onChange={(e) =>
+                      setFormData({ ...formData, isFeatured: e.target.checked })
+                    }
+                    className="w-5 h-5 rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                  />
                 </div>
               </div>
 

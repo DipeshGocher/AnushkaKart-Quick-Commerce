@@ -223,7 +223,7 @@ const SectionRenderer = ({ sections = [], productsById = {}, categoriesById = {}
                         navigate(`/category/${cat._id}`);
                       }}
                     >
-                      <div className="relative aspect-square w-full rounded-2xl bg-[#F8F9FA] border border-slate-100/80 flex items-center justify-center overflow-hidden p-1 transition-all duration-200 group-hover:border-primary/40 group-hover:bg-white group-hover:shadow-[0_10px_25px_rgba(15,23,42,0.08)]">
+                      <div className="relative aspect-square w-full rounded-2xl bg-[#f4f4f4] border border-[#e5e7eb] flex items-center justify-center overflow-hidden p-1 transition-all duration-200 group-hover:border-slate-300 group-hover:bg-[#eaeaea] group-hover:shadow-[0_8px_20px_rgba(15,23,42,0.06)]">
                         {cat.image ? (
                           <img
                             src={cat.image}
@@ -231,10 +231,10 @@ const SectionRenderer = ({ sections = [], productsById = {}, categoriesById = {}
                             className="w-full h-full object-contain object-center mix-blend-multiply transition-transform duration-200 group-hover:scale-105"
                           />
                         ) : (
-                          <div className="h-6 w-6 rounded-full bg-slate-100" />
+                          <div className="h-6 w-6 rounded-full bg-slate-200" />
                         )}
                       </div>
-                      <div className="text-[11px] font-semibold text-slate-700 text-center leading-snug line-clamp-2 group-hover:text-primary">
+                      <div className="text-[11px] font-semibold text-[#0a2540] text-center leading-snug line-clamp-2 group-hover:text-primary">
                         {cat.name}
                       </div>
                     </button>
@@ -305,7 +305,7 @@ const SectionRenderer = ({ sections = [], productsById = {}, categoriesById = {}
                         }
                       }}
                     >
-                      <div className="relative aspect-square w-full rounded-2xl bg-[#F8F9FA] border border-slate-100/80 flex items-center justify-center overflow-hidden p-1 transition-all duration-200 group-hover:border-primary/40 group-hover:bg-white group-hover:shadow-[0_10px_25px_rgba(15,23,42,0.08)]">
+                      <div className="relative aspect-square w-full rounded-2xl bg-[#f4f4f4] border border-[#e5e7eb] flex items-center justify-center overflow-hidden p-1 transition-all duration-200 group-hover:border-slate-300 group-hover:bg-[#eaeaea] group-hover:shadow-[0_8px_20px_rgba(15,23,42,0.06)]">
                         {cat.image ? (
                           <img
                             src={cat.image}
@@ -313,10 +313,10 @@ const SectionRenderer = ({ sections = [], productsById = {}, categoriesById = {}
                             className="w-full h-full object-contain object-center mix-blend-multiply transition-transform duration-200 group-hover:scale-105"
                           />
                         ) : (
-                          <div className="h-6 w-6 rounded-full bg-slate-100" />
+                          <div className="h-6 w-6 rounded-full bg-slate-200" />
                         )}
                       </div>
-                      <div className="text-[11px] font-semibold text-slate-700 text-center leading-snug line-clamp-2 group-hover:text-primary">
+                      <div className="text-[11px] font-semibold text-[#0a2540] text-center leading-snug line-clamp-2 group-hover:text-primary">
                         {cat.name}
                       </div>
                     </button>

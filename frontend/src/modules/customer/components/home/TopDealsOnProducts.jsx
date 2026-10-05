@@ -1,147 +1,251 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { ImageOff } from 'lucide-react';
+import { ImageOff, ChevronLeft, ChevronRight } from 'lucide-react';
 import { customerApi } from '../../services/customerApi';
 import { applyCloudinaryTransform, isPngImage } from '@/core/utils/imageUtils';
 import { cn } from '@/lib/utils';
 
-const formatPrice = (value) =>
-  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
-
-const getItems = (response) => {
-  const data = response?.data || response;
-  const result = data?.result;
-  return Array.isArray(data?.results) ? data.results : Array.isArray(result?.items) ? result.items : Array.isArray(result) ? result : [];
-};
-
-const TopDealsOnProducts = ({ latitude, longitude }) => {
-  const [products, setProducts] = useState([]);
+const TopDealsOnProducts = () => {
+  const [subcategories, setSubcategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const scrollRef = useRef(null);
+  const [canScroll, setCanScroll] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    const fetchFeaturedProducts = async () => {
+    const fetchSubcategories = async () => {
       setIsLoading(true);
       try {
-        const params = { featured: 'true', conditionType: 'all', limit: 100, page: 1 };
-        if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
-          params.lat = latitude;
-          params.lng = longitude;
-        }
+        const response = await customerApi.getCategories({ catalogType: 'grocery' });
+        const data = response?.data || response;
+        const allItems = Array.isArray(data?.results)
+          ? data.results
+          : Array.isArray(data?.result)
+          ? data.result
+          : Array.isArray(data?.result?.items)
+          ? data.result.items
+          : [];
 
-        const firstResponse = await customerApi.getProducts(params);
-        const firstItems = getItems(firstResponse);
-        if (!cancelled) setProducts(firstItems);
-
-        const firstResult = firstResponse?.data?.result || {};
-        const totalPages = Math.max(1, Number(firstResult.totalPages) || 1);
-        if (totalPages > 1) {
-          const remainingResponses = await Promise.all(
-            Array.from({ length: totalPages - 1 }, (_, index) =>
-              customerApi.getProducts({ ...params, page: index + 2 })
-            )
+        if (!cancelled) {
+          const subs = allItems.filter(
+            (c) => c.type === 'subcategory' && c.status !== 'inactive' && c.catalogType !== 'refurbished'
           );
-          if (!cancelled) {
-            const allItems = [firstItems, ...remainingResponses.map(getItems)].flat();
-            setProducts(Array.from(new Map(allItems.map((product) => [String(product._id || product.id), product])).values()));
+
+          // Filter subcategories marked as featured in admin panel
+          const featured = subs.filter((c) => c.isFeatured === true);
+
+          // If admin has marked subcategories as featured, display all featured ones!
+          // Otherwise gracefully fallback to active subcategories (up to 24 with images first)
+          if (featured.length > 0) {
+            setSubcategories(featured);
+          } else {
+            const withImages = subs.filter((s) => s.image && typeof s.image === 'string' && s.image.trim() !== '');
+            const others = subs.filter((s) => !s.image || typeof s.image !== 'string' || s.image.trim() === '');
+            const combined = [...withImages, ...others];
+            setSubcategories(combined.slice(0, 24));
           }
         }
       } catch (error) {
         if (!cancelled) {
-          console.error('Failed to load featured products:', error);
-          setProducts([]);
+          console.error('Failed to load subcategories for Best Selling Categories:', error);
+          setSubcategories([]);
         }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
     };
 
-    fetchFeaturedProducts();
-    return () => { cancelled = true; };
-  }, [latitude, longitude]);
+    fetchSubcategories();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Organize subcategories into columns of 2 rows (3 columns visible per swipe screen)
+  const columns = useMemo(() => {
+    if (!subcategories || subcategories.length === 0) return [];
+    const cols = [];
+    const chunkSize = 6;
+    for (let i = 0; i < subcategories.length; i += chunkSize) {
+      const chunk = subcategories.slice(i, i + chunkSize);
+      const topRow = chunk.slice(0, 3);
+      const bottomRow = chunk.slice(3, 6);
+      const numCols = Math.max(topRow.length, bottomRow.length);
+      for (let c = 0; c < numCols; c++) {
+        const colItems = [];
+        if (topRow[c]) colItems.push(topRow[c]);
+        if (bottomRow[c]) colItems.push(bottomRow[c]);
+        cols.push(colItems);
+      }
+    }
+    return cols;
+  }, [subcategories]);
+
+  // Track horizontal scroll progress to move the pill indicator and show/hide arrows
+  const handleScroll = () => {
+    if (!scrollRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+    const maxScroll = scrollWidth - clientWidth;
+    if (maxScroll > 6) {
+      setCanScroll(true);
+      setScrollProgress(Math.min(1, Math.max(0, scrollLeft / maxScroll)));
+    } else {
+      setCanScroll(false);
+    }
+  };
+
+  useEffect(() => {
+    handleScroll();
+  }, [columns]);
+
+  const scrollByAmount = (direction) => {
+    if (!scrollRef.current) return;
+    const scrollAmount = scrollRef.current.clientWidth * 0.85;
+    scrollRef.current.scrollBy({
+      left: direction === 'right' ? scrollAmount : -scrollAmount,
+      behavior: 'smooth',
+    });
+  };
+
+  if (!isLoading && subcategories.length === 0) {
+    return null;
+  }
+
+  const isMultiScreen = columns.length > 3;
 
   return (
-    <section className="mx-4 mt-4 rounded-[24px] bg-[#ffd21f] px-3 py-4 shadow-[0_8px_22px_rgba(173,126,0,0.12)]" aria-label="Top Deals On Products">
-      <h2 className="fk-section-heading mb-3 px-1">Top Deals On Products</h2>
+    <section
+      className="relative w-full py-7 px-3.5 sm:px-4 my-2 transition-colors select-none"
+      style={{
+        background: 'linear-gradient(180deg, #ffffff 0%, #F8C6C7 14%, #F8C6C7 86%, #ffffff 100%)',
+      }}
+      aria-label="Best Selling Categories"
+    >
+      <div className="max-w-7xl mx-auto">
+        {/* Section Heading & Desktop Scroll Controls */}
+        <div className="flex items-center justify-between mb-3.5 px-1">
+          <h2 className="text-[17px] sm:text-[19px] font-black tracking-tight text-gray-900">
+            Best Selling Categories
+          </h2>
 
-      {isLoading && products.length === 0 ? (
-        <div className="grid grid-cols-3 gap-2.5" aria-label="Loading featured products">
-          {[0, 1, 2].map((index) => (
-            <div key={index} className="flex flex-col gap-2">
-              <div className="aspect-square animate-pulse rounded-[16px] bg-white/70" />
-              <div className="h-3 w-3/4 animate-pulse rounded bg-white/50" />
-              <div className="h-3 w-1/2 animate-pulse rounded bg-white/50" />
-            </div>
-          ))}
-        </div>
-      ) : products.length === 0 ? (
-        <p className="fk-body rounded-[18px] bg-white/75 px-4 py-6 text-center text-[#333]">Featured products will appear here.</p>
-      ) : (
-        <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
-          {products.map((product) => {
-            const id = product._id || product.id;
-            const originalPrice = Number(product.price || product.variants?.[0]?.price) || 0;
-            const salePrice = Number(product.salePrice || product.variants?.[0]?.salePrice) || 0;
-            const hasDiscount = salePrice > 0 && originalPrice > salePrice;
-            const currentPrice = hasDiscount ? salePrice : originalPrice;
-            const image = product.mainImage || product.variants?.[0]?.images?.[0] || product.image;
-            const isPng = typeof image === 'string' && (image.toLowerCase().endsWith('.png') || image.toLowerCase().includes('.png?') || image.toLowerCase().includes('/png'));
-            const discountPercent = hasDiscount && originalPrice > 0 ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : 0;
-
-            return (
-              <Link
-                key={id}
-                to={`/product/${id}`}
-                className="group flex flex-col min-w-0 transition-transform active:scale-[0.98]"
+          {isMultiScreen && (
+            <div className="hidden sm:flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => scrollByAmount('left')}
+                className="w-7 h-7 rounded-full bg-white/90 border border-black/5 shadow-xs flex items-center justify-center text-gray-700 hover:bg-white hover:text-black transition-all cursor-pointer"
+                aria-label="Scroll left"
               >
-                {/* Image Card Box with visible off-white / grey background and border */}
-                <div className="customer-product-clean-image relative aspect-square w-full rounded-2xl bg-[#f1f3f6] border border-[#e0e3e8] p-0 flex items-center justify-center overflow-hidden shadow-2xs">
-                  {image ? (
-                    <img
-                      src={applyCloudinaryTransform(image, 'f_auto,q_auto,w_300')}
-                      alt={product.name}
-                      loading="lazy"
-                      className={cn(
-                        "h-full w-full transition-transform duration-200 group-hover:scale-105",
-                        isPngImage(image)
-                          ? "is-png-image object-contain p-1"
-                          : "is-normal-image object-cover p-0"
-                      )}
-                    />
-                  ) : (
-                    <ImageOff size={28} className="text-slate-400" aria-hidden="true" />
-                  )}
-                </div>
-
-                {/* Details OUTSIDE the Image Card Box: Only Product Name & Price */}
-                <div className="mt-1.5 flex flex-col px-0.5 min-w-0">
-                  {/* Product Name (Single line with ellipsis) */}
-                  <h4 className="fk-product-title truncate text-[13px] font-semibold text-[#212121] leading-tight group-hover:text-[#2874f0]">
-                    {product.name}
-                  </h4>
-
-                  {/* Price Row: Selling Price, Cut MRP (if discount), and Green % off */}
-                  <div className="mt-0.5 flex items-baseline gap-1.5 flex-wrap leading-tight">
-                    <span className="fk-product-price text-[13px] font-semibold text-[#212121]">
-                      {formatPrice(currentPrice)}
-                    </span>
-                    {hasDiscount && (
-                      <span className="fk-product-mrp text-[12px] text-slate-400 line-through font-normal">
-                        {formatPrice(originalPrice)}
-                      </span>
-                    )}
-                    {hasDiscount && (
-                      <span className="fk-product-discount text-[12px] font-semibold text-[#388e3c]">
-                        {discountPercent}% off
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollByAmount('right')}
+                className="w-7 h-7 rounded-full bg-white/90 border border-black/5 shadow-xs flex items-center justify-center text-gray-700 hover:bg-white hover:text-black transition-all cursor-pointer"
+                aria-label="Scroll right"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Loading Skeleton */}
+        {isLoading && subcategories.length === 0 ? (
+          <div className="grid grid-cols-3 gap-2.5 sm:gap-3 px-1" aria-label="Loading categories">
+            {[0, 1, 2, 3, 4, 5].map((index) => (
+              <div
+                key={index}
+                className="bg-white rounded-2xl p-2.5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-white flex flex-col items-center min-h-[140px]"
+              >
+                <div className="aspect-square w-full animate-pulse rounded-xl bg-slate-100" />
+                <div className="h-3.5 w-3/4 animate-pulse rounded bg-slate-200 mt-2.5" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            {/* Horizontal Swipeable Columns (2 rows of 3 categories per screen) */}
+            <div
+              ref={scrollRef}
+              onScroll={handleScroll}
+              className={cn(
+                'w-full no-scrollbar pb-1 px-1',
+                isMultiScreen
+                  ? 'overflow-x-auto scroll-smooth snap-x snap-mandatory flex gap-2.5 sm:gap-3'
+                  : 'grid grid-cols-3 gap-2.5 sm:gap-3'
+              )}
+            >
+              {columns.map((col, colIdx) => (
+                <div
+                  key={colIdx}
+                  className={cn(
+                    'flex flex-col gap-2.5 sm:gap-3 justify-start',
+                    isMultiScreen
+                      ? 'shrink-0 w-[calc((100%-18px)/3.18)] sm:w-[145px] snap-start'
+                      : 'w-full'
+                  )}
+                >
+                  {col.map((sub) => {
+                    const id = sub._id || sub.id;
+                    const image =
+                      sub.image && typeof sub.image === 'object'
+                        ? sub.image.url || sub.image.secure_url
+                        : sub.image;
+                    const parentTarget = sub.parentId?._id || sub.parentId || sub.slug || id;
+
+                    return (
+                      <Link
+                        key={id}
+                        to={`/category/${parentTarget}`}
+                        state={{ activeSubcategoryId: id }}
+                        className="group bg-white rounded-2xl p-2 sm:p-2.5 shadow-[0_2px_10px_rgba(0,0,0,0.04)] border border-white hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-all duration-200 active:scale-[0.98] flex flex-col items-center justify-between min-h-[140px] sm:min-h-[160px] w-full"
+                      >
+                        {/* Big Image box */}
+                        <div className="relative aspect-square w-full rounded-xl p-1 flex items-center justify-center overflow-hidden">
+                          {image ? (
+                            <img
+                              src={applyCloudinaryTransform(image, 'f_auto,q_auto,w_300')}
+                              alt={sub.name}
+                              loading="lazy"
+                              className={cn(
+                                'h-full w-full object-contain transition-transform duration-300 group-hover:scale-105',
+                                isPngImage(image) ? 'p-1' : 'p-0.5'
+                              )}
+                            />
+                          ) : (
+                            <ImageOff size={28} className="text-slate-300" aria-hidden="true" />
+                          )}
+                        </div>
+
+                        {/* Subcategory Name */}
+                        <div className="mt-1.5 mb-1 w-full text-center px-0.5">
+                          <h3 className="text-[12px] sm:text-[13px] font-bold text-gray-900 leading-snug line-clamp-2 group-hover:text-pink-600 transition-colors">
+                            {sub.name}
+                          </h3>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+
+            {/* Scroll Indicator Pill (matching Quick Commerce style) */}
+            {canScroll && (
+              <div className="w-12 h-1 bg-black/10 rounded-full mx-auto mt-3 overflow-hidden relative">
+                <div
+                  className="h-full w-5 bg-black/40 rounded-full transition-all duration-75 ease-out"
+                  style={{
+                    transform: `translateX(${scrollProgress * 28}px)`,
+                  }}
+                />
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </section>
   );
 };

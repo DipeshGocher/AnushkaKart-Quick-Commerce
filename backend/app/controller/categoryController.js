@@ -60,7 +60,7 @@ export const getCategories = async (req, res) => {
       const categories = await getOrSet(
         cacheKey,
         async () => {
-          const selectFields = "name slug image iconId type parentId headerColor headerFontColor headerIconColor sortOrder catalogType";
+          const selectFields = "name slug image iconId type parentId headerColor headerFontColor headerIconColor sortOrder catalogType isFeatured";
           const matchQuery = { type: "header" };
           if (catalogType === "refurbished") {
             matchQuery.catalogType = "refurbished";
@@ -138,6 +138,9 @@ export const getCategories = async (req, res) => {
       } else {
         query.catalogType = { $ne: "refurbished" };
       }
+      if (req.query.isFeatured !== undefined) {
+        query.isFeatured = req.query.isFeatured === "true" || req.query.isFeatured === true;
+      }
       const search = (req.query.search || "").trim();
       const parentId = req.query.parentId || req.query.parentId; // Support both naming variants
 
@@ -194,7 +197,10 @@ export const getCategories = async (req, res) => {
     } else {
       query.catalogType = { $ne: "refurbished" };
     }
-    const cacheKey = categoryCacheKey({ tree: false, type: query.type || "all", catalogType: catalogType || "grocery" });
+    if (req.query.isFeatured !== undefined) {
+      query.isFeatured = req.query.isFeatured === "true" || req.query.isFeatured === true;
+    }
+    const cacheKey = categoryCacheKey({ tree: false, type: query.type || "all", catalogType: catalogType || "grocery", isFeatured: req.query.isFeatured });
     const categories = await getOrSet(
       cacheKey,
       async () => {
@@ -235,7 +241,7 @@ export const getCategories = async (req, res) => {
 export const createCategory = async (req, res) => {
   try {
     const categoryData = {};
-    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isKitCategory", "sortOrder", "catalogType"];
+    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isKitCategory", "isFeatured", "sortOrder", "catalogType"];
     
     // Strict Whitelisting and Sanitization
     for (const key of allowedKeys) {
@@ -247,6 +253,10 @@ export const createCategory = async (req, res) => {
         }
         categoryData[key] = val;
       }
+    }
+
+    if (categoryData.isFeatured !== undefined) {
+      categoryData.isFeatured = categoryData.isFeatured === true || categoryData.isFeatured === "true" || categoryData.isFeatured === 1 || categoryData.isFeatured === "1";
     }
     
     // Handle Images
@@ -324,7 +334,7 @@ export const updateCategory = async (req, res) => {
     }
 
     const categoryData = {};
-    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "sortOrder", "catalogType"];
+    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isFeatured", "sortOrder", "catalogType"];
     
     for (const key of allowedKeys) {
       if (Object.prototype.hasOwnProperty.call(req.body, key)) {
@@ -334,6 +344,10 @@ export const updateCategory = async (req, res) => {
         }
         categoryData[key] = val;
       }
+    }
+
+    if (categoryData.isFeatured !== undefined) {
+      categoryData.isFeatured = categoryData.isFeatured === true || categoryData.isFeatured === "true" || categoryData.isFeatured === 1 || categoryData.isFeatured === "1";
     }
 
     if (req.file) {

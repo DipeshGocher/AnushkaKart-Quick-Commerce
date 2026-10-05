@@ -16,7 +16,7 @@ import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useSettings } from '@core/context/SettingsContext';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
-import { getProductUrl } from '@/core/utils/productUrl';
+import { getProductUrl, getProductVariantText } from '@/core/utils/productUrl';
 import { cn } from '@/lib/utils';
 
 const formatPrice = (value) =>
@@ -459,24 +459,33 @@ const ProductsPage = () => {
                     )}
                   </div>
 
-                  {/* Product Title (Single-line with ellipsis ...) */}
+                  {/* Product Title */}
                   <h3 className="fk-product-title mt-1.5 px-0.5 truncate text-[13px] font-semibold text-[#212121] leading-tight group-hover:text-[#2874f0] transition-colors">
                     {product.name}
                   </h3>
 
-                  {/* Pricing Row: No gap, same font size/boldness, green % off on the right */}
+                  {/* Variant */}
+                  <p className="text-[11px] font-medium text-slate-500 leading-tight mt-0.5 px-0.5 truncate">
+                    {getProductVariantText(product)}
+                  </p>
+
+                  {/* Pricing Row: No gap, discount price, original price with line-through, % off */}
                   <div className="mt-0.5 px-0.5 flex items-baseline gap-1.5 leading-tight flex-wrap">
-                    <span className="fk-product-price text-[13px] font-semibold text-[#212121]">
-                      {formatPrice(currentPrice)}
-                    </span>
-                    {hasDiscount && (
-                      <span className="fk-product-mrp text-[12px] text-slate-400 line-through font-normal">
-                        {formatPrice(originalPrice)}
-                      </span>
-                    )}
-                    {hasDiscount && (
-                      <span className="fk-product-discount text-[12px] font-semibold text-[#388e3c]">
-                        {discountPercent}% off
+                    {hasDiscount ? (
+                      <>
+                        <span className="fk-product-price text-[13px] font-bold text-[#212121]">
+                          {formatPrice(currentPrice)}
+                        </span>
+                        <span className="fk-product-mrp text-[11px] text-slate-400 line-through font-normal">
+                          {formatPrice(originalPrice)}
+                        </span>
+                        <span className="fk-product-discount text-[11px] font-bold text-[#16a34a]">
+                          {discountPercent}% off
+                        </span>
+                      </>
+                    ) : (
+                      <span className="fk-product-price text-[13px] font-bold text-[#212121]">
+                        {formatPrice(originalPrice || currentPrice)}
                       </span>
                     )}
                   </div>

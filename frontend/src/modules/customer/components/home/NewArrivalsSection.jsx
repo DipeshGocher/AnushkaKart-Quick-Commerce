@@ -4,7 +4,7 @@ import { Sparkles, Star, ImageOff } from "lucide-react";
 import { customerApi } from "../../services/customerApi";
 import { applyCloudinaryTransform, isPngImage } from "@/core/utils/imageUtils";
 import { cn } from "@/lib/utils";
-import { getProductUrl } from "@/core/utils/productUrl";
+import { getProductUrl, getProductVariantText, getProductPriceInfo } from "@/core/utils/productUrl";
 import { useTranslation } from "@core/context/LanguageContext";
 import { useDynamicTranslation } from "@/core/hooks/useDynamicTranslation";
 
@@ -161,15 +161,10 @@ const NewArrivalsSection = ({ latitude, longitude }) => {
       <div className="mt-4 grid grid-cols-2 gap-3">
         {displayProducts.map((product) => {
           const id = product.id || product._id;
-          const originalPrice = Number(product.originalPrice) || 0;
-          const currentPrice = Number(product.price) || 0;
-          const hasDiscount = originalPrice > currentPrice && currentPrice > 0;
-          const discountPercent = hasDiscount
-            ? Math.round((1 - currentPrice / originalPrice) * 100)
-            : 0;
+          const { currentPrice, originalPrice, hasDiscount, discountPercent } =
+            getProductPriceInfo(product);
+          const variantText = getProductVariantText(product);
           const image = product.image;
-          const isPng = typeof image === 'string' && (image.toLowerCase().endsWith('.png') || image.toLowerCase().includes('.png?') || image.toLowerCase().includes('/png'));
-          const rating = Number(product.rating) > 0 ? Number(product.rating) : 5.0;
 
           return (
             <Link
@@ -200,26 +195,38 @@ const NewArrivalsSection = ({ latitude, longitude }) => {
                 )}
               </div>
 
-              {/* Product Name (Single line with ellipsis) */}
-              <h4 className="fk-product-title truncate text-[13px] font-semibold text-[#212121] leading-tight mt-1.5 px-0.5 group-hover:text-[#2874f0] transition-colors">
-                {product.name}
-              </h4>
+              {/* Product Info Hierarchy (No gaps between name, variant, and price) */}
+              <div className="flex flex-col mt-1.5 px-0.5 min-w-0">
+                {/* 1. Product Name */}
+                <h4 className="fk-product-title truncate text-[13px] font-semibold text-[#212121] leading-tight group-hover:text-[#2874f0] transition-colors">
+                  {product.name}
+                </h4>
 
-              {/* Price Row: Selling Price, Cut MRP (if discount), and Green % off */}
-              <div className="mt-0.5 px-0.5 flex items-baseline gap-1.5 leading-tight flex-wrap">
-                <span className="fk-product-price text-[13px] font-semibold text-[#212121]">
-                  {formatPrice(currentPrice)}
-                </span>
-                {hasDiscount && (
-                  <span className="fk-product-mrp text-[12px] text-slate-400 line-through font-normal">
-                    {formatPrice(originalPrice)}
-                  </span>
-                )}
-                {hasDiscount && (
-                  <span className="fk-product-discount text-[12px] font-semibold text-[#388e3c]">
-                    {discountPercent}% off
-                  </span>
-                )}
+                {/* 2. Variant */}
+                <p className="text-[11px] font-medium text-slate-500 leading-tight mt-0.5 truncate">
+                  {variantText}
+                </p>
+
+                {/* 3. Price: Discount price, original price with cross line (if discount), else only original price */}
+                <div className="mt-0.5 flex items-baseline gap-1.5 leading-tight flex-wrap">
+                  {hasDiscount ? (
+                    <>
+                      <span className="fk-product-price text-[13px] font-bold text-[#212121]">
+                        {formatPrice(currentPrice)}
+                      </span>
+                      <span className="fk-product-mrp text-[11px] text-slate-400 line-through font-normal">
+                        {formatPrice(originalPrice)}
+                      </span>
+                      <span className="fk-product-discount text-[11px] font-bold text-[#16a34a]">
+                        {discountPercent}% off
+                      </span>
+                    </>
+                  ) : (
+                    <span className="fk-product-price text-[13px] font-bold text-[#212121]">
+                      {formatPrice(originalPrice || currentPrice)}
+                    </span>
+                  )}
+                </div>
               </div>
             </Link>
           );

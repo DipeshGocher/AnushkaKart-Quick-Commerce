@@ -172,6 +172,10 @@ const productSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        isTopDeal: {
+            type: Boolean,
+            default: false,
+        },
         conditionType: {
             type: String,
             enum: ["new", "refurbished"],

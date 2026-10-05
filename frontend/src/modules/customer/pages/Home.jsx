@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation as useRouterLocation } from "react-router-dom";
 import { useInViewAnimation } from "@/core/hooks/useInViewAnimation";
 import { Sparkles, Heart, Snowflake, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -223,6 +223,7 @@ const Home = () => {
   const { currentLocation } = useLocation();
   const { settings } = useSettings();
   const navigate = useNavigate();
+  const routerLocation = useRouterLocation();
   const quickCatsRef = useRef(null);
   const cachedHomePageData = getCachedHomePageData(currentLocation);
 
@@ -247,6 +248,29 @@ const Home = () => {
 
   const [categories, setCategories] = useState(() => cachedHomePageData?.categories || [ALL_CATEGORY]);
   const [activeCategory, setActiveCategory] = useState(() => cachedHomePageData?.activeCategory || ALL_CATEGORY);
+
+  // Reset activeCategory to "All" when Home tab is clicked in BottomNav
+  useEffect(() => {
+    const handleResetHome = () => {
+      const allCat = categories.find((c) => c._id === 'all' || c.id === 'all') || ALL_CATEGORY;
+      setActiveCategory(allCat);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.addEventListener('anushkakart:reset-home-category', handleResetHome);
+    return () => {
+      window.removeEventListener('anushkakart:reset-home-category', handleResetHome);
+    };
+  }, [categories]);
+
+  // Also reset to "All" when navigated from another page with state.resetToAll
+  useEffect(() => {
+    if (routerLocation.state?.resetToAll) {
+      const allCat = categories.find((c) => c._id === 'all' || c.id === 'all') || ALL_CATEGORY;
+      setActiveCategory(allCat);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [routerLocation.state, categories]);
   const [products, setProducts] = useState(() => cachedHomePageData?.products || []);
   const productsRef = useRef(cachedHomePageData?.products || []);
   const [quickCategories, setQuickCategories] = useState(() => cachedHomePageData?.quickCategories || []);
@@ -658,7 +682,12 @@ const Home = () => {
   };
 
   return (
-    <div className="min-h-screen pt-[290px] md:pt-[264px] bg-white">
+    <div
+      className={cn(
+        "min-h-screen bg-white transition-all duration-300",
+        isAllCategorySelected ? "pt-[290px] md:pt-[264px]" : "pt-[100px] md:pt-[106px]"
+      )}
+    >
       <MainLocationHeader categories={displayCategories} activeCategory={activeCategory} onCategorySelect={handleCategorySelect} />
 
       {isLoading ? <PageSkeleton variant="home-content" /> : <motion.div
@@ -687,9 +716,18 @@ const Home = () => {
           }
 
           return (
-            <motion.div ref={heroRef} className="block md:hidden will-change-transform pt-0" style={isMobile ? { opacity: 1 } : { opacity, y, scale, pointerEvents }}>
-              <div className="mx-4 mt-2.5 mb-1 relative z-20">
-                <ExperienceBannerCarousel section={{ title: "" }} items={combinedItems} fullWidth edgeToEdge showDots showContentOverlay={false} />
+            <motion.div ref={heroRef} className="block will-change-transform pt-0" style={isMobile ? { opacity: 1 } : { opacity, y, scale, pointerEvents }}>
+              <div className="w-full mt-2.5 mb-1 relative z-20 overflow-hidden">
+                <ExperienceBannerCarousel
+                  section={{ title: "" }}
+                  items={combinedItems}
+                  fullWidth
+                  edgeToEdge
+                  peekNext={true}
+                  autoPlayInterval={2000}
+                  showDots={false}
+                  showContentOverlay={false}
+                />
               </div>
             </motion.div>
           );

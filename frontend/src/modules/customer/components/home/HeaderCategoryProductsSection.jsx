@@ -1,88 +1,115 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Star, ChevronRight, ImageOff } from "lucide-react";
+import { ImageOff, Package } from "lucide-react";
 import { customerApi } from "../../services/customerApi";
 import { applyCloudinaryTransform, isPngImage } from "@/core/utils/imageUtils";
 import { cn } from "@/lib/utils";
-import { getProductUrl } from "@/core/utils/productUrl";
+import { getProductUrl, getProductVariantText, getProductPriceInfo } from "@/core/utils/productUrl";
 import { useTranslation } from "@core/context/LanguageContext";
 import { useDynamicTranslation } from "@/core/hooks/useDynamicTranslation";
-import groceryBannerImg from "@/assets/grocery_section_banner.jpg";
-import electronicsBannerImg from "@/assets/banners/electronics_section_banner.jpg";
-import mobilesBannerImg from "@/assets/banners/mobiles_section_banner.jpg";
-import beautyBannerImg from "@/assets/banners/beauty_section_banner.jpg";
-import fashionBannerImg from "@/assets/banners/fashion_section_banner.jpg";
-import homeAppliancesBannerImg from "@/assets/banners/home_appliances_section_banner.jpg";
 
-const getCategoryTheme = (headerName = "", headerSlug = "") => {
+// Banners for "All" page header category sections
+import freshGroceryAllBanner from "@/assets/banners/fresh_grocery_all_banner.jpg";
+import electronicsAllBanner from "@/assets/banners/electronics_all_banner.jpg";
+import mobilesAllBanner from "@/assets/banners/mobiles_all_banner.jpg";
+import beautyAllBanner from "@/assets/banners/beauty_all_banner.jpg";
+import fashionAllBanner from "@/assets/banners/fashion_all_banner.jpg";
+import homeAllBanner from "@/assets/banners/home_all_banner.jpg";
+
+/**
+ * Dynamically computes a soft pastel gradient blending from white
+ * into the pastel tint and smoothly back to white, ensuring brand consistency.
+ */
+const hexToPastelGradient = (hexColor) => {
+  if (!hexColor || typeof hexColor !== "string") {
+    return "linear-gradient(180deg, #ffffff 0%, #EEF2F6 14%, #EEF2F6 86%, #ffffff 100%)";
+  }
+  const cleanHex = hexColor.replace("#", "").trim();
+  if (cleanHex.length !== 6 && cleanHex.length !== 3) {
+    return "linear-gradient(180deg, #ffffff 0%, #EEF2F6 14%, #EEF2F6 86%, #ffffff 100%)";
+  }
+  const r = parseInt(cleanHex.length === 3 ? cleanHex[0] + cleanHex[0] : cleanHex.substring(0, 2), 16);
+  const g = parseInt(cleanHex.length === 3 ? cleanHex[1] + cleanHex[1] : cleanHex.substring(2, 4), 16);
+  const b = parseInt(cleanHex.length === 3 ? cleanHex[2] + cleanHex[2] : cleanHex.substring(4, 6), 16);
+
+  if (isNaN(r) || isNaN(g) || isNaN(b)) {
+    return "linear-gradient(180deg, #ffffff 0%, #EEF2F6 14%, #EEF2F6 86%, #ffffff 100%)";
+  }
+
+  // Soft pastel blend: 86% white + 14% color
+  const pastelR = Math.round(255 * 0.86 + r * 0.14);
+  const pastelG = Math.round(255 * 0.86 + g * 0.14);
+  const pastelB = Math.round(255 * 0.86 + b * 0.14);
+  const pastelRgb = `rgb(${pastelR}, ${pastelG}, ${pastelB})`;
+
+  return `linear-gradient(180deg, #ffffff 0%, ${pastelRgb} 14%, ${pastelRgb} 86%, #ffffff 100%)`;
+};
+
+const getHeaderCategoryConfig = (headerName = "", headerSlug = "", headerColor = "", cmsBanner = null) => {
   const text = `${headerName} ${headerSlug}`.toLowerCase();
 
+  // 1. Grocery - Dedicated "All" page Fresh Grocery banner & matching fresh green gradient
   if (/grocer/i.test(text)) {
     return {
-      banner: groceryBannerImg,
-      alt: "Fresh Grocery - Daily Essentials At Your Doorstep",
-      color: "#16a34a", // Vibrant Green matching grocery banner
-      bgGradient: "from-emerald-50 to-green-50",
-      borderColor: "border-emerald-100/70",
+      color: "#15803d",
+      bgGradient: "linear-gradient(180deg, #ffffff 0%, #dcfce7 12%, #d0f7dc 50%, #dcfce7 88%, #ffffff 100%)",
+      banner: freshGroceryAllBanner,
+      bannerAlt: "Fresh Grocery - Daily Essentials At Your Doorstep",
     };
   }
-
+  // 2. Electronics
   if (/electr/i.test(text)) {
     return {
-      banner: electronicsBannerImg,
-      alt: "Smart Electronics - Latest Tech For A Smarter Tomorrow",
-      color: "#7c3aed", // Vibrant Purple matching electronics banner
-      bgGradient: "from-purple-50 to-indigo-50",
-      borderColor: "border-purple-100/70",
+      color: "#7c3aed",
+      bgGradient: "linear-gradient(180deg, #ffffff 0%, #E9D4FD 14%, #E9D4FD 86%, #ffffff 100%)",
+      banner: electronicsAllBanner,
+      bannerAlt: "Smart Electronics - Latest Tech For A Smarter Tomorrow",
     };
   }
-
+  // 3. Mobile
   if (/mobil|phone|smartphon/i.test(text)) {
     return {
-      banner: mobilesBannerImg,
-      alt: "Latest Mobiles - Stay Connected To A Smarter You",
-      color: "#0284c7", // Electric Blue matching mobiles banner
-      bgGradient: "from-sky-50 to-blue-50",
-      borderColor: "border-sky-100/70",
+      color: "#0284c7",
+      bgGradient: "linear-gradient(180deg, #ffffff 0%, #D6EEFE 14%, #D6EEFE 86%, #ffffff 100%)",
+      banner: mobilesAllBanner,
+      bannerAlt: "Latest Mobiles - Stay Connected To A Smarter You",
     };
   }
-
+  // 4. Beauty & Skin
   if (/beaut|cosmetic|skin/i.test(text)) {
     return {
-      banner: beautyBannerImg,
-      alt: "Glow Beauty - Beauty Essentials For A Brighter You",
-      color: "#db2777", // Rich Pink / Magenta matching beauty banner
-      bgGradient: "from-pink-50 to-rose-50",
-      borderColor: "border-pink-100/70",
+      color: "#db2777",
+      bgGradient: "linear-gradient(180deg, #ffffff 0%, #FCD9E0 14%, #FCD9E0 86%, #ffffff 100%)",
+      banner: beautyAllBanner,
+      bannerAlt: "Glow Beauty - Beauty Essentials For A Brighter You",
     };
   }
-
+  // 5. Fashion
   if (/fashion|cloth|apparel/i.test(text)) {
     return {
-      banner: fashionBannerImg,
-      alt: "Trendy Fashion - Style For Every You",
-      color: "#9333ea", // Vibrant Violet / Purple matching fashion banner
-      bgGradient: "from-purple-50 to-fuchsia-50",
-      borderColor: "border-purple-100/70",
+      color: "#9333ea",
+      bgGradient: "linear-gradient(180deg, #ffffff 0%, #EBD8FA 14%, #EBD8FA 86%, #ffffff 100%)",
+      banner: fashionAllBanner,
+      bannerAlt: "Trendy Fashion - Style For Every You",
     };
   }
-
+  // 6. Home Appliances / Kitchen
   if (/home|appliance|kitchen/i.test(text)) {
     return {
-      banner: homeAppliancesBannerImg,
-      alt: "Make it Home - Everyday Essentials For A Better Living",
-      color: "#d97706", // Warm Amber matching home banner
-      bgGradient: "from-amber-50 to-orange-50",
-      borderColor: "border-amber-100/70",
+      color: "#d97706",
+      bgGradient: "linear-gradient(180deg, #ffffff 0%, #F4ECE1 14%, #F4ECE1 86%, #ffffff 100%)",
+      banner: homeAllBanner,
+      bannerAlt: "Make it Home - Everyday Essentials For A Better Living",
     };
   }
 
+  // Dynamic config for any future category created via Admin Panel
+  const dynamicColor = headerColor || "#2563eb";
   return {
-    banner: null,
-    alt: headerName,
-    color: "#2874f0",
-    bgGradient: "from-blue-50 to-indigo-50",
-    borderColor: "border-blue-100/70",
+    color: dynamicColor,
+    bgGradient: hexToPastelGradient(dynamicColor),
+    banner: cmsBanner || null,
+    bannerAlt: headerName,
   };
 };
 
@@ -107,7 +134,7 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
     const fetchHeaderProducts = async () => {
       setIsLoading(true);
       try {
-        const params = { limit: 12 };
+        const params = { limit: 16 };
         if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
           params.lat = latitude;
           params.lng = longitude;
@@ -124,12 +151,12 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
           : [];
 
         if (!cancelled) {
-          // Keep only sections with at least 1 product, up to 12 products per section
+          // Keep all active header sections in order (without filtering out empty ones)
           const valid = items
-            .filter((s) => s?.products && s.products.length > 0)
+            .filter((s) => s?.header)
             .map((s) => ({
               ...s,
-              products: s.products.slice(0, 12),
+              products: Array.isArray(s.products) ? s.products.slice(0, 16) : [],
             }));
           setSections(valid);
           setDisplaySections(valid);
@@ -166,44 +193,62 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
       try {
         const translated = await Promise.all(
           sections.map(async (sec) => {
-            const txHeader = await translateObject([sec.header], ["name"]);
-            const txProds = await translateObject(sec.products, ["name", "weight"]);
+            const headerName = sec.header?.name || "";
+            const translatedHeaderName = await translateObject(
+              headerName,
+              language
+            );
+
+            const translatedProducts = await Promise.all(
+              (sec.products || []).map(async (p) => {
+                const name = await translateObject(p.name, language);
+                return { ...p, name: name || p.name };
+              })
+            );
+
             return {
               ...sec,
-              header: txHeader[0] || sec.header,
-              products: txProds || sec.products,
+              header: {
+                ...sec.header,
+                name: translatedHeaderName || headerName,
+              },
+              products: translatedProducts,
             };
           })
         );
+
         if (isMounted) {
           setDisplaySections(translated);
         }
-      } catch (err) {
-        if (isMounted) setDisplaySections(sections);
+      } catch (e) {
+        if (isMounted) {
+          setDisplaySections(sections);
+        }
       }
     };
 
     translateSections();
+
     return () => {
       isMounted = false;
     };
-  }, [language, sections]);
+  }, [language, sections, translateObject]);
 
   if (isLoading && sections.length === 0) {
     return (
-      <div className="w-full py-4 space-y-6">
-        {[1, 2].map((placeholderKey) => (
-          <div key={placeholderKey} className="px-4">
-            <div className="h-6 w-36 bg-slate-200 animate-pulse rounded-md mb-3" />
-            <div className="grid grid-cols-2 gap-3">
-              {[1, 2].map((cardKey) => (
-                <div key={cardKey} className="flex flex-col">
-                  <div className="aspect-square w-full rounded-[18px] bg-white p-3 shadow-xs border border-slate-100 flex items-center justify-center">
-                    <div className="w-full h-full bg-slate-100 animate-pulse rounded-[12px]" />
-                  </div>
-                  <div className="mt-2 px-0.5 h-4 bg-slate-200/80 animate-pulse rounded-md w-3/4" />
-                  <div className="mt-1 px-0.5 h-4 bg-slate-200/80 animate-pulse rounded-md w-1/2" />
-                </div>
+      <div className="w-full mt-4 space-y-6">
+        {[0, 1].map((idx) => (
+          <div key={idx} className="w-full py-6 px-4">
+            <div className="flex items-center mb-3.5">
+              <div className="h-5 w-32 bg-slate-200/80 rounded animate-pulse" />
+            </div>
+            <div className="w-full h-32 rounded-2xl bg-slate-200/70 animate-pulse mb-3" />
+            <div className="flex gap-3 overflow-hidden">
+              {[0, 1, 2, 3].map((pIdx) => (
+                <div
+                  key={pIdx}
+                  className="w-[140px] shrink-0 h-44 bg-white rounded-2xl animate-pulse"
+                />
               ))}
             </div>
           </div>
@@ -217,149 +262,207 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
   }
 
   return (
-    <div className="w-full mt-4 md:mt-5">
+    <div className="w-full mt-2">
       {displaySections.map((section) => {
         const header = section.header;
         const products = section.products || [];
         const headerId = header?._id || header?.id;
         const headerName = header?.name || "Category";
-        const theme = getCategoryTheme(headerName, header?.slug || "");
-        const displayProducts = products.slice(0, 12);
+        const config = getHeaderCategoryConfig(
+          headerName,
+          header?.slug || "",
+          header?.headerColor || "",
+          header?.banner || null
+        );
+        const displayProducts = products.slice(0, 16);
 
         return (
           <div key={headerId || headerName} className="w-full">
             <section
-              className="w-full mb-6 pt-1"
-              aria-label={headerName + ' products'}
+              className="w-full py-7 my-2 transition-colors select-none"
+              style={{
+                background: config.bgGradient,
+              }}
+              aria-label={headerName + " products"}
             >
-              {/* Header Category Name & See All */}
-              <div className="flex items-center justify-between px-4 mb-3">
-                <div className="flex items-center gap-2">
+              <div className="max-w-7xl mx-auto">
+                {/* Header Category Name (Select all / See All button removed as requested) */}
+                <div className="flex items-center gap-2 px-4 mb-3">
                   <div
                     className="w-1.5 h-5 rounded-full transition-colors"
-                    style={{ backgroundColor: theme.color }}
+                    style={{ backgroundColor: config.color }}
                   />
-                  <h2 className="fk-section-heading">
-                    {headerName}
-                  </h2>
+                  <h2 className="fk-section-heading">{headerName}</h2>
                 </div>
-                {headerId && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      window.scrollTo(0, 0);
-                      navigate('/category/' + headerId);
-                    }}
-                    className="flex items-center gap-0.5 text-[13px] font-bold active:opacity-75 transition-opacity"
-                    style={{ color: theme.color }}
-                  >
-                    <span>See All</span>
-                    <ChevronRight size={14} className="stroke-[2.5]" style={{ color: theme.color }} />
-                  </button>
+
+                {/* Category Banner (Used specifically on "All" home page) */}
+                {config.banner ? (
+                  <div className="px-4 mb-3.5">
+                    <div
+                      onClick={() => {
+                        if (headerId) {
+                          window.scrollTo(0, 0);
+                          navigate("/category/" + headerId);
+                        }
+                      }}
+                      className="w-full overflow-hidden rounded-2xl shadow-[0_4px_16px_rgba(0,0,0,0.06)] border border-white/60 cursor-pointer active:scale-[0.99] transition-transform"
+                    >
+                      <img
+                        src={config.banner}
+                        alt={config.bannerAlt}
+                        className="w-full h-auto object-cover block"
+                        loading="lazy"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  /* Banner Unavailable Placeholder Div (allows setting banner from Admin CMS) */
+                  <div className="px-4 mb-3.5">
+                    <div
+                      onClick={() => {
+                        if (headerId) {
+                          window.scrollTo(0, 0);
+                          navigate("/category/" + headerId);
+                        }
+                      }}
+                      className="group relative w-full overflow-hidden rounded-2xl border-2 border-dashed border-slate-300/80 bg-white/70 backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.03)] cursor-pointer hover:border-slate-400/80 hover:bg-white/90 transition-all p-5 flex flex-col sm:flex-row items-center justify-center gap-3 text-center sm:text-left min-h-[105px] active:scale-[0.99]"
+                    >
+                      <div
+                        className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover:scale-105"
+                        style={{
+                          backgroundColor: `${config.color}15`,
+                          color: config.color,
+                        }}
+                      >
+                        <ImageOff size={22} className="stroke-[2]" />
+                      </div>
+                      <div className="flex flex-col">
+                        <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+                          <span className="text-[14px] font-bold text-slate-800">
+                            Banner Unavailable
+                          </span>
+                          <span
+                            className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                            style={{
+                              backgroundColor: `${config.color}18`,
+                              color: config.color,
+                            }}
+                          >
+                            {headerName}
+                          </span>
+                        </div>
+                        <p className="text-[12px] font-medium text-slate-500 mt-0.5">
+                          Set promotional banner from Admin CMS
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Products Row or Placeholder for empty products */}
+                {displayProducts.length > 0 ? (
+                  <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory px-4 pb-2">
+                    {displayProducts.map((product) => {
+                      const id = product._id || product.id;
+                      const { currentPrice, originalPrice, hasDiscount, discountPercent } =
+                        getProductPriceInfo(product);
+                      const variantText = getProductVariantText(product);
+                      const image =
+                        product.image ||
+                        product.mainImage ||
+                        product.variants?.[0]?.images?.[0];
+
+                      return (
+                        <Link
+                          key={id}
+                          to={getProductUrl(product)}
+                          className="group flex flex-col bg-white rounded-2xl p-2.5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-white hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-all active:scale-[0.98] w-[140px] min-w-[140px] sm:w-[160px] sm:min-w-[160px] shrink-0 snap-start"
+                        >
+                          {/* Clean Full Cover Image Container */}
+                          <div className="customer-product-clean-image relative aspect-square w-full rounded-xl bg-[#f8f9fa] p-1 flex items-center justify-center overflow-hidden">
+                            {image ? (
+                              <img
+                                src={applyCloudinaryTransform(
+                                  image,
+                                  "f_auto,q_auto,w_400"
+                                )}
+                                alt={product.name}
+                                loading="lazy"
+                                className={cn(
+                                  "w-full h-full transition-transform duration-300 group-hover:scale-105",
+                                  isPngImage(image)
+                                    ? "is-png-image object-contain p-0.5"
+                                    : "is-normal-image object-cover p-0"
+                                )}
+                              />
+                            ) : (
+                              <ImageOff
+                                size={28}
+                                className="text-slate-300"
+                                aria-hidden="true"
+                              />
+                            )}
+                          </div>
+
+                          {/* Product Text Hierarchy (No gaps between name, variant, and price) */}
+                          <div className="flex flex-col mt-1.5 px-0.5 min-w-0">
+                            {/* 1. Product Name */}
+                            <h4 className="fk-product-title truncate text-[13px] font-semibold text-[#212121] leading-tight group-hover:text-blue-600 transition-colors">
+                              {product.name}
+                            </h4>
+
+                            {/* 2. Variant (e.g. 1kg, 128 GB, 500GM, 1 Piece, 1 combo etc.) */}
+                            <p className="text-[11px] font-medium text-slate-500 leading-tight mt-0.5 truncate">
+                              {variantText}
+                            </p>
+
+                            {/* 3. Price: Discount price, original price with cross line (if discount), else only original price */}
+                            <div className="mt-0.5 flex items-baseline gap-1.5 leading-tight flex-wrap">
+                              {hasDiscount ? (
+                                <>
+                                  <span className="fk-product-price text-[13px] font-bold text-[#212121]">
+                                    {formatPrice(currentPrice)}
+                                  </span>
+                                  <span className="fk-product-mrp text-[11px] text-slate-400 line-through font-normal">
+                                    {formatPrice(originalPrice)}
+                                  </span>
+                                  <span className="fk-product-discount text-[11px] font-bold text-[#16a34a]">
+                                    {discountPercent}% off
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="fk-product-price text-[13px] font-bold text-[#212121]">
+                                  {formatPrice(originalPrice || currentPrice)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  /* Placeholder when no products are in category yet (auto-populates when products added) */
+                  <div className="mx-4 mb-2 py-6 px-4 bg-white/60 backdrop-blur-sm rounded-2xl border border-dashed border-slate-200/90 text-center flex flex-col items-center justify-center gap-1.5 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center mb-0.5"
+                      style={{
+                        backgroundColor: `${config.color}14`,
+                        color: config.color,
+                      }}
+                    >
+                      <Package size={20} className="stroke-[2]" />
+                    </div>
+                    <p className="text-[13px] font-semibold text-slate-700">
+                      No products added yet in {headerName}
+                    </p>
+                    <p className="text-[11px] text-slate-400 max-w-xs">
+                      Products added to this category will automatically start appearing here
+                    </p>
+                  </div>
                 )}
               </div>
-
-              {/* Category Section Banner - Helps customer identify category section */}
-              {theme.banner && (
-                <div className="px-4 mb-3.5">
-                  <div
-                    onClick={() => {
-                      if (headerId) {
-                        window.scrollTo(0, 0);
-                        navigate('/category/' + headerId);
-                      }
-                    }}
-                    className={`w-full overflow-hidden rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] border ${theme.borderColor} bg-gradient-to-r ${theme.bgGradient} cursor-pointer active:scale-[0.99] transition-transform`}
-                  >
-                    <img
-                      src={theme.banner}
-                      alt={theme.alt}
-                      className="w-full h-auto object-cover block"
-                      loading="lazy"
-                    />
-                  </div>
-                </div>
-              )}
-
-            {/* 2 Products in a row (Grid cols 2) */}
-            <div className="grid grid-cols-2 gap-3 px-4">
-              {displayProducts.map((product) => {
-                const id = product._id || product.id;
-                const originalPrice =
-                  Number(product.originalPrice ?? product.price) || 0;
-                const currentPrice = Number(product.price) || 0;
-                const hasDiscount =
-                  originalPrice > currentPrice && currentPrice > 0;
-                const discountPercent = hasDiscount
-                  ? Math.round((1 - currentPrice / originalPrice) * 100)
-                  : 0;
-                const image =
-                  product.image ||
-                  product.mainImage ||
-                  product.variants?.[0]?.images?.[0];
-                const rating =
-                  Number(product.rating) > 0 ? Number(product.rating) : 5.0;
-
-                const isPng = typeof image === 'string' && (image.toLowerCase().endsWith('.png') || image.toLowerCase().includes('.png?') || image.toLowerCase().includes('/png'));
-
-                return (
-                  <Link
-                    key={id}
-                    to={getProductUrl(product)}
-                    className="group flex flex-col active:scale-[0.98] transition-transform"
-                  >
-                    {/* Clean Full Cover Image Container with visible off-white / grey background and border */}
-                    <div className="customer-product-clean-image relative aspect-square w-full rounded-2xl bg-[#f1f3f6] border border-[#e0e3e8] p-0 flex items-center justify-center overflow-hidden shadow-2xs">
-                      {image ? (
-                        <img
-                          src={applyCloudinaryTransform(
-                            image,
-                            "f_auto,q_auto,w_400"
-                          )}
-                          alt={product.name}
-                          loading="lazy"
-                          className={cn(
-                            "w-full h-full transition-transform duration-300 group-hover:scale-105",
-                            isPngImage(image)
-                              ? "is-png-image object-contain p-1"
-                              : "is-normal-image object-cover p-0"
-                          )}
-                        />
-                      ) : (
-                        <ImageOff
-                          size={28}
-                          className="text-slate-300"
-                          aria-hidden="true"
-                        />
-                      )}
-                    </div>
-
-                    {/* Product Name (Single line with ellipsis) */}
-                    <h4 className="fk-product-title truncate text-[13px] font-semibold text-[#212121] leading-tight mt-1.5 px-0.5 group-hover:text-[#2874f0] transition-colors">
-                      {product.name}
-                    </h4>
-
-                    {/* Price Row: Selling Price, Cut MRP (if discount), and Green % off */}
-                    <div className="mt-0.5 px-0.5 flex items-baseline gap-1.5 leading-tight flex-wrap">
-                      <span className="fk-product-price text-[13px] font-semibold text-[#212121]">
-                        {formatPrice(currentPrice)}
-                      </span>
-                      {hasDiscount && (
-                        <span className="fk-product-mrp text-[12px] text-slate-400 line-through font-normal">
-                          {formatPrice(originalPrice)}
-                        </span>
-                      )}
-                      {hasDiscount && (
-                        <span className="fk-product-discount text-[12px] font-semibold text-[#388e3c]">
-                          {discountPercent}% off
-                        </span>
-                      )}
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
+            </section>
           </div>
         );
       })}

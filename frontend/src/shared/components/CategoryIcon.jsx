@@ -5,15 +5,15 @@ import {
 } from '../constants/fontAwesomeCategoryIcons';
 import { Image } from 'lucide-react';
 
-const CategoryIcon = ({ iconId, imageUrl, alt = 'Category', className = 'w-6 h-6', fallbackClassName = 'w-5 h-5' }) => {
+const CategoryIcon = ({ iconId, imageUrl, alt = 'Category', className = 'w-6 h-6', fallbackClassName = 'w-5 h-5', style }) => {
   const iconMarkup = getFontAwesomeIconMarkup(iconId);
   if (iconMarkup) {
-    return <span aria-hidden="true" className={className + " text-black [&_svg]:h-full [&_svg]:w-full"} dangerouslySetInnerHTML={{ __html: iconMarkup }} />;
+    return <span aria-hidden="true" style={style} className={`${className} [&_svg]:h-full [&_svg]:w-full`} dangerouslySetInnerHTML={{ __html: iconMarkup }} />;
   }
 
   const FontAwesomeIcon = resolveFontAwesomeCategoryIcon(iconId, alt);
   if (FontAwesomeIcon) {
-    return <FontAwesomeIcon aria-hidden="true" className={className + " text-black"} />;
+    return <FontAwesomeIcon aria-hidden="true" style={style} className={className} />;
   }
 
   if (imageUrl) {
@@ -21,12 +21,13 @@ const CategoryIcon = ({ iconId, imageUrl, alt = 'Category', className = 'w-6 h-6
       <img
         src={imageUrl}
         alt={alt}
+        style={style}
         className={`${className} object-cover`}
       />
     );
   }
 
-  return <Image className={`${fallbackClassName} text-gray-400`} />;
+  return <Image style={style} className={`${fallbackClassName} text-gray-400`} />;
 };
 
 export default CategoryIcon;

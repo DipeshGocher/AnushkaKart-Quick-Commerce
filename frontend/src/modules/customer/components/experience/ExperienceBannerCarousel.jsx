@@ -12,7 +12,17 @@ import { isMobileOrWebView } from "@/core/utils/deviceUtils";
 
 const BANNER_CHUNK_SIZE = 20;
 
-const ExperienceBannerCarousel = ({ section, items, fullWidth = false, slideGap = 0, edgeToEdge = false, showDots = false, showContentOverlay = true }) => {
+const ExperienceBannerCarousel = ({
+  section,
+  items,
+  fullWidth = false,
+  slideGap = 12,
+  edgeToEdge = false,
+  showDots = false,
+  showContentOverlay = true,
+  peekNext = true,
+  autoPlayInterval = 2000,
+}) => {
   const navigate = useNavigate();
   const [activeIndex, setActiveIndex] = React.useState(0);
   const [visibleCount, setVisibleCount] = React.useState(() =>
@@ -22,6 +32,10 @@ const ExperienceBannerCarousel = ({ section, items, fullWidth = false, slideGap 
   const totalItems = visibleItems.length;
   const currentSlideIsVideo = Boolean(visibleItems[activeIndex]?.isVideo);
   const containerRef = React.useRef(null);
+  const cardRef = React.useRef(null);
+  const [cardStep, setCardStep] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const resumeTimeoutRef = React.useRef(null);
   const hasMore = visibleCount < items.length;
 
   const loadMore = React.useCallback(() => {
@@ -33,20 +47,41 @@ const ExperienceBannerCarousel = ({ section, items, fullWidth = false, slideGap 
     setActiveIndex(0);
   }, [items.length]);
 
-  // Auto-play logic
-  React.useEffect(() => {
-    if (totalItems <= 1) return;
+  const measureCardStep = React.useCallback(() => {
+    if (cardRef.current) {
+      setCardStep(cardRef.current.offsetWidth + slideGap);
+    }
+  }, [slideGap]);
 
-    // If current slide is video, do not auto-advance with setInterval. 
-    // The video's onEnded event will handle it.
-    if (currentSlideIsVideo) return;
+  React.useEffect(() => {
+    measureCardStep();
+    window.addEventListener("resize", measureCardStep);
+    return () => window.removeEventListener("resize", measureCardStep);
+  }, [measureCardStep, visibleItems.length]);
+
+  // Pause on user interaction and resume after delay
+  const pauseAutoPlay = () => {
+    setIsPaused(true);
+    if (resumeTimeoutRef.current) clearTimeout(resumeTimeoutRef.current);
+  };
+
+  const resumeAutoPlay = () => {
+    if (resumeTimeoutRef.current) clearTimeout(resumeTimeoutRef.current);
+    resumeTimeoutRef.current = setTimeout(() => {
+      setIsPaused(false);
+    }, 2000);
+  };
+
+  // Auto-play logic: swipe right to left every 2 seconds
+  React.useEffect(() => {
+    if (totalItems <= 1 || currentSlideIsVideo || isPaused) return;
 
     const intervalId = setInterval(() => {
       setActiveIndex((prev) => (prev + 1) % totalItems);
-    }, 4500);
+    }, autoPlayInterval);
 
     return () => clearInterval(intervalId);
-  }, [totalItems, activeIndex, currentSlideIsVideo]);
+  }, [totalItems, activeIndex, currentSlideIsVideo, isPaused, autoPlayInterval]);
 
   React.useEffect(() => {
     if (!hasMore) return;
@@ -56,13 +91,14 @@ const ExperienceBannerCarousel = ({ section, items, fullWidth = false, slideGap 
   }, [activeIndex, totalItems, hasMore, loadMore]);
 
   const handleDragEnd = (_, info) => {
-    const threshold = 50;
+    resumeAutoPlay();
+    const threshold = 35;
     if (info.offset.x < -threshold) {
       // Swipe left -> Next
-      setActiveIndex((prev) => Math.min(prev + 1, totalItems - 1));
+      setActiveIndex((prev) => (prev + 1) % totalItems);
     } else if (info.offset.x > threshold) {
       // Swipe right -> Prev
-      setActiveIndex((prev) => Math.max(prev - 1, 0));
+      setActiveIndex((prev) => (prev - 1 + totalItems) % totalItems);
     }
   };
 
@@ -117,115 +153,117 @@ const ExperienceBannerCarousel = ({ section, items, fullWidth = false, slideGap 
   if (!items.length) return null;
 
   return (
-    <div className="w-full">
-      <div className={cn("overflow-hidden touch-pan-y", fullWidth && "rounded-[20px] shadow-md")}>
-      <motion.div
-        ref={containerRef}
-        drag="x"
-        dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={0.2}
-        onDragEnd={handleDragEnd}
-        animate={{ x: `-${(activeIndex / totalItems) * 100}%` }}
-        transition={isMobileOrWebView() ? { type: "tween", ease: "easeInOut", duration: 0.3 } : { type: "spring", stiffness: 300, damping: 30 }}
-        className="flex"
-        style={{ width: `${totalItems * 100}%` }}
-      >
-        {visibleItems.map((banner, idx) => (
-          <div
-            key={idx}
-            onClick={() => handleBannerClick(banner)}
-            className={cn(
-              "relative shrink-0 overflow-hidden bg-slate-100 flex items-center justify-center box-border cursor-pointer",
-              fullWidth ? "aspect-[2/1] sm:aspect-[21/9] rounded-none px-0" : "px-4 md:px-8 py-4 sm:py-6"
-            )}
-            style={{ width: `${100 / totalItems}%` }}
-          >
-            {banner.isVideo ? (
-              <video
-                ref={(el) => {
-                  if (el) {
-                    if (activeIndex === idx) el.play().catch(() => {});
-                    else el.pause();
-                  }
-                }}
-                src={banner.videoUrl}
-                muted
-                playsInline
-                className={cn(
-                  "w-full h-full object-cover object-center pointer-events-none",
-                  !fullWidth && "rounded-[24px] max-w-[960px] aspect-[2/1] sm:aspect-[21/9] shadow-[0_12px_30px_rgba(15,23,42,0.08)]"
-                )}
-                onEnded={() => {
-                  setActiveIndex((prev) => (prev + 1) % totalItems);
-                }}
-              />
-            ) : fullWidth ? (
-              <img
-                src={getBannerOptimizedSrc(banner.imageUrl)}
-                srcSet={
-                  isCloudinaryUrl(banner.imageUrl)
-                    ? buildCloudinarySrcSet(
-                        banner.imageUrl,
-                        [{ w: 412 }, { w: 824 }, { w: 1248 }],
-                        "f_auto,q_auto,c_scale"
-                      )
-                    : undefined
-                }
-                sizes="100vw"
-                alt={banner.title || section?.title || "Banner"}
-                className="w-full h-full object-cover object-center pointer-events-none"
-                loading={idx === 0 ? "eager" : "lazy"}
-                fetchPriority={idx === 0 ? "high" : "low"}
-                decoding="async"
-              />
-            ) : (
-              <div className="w-full max-w-[960px] aspect-[2/1] sm:aspect-[21/9] overflow-hidden rounded-[24px] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
+    <div
+      className="w-full select-none"
+      onMouseEnter={pauseAutoPlay}
+      onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={pauseAutoPlay}
+      onTouchEnd={resumeAutoPlay}
+    >
+      <div className="w-full overflow-hidden touch-pan-y pl-3.5 sm:pl-4 md:pl-6">
+        <motion.div
+          ref={containerRef}
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.15}
+          onDragStart={pauseAutoPlay}
+          onDragEnd={handleDragEnd}
+          animate={{ x: cardStep ? -(activeIndex * cardStep) : `-${(activeIndex / totalItems) * 100}%` }}
+          transition={
+            isMobileOrWebView()
+              ? { type: "spring", stiffness: 320, damping: 32, mass: 0.8 }
+              : { type: "spring", stiffness: 280, damping: 28 }
+          }
+          className="flex"
+          style={{ width: "max-content", columnGap: `${slideGap}px` }}
+        >
+          {visibleItems.map((banner, idx) => (
+            <div
+              ref={idx === 0 ? cardRef : null}
+              key={idx}
+              onClick={() => handleBannerClick(banner)}
+              className={cn(
+                "relative shrink-0 overflow-hidden rounded-2xl bg-slate-100 flex items-center justify-center cursor-pointer shadow-[0_4px_16px_rgba(0,0,0,0.06)] border border-slate-100/80 transition-shadow",
+                peekNext
+                  ? "w-[84vw] sm:w-[80vw] md:w-[68vw] lg:w-[60vw] max-w-[820px] aspect-[1.95/1] sm:aspect-[2.1/1] md:aspect-[2.3/1]"
+                  : fullWidth
+                  ? "w-[90vw] aspect-[2/1] sm:aspect-[21/9]"
+                  : "w-[85vw] max-w-[960px] aspect-[2/1] sm:aspect-[21/9]"
+              )}
+            >
+              {banner.isVideo ? (
+                <video
+                  ref={(el) => {
+                    if (el) {
+                      if (activeIndex === idx) el.play().catch(() => {});
+                      else el.pause();
+                    }
+                  }}
+                  src={banner.videoUrl}
+                  muted
+                  playsInline
+                  autoPlay={activeIndex === idx}
+                  className="w-full h-full object-cover object-center pointer-events-none"
+                  onEnded={() => {
+                    setActiveIndex((prev) => (prev + 1) % totalItems);
+                  }}
+                />
+              ) : (
                 <img
                   src={getBannerOptimizedSrc(banner.imageUrl)}
                   srcSet={
                     isCloudinaryUrl(banner.imageUrl)
                       ? buildCloudinarySrcSet(
                           banner.imageUrl,
-                          [{ w: 560 }, { w: 960 }, { w: 1200 }],
+                          [{ w: 412 }, { w: 824 }, { w: 1248 }],
                           "f_auto,q_auto,c_scale"
                         )
                       : undefined
                   }
-                  sizes="(max-width: 768px) 100vw, 560px"
+                  sizes="(max-width: 768px) 85vw, 820px"
                   alt={banner.title || section?.title || "Banner"}
                   className="w-full h-full object-cover object-center pointer-events-none"
                   loading={idx === 0 ? "eager" : "lazy"}
                   fetchPriority={idx === 0 ? "high" : "low"}
                   decoding="async"
                 />
-              </div>
-            )}
-            
-            {/* Title & Subtitle Overlay */}
-            {showContentOverlay && (banner.title || banner.subtitle) && (
-              <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/70 via-black/20 to-transparent p-6 sm:p-8 md:p-10 pointer-events-none">
-                {banner.title && <h3 className="text-white font-black text-xl sm:text-2xl md:text-3xl drop-shadow-md">{banner.title}</h3>}
-                {banner.subtitle && <p className="text-white/90 font-medium text-sm sm:text-base md:text-lg mt-1.5 drop-shadow-md">{banner.subtitle}</p>}
-              </div>
-            )}
-          </div>
-        ))}
-      </motion.div>
+              )}
+
+              {/* Title & Subtitle Overlay */}
+              {showContentOverlay && (banner.title || banner.subtitle) && (
+                <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/70 via-black/20 to-transparent p-5 sm:p-7 pointer-events-none">
+                  {banner.title && (
+                    <h3 className="text-white font-black text-lg sm:text-2xl drop-shadow-md">
+                      {banner.title}
+                    </h3>
+                  )}
+                  {banner.subtitle && (
+                    <p className="text-white/90 font-medium text-xs sm:text-base mt-1 drop-shadow-md">
+                      {banner.subtitle}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </motion.div>
       </div>
-      {showDots && fullWidth && totalItems > 1 && (
-        <div className="mt-1.5 flex items-center justify-center gap-1.5 rounded-b-[20px] bg-white px-2 py-1.5" role="tablist" aria-label="Home banners">
-          {visibleItems.map((item, index) => (
+
+      {showDots && totalItems > 1 && (
+        <div className="mt-2.5 flex items-center justify-center gap-1.5" role="tablist" aria-label="Home banners">
+          {visibleItems.map((_, index) => (
             <button
-              key={`${item.imageUrl || item.videoUrl || 'banner'}-${index}`}
+              key={index}
               type="button"
               onClick={() => setActiveIndex(index)}
-              className="relative h-1.5 w-5 overflow-hidden rounded-full bg-slate-300"
+              className={cn(
+                "h-1.5 rounded-full transition-all duration-300 cursor-pointer",
+                index === activeIndex ? "w-5 bg-slate-800" : "w-1.5 bg-slate-300"
+              )}
               aria-label={`Show banner ${index + 1}`}
               aria-selected={index === activeIndex}
               role="tab"
-            >
-              <span className={`absolute inset-y-0 left-0 rounded-full bg-[#222] ${index === activeIndex ? currentSlideIsVideo ? 'w-full' : 'home-banner-dot-progress' : 'w-0'}`} />
-            </button>
+            />
           ))}
         </div>
       )}

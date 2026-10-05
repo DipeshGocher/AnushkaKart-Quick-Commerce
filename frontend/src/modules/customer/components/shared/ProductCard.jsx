@@ -7,7 +7,7 @@ import { useCart } from "../../context/CartContext";
 import { useToast } from "@shared/components/ui/Toast";
 import { useCartAnimation } from "../../context/CartAnimationContext";
 import { applyCloudinaryTransform, isPngImage } from "@/core/utils/imageUtils";
-import { getProductUrl } from "@/core/utils/productUrl";
+import { getProductUrl, getProductVariantText } from "@/core/utils/productUrl";
 import { motion, AnimatePresence } from "framer-motion";
 import { useProductDetail } from "../../context/ProductDetailContext";
 import ParticleBurst from "./ParticleBurst";
@@ -290,48 +290,49 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
 
         {/* Content Box */}
         <div className={cn("flex flex-col flex-1 mt-1", layout === "list" && "mt-0")}>
-          {/* Title & Weight */}
-          <div>
-            <h4 className={cn(
-              "font-semibold text-[#212121] leading-tight truncate transition-colors",
-              "group-hover:text-[#2875E8]",
-              compact ? "text-[11px] sm:text-xs" : "text-xs sm:text-sm"
-            )}>
-              {product.name}
-            </h4>
-            <div className="flex items-center gap-1 mt-0.5">
-              <p className={cn("font-semibold text-slate-500", compact ? "text-[10px]" : "text-[11px]")}>
-                {defaultVariant?.name || product.weight || "1 unit"}
-              </p>
-              {Array.isArray(product?.variants) && product.variants.length > 1 && (
-                <span className="text-[8.5px] bg-[#EEF2FF] text-[#1E3A8A] border border-[#C7D2FE] px-1 py-0.2 rounded-full font-black">
-                  +{product.variants.length - 1} {product.variants.length - 1 === 1 ? 'variant' : 'variants'}
-                </span>
-              )}
-            </div>
-            {/* Seller / Warehouse Name */}
-            {(product.sellerId?.shopName || product.warehouseId?.name) && !compact && (
-              <div className="flex items-center gap-1 mt-1 text-[10px] text-slate-500 font-medium line-clamp-1">
-                {product.sellerId?.shopName ? (
-                  <><Store size={10} className="shrink-0 text-slate-400" /> <span className="truncate">{product.sellerId.shopName}</span></>
-                ) : (
-                  <><Building2 size={10} className="shrink-0 text-slate-400" /> <span className="truncate">{product.warehouseId?.name}</span></>
-                )}
-              </div>
+          {/* 1. Product Name */}
+          <h4 className={cn(
+            "font-semibold text-[#212121] leading-tight truncate transition-colors",
+            "group-hover:text-[#2875E8]",
+            compact ? "text-[11px] sm:text-xs" : "text-xs sm:text-sm"
+          )}>
+            {product.name}
+          </h4>
+
+          {/* 2. Variant */}
+          <div className="flex items-center gap-1 mt-0.5 leading-tight">
+            <p className={cn("font-medium text-slate-500 truncate leading-tight", compact ? "text-[10px]" : "text-[11px]")}>
+              {getProductVariantText(product)}
+            </p>
+            {Array.isArray(product?.variants) && product.variants.length > 1 && (
+              <span className="text-[8.5px] bg-[#EEF2FF] text-[#1E3A8A] border border-[#C7D2FE] px-1 py-0.2 rounded-full font-black shrink-0">
+                +{product.variants.length - 1} {product.variants.length - 1 === 1 ? 'variant' : 'variants'}
+              </span>
             )}
           </div>
 
-          {/* Bottom Price & ADD Button Section (Structured: Price on top, ADD button below) */}
-          <div className="mt-auto pt-1 flex flex-col justify-end">
-            {/* Price Line */}
-            <div className="flex items-center gap-1 flex-wrap">
+          {/* Seller / Warehouse Name */}
+          {(product.sellerId?.shopName || product.warehouseId?.name) && !compact && (
+            <div className="flex items-center gap-1 mt-0.5 text-[10px] text-slate-400 font-medium line-clamp-1 leading-tight">
+              {product.sellerId?.shopName ? (
+                <><Store size={10} className="shrink-0 text-slate-400" /> <span className="truncate">{product.sellerId.shopName}</span></>
+              ) : (
+                <><Building2 size={10} className="shrink-0 text-slate-400" /> <span className="truncate">{product.warehouseId?.name}</span></>
+              )}
+            </div>
+          )}
+
+          {/* 3. Price & ADD Button Section (Directly below variant with zero awkward gap) */}
+          <div className="mt-1 flex flex-col">
+            {/* Price Line: Discount price, original price with cross line (if discount), else only original price */}
+            <div className="flex items-center gap-1 flex-wrap leading-tight">
               <span className={cn(
                 "font-semibold text-[#212121] leading-tight",
                 compact ? "text-xs sm:text-sm" : "text-[13.5px] sm:text-[15.5px]"
               )}>
                 ₹{product.price}
               </span>
-              {product.originalPrice > product.price && (
+              {Number(product.originalPrice) > Number(product.price) && (
                 <span className={cn(
                   "text-slate-400 line-through font-bold leading-none",
                   compact ? "text-[9px]" : "text-[10px]"
@@ -339,7 +340,7 @@ const ProductCard = ({ product, badge, className, compact = false, neutralBg = f
                   ₹{product.originalPrice}
                 </span>
               )}
-            {product.originalPrice > product.price && Number(product.originalPrice) > 0 && (
+              {Number(product.originalPrice) > Number(product.price) && Number(product.originalPrice) > 0 && (
                 <span className="text-[#388e3c] font-semibold text-[11px] leading-tight">
                   {Math.round(((Number(product.originalPrice) - Number(product.price)) / Number(product.originalPrice)) * 100)}% off
                 </span>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import LocationDrawer from "./LocationDrawer";
 import { useLocation } from "../../context/LocationContext";
 import { useProductDetail } from "../../context/ProductDetailContext";
@@ -10,7 +10,7 @@ import { useCart } from "../../context/CartContext";
 import { customerApi } from "../../services/customerApi";
 import CategoryIcon from "@shared/components/CategoryIcon";
 import { MapPin, Home, ChevronRight } from 'lucide-react';
-import { getCustomerHeaderColor, buildMiniCartColor } from "../../utils/headerTheme";
+import { getCustomerHeaderColor, buildMiniCartColor, isBrightColor, getCategoryHeaderColor } from "../../utils/headerTheme";
 
 
 // MUI Icons
@@ -24,51 +24,94 @@ import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { useTranslation } from "@core/context/LanguageContext";
 
+export function truncateCategoryName(name, maxLength = 13) {
+  if (!name || typeof name !== "string") return "";
+  const trimmed = name.trim();
+  if (trimmed.length > maxLength) {
+    return trimmed.slice(0, maxLength - 2).trimEnd() + "...";
+  }
+  return trimmed;
+}
+
 function CategoryNavColumn({
   cat,
   isActive,
   onCategorySelect,
+  isBright = false,
+  isAllCategory = true,
+  onItemClick,
 }) {
+  const isCategoryMode = !isAllCategory;
+  const displayName = isCategoryMode ? truncateCategoryName(cat.name, 13) : cat.name;
+
+  const activeColor = isCategoryMode
+    ? (isBright ? "#0f172a" : "#ffffff")
+    : (isBright ? "#1764cf" : "#ffffff");
+  const inactiveColor = isCategoryMode
+    ? (isBright ? "rgba(15, 23, 42, 0.72)" : "rgba(255, 255, 255, 0.85)")
+    : (isBright ? "#344054" : "rgba(255, 255, 255, 0.85)");
+  const iconColor = isBright ? "#111827" : "#ffffff";
+  const indicatorColor = isCategoryMode
+    ? (isBright ? "#0f172a" : "#ffffff")
+    : (isBright ? "#2875E8" : "#ffffff");
+
   return (
-    <motion.div
-      layout
-      whileTap={{ scale: 0.96 }}
-      transition={{
-        layout: { type: "spring", stiffness: 520, damping: 38, mass: 0.55 },
+    <div
+      data-category-id={String(cat.id || cat._id || "")}
+      onClick={(e) => {
+        if (onCategorySelect) onCategorySelect(cat);
+        if (onItemClick) onItemClick(e.currentTarget);
       }}
-      onClick={() => onCategorySelect && onCategorySelect(cat)}
-      className={cn("customer-category-nav-item relative z-[2] flex min-w-[58px] shrink-0 cursor-pointer flex-col items-center gap-1 px-2 pb-2 pt-0.5 snap-start md:min-w-[72px]", isActive && "is-active")}>
-      <div 
-        className={cn(
-          "customer-category-nav-icon relative z-10 flex h-11 w-11 items-center justify-center transition-all duration-300 md:h-12 md:w-12",
-          isActive ? "scale-105 opacity-100" : "opacity-90"
-        )}
-      >
-        <CategoryIcon
-          iconId={cat.iconId}
-          alt={cat.name}
+      className={cn(
+        "customer-category-nav-item relative z-[2] flex shrink-0 cursor-pointer items-center justify-end flex-col transition-all duration-150 select-none",
+        isCategoryMode ? "px-3.5 pt-1 pb-2 h-9" : "min-w-[58px] flex-col gap-1 px-2 pb-2 pt-0.5 md:min-w-[72px]",
+        isActive && "is-active"
+      )}>
+      {!isCategoryMode && (
+        <div 
           className={cn(
-            "h-6 w-6 text-black transition-all duration-200 md:h-7 md:w-7",
-            isActive ? "scale-110" : "scale-100"
+            "customer-category-nav-icon relative z-10 flex h-11 w-11 items-center justify-center transition-all duration-300 md:h-12 md:w-12",
+            isActive ? "scale-105 opacity-100" : "opacity-90"
           )}
-        />
-      </div>
-      <div className="relative w-full">
+        >
+          <CategoryIcon
+            iconId={cat.iconId}
+            alt={cat.name}
+            className={cn(
+              "h-6 w-6 transition-all duration-200 md:h-7 md:w-7",
+              isActive ? "scale-110" : "scale-100"
+            )}
+            style={{ color: isActive ? activeColor : iconColor }}
+          />
+        </div>
+      )}
+      <div className={cn("relative flex items-center justify-center", isCategoryMode ? "w-auto" : "w-full")}>
         <span
           className={cn(
-            "customer-category-nav-label relative z-10 mx-auto block max-w-[82px] px-0.5 pb-0.5 text-center text-[10px] leading-tight tracking-tight md:max-w-[104px] md:text-[12px]",
-            isActive ? "font-black" : "font-semibold",
+            "customer-category-nav-label relative z-10 block text-center leading-tight tracking-tight transition-colors duration-200 whitespace-nowrap",
+            isCategoryMode
+              ? "text-[13.5px] md:text-[14px]"
+              : "max-w-[82px] pb-0.5 text-[10px] md:max-w-[104px] md:text-[12px]",
+            isActive ? "font-bold" : "font-medium",
           )}
           style={{
-            color: isActive ? "#1764cf" : "#344054",
-            opacity: isActive ? 1 : 0.9,
+            color: isActive ? activeColor : inactiveColor,
           }}>
-          {cat.name}
+          {displayName}
         </span>
       </div>
-      {isActive && <span className="absolute bottom-0 left-4 right-4 h-[3px] rounded-full bg-[#2875E8] shadow-[0_0_8px_rgba(40,117,232,0.3)]" />}
-
-    </motion.div>
+      {/* Full underline bar directly matching the reference image */}
+      {isActive && (
+        <motion.span
+          layoutId="category-nav-indicator"
+          className="customer-category-nav-indicator absolute bottom-0 left-0 right-0 h-[4px] rounded-full pointer-events-none"
+          style={{
+            backgroundColor: indicatorColor,
+          }}
+          transition={{ type: "spring", stiffness: 500, damping: 38 }}
+        />
+      )}
+    </div>
   );
 }
 
@@ -133,8 +176,53 @@ const MainLocationHeader = ({
 
   // Horizontal scroll for categories navigation
   const navRef = useRef(null);
+  const mobileNavRef = useRef(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
+
+  // Auto-scroll category into view, shifting right-side tabs to the left/center
+  const scrollCategoryIntoView = (targetEl) => {
+    if (!targetEl) return;
+    [mobileNavRef.current, navRef.current].forEach((container) => {
+      if (!container) return;
+      const containerWidth = container.clientWidth;
+      const elOffset = targetEl.offsetLeft;
+      const elWidth = targetEl.clientWidth;
+
+      // Center the active category tab in the scroll view so right-side categories become visible
+      const targetScrollLeft = Math.max(0, elOffset - (containerWidth / 2) + (elWidth / 2));
+      container.scrollTo({
+        left: targetScrollLeft,
+        behavior: "smooth",
+      });
+    });
+  };
+
+  // Automatically scroll when activeCategory changes
+  useEffect(() => {
+    if (!activeCategory) return;
+    const activeId = String(activeCategory._id || activeCategory.id || "");
+    if (!activeId) return;
+
+    const timer = setTimeout(() => {
+      [mobileNavRef.current, navRef.current].forEach((container) => {
+        if (!container) return;
+        const activeEl = container.querySelector(`[data-category-id="${activeId}"]`);
+        if (activeEl) {
+          const containerWidth = container.clientWidth;
+          const elOffset = activeEl.offsetLeft;
+          const elWidth = activeEl.clientWidth;
+          const targetScrollLeft = Math.max(0, elOffset - (containerWidth / 2) + (elWidth / 2));
+          container.scrollTo({
+            left: targetScrollLeft,
+            behavior: "smooth",
+          });
+        }
+      });
+    }, 80);
+
+    return () => clearTimeout(timer);
+  }, [activeCategory]);
 
   const checkScroll = () => {
     if (navRef.current) {
@@ -279,6 +367,17 @@ const MainLocationHeader = ({
   const displayNav = useTransform(scrollY, (value) => "flex");
   const displayCart = useTransform(scrollY, (value) => "block");
 
+  const isAllCategory =
+    !activeCategory ||
+    activeCategory._id === "all" ||
+    activeCategory.id === "all" ||
+    String(activeCategory.slug || "").toLowerCase() === "all" ||
+    String(activeCategory.name || "").toLowerCase() === "all";
+
+
+  const targetHeaderColor = getCategoryHeaderColor(activeCategory);
+  const isBright = isBrightColor(targetHeaderColor);
+
   const baseHeaderColor = getCustomerHeaderColor(activeCategory, categories);
 
   useEffect(() => {
@@ -296,19 +395,31 @@ const MainLocationHeader = ({
       <div className="fixed top-0 left-0 right-0 z-[200]">
         <motion.div
           initial={false}
-          animate={{ backgroundColor: "#dcecff" }}
-          transition={{ backgroundColor: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } }}
+          animate={{
+            backgroundColor: targetHeaderColor,
+            borderBottomLeftRadius: 24,
+            borderBottomRightRadius: 24,
+          }}
+          transition={{
+            backgroundColor: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
+            layout: { duration: 0.35, ease: [0.22, 1, 0.36, 1] }
+          }}
           style={{
-            paddingTop: headerTopPadding,
-            paddingBottom: headerBottomPadding,
-            borderBottomLeftRadius: headerRoundness,
-            borderBottomRightRadius: headerRoundness,
+            backgroundColor: targetHeaderColor,
+            paddingTop: isAllCategory ? 14 : 10,
+            paddingBottom: isAllCategory ? 4 : 0,
+            borderBottomLeftRadius: 24,
+            borderBottomRightRadius: 24,
             opacity: bgOpacity,
           }}
-          className="customer-location-header px-4 overflow-visible transform-gpu will-change-transform border-b border-blue-100 shadow-[0_8px_24px_rgba(40,117,232,0.12)] backdrop-blur-xl backdrop-saturate-150">
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.34) 0%, rgba(234,244,255,0.22) 100%)' }} />
-          <div className="absolute inset-x-0 top-0 h-px bg-white/85 pointer-events-none" />
-          <svg aria-hidden="true" viewBox="0 0 430 280" preserveAspectRatio="none" className="absolute inset-0 h-full w-full pointer-events-none" style={{ opacity: 0.3 }}>
+          className={cn(
+            "customer-location-header px-4 overflow-hidden transform-gpu will-change-transform shadow-[0_8px_24px_rgba(0,0,0,0.12)] backdrop-blur-xl transition-all duration-300 rounded-b-[24px]",
+            !isAllCategory && "is-category-mode",
+            isBright ? "is-bright-header border-b border-black/10" : "is-dark-header border-b border-white/10"
+          )}>
+          <div className="absolute inset-0 pointer-events-none" style={{ background: isAllCategory ? 'linear-gradient(180deg, rgba(255,255,255,0.34) 0%, rgba(234,244,255,0.22) 100%)' : 'none' }} />
+          <div className="absolute inset-x-0 top-0 h-px bg-white/40 pointer-events-none" />
+          <svg aria-hidden="true" viewBox="0 0 430 280" preserveAspectRatio="none" className="absolute inset-0 h-full w-full pointer-events-none" style={{ opacity: isAllCategory ? 0.3 : 0.12 }}>
             <g fill="none" stroke="white" strokeLinecap="round" strokeLinejoin="round">
               <path d="M-28 43 C55 8 92 63 163 34 S298 6 461 59" strokeWidth="1.65" />
               <path d="M-20 84 C53 45 128 105 207 69 S352 55 450 103" strokeWidth="1.25" />
@@ -318,7 +429,7 @@ const MainLocationHeader = ({
               <path d="M266 12 C307 25 310 47 352 48 M80 126 C116 115 141 123 165 137" strokeWidth="2.6" opacity="0.65" />
             </g>
           </svg>
-          <div className="absolute inset-x-0 bottom-0 h-px bg-blue-200/80 pointer-events-none" />
+          <div className={cn("absolute inset-x-0 bottom-0 h-px pointer-events-none", isAllCategory ? "bg-blue-200/80" : "hidden")} />
 
           {/* Desktop/Tablet Header Layout (md and above) */}
           <div className="hidden md:flex items-center justify-between relative z-20 px-2 lg:px-6 mb-8 mt-1">
@@ -441,82 +552,86 @@ const MainLocationHeader = ({
           </div>
 
           {/* Mobile Header Layout (MOBILE ONLY) */}
-          <div className="md:hidden pt-1 pb-1.5 space-y-1.5 select-none">
-            {/* Top row: Logo/Branding + Bell Button */}
-            <motion.div
-              style={{
-                height: mobileTopHeight,
-                opacity: mobileTopOpacity,
-                overflow: "hidden"
-              }}
-              className="flex flex-col gap-1.5"
-            >
-              <div className="flex items-center justify-between">
-              {/* Brand Logo */}
-              <div onClick={() => navigate("/")} className="flex items-center gap-2 cursor-pointer">
-                <img
-                  src={logoUrl || "/logo.png"}
-                  alt="AnushkaStore Logo"
-                  className="h-14 max-w-[132px] w-auto object-contain shrink-0 drop-shadow-[0_2px_4px_rgba(16,24,40,0.12)]"
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => navigate("/notifications")}
-                  className="relative flex h-10 w-10 items-center justify-center text-white drop-shadow-sm active:scale-95 transition-transform"
-                  title="Notifications"
+          <div className="md:hidden pt-0.5 pb-1 select-none">
+            {/* Top row: Logo/Branding + Bell Button + Location bar (ONLY when isAllCategory) */}
+            <AnimatePresence initial={false}>
+              {isAllCategory && (
+                <motion.div
+                  key="mobile-header-top-section"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                  className="overflow-hidden flex flex-col gap-1.5 mb-2"
                 >
-                  <NotificationsNoneOutlinedIcon sx={{ fontSize: 26, color: "#ffffff" }} />
-                  {unreadNotificationsCount > 0 && <span className="absolute right-0 top-0 h-4 min-w-4 rounded-full bg-orange-500 px-0.5 text-center text-[9px] font-black leading-4 text-white">{unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}</span>}
-                </button>
-              </div>
-            </div>
+                  <div className="flex items-center justify-between">
+                    {/* Brand Logo */}
+                    <div onClick={() => navigate("/")} className="flex items-center gap-2 cursor-pointer">
+                      <img
+                        src={logoUrl || "/logo.png"}
+                        alt="AnushkaStore Logo"
+                        className="h-14 max-w-[132px] w-auto object-contain shrink-0 drop-shadow-[0_2px_4px_rgba(16,24,40,0.12)]"
+                      />
+                    </div>
 
-            {/* Location bar + 30 min delivery time */}
-            <div className="flex items-center gap-2 w-full pt-0.5">
-              <button
-                type="button"
-                onClick={() => setIsLocationOpen(true)}
-                className="customer-delivery-card flex-1 min-w-0 h-[40px] flex items-center gap-2 rounded-xl border border-blue-100/90 bg-blue-50/65 px-3 text-left shadow-[0_2px_8px_rgba(40,117,232,0.06)] backdrop-blur-xl cursor-pointer active:scale-[0.99] transition-transform"
-              >
-                <MapPin className="customer-delivery-icon h-4 w-4 shrink-0 text-[#2875E8]" style={{ color: '#2875E8' }} />
-                <span className="customer-delivery-label shrink-0 text-[11.5px] font-black text-[#2875E8] tracking-tight uppercase" style={{ color: '#2875E8' }}>HOME</span>
-                <span className="customer-delivery-address min-w-0 flex-1 truncate text-[11px] font-medium text-slate-500" style={{ color: '#64748b' }}>
-                  {isFetchingLocation ? "Detecting location..." : (currentLocation.name || currentLocation.city || "Select address")}
-                </span>
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-400" style={{ color: '#94a3b8' }} />
-              </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => navigate("/notifications")}
+                        className="relative flex h-10 w-10 items-center justify-center text-white drop-shadow-sm active:scale-95 transition-transform"
+                        title="Notifications"
+                      >
+                        <NotificationsNoneOutlinedIcon sx={{ fontSize: 26, color: isBright ? "#0f172a" : "#ffffff" }} />
+                        {unreadNotificationsCount > 0 && <span className="absolute right-0 top-0 h-4 min-w-4 rounded-full bg-orange-500 px-0.5 text-center text-[9px] font-black leading-4 text-white">{unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}</span>}
+                      </button>
+                    </div>
+                  </div>
 
-              {/* 30 min Delivery Time Badge */}
-              <div 
-                className="customer-header-delivery-time shrink-0 h-[40px] px-3.5 rounded-xl flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(255,122,0,0.25)] select-none"
-                style={{
-                  background: 'linear-gradient(135deg, #ff9f43 0%, #ff793f 100%)',
-                  color: '#ffffff'
-                }}
-              >
-                <span 
-                  className="text-[20px] font-black leading-none tracking-tight"
-                  style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
-                >
-                  30
-                </span>
-                <span 
-                  className="text-[12px] font-bold leading-none lowercase"
-                  style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
-                >
-                  min
-                </span>
-              </div>
-            </div>
-            </motion.div>
+                  {/* Location bar + 30 min delivery time */}
+                  <div className="flex items-center gap-2 w-full pt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setIsLocationOpen(true)}
+                      className="customer-delivery-card flex-1 min-w-0 h-[40px] flex items-center gap-2 rounded-xl border border-blue-100/90 bg-blue-50/65 px-3 text-left shadow-[0_2px_8px_rgba(40,117,232,0.06)] backdrop-blur-xl cursor-pointer active:scale-[0.99] transition-transform"
+                    >
+                      <MapPin className="customer-delivery-icon h-4 w-4 shrink-0 text-[#2875E8]" style={{ color: '#2875E8' }} />
+                      <span className="customer-delivery-label shrink-0 text-[11.5px] font-black text-[#2875E8] tracking-tight uppercase" style={{ color: '#2875E8' }}>HOME</span>
+                      <span className="customer-delivery-address min-w-0 flex-1 truncate text-[11px] font-medium text-slate-500" style={{ color: '#64748b' }}>
+                        {isFetchingLocation ? "Detecting location..." : (currentLocation.name || currentLocation.city || "Select address")}
+                      </span>
+                      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-400" style={{ color: '#94a3b8' }} />
+                    </button>
+
+                    {/* 30 min Delivery Time Badge */}
+                    <div 
+                      className="customer-header-delivery-time shrink-0 h-[40px] px-3.5 rounded-xl flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(255,122,0,0.25)] select-none"
+                      style={{
+                        background: 'linear-gradient(135deg, #ff9f43 0%, #ff793f 100%)',
+                        color: '#ffffff'
+                      }}
+                    >
+                      <span 
+                        className="text-[20px] font-black leading-none tracking-tight"
+                        style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
+                      >
+                        30
+                      </span>
+                      <span 
+                        className="text-[12px] font-bold leading-none lowercase"
+                        style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
+                      >
+                        min
+                      </span>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Bottom row: Highly Visible White Search Bar */}
             <div
               onClick={handleSearchClick}
-              className="w-full bg-white/95 border-2 border-white/90 rounded-2xl md:rounded-full px-4 h-12 flex items-center shadow-[0_8px_24px_rgba(18,50,113,0.2),inset_0_1px_0_rgba(255,255,255,0.9)] cursor-pointer hover:border-white transition-all"
+              className="w-full bg-white/95 border-2 border-white/90 rounded-2xl md:rounded-full px-4 h-11 flex items-center shadow-[0_4px_16px_rgba(0,0,0,0.12)] cursor-pointer hover:border-white transition-all mb-1.5"
             >
               <SearchIcon sx={{ color: "#0f172a", fontSize: 20 }} className="shrink-0" />
               <input
@@ -531,7 +646,7 @@ const MainLocationHeader = ({
             </div>
           </div>
 
-          {/* Categories Navigation Row (Shared for Desktop & Mobile) */}
+          {/* Categories Navigation Row (Icons & Names exactly like image) */}
           <div className="relative w-full overflow-visible">
             {/* Scroll arrows: desktop only */}
             {showLeftArrow && (
@@ -544,32 +659,36 @@ const MainLocationHeader = ({
               </button>
             )}
 
-            {/* Mobile wrapper */}
+            {/* Mobile wrapper with icon tabs */}
             <div className="md:hidden w-full">
-              <motion.div
-                style={{ height: mobileNavHeight, opacity: mobileNavOpacity, marginTop: mobileNavMargin, pointerEvents: mobileNavPointerEvents }}
-                className="relative z-10 overflow-hidden"
+              <div
+                ref={mobileNavRef}
+                className={cn("overflow-x-auto no-scrollbar scroll-smooth", isAllCategory ? "h-20 overflow-y-hidden pb-1.5" : "h-10 overflow-y-visible pb-0")}
               >
-                <div className="h-20 overflow-x-auto overflow-y-hidden pb-0 no-scrollbar">
-                  <div className="flex h-20 shrink-0 items-end gap-1 px-2">
-                    {categories.map((cat) => (
-                      <CategoryNavColumn
-                        key={cat.id || cat._id}
-                        cat={cat}
-                        isActive={String(activeCategory?._id || activeCategory?.id || "") === String(cat._id || cat.id || "")}
-                        onCategorySelect={onCategorySelect}
-                      />
-                    ))}
-                  </div>
+                <div className={cn("flex shrink-0 px-2", isAllCategory ? "h-20 items-end gap-1 pb-1" : "h-10 items-end gap-3 pb-0")}>
+                  {categories.map((cat) => (
+                    <CategoryNavColumn
+                      key={cat.id || cat._id}
+                      cat={cat}
+                      isActive={String(activeCategory?._id || activeCategory?.id || "") === String(cat._id || cat.id || "")}
+                      onCategorySelect={onCategorySelect}
+                      isBright={isBright}
+                      isAllCategory={isAllCategory}
+                      onItemClick={scrollCategoryIntoView}
+                    />
+                  ))}
                 </div>
-              </motion.div>
+              </div>
             </div>
 
             {/* Desktop wrapper: full scrollable row */}
             <motion.div
               ref={navRef}
-              style={{ height: "80px", opacity: 1, marginTop: 8 }}
-              className="relative z-10 -mx-2 hidden md:flex items-end gap-4 overflow-x-auto overflow-y-visible px-4 pb-0 no-scrollbar"
+              style={{ height: isAllCategory ? "80px" : "40px", opacity: 1, marginTop: isAllCategory ? 4 : 4 }}
+              className={cn(
+                "relative z-10 -mx-2 hidden md:flex overflow-x-auto overflow-y-visible px-4 no-scrollbar scroll-smooth",
+                isAllCategory ? "items-end gap-2 pb-1.5" : "items-end gap-3.5 pb-0"
+              )}
             >
               {categories.map((cat) => (
                 <CategoryNavColumn
@@ -577,6 +696,9 @@ const MainLocationHeader = ({
                   cat={cat}
                   isActive={String(activeCategory?._id || activeCategory?.id || "") === String(cat._id || cat.id || "")}
                   onCategorySelect={onCategorySelect}
+                  isBright={isBright}
+                  isAllCategory={isAllCategory}
+                  onItemClick={scrollCategoryIntoView}
                 />
               ))}
             </motion.div>
