@@ -1,6 +1,7 @@
-import React, { useEffect } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import React, { useEffect, Suspense } from "react";
+import { Outlet, Navigate } from "react-router-dom";
 import DashboardLayout from "@shared/layout/DashboardLayout";
+import PageSkeleton from "@/shared/components/PageSkeleton";
 import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
 import Orders from "../pages/Orders";
 import {
@@ -60,6 +61,22 @@ const navItems = [
   { label: "Profile", path: "/seller/profile", icon: HiOutlineUser },
 ];
 
+export const sellerRoutes = [
+  { index: true, element: <Dashboard /> },
+  { path: "products", element: <ProductManagement /> },
+  { path: "products/add", element: <AddProduct /> },
+  { path: "inventory", element: <StockManagement /> },
+  { path: "orders", element: <Orders /> },
+  { path: "returns", element: <Returns /> },
+  { path: "tracking", element: <DeliveryTracking /> },
+  { path: "analytics", element: <Analytics /> },
+  { path: "transactions", element: <Transactions /> },
+  { path: "earnings", element: <Earnings /> },
+  { path: "withdrawals", element: <Withdrawals /> },
+  { path: "profile", element: <Profile /> },
+  { path: "*", element: <Navigate to="/seller" replace /> },
+];
+
 const SellerRoutes = () => {
   useEffect(() => {
     setActiveRole(ROLES.SELLER);
@@ -67,21 +84,9 @@ const SellerRoutes = () => {
 
   return (
     <DashboardLayout navItems={navItems} title="Seller Panel">
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/products" element={<ProductManagement />} />
-        <Route path="/products/add" element={<AddProduct />} />
-        <Route path="/inventory" element={<StockManagement />} />
-        <Route path="/orders" element={<Orders />} />
-        <Route path="/returns" element={<Returns />} />
-        <Route path="/tracking" element={<DeliveryTracking />} />
-        <Route path="/analytics" element={<Analytics />} />
-        <Route path="/transactions" element={<Transactions />} />
-        <Route path="/earnings" element={<Earnings />} />
-        <Route path="/withdrawals" element={<Withdrawals />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={<PageSkeleton variant="dashboard" />}>
+        <Outlet />
+      </Suspense>
     </DashboardLayout>
   );
 };

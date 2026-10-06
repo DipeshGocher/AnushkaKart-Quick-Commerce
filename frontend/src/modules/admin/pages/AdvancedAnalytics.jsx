@@ -61,7 +61,7 @@ const AdvancedAnalytics = () => {
     ];
 
     const categoryData = [
-        { name: 'Grocery', value: 45, color: '#6366f1' },
+        { name: 'Grocery', value: 45, color: '#6666FF' },
         { name: 'Electronics', value: 25, color: '#f59e0b' },
         { name: 'Daily Needs', value: 20, color: '#10b981' },
         { name: 'Bakery', value: 10, color: '#f43f5e' },
@@ -179,8 +179,8 @@ const AdvancedAnalytics = () => {
                             <AreaChart data={salesData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1} />
-                                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                                        <stop offset="5%" stopColor="#6666FF" stopOpacity={0.1} />
+                                        <stop offset="95%" stopColor="#6666FF" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -204,7 +204,7 @@ const AdvancedAnalytics = () => {
                                 <Area
                                     type="monotone"
                                     dataKey="revenue"
-                                    stroke="#6366f1"
+                                    stroke="#6666FF"
                                     strokeWidth={4}
                                     fillOpacity={1}
                                     fill="url(#colorRev)"

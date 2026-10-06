@@ -1,6 +1,5 @@
 import crypto from "crypto";
 import Customer from "../models/customer.js";
-import Employee from "../models/employee.js";
 import { sendSmsIndiaHubOtp } from "./smsIndiaHubService.js";
 import { generateOTP, useRealSMS } from "../utils/otp.js";
 import { getRedisClient } from "../config/redis.js";
@@ -96,7 +95,6 @@ export async function issueCustomerOtp({
   flow,
   avatar = "",
   profileImage = "",
-  referralCode,
   ipAddress = "unknown",
 }) {
   const phone = normalizeAndValidatePhone(rawPhone);
@@ -146,17 +144,6 @@ export async function issueCustomerOtp({
       customer.profileImage = chosenAvatar;
     }
     if (name && name !== "Customer") customer.name = name;
-  }
-
-  if (referralCode && !customer.referredBy) {
-    const employee = await Employee.findOne({ referralCode: referralCode.toUpperCase() });
-    if (employee) {
-      customer.referredBy = employee._id;
-    } else {
-      const err = new Error("Invalid referral code");
-      err.statusCode = 400;
-      throw err;
-    }
   }
 
   if (customer.otpLockedUntil && customer.otpLockedUntil > now) {

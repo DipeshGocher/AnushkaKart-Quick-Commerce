@@ -372,12 +372,12 @@ const EditMonthlyKit = () => {
 
                     {/* Status */}
                     <div className="pt-6 px-3">
-                        <div className="p-4 bg-orange-50 rounded-xl border border-orange-100">
-                            <p className="text-[9px] font-bold text-orange-600 uppercase tracking-widest mb-1">Status</p>
+                        <div className="p-4 bg-brand-50 rounded-xl border border-brand-100">
+                            <p className="text-[9px] font-bold text-brand-600 uppercase tracking-widest mb-1">Status</p>
                             <select
                                 value={formData.status}
                                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                                className="w-full px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs font-bold outline-none cursor-pointer"
+                                className="w-full px-3 py-2 bg-white border border-brand-200 rounded-lg text-xs font-bold outline-none cursor-pointer"
                             >
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>

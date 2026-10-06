@@ -1,3 +1,4 @@
+import Setting from "../models/setting.js";
 import ExperienceSection from "../models/experienceSection.js";
 import HeroConfig from "../models/heroConfig.js";
 import Category from "../models/category.js";
@@ -436,8 +437,7 @@ export const getPublicHeroConfig = async (req, res) => {
             pageType: "header",
             headerId,
           }).lean();
-        }
-        if (!resolved && (pageType === "home" || pageType === "header")) {
+        } else if (pageType === "home") {
           resolved = await HeroConfig.findOne({
             pageType: "home",
             headerId: null,
@@ -452,8 +452,19 @@ export const getPublicHeroConfig = async (req, res) => {
       ? {
           banners: config.banners || { items: [] },
           categoryIds: config.categoryIds || [],
+          topDealsTitle: config.topDealsTitle || "",
+          topDealsProductIds: config.topDealsProductIds || [],
+          bestSellingTitle: config.bestSellingTitle || "",
+          bestSellingCategoryIds: config.bestSellingCategoryIds || [],
         }
-      : { banners: { items: [] }, categoryIds: [] };
+      : {
+          banners: { items: [] },
+          categoryIds: [],
+          topDealsTitle: "",
+          topDealsProductIds: [],
+          bestSellingTitle: "",
+          bestSellingCategoryIds: [],
+        };
 
     return handleResponse(res, 200, "Hero config fetched", payload);
   } catch (error) {
@@ -482,7 +493,14 @@ export const getAdminHeroConfig = async (req, res) => {
       res,
       200,
       "Hero config fetched",
-      config || { banners: { items: [] }, categoryIds: [] }
+      config || {
+        banners: { items: [] },
+        categoryIds: [],
+        topDealsTitle: "",
+        topDealsProductIds: [],
+        bestSellingTitle: "",
+        bestSellingCategoryIds: [],
+      }
     );
   } catch (error) {
     return handleResponse(res, 500, error.message);
@@ -491,7 +509,16 @@ export const getAdminHeroConfig = async (req, res) => {
 
 export const upsertHeroConfig = async (req, res) => {
   try {
-    const { pageType, headerId, banners, categoryIds } = req.body;
+    const {
+      pageType,
+      headerId,
+      banners,
+      categoryIds,
+      topDealsTitle,
+      topDealsProductIds,
+      bestSellingTitle,
+      bestSellingCategoryIds,
+    } = req.body;
 
     if (!["home", "header", "monthly_basket"].includes(pageType)) {
       return handleResponse(res, 400, "Invalid pageType");
@@ -522,6 +549,8 @@ export const upsertHeroConfig = async (req, res) => {
       : [];
 
     const ids = Array.isArray(categoryIds) ? categoryIds.filter(Boolean) : [];
+    const topDealIds = Array.isArray(topDealsProductIds) ? topDealsProductIds.filter(Boolean) : [];
+    const bestSellingIds = Array.isArray(bestSellingCategoryIds) ? bestSellingCategoryIds.filter(Boolean) : [];
 
     const filter = {
       pageType,
@@ -532,6 +561,35 @@ export const upsertHeroConfig = async (req, res) => {
       banners: { items: bannerItems },
       categoryIds: ids,
     };
+
+    if (typeof topDealsTitle === "string") {
+      update.topDealsTitle = topDealsTitle.trim();
+    }
+    if (Array.isArray(topDealsProductIds)) {
+      update.topDealsProductIds = topDealIds;
+    }
+    if (typeof bestSellingTitle === "string") {
+      update.bestSellingTitle = bestSellingTitle.trim();
+    }
+    if (Array.isArray(bestSellingCategoryIds)) {
+      update.bestSellingCategoryIds = bestSellingIds;
+    }
+
+    if (typeof bestSellingTitle === "string" || Array.isArray(bestSellingCategoryIds)) {
+      const sUpdate = {};
+      if (typeof bestSellingTitle === "string") sUpdate.bestSellingTitle = bestSellingTitle.trim();
+      if (Array.isArray(bestSellingCategoryIds)) sUpdate.bestSellingCategoryIds = bestSellingIds;
+      await Setting.findOneAndUpdate({}, { $set: sUpdate }, { upsert: true });
+      await invalidate("cache:platform:settings:*");
+    }
+
+    if (pageType === "header" && (typeof topDealsTitle === "string" || Array.isArray(topDealsProductIds))) {
+      const sUpdate = {};
+      if (typeof topDealsTitle === "string") sUpdate[`categoryTopDeals.${headerId}.title`] = topDealsTitle.trim();
+      if (Array.isArray(topDealsProductIds)) sUpdate[`categoryTopDeals.${headerId}.productIds`] = topDealIds;
+      await Setting.findOneAndUpdate({}, { $set: sUpdate }, { upsert: true });
+      await invalidate("cache:platform:settings:*");
+    }
 
     const config = await HeroConfig.findOneAndUpdate(
       filter,

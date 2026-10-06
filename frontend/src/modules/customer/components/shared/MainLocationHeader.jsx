@@ -24,13 +24,75 @@ import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { useTranslation } from "@core/context/LanguageContext";
 
-export function truncateCategoryName(name, maxLength = 13) {
+export function truncateCategoryName(name, maxLength = 12) {
   if (!name || typeof name !== "string") return "";
   const trimmed = name.trim();
   if (trimmed.length > maxLength) {
-    return trimmed.slice(0, maxLength - 2).trimEnd() + "...";
+    const lower = trimmed.toLowerCase();
+    const limit = lower.startsWith("home appli") ? 10 : (maxLength - 1);
+    return trimmed.slice(0, limit).trimEnd() + "...";
   }
   return trimmed;
+}
+
+function DeliveryBadge({ settings, className }) {
+  if (settings?.deliveryBadgeEnabled === false) return null;
+
+  const bg = settings?.deliveryBadgeBg || 'linear-gradient(135deg, #ff9f43 0%, #ff793f 100%)';
+  const img = settings?.deliveryBadgeImage;
+  const rawText = settings?.deliveryBadgeText;
+  const text = (typeof rawText === 'string' && rawText.trim() !== '') ? rawText.trim() : '30 min';
+
+  if (img) {
+    return (
+      <div
+        className={cn("customer-header-delivery-time shrink-0 h-[40px] px-2 rounded-xl flex items-center justify-center select-none shadow-[0_3px_10px_rgba(255,122,0,0.25)]", className)}
+        style={{ background: bg }}
+      >
+        <img src={img} alt={text || "Fast Delivery"} className="h-[26px] max-w-[85px] object-contain" />
+      </div>
+    );
+  }
+
+  const match = text.match(/^(\d+)\s*(.*)$/);
+  const numberPart = match ? match[1] : null;
+  const unitPart = match ? match[2] : null;
+
+  return (
+    <div 
+      className={cn("customer-header-delivery-time shrink-0 h-[40px] px-3.5 rounded-xl flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(255,122,0,0.25)] select-none", className)}
+      style={{
+        background: bg,
+        color: '#ffffff'
+      }}
+    >
+      {numberPart ? (
+        <>
+          <span 
+            className="text-[20px] font-black leading-none tracking-tight"
+            style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
+          >
+            {numberPart}
+          </span>
+          {unitPart && (
+            <span 
+              className="text-[12px] font-bold leading-none lowercase"
+              style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
+            >
+              {unitPart}
+            </span>
+          )}
+        </>
+      ) : (
+        <span 
+          className="text-[13px] font-black leading-none tracking-tight whitespace-nowrap px-1"
+          style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
+        >
+          {text}
+        </span>
+      )}
+    </div>
+  );
 }
 
 function CategoryNavColumn({
@@ -40,20 +102,21 @@ function CategoryNavColumn({
   isBright = false,
   isAllCategory = true,
   onItemClick,
+  isScrolled = false,
 }) {
-  const isCategoryMode = !isAllCategory;
-  const displayName = isCategoryMode ? truncateCategoryName(cat.name, 13) : cat.name;
+  const isTextOnlyMode = !isAllCategory || isScrolled;
+  const displayName = truncateCategoryName(cat.name, 12);
 
-  const activeColor = isCategoryMode
-    ? (isBright ? "#0f172a" : "#ffffff")
+  const activeColor = isTextOnlyMode
+    ? (isAllCategory ? (isBright ? "#1764cf" : "#ffffff") : (isBright ? "#0f172a" : "#ffffff"))
     : (isBright ? "#1764cf" : "#ffffff");
-  const inactiveColor = isCategoryMode
+  const inactiveColor = isTextOnlyMode
     ? (isBright ? "rgba(15, 23, 42, 0.72)" : "rgba(255, 255, 255, 0.85)")
     : (isBright ? "#344054" : "rgba(255, 255, 255, 0.85)");
   const iconColor = isBright ? "#111827" : "#ffffff";
-  const indicatorColor = isCategoryMode
-    ? (isBright ? "#0f172a" : "#ffffff")
-    : (isBright ? "#2875E8" : "#ffffff");
+  const indicatorColor = isAllCategory
+    ? (isBright ? "#2875E8" : "#ffffff")
+    : (isBright ? "#0f172a" : "#ffffff");
 
   return (
     <div
@@ -63,14 +126,17 @@ function CategoryNavColumn({
         if (onItemClick) onItemClick(e.currentTarget);
       }}
       className={cn(
-        "customer-category-nav-item relative z-[2] flex shrink-0 cursor-pointer items-center justify-end flex-col transition-all duration-150 select-none",
-        isCategoryMode ? "px-3.5 pt-1 pb-2 h-9" : "min-w-[58px] flex-col gap-1 px-2 pb-2 pt-0.5 md:min-w-[72px]",
+        "customer-category-nav-item relative z-[2] flex shrink-0 cursor-pointer items-center justify-end flex-col transition-all duration-200 select-none",
+        isTextOnlyMode
+          ? "px-3.5 pt-1 pb-2 h-9"
+          : "min-w-[58px] flex-col gap-1 px-2 pb-2 pt-0.5 md:min-w-[72px]",
         isActive && "is-active"
       )}>
-      {!isCategoryMode && (
+      {!isTextOnlyMode && (
         <div 
           className={cn(
-            "customer-category-nav-icon relative z-10 flex h-11 w-11 items-center justify-center transition-all duration-300 md:h-12 md:w-12",
+            "customer-category-nav-icon relative z-10 flex items-center justify-center transition-all duration-200",
+            "h-11 w-11 md:h-12 md:w-12",
             isActive ? "scale-105 opacity-100" : "opacity-90"
           )}
         >
@@ -78,18 +144,19 @@ function CategoryNavColumn({
             iconId={cat.iconId}
             alt={cat.name}
             className={cn(
-              "h-6 w-6 transition-all duration-200 md:h-7 md:w-7",
+              "transition-all duration-200",
+              "h-6 w-6 md:h-7 md:w-7",
               isActive ? "scale-110" : "scale-100"
             )}
             style={{ color: isActive ? activeColor : iconColor }}
           />
         </div>
       )}
-      <div className={cn("relative flex items-center justify-center", isCategoryMode ? "w-auto" : "w-full")}>
+      <div className={cn("relative flex items-center justify-center", isTextOnlyMode ? "w-auto" : "w-full")}>
         <span
           className={cn(
-            "customer-category-nav-label relative z-10 block text-center leading-tight tracking-tight transition-colors duration-200 whitespace-nowrap",
-            isCategoryMode
+            "customer-category-nav-label relative z-10 block text-center leading-tight tracking-tight transition-all duration-200 whitespace-nowrap",
+            isTextOnlyMode
               ? "text-[13.5px] md:text-[14px]"
               : "max-w-[82px] pb-0.5 text-[10px] md:max-w-[104px] md:text-[12px]",
             isActive ? "font-bold" : "font-medium",
@@ -104,7 +171,7 @@ function CategoryNavColumn({
       {isActive && (
         <motion.span
           layoutId="category-nav-indicator"
-          className="customer-category-nav-indicator absolute bottom-0 left-0 right-0 h-[4px] rounded-full pointer-events-none"
+          className="customer-category-nav-indicator absolute bottom-0 left-0.5 right-0.5 h-[3.5px] rounded-full pointer-events-none"
           style={{
             backgroundColor: indicatorColor,
           }}
@@ -141,12 +208,35 @@ const MainLocationHeader = ({
 
   const isMobileView = typeof window !== "undefined" && window.innerWidth < 768;
   const [isLocationOpen, setIsLocationOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const { currentLocation, refreshLocation, isFetchingLocation } =
     useLocation();
   const { isOpen: isProductDetailOpen } = useProductDetail();
   const { settings } = useSettings();
   const { cartCount } = useCart();
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+
+  useEffect(() => {
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentY = window.scrollY || document.documentElement.scrollTop || 0;
+          setIsScrolled((prev) => {
+            if (!prev && currentY > 40) return true;
+            if (prev && currentY < 20) return false;
+            return prev;
+          });
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -406,15 +496,15 @@ const MainLocationHeader = ({
           }}
           style={{
             backgroundColor: targetHeaderColor,
-            paddingTop: isAllCategory ? 14 : 10,
-            paddingBottom: isAllCategory ? 4 : 0,
+            paddingTop: isScrolled ? 16 : 14,
+            paddingBottom: (!isAllCategory || isScrolled) ? 2 : 4,
             borderBottomLeftRadius: 24,
             borderBottomRightRadius: 24,
             opacity: bgOpacity,
           }}
           className={cn(
             "customer-location-header px-4 overflow-hidden transform-gpu will-change-transform shadow-[0_8px_24px_rgba(0,0,0,0.12)] backdrop-blur-xl transition-all duration-300 rounded-b-[24px]",
-            !isAllCategory && "is-category-mode",
+            (!isAllCategory || isScrolled) && "is-category-mode",
             isBright ? "is-bright-header border-b border-black/10" : "is-dark-header border-b border-white/10"
           )}>
           <div className="absolute inset-0 pointer-events-none" style={{ background: isAllCategory ? 'linear-gradient(180deg, rgba(255,255,255,0.34) 0%, rgba(234,244,255,0.22) 100%)' : 'none' }} />
@@ -432,7 +522,7 @@ const MainLocationHeader = ({
           <div className={cn("absolute inset-x-0 bottom-0 h-px pointer-events-none", isAllCategory ? "bg-blue-200/80" : "hidden")} />
 
           {/* Desktop/Tablet Header Layout (md and above) */}
-          <div className="hidden md:flex items-center justify-between relative z-20 px-2 lg:px-6 mb-8 mt-1">
+          <div className={cn("hidden md:flex items-center justify-between relative z-20 px-2 lg:px-6 transition-all duration-300 mt-1", (isAllCategory && isScrolled) ? "mb-2" : "mb-8")}>
             {/* Left Section: Logo + Location row */}
             <div className="flex items-center gap-4 lg:gap-8">
               <div
@@ -463,27 +553,8 @@ const MainLocationHeader = ({
                 <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-400" style={{ color: '#94a3b8' }} />
               </button>
 
-              {/* 30 min Delivery Time Badge */}
-              <div 
-                className="customer-header-delivery-time hidden sm:flex shrink-0 h-[40px] px-3.5 rounded-xl items-center justify-center gap-1 shadow-[0_3px_10px_rgba(255,122,0,0.25)] select-none"
-                style={{
-                  background: 'linear-gradient(135deg, #ff9f43 0%, #ff793f 100%)',
-                  color: '#ffffff'
-                }}
-              >
-                <span 
-                  className="text-[20px] font-black leading-none tracking-tight"
-                  style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
-                >
-                  30
-                </span>
-                <span 
-                  className="text-[12px] font-bold leading-none lowercase"
-                  style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
-                >
-                  min
-                </span>
-              </div>
+              {/* Delivery Time Badge / Logo */}
+              <DeliveryBadge settings={settings} className="hidden sm:flex" />
             </div>
 
             {/* Center Section: Highly Visible Search Bar */}
@@ -492,13 +563,18 @@ const MainLocationHeader = ({
                 onClick={handleSearchClick}
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
-                className="bg-white rounded-full px-4 h-11 border border-slate-200/90 shadow-[0_4px_18px_rgba(0,0,0,0.08)] flex items-center transition-all duration-200 focus-within:ring-2 focus-within:ring-orange-500/40 cursor-pointer hover:shadow-md hover:border-slate-300">
+                tabIndex={-1}
+                className="bg-white rounded-full px-4 h-11 border border-slate-200/90 shadow-[0_4px_18px_rgba(0,0,0,0.08)] flex items-center transition-all duration-200 cursor-pointer hover:shadow-md hover:border-slate-300 select-none focus:outline-none focus:ring-0 focus-within:ring-0"
+                style={{ WebkitTapHighlightColor: "transparent" }}
+              >
                 <SearchIcon sx={{ color: "#0f172a", fontSize: 20 }} />
                 <input
                   type="text"
                   placeholder={searchPlaceholder || "Search Products..."}
                   readOnly
-                  className="flex-1 bg-transparent border-none outline-none pl-2 text-slate-900 font-bold placeholder:text-slate-600 text-[15px] cursor-pointer"
+                  tabIndex={-1}
+                  className="flex-1 bg-transparent border-0 ring-0 outline-none focus:outline-none focus:ring-0 focus:border-0 focus-visible:outline-none focus-visible:ring-0 pl-2 text-slate-900 font-bold placeholder:text-slate-600 text-[15px] cursor-pointer pointer-events-none select-none shadow-none"
+                  style={{ outline: "none", border: "none", boxShadow: "none", WebkitTapHighlightColor: "transparent" }}
                 />
                 <div className="flex items-center gap-2 border-l border-slate-200 pl-3">
                   <MicIcon sx={{ color: "#0f172a", fontSize: 20 }} />
@@ -553,9 +629,9 @@ const MainLocationHeader = ({
 
           {/* Mobile Header Layout (MOBILE ONLY) */}
           <div className="md:hidden pt-0.5 pb-1 select-none">
-            {/* Top row: Logo/Branding + Bell Button + Location bar (ONLY when isAllCategory) */}
+            {/* Top row: Logo/Branding + Bell Button + Location bar (ONLY when isAllCategory and not scrolled) */}
             <AnimatePresence initial={false}>
-              {isAllCategory && (
+              {isAllCategory && !isScrolled && (
                 <motion.div
                   key="mobile-header-top-section"
                   initial={{ height: 0, opacity: 0 }}
@@ -602,27 +678,8 @@ const MainLocationHeader = ({
                       <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-400" style={{ color: '#94a3b8' }} />
                     </button>
 
-                    {/* 30 min Delivery Time Badge */}
-                    <div 
-                      className="customer-header-delivery-time shrink-0 h-[40px] px-3.5 rounded-xl flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(255,122,0,0.25)] select-none"
-                      style={{
-                        background: 'linear-gradient(135deg, #ff9f43 0%, #ff793f 100%)',
-                        color: '#ffffff'
-                      }}
-                    >
-                      <span 
-                        className="text-[20px] font-black leading-none tracking-tight"
-                        style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
-                      >
-                        30
-                      </span>
-                      <span 
-                        className="text-[12px] font-bold leading-none lowercase"
-                        style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
-                      >
-                        min
-                      </span>
-                    </div>
+                    {/* Delivery Time Badge / Logo */}
+                    <DeliveryBadge settings={settings} />
                   </div>
                 </motion.div>
               )}
@@ -631,14 +688,18 @@ const MainLocationHeader = ({
             {/* Bottom row: Highly Visible White Search Bar */}
             <div
               onClick={handleSearchClick}
-              className="w-full bg-white/95 border-2 border-white/90 rounded-2xl md:rounded-full px-4 h-11 flex items-center shadow-[0_4px_16px_rgba(0,0,0,0.12)] cursor-pointer hover:border-white transition-all mb-1.5"
+              tabIndex={-1}
+              className="w-full bg-white/95 border-2 border-white/90 rounded-2xl md:rounded-full px-4 h-11 flex items-center shadow-[0_4px_16px_rgba(0,0,0,0.12)] cursor-pointer hover:border-white transition-all mb-1.5 select-none focus:outline-none focus:ring-0 focus:border-white focus-visible:outline-none focus-visible:ring-0 active:scale-[0.99]"
+              style={{ WebkitTapHighlightColor: "transparent" }}
             >
               <SearchIcon sx={{ color: "#0f172a", fontSize: 20 }} className="shrink-0" />
               <input
                 type="text"
                 placeholder='Search "Atta, Rice, Oil, Maggi..."'
                 readOnly
-                className="flex-1 bg-transparent border-none outline-none pl-2 text-slate-900 font-bold placeholder:text-slate-600 text-[13.5px] cursor-pointer"
+                tabIndex={-1}
+                className="flex-1 bg-transparent border-0 ring-0 outline-none focus:outline-none focus:ring-0 focus:border-0 focus-visible:outline-none focus-visible:ring-0 pl-2 text-slate-900 font-bold placeholder:text-slate-600 text-[13.5px] cursor-pointer pointer-events-none select-none shadow-none"
+                style={{ outline: "none", border: "none", boxShadow: "none", WebkitTapHighlightColor: "transparent" }}
               />
               <div className="flex items-center gap-3.5 shrink-0 ml-1 border-l border-slate-200 pl-3">
                 <MicIcon sx={{ color: "#0f172a", fontSize: 20 }} className="cursor-pointer" />
@@ -663,9 +724,19 @@ const MainLocationHeader = ({
             <div className="md:hidden w-full">
               <div
                 ref={mobileNavRef}
-                className={cn("overflow-x-auto no-scrollbar scroll-smooth", isAllCategory ? "h-20 overflow-y-hidden pb-1.5" : "h-10 overflow-y-visible pb-0")}
+                className={cn(
+                  "overflow-x-auto no-scrollbar scroll-smooth transition-all duration-300",
+                  (isAllCategory && !isScrolled)
+                    ? "h-20 overflow-y-hidden pb-1.5"
+                    : "h-10 overflow-y-visible pb-0"
+                )}
               >
-                <div className={cn("flex shrink-0 px-2", isAllCategory ? "h-20 items-end gap-1 pb-1" : "h-10 items-end gap-3 pb-0")}>
+                <div className={cn(
+                  "flex shrink-0 px-2 transition-all duration-300", 
+                  (isAllCategory && !isScrolled)
+                    ? "h-20 items-end gap-1 pb-1"
+                    : "h-10 items-end gap-3 pb-0"
+                )}>
                   {categories.map((cat) => (
                     <CategoryNavColumn
                       key={cat.id || cat._id}
@@ -675,6 +746,7 @@ const MainLocationHeader = ({
                       isBright={isBright}
                       isAllCategory={isAllCategory}
                       onItemClick={scrollCategoryIntoView}
+                      isScrolled={isScrolled}
                     />
                   ))}
                 </div>
@@ -684,10 +756,10 @@ const MainLocationHeader = ({
             {/* Desktop wrapper: full scrollable row */}
             <motion.div
               ref={navRef}
-              style={{ height: isAllCategory ? "80px" : "40px", opacity: 1, marginTop: isAllCategory ? 4 : 4 }}
+              style={{ height: (isAllCategory && !isScrolled) ? "80px" : "40px", opacity: 1, marginTop: 4 }}
               className={cn(
                 "relative z-10 -mx-2 hidden md:flex overflow-x-auto overflow-y-visible px-4 no-scrollbar scroll-smooth",
-                isAllCategory ? "items-end gap-2 pb-1.5" : "items-end gap-3.5 pb-0"
+                (isAllCategory && !isScrolled) ? "items-end gap-2 pb-1.5" : "items-end gap-3.5 pb-0"
               )}
             >
               {categories.map((cat) => (

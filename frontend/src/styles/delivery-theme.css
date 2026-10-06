@@ -1,0 +1,48 @@
+/* ==========================================================================
+   DELIVERY PARTNER APPLICATION THEME SYSTEM
+   Primary Theme Color: #6666FF
+   ========================================================================== */
+
+:root,
+.delivery-app {
+  /* Core Brand Tokens */
+  --delivery-primary: #6666FF;
+  --delivery-primary-hover: #5555EE;
+  --delivery-primary-dark: #4F4FDD;
+  --delivery-primary-light: #EEEEFF;
+  --delivery-primary-soft: #F5F5FF;
+  --delivery-primary-border: rgba(102, 102, 255, 0.25);
+  --delivery-primary-shadow: rgba(102, 102, 255, 0.25);
+
+  /* Scoped semantic replacements inside delivery */
+  --primary: #6666FF;
+  --primary-color: #6666FF;
+  --brand-50: #F5F5FF;
+  --brand-100: #EEEEFF;
+  --brand-200: #D8D8FF;
+  --brand-300: #B8B8FF;
+  --brand-400: #8F8FFF;
+  --brand-500: #6666FF;
+  --brand-600: #5555EE;
+  --brand-700: #4F4FDD;
+  --brand-800: #3E3ECC;
+  --brand-900: #2E2EAA;
+
+  /* Header & Card Gradients */
+  --delivery-header-gradient: linear-gradient(180deg, rgba(102, 102, 255, 0.90) 0%, rgba(136, 136, 255, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%);
+  --delivery-card-gradient: linear-gradient(135deg, #7777FF 0%, #6666FF 50%, #4F4FDD 100%);
+  --delivery-button-gradient: linear-gradient(135deg, #7777FF 0%, #6666FF 50%, #5555EE 100%);
+}
+
+/* Delivery Scoped Card Signature Left Accent Bar */
+.delivery-app .card-left-pill-orange,
+.delivery-app .card-left-pill-primary,
+.delivery-app .card-left-bar-orange {
+  position: relative;
+  overflow: hidden;
+  border: 1.5px solid rgba(102, 102, 255, 0.22) !important;
+  border-left: 5.5px solid #6666FF !important;
+  border-radius: 20px;
+  background-color: #F8F8FF !important;
+  box-shadow: 0 4px 14px -2px rgba(102, 102, 255, 0.08);
+}

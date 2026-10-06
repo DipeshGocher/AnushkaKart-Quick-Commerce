@@ -197,6 +197,21 @@ function createApp() {
   app.use(express.json({ limit: process.env.API_JSON_LIMIT || "10mb" }));
   app.use(express.urlencoded({ limit: process.env.API_URLENCODED_LIMIT || "10mb", extended: true }));
 
+  // Render / Liveness / Monitoring Health Endpoint
+  app.get("/health", (req, res) => {
+    res.status(200).json({
+      success: true,
+      error: false,
+      message: "Server is healthy",
+      result: {
+        status: "UP",
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+        environment: NODE_ENV,
+      },
+    });
+  });
+
   // Root endpoint
   app.get("/", (req, res) => {
     res.status(200).json({

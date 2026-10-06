@@ -72,12 +72,7 @@ const FlipkartCatalogCard = ({ product, onProductClick }) => {
                     src={applyCloudinaryTransform(rawImage, 'f_auto,q_auto,w_300')}
                     alt={product.name}
                     loading="lazy"
-                    className={cn(
-                        "w-full h-full transition-transform duration-200 group-hover:scale-105",
-                        isPngImage(rawImage)
-                            ? "is-png-image object-contain p-1"
-                            : "is-normal-image object-cover p-0"
-                    )}
+                    className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                 />
 
                 {/* Variants Pill (Bottom Right) */}

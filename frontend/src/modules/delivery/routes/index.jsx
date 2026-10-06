@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import DeliveryLayout from "../layout/DeliveryLayout";
 import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
 import Splash from "../pages/Splash";
@@ -23,40 +23,38 @@ import Withdrawals from "../pages/profile/Withdrawals";
 import Notifications from "../pages/Notifications";
 import WarehouseCheckin from "../pages/WarehouseCheckin";
 
+export const deliveryRoutes = [
+  { index: true, element: <Navigate to="dashboard" replace /> },
+  { path: "splash", element: <Navigate to="dashboard" replace /> },
+  { path: "auth", element: <DeliveryAuth /> },
+  { path: "dashboard", element: <Dashboard /> },
+  { path: "order-details/:orderId", element: <OrderDetails /> },
+  { path: "navigation", element: <Navigation /> },
+  { path: "confirm-delivery/:orderId", element: <DeliveryConfirmation /> },
+  { path: "earnings", element: <EarningsPage /> },
+  { path: "cod-cash", element: <CodCash /> },
+  { path: "history", element: <OrderHistory /> },
+  { path: "profile", element: <Profile /> },
+  { path: "profile/personal-details", element: <PersonalDetails /> },
+  { path: "profile/vehicle-info", element: <VehicleInfo /> },
+  { path: "profile/bank-account", element: <BankAccount /> },
+  { path: "profile/documents", element: <Documents /> },
+  { path: "profile/safety-privacy", element: <SafetyPrivacy /> },
+  { path: "profile/settings", element: <Settings /> },
+  { path: "profile/help-support", element: <HelpSupport /> },
+  { path: "profile/withdrawals", element: <Withdrawals /> },
+  { path: "profile/cod-cash", element: <CodCash /> },
+  { path: "notifications", element: <Notifications /> },
+  { path: "warehouse-checkin", element: <WarehouseCheckin /> },
+  { path: "*", element: <Navigate to="/delivery/dashboard" replace /> },
+];
+
 const DeliveryRoutes = () => {
   useEffect(() => {
     setActiveRole(ROLES.DELIVERY);
   }, []);
 
-  return (
-    <Routes>
-      <Route element={<DeliveryLayout />}>
-        <Route path="splash" element={<Navigate to="dashboard" replace />} />
-
-        <Route path="auth" element={<DeliveryAuth />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="order-details/:orderId" element={<OrderDetails />} />
-        <Route path="navigation" element={<Navigation />} />
-        <Route path="confirm-delivery/:orderId" element={<DeliveryConfirmation />} />
-        <Route path="earnings" element={<EarningsPage />} />
-        <Route path="cod-cash" element={<CodCash />} />
-        <Route path="history" element={<OrderHistory />} />
-        <Route path="profile" element={<Profile />} />
-        <Route path="profile/personal-details" element={<PersonalDetails />} />
-        <Route path="profile/vehicle-info" element={<VehicleInfo />} />
-        <Route path="profile/bank-account" element={<BankAccount />} />
-        <Route path="profile/documents" element={<Documents />} />
-        <Route path="profile/safety-privacy" element={<SafetyPrivacy />} />
-        <Route path="profile/settings" element={<Settings />} />
-        <Route path="profile/help-support" element={<HelpSupport />} />
-        <Route path="profile/withdrawals" element={<Withdrawals />} />
-        <Route path="profile/cod-cash" element={<CodCash />} />
-        <Route path="notifications" element={<Notifications />} />
-        <Route path="warehouse-checkin" element={<WarehouseCheckin />} />
-        <Route path="/" element={<Navigate to="dashboard" replace />} />
-      </Route>
-    </Routes>
-  );
+  return <DeliveryLayout />;
 };
 
 export default DeliveryRoutes;

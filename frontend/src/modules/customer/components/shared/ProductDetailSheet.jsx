@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence, useAnimation, useDragControls } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { X, ChevronDown, Share2, Heart, Search, Clock, Minus, Plus, ShoppingBag, ShoppingCart, Star, MessageSquare, ArrowLeft, ChevronRight, ChevronLeft, Store, Building2, Package } from 'lucide-react';
+import { X, ChevronDown, FileText, Share2, Heart, Search, Clock, Minus, Plus, ShoppingBag, ShoppingCart, Star, MessageSquare, ArrowLeft, ChevronRight, ChevronLeft, Store, Building2, Package } from 'lucide-react';
 import { useProductDetail } from '../../context/ProductDetailContext';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { useCart } from '../../context/CartContext';
@@ -17,51 +17,6 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import ParticleBurst from './ParticleBurst';
 
-const AccordionItem = ({ title, children, id, icon, expandedSections, toggleSection }) => {
-    const isOpen = expandedSections.includes(id);
-    return (
-        <div className="border-b border-orange-100/80 last:border-0 py-1">
-            <button
-                onClick={() => toggleSection(id)}
-                className="w-full py-3 flex items-center justify-between transition-all hover:bg-orange-50/60 rounded-xl group px-2"
-            >
-                <div className="flex items-center gap-3">
-                    <div className={cn(
-                        "w-8 h-8 rounded-xl flex items-center justify-center transition-all shadow-2xs",
-                        isOpen ? "bg-[#2875E8] text-white" : "bg-[#EFF6FF] text-[#2875E8] group-hover:bg-[#FFE0D1]"
-                    )}>
-                        {icon}
-                    </div>
-                    <span className={cn(
-                        "font-extrabold text-[12.5px] uppercase tracking-wider",
-                        isOpen ? "text-[#0F172A]" : "text-slate-700"
-                    )}>{title}</span>
-                </div>
-                <motion.div
-                    animate={{ rotate: isOpen ? 180 : 0 }}
-                    className={cn("transition-colors", isOpen ? "text-[#2875E8]" : "text-slate-400")}
-                >
-                    <ChevronDown size={18} strokeWidth={3} />
-                </motion.div>
-            </button>
-            <AnimatePresence initial={false}>
-                {isOpen && (
-                    <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.25, ease: "easeInOut" }}
-                        className="overflow-hidden"
-                    >
-                        <div className="pt-2 pb-4 px-2">
-                            {children}
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </div>
-    );
-};
 
 const HIGHLIGHT_ICON_MAP = {
     // Grocery & Food
@@ -170,7 +125,7 @@ const ProductDetailSheet = () => {
     const [newReview, setNewReview] = useState({ rating: 5, comment: '' });
     const [localHasReviewed, setLocalHasReviewed] = useState(false);
     const [extendedProduct, setExtendedProduct] = useState(null);
-    const [expandedSections, setExpandedSections] = useState(['description']); // Start with description open
+    const [expandedSections, setExpandedSections] = useState(['specification']); // Start with description open
     const [showHeartPopup, setShowHeartPopup] = useState(false);
     
     // Kit Add-ons State
@@ -578,6 +533,60 @@ const ProductDetailSheet = () => {
 
     const cleanDesc = cleanDescription(selectedProduct?.description);
 
+    const activeProduct = extendedProduct || selectedProduct;
+
+    const specificationsList = useMemo(() => {
+        const list = [];
+        const seenKeys = new Set();
+
+        // 1. Custom specifications from database
+        const rawSpecs = activeProduct?.specifications;
+        if (Array.isArray(rawSpecs)) {
+            rawSpecs.forEach((s) => {
+                if (s && (s.key || s.value)) {
+                    const k = String(s.key || '').trim();
+                    const v = String(s.value || '').trim();
+                    if (k && v && !seenKeys.has(k.toLowerCase())) {
+                        seenKeys.add(k.toLowerCase());
+                        list.push({ label: k, value: v });
+                    }
+                }
+            });
+        }
+
+        // 2. Standard product fields if available and not yet included
+        const standardFields = [
+            { key: 'Brand', value: activeProduct?.brand },
+            { key: 'Type', value: activeProduct?.type },
+            { key: 'Model Name', value: activeProduct?.modelName || (activeProduct?.name !== selectedProduct?.name ? activeProduct?.name : '') },
+            { key: 'Quantity', value: selectedVariant?.name || activeProduct?.quantity },
+            { key: 'Pack Of', value: activeProduct?.packOf },
+            { key: 'Container Type', value: activeProduct?.containerType },
+            { key: 'Maximum Shelf Life', value: activeProduct?.shelfLife },
+            { key: 'FSSAI Number', value: activeProduct?.fssaiLicense },
+            { key: 'Country of Origin', value: activeProduct?.countryOfOrigin },
+            { key: 'Weight', value: activeProduct?.weight },
+            { key: 'Customer Care', value: supportEmail },
+        ];
+
+        standardFields.forEach((field) => {
+            if (field.value && !seenKeys.has(field.key.toLowerCase())) {
+                seenKeys.add(field.key.toLowerCase());
+                list.push({ label: field.key, value: String(field.value).trim() });
+            }
+        });
+
+        return list;
+    }, [activeProduct, selectedProduct, selectedVariant, supportEmail]);
+
+    const specificationPairs = useMemo(() => {
+        const pairs = [];
+        for (let i = 0; i < specificationsList.length; i += 2) {
+            pairs.push(specificationsList.slice(i, i + 2));
+        }
+        return pairs;
+    }, [specificationsList]);
+
     const selectedAddons = addons.filter(a => (addonQuantities[a._id] || 0) > 0);
     const addonsTotal = selectedAddons.reduce((sum, a) => sum + (a.price * addonQuantities[a._id]), 0);
     const displayPrice = (selectedVariant?.salePrice || selectedVariant?.price || selectedProduct.salePrice || selectedProduct.price || 0) + addonsTotal;
@@ -670,7 +679,7 @@ const ProductDetailSheet = () => {
 
     return (
         <AnimatePresence>
-            {isOpen && (
+            {isOpen && selectedProduct && (
                 <>
                     {/* Backdrop - sits above header */}
                     <motion.div
@@ -819,17 +828,8 @@ const ProductDetailSheet = () => {
                                 <div className="flex-1 px-7 py-6 lg:px-8 lg:py-7 space-y-3">
 
                                     {/* Top badges row */}
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <motion.div
-                                            initial={{ opacity: 0, x: -10 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            transition={{ delay: 0.1 }}
-                                            className="inline-flex items-center gap-1.5 bg-[#ecfeff] border border-brand-200/50 text-primary px-3 py-1.5 rounded-lg text-[10px] font-[700] uppercase tracking-wider"
-                                        >
-                                            <Clock size={12} strokeWidth={2.5} className="text-primary" />
-                                            {selectedProduct.deliveryTime || '8-15 MINS'}
-                                        </motion.div>
-                                        {selectedProduct.originalPrice > selectedProduct.price && (
+                                    {selectedProduct.originalPrice > selectedProduct.price && (
+                                        <div className="flex items-center gap-2 flex-wrap mb-1">
                                             <motion.div
                                                 initial={{ opacity: 0, x: -10 }}
                                                 animate={{ opacity: 1, x: 0 }}
@@ -838,31 +838,17 @@ const ProductDetailSheet = () => {
                                             >
                                                 💰 Save ₹{selectedProduct.originalPrice - selectedProduct.price}
                                             </motion.div>
-                                        )}
-                                        <motion.div
-                                            initial={{ opacity: 0, x: -10 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            transition={{ delay: 0.2 }}
-                                            className="flex items-center gap-1 px-2.5 py-1.5 bg-brand-50 text-primary rounded-lg text-[10px] font-[700] border border-brand-100/50"
-                                        >
-                                            <Star size={10} fill="currentColor" />
-                                            {reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : '4.8'}
-                                            <span className="text-primary/70 font-medium">({reviews.length > 0 ? reviews.length : '120+'})</span>
-                                        </motion.div>
-                                    </div>
-
+                                        </div>
+                                    )}
                                     {/* Product Name */}
                                     <motion.div
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: 0.15 }}
                                     >
-                                        <h1 className="text-[19px] lg:text-[22px] font-black text-[#111827] leading-[1.2] tracking-tight mb-1">
+                                        <h1 className="text-[19px] lg:text-[22px] font-black text-[#111827] leading-[1.2] tracking-tight">
                                             {selectedProduct.name}
                                         </h1>
-                                        {selectedProduct.weight && (
-                                            <span className="text-[13px] text-gray-400 font-bold uppercase tracking-wider">{selectedProduct.weight}</span>
-                                        )}
                                     </motion.div>
 
                                     {/* Seller / Warehouse Name */}
@@ -1035,137 +1021,44 @@ const ProductDetailSheet = () => {
                                     {/* Kit Addons (Desktop) */}
                                     {selectedProduct.isMonthlyKit && <KitAddonsUI />}
 
-                                    {/* Decorative Divider */}
-                                    <div className="relative -mt-1 -mb-1">
-                                        <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
-                                        <div className="absolute left-1/2 -translate-x-1/2 -top-1 w-2 h-2 bg-white border border-gray-200 rounded-full" />
-                                    </div>
+                                    {/* Thin Divider between Select Variant and Specifications */}
+                                    <div className="border-t border-slate-100 my-4" />
 
-                                    {/* Product Information Accordion (Desktop) */}
-                                    <div className="mt-4 border-t border-slate-100">
-                                        {/* Description */}
-                                        {cleanDesc && (
-                                            <AccordionItem expandedSections={expandedSections} toggleSection={toggleSection}
-                                                id="description"
-                                                title="Product Description"
-                                                icon={<Clock size={16} />}
-                                            >
-                                                <div
-                                                    className="text-[13px] text-slate-500 font-medium leading-relaxed whitespace-pre-line"
-                                                    dangerouslySetInnerHTML={{ __html: cleanDesc }}
-                                                />
-                                            </AccordionItem>
-                                        )}
-
-                                        {/* Product Details */}
-                                        <AccordionItem expandedSections={expandedSections} toggleSection={toggleSection}
-                                            id="details"
-                                            title="Product Details"
-                                            icon={<Search size={16} />}
-                                        >
-                                            <div className="grid grid-cols-2 gap-3 mt-1">
-                                                {[
-                                                    ...(selectedProduct?.brand ? [{ label: 'Brand', value: selectedProduct.brand, emoji: '🏷️' }] : []),
-                                                    ...(selectedProduct?.shelfLife ? [{ label: 'Shelf Life', value: selectedProduct.shelfLife, emoji: '📅' }] : []),
-                                                    ...(selectedProduct?.countryOfOrigin ? [{ label: 'Country of Origin', value: selectedProduct.countryOfOrigin, emoji: '🇮🇳' }] : []),
-                                                    ...(selectedProduct?.fssaiLicense ? [{ label: 'FSSAI License', value: selectedProduct.fssaiLicense, emoji: '🛡️' }] : []),
-                                                    { label: 'Customer Care', value: supportEmail, emoji: '📧' }
-                                                ].map((d) => (
-                                                    <div key={d.label} className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 group hover:bg-white hover:shadow-sm transition-all">
-                                                        <span className="text-[10px] text-slate-400 block mb-0.5 font-bold uppercase tracking-wider">{d.label}</span>
-                                                        <span className="font-black text-slate-800 text-[12px]">{d.value}</span>
+                                    {/* Specifications Section */}
+                                    <div className="py-1">
+                                        <h3 className="text-[15px] font-bold text-slate-900 tracking-tight mb-3">Specifications</h3>
+                                        {specificationPairs.length > 0 ? (
+                                            <div className="space-y-0">
+                                                {specificationPairs.map((pair, rowIndex) => (
+                                                    <div key={rowIndex} className="grid grid-cols-2 gap-4 py-2.5 border-b border-slate-100 last:border-b-0">
+                                                        {pair.map((item, colIndex) => (
+                                                            <div key={colIndex} className="min-w-0 pr-2">
+                                                                <span className="text-[11px] font-medium text-slate-400 block leading-tight">{item.label}</span>
+                                                                <span className="text-[13px] font-medium text-slate-800 block mt-1 break-words leading-snug">{item.value}</span>
+                                                            </div>
+                                                        ))}
                                                     </div>
                                                 ))}
                                             </div>
-                                        </AccordionItem>
+                                        ) : (
+                                            <p className="text-[12px] text-slate-400 italic">No specifications available</p>
+                                        )}
+                                    </div>
 
-                                        {/* Customer Reviews */}
-                                        <AccordionItem expandedSections={expandedSections} toggleSection={toggleSection}
-                                            id="reviews"
-                                            title={`Customer Reviews (${reviews.length > 0 ? reviews.length : '120+'})`}
-                                            icon={<Star size={16} />}
-                                        >
-                                            <div className="space-y-6 mt-2">
-                                                <div className="flex items-center justify-between mb-4">
-                                                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 text-primary rounded-xl text-xs font-black border border-brand-100">
-                                                        <Star size={14} fill="currentColor" />
-                                                        {reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : '4.8'}
-                                                    </div>
-                                                </div>
+                                    {/* Thin Divider between Specifications and Product Details */}
+                                    <div className="border-t border-slate-100 my-4" />
 
-                                                {/* Review Form */}
-                                                {selectedProduct?.hasReviewed || extendedProduct?.hasReviewed || localHasReviewed ? (
-                                                    <div className="bg-brand-50 p-4 rounded-2xl border border-brand-100 mb-6 text-center">
-                                                        <p className="text-[11px] font-bold text-primary uppercase tracking-wide">You have already reviewed this product. Thank you!</p>
-                                                    </div>
-                                                ) : (selectedProduct?.hasPurchased || extendedProduct?.hasPurchased) ? (
-                                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-6">
-                                                        <h4 className="font-black text-slate-800 text-xs mb-3 flex items-center gap-2">
-                                                            <MessageSquare size={13} className="text-primary" />
-                                                            Rate this product
-                                                        </h4>
-                                                        <form onSubmit={handleReviewSubmit} className="space-y-3">
-                                                            <div className="flex gap-1.5">
-                                                                {[1, 2, 3, 4, 5].map((s) => (
-                                                                    <motion.button
-                                                                        key={s}
-                                                                        type="button"
-                                                                        whileHover={{ scale: 1.1 }}
-                                                                        whileTap={{ scale: 0.9 }}
-                                                                        onClick={() => setNewReview({ ...newReview, rating: s })}
-                                                                        className={cn(
-                                                                            'h-9 w-9 rounded-xl flex items-center justify-center transition-all shadow-sm',
-                                                                            newReview.rating >= s ? 'bg-brand-50 text-primary border border-brand-100' : 'bg-white text-slate-300 border border-slate-100'
-                                                                        )}
-                                                                    >
-                                                                        <Star size={15} className={cn(newReview.rating >= s && 'fill-current')} />
-                                                                    </motion.button>
-                                                                ))}
-                                                            </div>
-                                                            <textarea value={newReview.comment} onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })} placeholder="Share your experience..." className="w-full bg-white border border-slate-100 rounded-xl p-3 text-xs font-medium min-h-[80px] outline-none focus:border-primary transition-all resize-none shadow-sm" />
-                                                            <Button type="submit" disabled={isSubmittingReview} className="w-full h-10 bg-primary hover:opacity-90 text-white font-black rounded-xl text-[11px] uppercase tracking-[0.1em] transition-all shadow-lg shadow-brand-100">
-                                                                {isSubmittingReview ? 'Submitting...' : 'Post Review'}
-                                                            </Button>
-                                                        </form>
-                                                    </div>
-                                                ) : (
-                                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-6 text-center">
-                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">You must purchase this product to rate it</p>
-                                                    </div>
-                                                )}
-
-                                                {/* Reviews List */}
-                                                <div className="space-y-3">
-                                                    {reviewLoading ? (
-                                                        <div className="flex justify-center py-6"><Loader2 className="animate-spin text-primary" size={20} /></div>
-                                                    ) : reviews.length > 0 ? (
-                                                        reviews.map((r, rIdx) => (
-                                                            <div key={r._id} className="p-4 rounded-xl border border-slate-100 bg-white hover:shadow-md hover:translate-x-1 transition-all group">
-                                                                <div className="flex justify-between items-start mb-2">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <div className="h-8 w-8 rounded-full bg-brand-50 flex items-center justify-center text-[11px] font-black text-primary border border-brand-100">{r.userId?.name?.[0] || 'A'}</div>
-                                                                        <div>
-                                                                            <p className="text-[12px] font-black text-slate-800">
-                                                                                {r.userId?.name || 'Anonymous'}
-                                                                                {r.status === 'pending' && <span className="ml-2 text-[10px] font-bold text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded uppercase">Pending</span>}
-                                                                            </p>
-                                                                            <div className="flex gap-0.5 mt-0.5">{[...Array(5)].map((_, i) => <Star key={i} size={9} className={cn(i < r.rating ? 'text-primary fill-primary' : 'text-slate-200')} />)}</div>
-                                                                        </div>
-                                                                    </div>
-                                                                    <span className="text-[10px] font-bold text-slate-400">{new Date(r.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
-                                                                </div>
-                                                                <p className="text-[12px] text-slate-600 font-medium leading-relaxed pl-10">{r.comment}</p>
-                                                            </div>
-                                                        ))
-                                                    ) : (
-                                                        <div className="py-10 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-                                                            <MessageSquare size={20} className="text-slate-300 mx-auto mb-2" />
-                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No reviews yet — be the first!</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </AccordionItem>
+                                    {/* Product Details Section */}
+                                    <div className="py-1">
+                                        <h3 className="text-[15px] font-bold text-slate-900 tracking-tight mb-2">Product Details</h3>
+                                        {cleanDesc ? (
+                                            <div
+                                                className="text-[13px] text-slate-600 font-normal leading-relaxed whitespace-pre-line"
+                                                dangerouslySetInnerHTML={{ __html: cleanDesc }}
+                                            />
+                                        ) : (
+                                            <p className="text-[12px] text-slate-400 italic">No details available</p>
+                                        )}
                                     </div>
 
                                     {/* Bottom spacer */}
@@ -1317,30 +1210,11 @@ const ProductDetailSheet = () => {
 
                             {/* Product Info Container */}
                             <div className="px-5 pt-3 pb-3 space-y-3">
-                                {/* Delivery Time & Navy/Orange Badges Row */}
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <div className="inline-flex items-center gap-1.5 bg-[#0F172A] text-white px-3 py-1.5 rounded-full text-[10.5px] font-black uppercase tracking-wider shadow-2xs">
-                                        <Clock size={13} strokeWidth={2.5} className={isRefurbishedProduct ? "text-blue-400" : "text-[#FF7043]"} />
-                                        {selectedProduct.deliveryTime || "8-15 MINS"}
-                                    </div>
-                                    <div className={cn(
-                                        "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] font-black uppercase border",
-                                        isRefurbishedProduct
-                                            ? "bg-blue-50 text-blue-700 border-blue-200"
-                                            : "bg-[#EFF6FF] text-[#D9480F] border-[#FFD0B5]"
-                                    )}>
-                                        {isRefurbishedProduct ? "✨ Certified Refurbished" : "✨ Quality Fresh"}
-                                    </div>
-                                </div>
-
                                 {/* Title & Weight */}
                                 <div>
                                     <h2 className="text-xl font-extrabold text-[#0F172A] leading-snug tracking-tight">
                                         {selectedProduct.name}
                                     </h2>
-                                    <p className="text-xs text-slate-500 font-bold mt-1">
-                                        {selectedVariant?.name || (isRefurbishedProduct ? (selectedProduct.unit || "1 unit") : (selectedProduct.weight || "1 kg"))}
-                                    </p>
                                 </div>
 
                                 {/* Price Row */}
@@ -1367,43 +1241,6 @@ const ProductDetailSheet = () => {
                                             </>
                                         )}
                                 </div>
-
-                                {/* Key Feature Highlights Row (Light Orange / Blue Combos) */}
-                                {displayHighlights.length > 0 && (
-                                    <div className={cn(
-                                        "grid gap-2 pt-2.5 pb-1.5 border-t border-b my-2",
-                                        isRefurbishedProduct ? "border-blue-100/90" : "border-orange-100/90",
-                                        displayHighlights.length === 1 ? "grid-cols-1 max-w-[180px] mx-auto" :
-                                        displayHighlights.length === 2 ? "grid-cols-2 max-w-[320px] mx-auto" :
-                                        displayHighlights.length === 3 ? "grid-cols-3" : "grid-cols-4"
-                                    )}>
-                                        {displayHighlights.map((hl, idx) => {
-                                            const themeStyles = isRefurbishedProduct ? [
-                                                "bg-blue-50 border-blue-200 text-blue-700",
-                                                "bg-sky-50 border-sky-200 text-sky-800",
-                                                "bg-indigo-50 border-indigo-200 text-indigo-700",
-                                                "bg-teal-50 border-teal-200 text-teal-800"
-                                            ] : [
-                                                "bg-[#EFF6FF] border-[#FFD0B5] text-[#D9480F]",
-                                                "bg-[#EEF2FF] border-[#C7D2FE] text-[#1E3A8A]",
-                                                "bg-[#FFF4EC] border-[#FFE4D6] text-[#E65100]",
-                                                "bg-[#E0F2FE] border-[#BAE6FD] text-[#0369A1]"
-                                            ];
-                                            const iconConfig = HIGHLIGHT_ICON_MAP[hl.icon] || { emoji: "✨", bg: themeStyles[idx % themeStyles.length] };
-                                            const bgStyle = themeStyles[idx % themeStyles.length];
-                                            return (
-                                                <div key={idx} className="flex flex-col items-center text-center group py-1">
-                                                    <div className={cn("w-11 h-11 rounded-2xl border flex items-center justify-center shadow-2xs mb-1.5 group-hover:scale-105 transition-transform", bgStyle)}>
-                                                        <span className="text-lg">{iconConfig.emoji}</span>
-                                                    </div>
-                                                    <span className="text-[11px] font-extrabold text-[#0F172A] leading-tight whitespace-pre-line">
-                                                        {hl.label || "Highlight"}
-                                                    </span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
 
                                 {/* Variants Selection (Mobile) */}
                                 {selectedProduct.variants && selectedProduct.variants.filter(v => v.name).length > 0 && (
@@ -1457,142 +1294,44 @@ const ProductDetailSheet = () => {
                                 {/* Kit Addons (Mobile) */}
                                 {selectedProduct.isMonthlyKit && <KitAddonsUI />}
 
-                                {/* Product Information Accordion (Mobile) */}
-                                <div className="mt-2 border-t border-slate-100">
-                                    {/* Description */}
-                                    {cleanDesc && (
-                                        <AccordionItem expandedSections={expandedSections} toggleSection={toggleSection}
-                                            id="description"
-                                            title="Product Description"
-                                            icon={<Clock size={18} strokeWidth={2.5} />}
-                                        >
-                                            <div
-                                                className="text-sm text-slate-500 font-medium leading-relaxed whitespace-pre-line"
-                                                dangerouslySetInnerHTML={{ __html: cleanDesc }}
-                                            />
-                                        </AccordionItem>
-                                    )}
+                                {/* Thin Divider between Select Variant and Specifications */}
+                                <div className="border-t border-slate-100 my-3" />
 
-                                    {/* Product Details */}
-                                    <AccordionItem expandedSections={expandedSections} toggleSection={toggleSection}
-                                        id="details"
-                                        title="Product Details"
-                                        icon={<Search size={18} strokeWidth={2.5} />}
-                                    >
-                                        <div className="grid grid-cols-2 gap-3 mt-1">
-                                            {[
-                                                ...(selectedProduct?.brand ? [{ label: 'Brand', value: selectedProduct.brand }] : []),
-                                                ...(selectedProduct?.shelfLife ? [{ label: 'Shelf Life', value: selectedProduct.shelfLife }] : []),
-                                                ...(selectedProduct?.countryOfOrigin ? [{ label: 'Country of Origin', value: selectedProduct.countryOfOrigin }] : []),
-                                                ...(selectedProduct?.fssaiLicense ? [{ label: 'FSSAI License', value: selectedProduct.fssaiLicense }] : []),
-                                                { label: 'Customer Care', value: supportEmail }
-                                            ].map((d) => (
-                                                <div key={d.label} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                                    <span className="text-gray-400 block mb-0.5 text-[10px] font-bold uppercase tracking-wider">{d.label}</span>
-                                                    <span className="font-black text-slate-800 text-xs">{d.value}</span>
+                                {/* Specifications Section */}
+                                <div className="py-1">
+                                    <h3 className="text-[14px] font-bold text-slate-900 tracking-tight mb-2.5">Specifications</h3>
+                                    {specificationPairs.length > 0 ? (
+                                        <div className="space-y-0">
+                                            {specificationPairs.map((pair, rowIndex) => (
+                                                <div key={rowIndex} className="grid grid-cols-2 gap-3 py-2 border-b border-slate-100 last:border-b-0">
+                                                    {pair.map((item, colIndex) => (
+                                                        <div key={colIndex} className="min-w-0 pr-1">
+                                                            <span className="text-[11px] font-medium text-slate-400 block leading-tight">{item.label}</span>
+                                                            <span className="text-[13px] font-medium text-slate-800 block mt-0.5 break-words leading-snug">{item.value}</span>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             ))}
                                         </div>
-                                    </AccordionItem>
+                                    ) : (
+                                        <p className="text-[12px] text-slate-400 italic">No specifications available</p>
+                                    )}
+                                </div>
 
-                                    {/* Customer Reviews */}
-                                    <AccordionItem expandedSections={expandedSections} toggleSection={toggleSection}
-                                        id="reviews"
-                                        title={`Customer Reviews (${reviews.length > 0 ? reviews.length : '120+'})`}
-                                        icon={<Star size={18} strokeWidth={2.5} />}
-                                    >
-                                        <div className="space-y-6 mt-2">
-                                            <div className="flex items-center justify-between mb-4">
-                                                <div className={cn(
-                                                    "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black border",
-                                                    isRefurbishedProduct
-                                                        ? "bg-blue-50 text-blue-600 border-blue-200"
-                                                        : "bg-brand-50 text-primary border-brand-100"
-                                                )}>
-                                                    <Star size={16} fill="currentColor" />
-                                                    {reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : '4.8'}
-                                                </div>
-                                            </div>
+                                {/* Thin Divider between Specifications and Product Details */}
+                                <div className="border-t border-slate-100 my-3" />
 
-                                            {/* Review Form */}
-                                            {(selectedProduct?.hasReviewed || extendedProduct?.hasReviewed || localHasReviewed) ? (
-                                                <div className={cn(
-                                                    "p-5 rounded-3xl border mb-6 text-center",
-                                                    isRefurbishedProduct ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-brand-50 border-brand-100 text-primary"
-                                                )}>
-                                                    <p className="text-[12px] font-bold uppercase tracking-wide">You have already reviewed this product. Thank you!</p>
-                                                </div>
-                                            ) : (selectedProduct?.hasPurchased || extendedProduct?.hasPurchased) ? (
-                                                <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100 mb-6">
-                                                    <h4 className="font-black text-slate-800 text-sm mb-1">Rate this product</h4>
-                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-4">Reviews are moderated</p>
-                                                    <form onSubmit={handleReviewSubmit} className="space-y-4">
-                                                        <div className="flex gap-2">
-                                                            {[1, 2, 3, 4, 5].map((s) => (
-                                                                <button
-                                                                    key={s}
-                                                                    type="button"
-                                                                    onClick={() => setNewReview({ ...newReview, rating: s })}
-                                                                    className={cn(
-                                                                        "h-10 w-10 rounded-xl flex items-center justify-center transition-all shadow-sm",
-                                                                        newReview.rating >= s
-                                                                            ? (isRefurbishedProduct ? "bg-blue-50 text-blue-600 border border-blue-200" : "bg-brand-50 text-primary border border-brand-100")
-                                                                            : "bg-white text-slate-300 border border-slate-100"
-                                                                    )}
-                                                                >
-                                                                    <Star size={18} className={cn(newReview.rating >= s && "fill-current")} />
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                        <textarea value={newReview.comment} onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })} placeholder="Write your experience..." className="w-full bg-white border border-slate-100 rounded-2xl p-4 text-sm font-medium min-h-[100px] outline-none focus:border-blue-500 transition-all resize-none shadow-sm" />
-                                                        <Button type="submit" disabled={isSubmittingReview} className={cn(
-                                                            "w-full h-12 text-white font-black rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg",
-                                                            isRefurbishedProduct
-                                                                ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-95 shadow-blue-500/20"
-                                                                : "bg-primary hover:opacity-90 shadow-brand-100"
-                                                        )}>
-                                                            {isSubmittingReview ? "Submitting..." : "Post Review"}
-                                                        </Button>
-                                                    </form>
-                                                </div>
-                                            ) : (
-                                                <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100 mb-6 text-center">
-                                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">You must purchase this product to rate it</p>
-                                                </div>
-                                            )}
-
-                                            {/* Reviews List */}
-                                            <div className="space-y-4">
-                                                {reviewLoading ? (
-                                                    <div className="flex justify-center py-8"><Loader2 className={cn("animate-spin", isRefurbishedProduct ? "text-blue-600" : "text-primary")} size={24} /></div>
-                                                ) : reviews.length > 0 ? (
-                                                    reviews.map((r, rIdx) => (
-                                                        <div key={r._id} className="p-5 rounded-2xl border border-slate-100 bg-white hover:shadow-md transition-all">
-                                                            <div className="flex justify-between items-start mb-2">
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className={cn(
-                                                                        "h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-black border",
-                                                                        isRefurbishedProduct ? "bg-blue-50 text-blue-600 border-blue-200" : "bg-brand-50 text-primary border-brand-100"
-                                                                    )}>{r.userId?.name?.[0] || 'A'}</div>
-                                                                    <div>
-                                                                        <p className="text-xs font-black text-slate-800">{r.userId?.name || 'Anonymous'}</p>
-                                                                        <div className="flex gap-0.5">{[...Array(5)].map((_, i) => <Star key={i} size={10} className={cn(i < r.rating ? (isRefurbishedProduct ? 'text-amber-400 fill-amber-400' : 'text-primary fill-primary') : 'text-slate-200')} />)}</div>
-                                                                    </div>
-                                                                </div>
-                                                                <span className="text-[10px] font-bold text-slate-400">{new Date(r.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
-                                                            </div>
-                                                            <p className="text-xs text-slate-600 font-medium leading-relaxed pl-10">{r.comment}</p>
-                                                        </div>
-                                                    ))
-                                                ) : (
-                                                    <div className="py-12 text-center bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
-                                                        <MessageSquare size={24} className="text-slate-300 mx-auto mb-3" />
-                                                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No reviews yet — be the first!</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </AccordionItem>
+                                {/* Product Details Section */}
+                                <div className="py-1">
+                                    <h3 className="text-[14px] font-bold text-slate-900 tracking-tight mb-2">Product Details</h3>
+                                    {cleanDesc ? (
+                                        <div
+                                            className="text-[13px] text-slate-600 font-normal leading-relaxed whitespace-pre-line"
+                                            dangerouslySetInnerHTML={{ __html: cleanDesc }}
+                                        />
+                                    ) : (
+                                        <p className="text-[12px] text-slate-400 italic">No details available</p>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -1602,18 +1341,18 @@ const ProductDetailSheet = () => {
                             className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-100 p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.08)] z-50 shrink-0"
                             style={{ paddingBottom: 'max(1.25rem, calc(0.75rem + env(safe-area-inset-bottom, 16px)))' }}
                         >
-                            <div className="flex items-center gap-3.5">
+                            <div className="flex items-center justify-between gap-3 max-w-md mx-auto">
                                 {/* Left Side: Cart Icon with Badge */}
                                 <Link
                                     to="/cart"
                                     onClick={closeProduct}
-                                    className="relative w-14 h-14 bg-[#EEF2FF] border border-[#C7D2FE] rounded-2xl shadow-xs flex items-center justify-center text-[#1E3A8A] hover:bg-[#E0E7FF] active:scale-95 transition-all shrink-0"
+                                    className="relative w-12 h-12 bg-[#EEF2FF] border border-[#C7D2FE] rounded-xl shadow-xs flex items-center justify-center text-[#1E3A8A] hover:bg-[#E0E7FF] active:scale-95 transition-all shrink-0"
                                     title="View Cart"
                                 >
-                                    <ShoppingCart size={22} className="text-[#1E3A8A]" />
+                                    <ShoppingCart size={20} className="text-[#1E3A8A]" />
                                     {(isRefurbishedProduct ? refurbishedCartCount : groceryCartCount) > 0 && (
                                         <div className={cn(
-                                            "absolute -top-1.5 -right-1.5 text-white text-[11px] font-black w-5 h-5 rounded-full flex shrink-0 items-center justify-center shadow-md animate-in zoom-in duration-200",
+                                            "absolute -top-1.5 -right-1.5 text-white text-[10px] font-black w-4.5 h-4.5 rounded-full flex shrink-0 items-center justify-center shadow-md animate-in zoom-in duration-200",
                                             isRefurbishedProduct ? "bg-blue-600" : "bg-[#2875E8]"
                                         )}>
                                             {(isRefurbishedProduct ? refurbishedCartCount : groceryCartCount) > 99 ? '99+' : (isRefurbishedProduct ? refurbishedCartCount : groceryCartCount)}
@@ -1624,17 +1363,17 @@ const ProductDetailSheet = () => {
                                 {/* Right Side: Add to Cart / Quantity Pill Button */}
                                 {quantity > 0 ? (
                                     <div className={cn(
-                                        "flex-1 text-white h-14 rounded-2xl flex items-center justify-between px-2 shadow-lg border border-white/20",
+                                        "w-40 sm:w-48 text-white h-12 rounded-xl flex items-center justify-between px-2 shadow-md border border-white/20",
                                         isRefurbishedProduct
                                             ? "bg-gradient-to-r from-blue-600 to-indigo-600 shadow-blue-500/25"
-                                            : "bg-gradient-to-r from-[#2875E8] to-[#FF7043] shadow-orange-500/25"
+                                            : "bg-gradient-to-r from-[#2875E8] to-[#1F66D3] shadow-blue-500/20"
                                     )}>
                                         <motion.button
                                             whileTap={{ scale: 0.8 }}
                                             onClick={handleDecrement}
-                                            className="w-10 h-10 rounded-xl flex items-center justify-center text-white hover:bg-white/10 transition-colors"
+                                            className="w-8 h-8 rounded-lg flex items-center justify-center text-white hover:bg-white/10 transition-colors"
                                         >
-                                            <Minus size={18} strokeWidth={3.5} />
+                                            <Minus size={16} strokeWidth={3} />
                                         </motion.button>
                                         <div className="flex-1 flex justify-center items-center relative overflow-hidden h-6">
                                             <AnimatePresence mode="popLayout">
@@ -1644,7 +1383,7 @@ const ProductDetailSheet = () => {
                                                     animate={{ y: 0, opacity: 1 }}
                                                     exit={{ y: -15, opacity: 0 }}
                                                     transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                                                    className="font-black text-sm uppercase tracking-wider absolute"
+                                                    className="font-black text-xs uppercase tracking-wider absolute"
                                                 >
                                                     {quantity} in cart
                                                 </motion.span>
@@ -1653,25 +1392,24 @@ const ProductDetailSheet = () => {
                                         <motion.button
                                             whileTap={{ scale: 0.8 }}
                                             onClick={handleIncrement}
-                                            className="w-10 h-10 rounded-xl flex items-center justify-center text-white hover:bg-white/10 transition-colors"
+                                            className="w-8 h-8 rounded-lg flex items-center justify-center text-white hover:bg-white/10 transition-colors"
                                         >
-                                            <Plus size={18} strokeWidth={3.5} />
+                                            <Plus size={16} strokeWidth={3} />
                                         </motion.button>
                                     </div>
                                 ) : (
                                     <motion.button
-                                        whileHover={{ scale: 1.01 }}
-                                        whileTap={{ scale: 0.97 }}
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.96 }}
                                         onClick={handleAddToCart}
                                         className={cn(
-                                            "flex-1 text-white h-14 rounded-2xl font-black text-sm flex items-center justify-between px-6 shadow-xl transition-all border border-white/20 active:opacity-90",
+                                            "w-40 sm:w-48 text-white h-12 rounded-xl font-black text-xs sm:text-[13px] flex items-center justify-center shadow-md transition-all border border-white/20 active:opacity-90 tracking-wider uppercase cursor-pointer",
                                             isRefurbishedProduct
                                                 ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 shadow-blue-500/25"
-                                                : "bg-gradient-to-r from-[#2875E8] to-[#1F66D3] shadow-orange-500/25"
+                                                : "bg-gradient-to-r from-[#2875E8] to-[#1F66D3] shadow-blue-500/20"
                                         )}
                                     >
-                                        <span className="uppercase tracking-wider font-black text-[13px]">ADD TO CART</span>
-                                        <span className="text-sm font-black bg-[#0F172A] text-white px-3 py-1 rounded-xl shadow-xs">₹{displayPrice}</span>
+                                        ADD TO CART
                                     </motion.button>
                                 )}
                             </div>

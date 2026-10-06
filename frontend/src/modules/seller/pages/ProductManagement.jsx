@@ -376,6 +376,15 @@ const ProductManagement = () => {
         }));
       data.append("highlights", JSON.stringify(cleanedHighlights));
 
+      // Specifications
+      const cleanedSpecs = (formData.specifications || [])
+        .filter((s) => s && (String(s.key || "").trim() || String(s.value || "").trim()))
+        .map((s) => ({
+          key: String(s.key || "").trim(),
+          value: String(s.value || "").trim(),
+        }));
+      data.append("specifications", JSON.stringify(cleanedSpecs));
+
       // Append main image file or string URL
       if (formData.mainImageFile instanceof File) {
         data.append("mainImage", formData.mainImageFile);
@@ -508,6 +517,16 @@ const ProductManagement = () => {
         return { icon: h.icon || h.id || "", label: h.label || h.name || h.title || "" };
       });
 
+      let rawSpecs = freshItem.specifications || item?.specifications || [];
+      if (typeof rawSpecs === "string") {
+        try { rawSpecs = JSON.parse(rawSpecs); } catch (e) { rawSpecs = []; }
+      }
+      if (!Array.isArray(rawSpecs)) rawSpecs = [];
+      const freshSpecs = rawSpecs.map((s) => ({
+        key: s?.key || "",
+        value: s?.value || "",
+      }));
+
       setFormData({
         name: freshItem.name || "",
         slug: freshItem.slug || "",
@@ -532,6 +551,7 @@ const ProductManagement = () => {
         mainImage: freshItem.mainImage || null,
         galleryImages: freshItem.galleryImages || [],
         highlights: freshHighlights,
+        specifications: freshSpecs,
         variants: (freshItem.variants && freshItem.variants.length > 0) ? freshItem.variants.map(v => ({ ...v, id: v._id || Date.now() })) : [
           {
             id: Date.now(),
@@ -564,6 +584,8 @@ const ProductManagement = () => {
         brand: "",
         mainImage: null,
         galleryImages: [],
+        highlights: [0, 1, 2, 3].map(() => ({ icon: "", label: "" })),
+        specifications: [],
         variants: [
           {
             id: Date.now(),
@@ -1061,6 +1083,11 @@ const ProductManagement = () => {
                       id: "highlights",
                       label: "Highlights",
                       icon: HiOutlineSparkles,
+                    },
+                    {
+                      id: "specifications",
+                      label: "Specifications",
+                      icon: HiOutlineCube,
                     },
                   ].map((tab) => (
                     <button
@@ -1748,6 +1775,171 @@ const ProductManagement = () => {
                             </div>
                           );
                         })}
+                      </div>
+                    </div>
+                  )}
+
+                  {modalTab === "specifications" && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-800">Product Specifications</h3>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Add custom fields according to your product (e.g., Brand, Model Name, Tea Form, Shelf Life, etc.)
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              specifications: [...(prev.specifications || []), { key: "", value: "" }],
+                            }));
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-white rounded-lg text-xs font-bold shadow-sm hover:bg-primary/90 transition-all self-start"
+                        >
+                          <HiOutlinePlus className="w-4 h-4" />
+                          <span>Add Field</span>
+                        </button>
+                      </div>
+
+                      {/* Quick suggestion tags */}
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                          Quick Add Suggestions:
+                        </label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            "Brand",
+                            "Model Name",
+                            "Type",
+                            "Quantity",
+                            "Pack Of",
+                            "Tea Form",
+                            "Container Type",
+                            "Maximum Shelf Life",
+                            "FSSAI Number",
+                            "Usage Instructions",
+                            "Nutrient Content",
+                            "Ingredients",
+                            "Additives",
+                            "Net Quantity",
+                            "Country of Origin",
+                            "Weight",
+                          ].map((suggestedKey) => {
+                            const alreadyExists = (formData.specifications || []).some(
+                              (s) => String(s.key || "").trim().toLowerCase() === suggestedKey.toLowerCase()
+                            );
+                            return (
+                              <button
+                                key={suggestedKey}
+                                type="button"
+                                disabled={alreadyExists}
+                                onClick={() => {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    specifications: [
+                                      ...(prev.specifications || []),
+                                      { key: suggestedKey, value: "" },
+                                    ],
+                                  }));
+                                }}
+                                className={cn(
+                                  "px-2.5 py-1 rounded-md text-xs font-medium transition-all border",
+                                  alreadyExists
+                                    ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60"
+                                    : "bg-slate-50 hover:bg-primary/10 hover:border-primary/30 text-slate-700 border-slate-200"
+                                )}
+                              >
+                                + {suggestedKey}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Dynamic Specifications List */}
+                      <div className="space-y-3">
+                        {(!formData.specifications || formData.specifications.length === 0) ? (
+                          <div className="p-8 border-2 border-dashed border-slate-200 rounded-xl text-center space-y-3">
+                            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+                              <HiOutlineCube className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-slate-700">No specifications added yet</p>
+                              <p className="text-[11px] text-slate-400 mt-0.5">
+                                Click 'Add Field' above or select any quick suggestion to add specification attributes.
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  specifications: [{ key: "", value: "" }],
+                                }));
+                              }}
+                              className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-all"
+                            >
+                              Add First Specification
+                            </button>
+                          </div>
+                        ) : (
+                          formData.specifications.map((spec, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center gap-3 p-3 bg-slate-50/70 border border-slate-200/80 rounded-xl hover:border-slate-300 transition-all"
+                            >
+                              <div className="flex-1">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                  Field Name / Title
+                                </label>
+                                <input
+                                  type="text"
+                                  value={spec.key}
+                                  onChange={(e) => {
+                                    const next = [...(formData.specifications || [])];
+                                    next[index] = { ...next[index], key: e.target.value };
+                                    setFormData({ ...formData, specifications: next });
+                                  }}
+                                  placeholder="e.g. Brand, Model Name, Type"
+                                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-primary/10"
+                                />
+                              </div>
+
+                              <div className="flex-[1.5]">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                  Value
+                                </label>
+                                <input
+                                  type="text"
+                                  value={spec.value}
+                                  onChange={(e) => {
+                                    const next = [...(formData.specifications || [])];
+                                    next[index] = { ...next[index], value: e.target.value };
+                                    setFormData({ ...formData, specifications: next });
+                                  }}
+                                  placeholder="e.g. Tata Tea Premium, 1.5 kg, Pouch"
+                                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-primary/10"
+                                />
+                              </div>
+
+                              <div className="pt-4">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const next = (formData.specifications || []).filter((_, i) => i !== index);
+                                    setFormData({ ...formData, specifications: next });
+                                  }}
+                                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                  title="Remove field"
+                                >
+                                  <HiOutlineTrash className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ))
+                        )}
                       </div>
                     </div>
                   )}

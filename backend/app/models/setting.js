@@ -44,6 +44,43 @@ const settingSchema = new mongoose.Schema(
             default: "#0047AB",
         },
 
+        // Header Delivery Badge (e.g. 30 min logo)
+        deliveryBadgeText: {
+            type: String,
+            default: "30 min",
+            trim: true,
+        },
+        deliveryBadgeImage: {
+            type: String,
+            default: "",
+            trim: true,
+        },
+        deliveryBadgeBg: {
+            type: String,
+            default: "",
+            trim: true,
+        },
+        deliveryBadgeEnabled: {
+            type: Boolean,
+            default: true,
+        },
+
+        // Best Selling Categories section customization
+        bestSellingTitle: {
+            type: String,
+            default: "Best Selling Categories",
+            trim: true,
+        },
+        bestSellingCategoryIds: [
+            { type: String }
+        ],
+
+        // Top Deals section customization map by category id/slug
+        categoryTopDeals: {
+            type: mongoose.Schema.Types.Mixed,
+            default: {},
+        },
+
         // Legal
         companyName: String,
         taxId: String,

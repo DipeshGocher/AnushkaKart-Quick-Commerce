@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Sparkles, Star, ImageOff } from "lucide-react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { Sparkles, Plus, Minus, ImageOff } from "lucide-react";
 import { customerApi } from "../../services/customerApi";
-import { applyCloudinaryTransform, isPngImage } from "@/core/utils/imageUtils";
-import { cn } from "@/lib/utils";
-import { getProductUrl, getProductVariantText, getProductPriceInfo } from "@/core/utils/productUrl";
+import { useProductDetail } from "../../context/ProductDetailContext";
+import { useCart } from "../../context/CartContext";
+import { useVariantSelection } from "../../context/VariantSelectionContext";
+import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { getProductVariantText, getProductPriceInfo } from "@/core/utils/productUrl";
 import { useTranslation } from "@core/context/LanguageContext";
 import { useDynamicTranslation } from "@/core/hooks/useDynamicTranslation";
 
@@ -27,6 +28,192 @@ const getItems = (response) => {
     : [];
 };
 
+/**
+ * Individual Product Card for New Arrivals
+ * Displays:
+ * 1. Image box with top-left % OFF badge and bottom-right + / - [qty] + stepper
+ * 2. Product Name
+ * 3. Variant (below name)
+ * 4. Price (below variant)
+ */
+const NewArrivalProductCard = ({ product }) => {
+  const { openProduct } = useProductDetail();
+  const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
+  const { openVariantSelection } = useVariantSelection();
+
+  const productId = product.id || product._id;
+  const { currentPrice, originalPrice, hasDiscount, discountPercent } =
+    getProductPriceInfo(product);
+  const variantText = getProductVariantText(product);
+  const image = product.image;
+
+  const defaultVariant = useMemo(() => {
+    const variants = Array.isArray(product?.variants) ? product.variants : [];
+    if (variants.length === 0) return null;
+    const picked = variants[0];
+    return {
+      key: String(picked?.sku || picked?.name || "").trim(),
+      name: String(picked?.name || "").trim(),
+    };
+  }, [product]);
+
+  const variantKey = String(defaultVariant?.key || product?.variantSku || "").trim();
+  const cartKey = `${productId}::${variantKey || ""}`;
+
+  const cartItem = useMemo(
+    () =>
+      cart.find(
+        (item) =>
+          `${item.id || item._id}::${String(item.variantSku || "").trim()}` === cartKey ||
+          (!variantKey && String(item.id || item._id) === String(productId))
+      ),
+    [cart, cartKey, productId, variantKey]
+  );
+
+  const quantity = cartItem ? cartItem.quantity : 0;
+
+  const handleAddToCart = useCallback(
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (Array.isArray(product?.variants) && product.variants.length > 1) {
+        if (openVariantSelection) {
+          openVariantSelection(product);
+          return;
+        }
+      }
+
+      addToCart({
+        ...product,
+        id: productId,
+        variantSku: variantKey,
+        variantName: defaultVariant?.name || "",
+      });
+    },
+    [product, productId, variantKey, defaultVariant?.name, openVariantSelection, addToCart]
+  );
+
+  const handleIncrement = useCallback(
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      updateQuantity(productId, 1, variantKey);
+    },
+    [updateQuantity, productId, variantKey]
+  );
+
+  const handleDecrement = useCallback(
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (quantity === 1) {
+        removeFromCart(productId, variantKey);
+      } else {
+        updateQuantity(productId, -1, variantKey);
+      }
+    },
+    [quantity, removeFromCart, updateQuantity, productId, variantKey]
+  );
+
+  return (
+    <div
+      onClick={() => openProduct(product)}
+      className="group bg-white rounded-2xl p-2 sm:p-2.5 shadow-sm border border-white/60 flex flex-col justify-between active:scale-[0.98] transition-all cursor-pointer relative overflow-hidden select-none hover:shadow-md h-full"
+    >
+      {/* 1. Image Box with % OFF tag and + / - Stepper */}
+      <div className="relative w-full aspect-square rounded-xl bg-[#f8f9fa] flex items-center justify-center overflow-hidden mb-1.5 border border-slate-100">
+        {/* Top-Left % OFF Badge */}
+        {hasDiscount && discountPercent > 0 && (
+          <span className="absolute top-0 left-0 bg-[#e11d48] text-white text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded-tl-xl rounded-br-lg z-10 leading-none shadow-xs tracking-tight">
+            {discountPercent}% OFF
+          </span>
+        )}
+
+        {/* Product Image */}
+        {image ? (
+          <img
+            src={applyCloudinaryTransform(image, "f_auto,q_auto,w_300")}
+            alt={product.name}
+            loading="lazy"
+            className="w-full h-full object-contain p-1 transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <ImageOff size={24} className="text-slate-300" aria-hidden="true" />
+        )}
+
+        {/* Bottom-Right + / - [qty] + Button */}
+        {quantity > 0 ? (
+          <div
+            className="absolute bottom-1 right-1 h-6 sm:h-7 bg-[#0b63b6] text-white rounded-lg flex items-center px-1 gap-1 shadow-md z-10"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
+            <button
+              type="button"
+              onClick={handleDecrement}
+              className="w-4 h-full flex items-center justify-center hover:bg-white/20 rounded cursor-pointer transition-colors active:scale-90"
+              title="Decrease quantity"
+            >
+              <Minus size={11} strokeWidth={2.8} />
+            </button>
+            <span className="text-[11px] font-black min-w-[12px] text-center leading-none">
+              {quantity}
+            </span>
+            <button
+              type="button"
+              onClick={handleIncrement}
+              className="w-4 h-full flex items-center justify-center hover:bg-white/20 rounded cursor-pointer transition-colors active:scale-90"
+              title="Increase quantity"
+            >
+              <Plus size={11} strokeWidth={2.8} />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={handleAddToCart}
+            className="absolute bottom-1 right-1 w-6 h-6 sm:w-7 sm:h-7 bg-[#0b63b6] hover:bg-[#084b8a] text-white rounded-lg flex items-center justify-center shadow-md active:scale-90 transition-all z-10 cursor-pointer"
+            title="Add to cart"
+          >
+            <Plus size={15} strokeWidth={2.8} />
+          </button>
+        )}
+      </div>
+
+      {/* 2. Product Name, 3. Variant, 4. Price (Strict hierarchy inside white card) */}
+      <div className="flex flex-col flex-1 justify-between min-w-0">
+        {/* Name & Variant Container */}
+        <div>
+          {/* Product Name */}
+          <h4 className="line-clamp-2 text-[11px] sm:text-[12px] font-bold text-slate-800 leading-snug mb-0.5 group-hover:text-[#0b63b6] transition-colors">
+            {product.name}
+          </h4>
+
+          {/* Variant (Strictly below Product Name) */}
+          <p className="text-[10px] text-slate-500 font-medium truncate mb-1 leading-tight">
+            {variantText}
+          </p>
+        </div>
+
+        {/* Price (Strictly below Variant) */}
+        <div className="flex items-baseline gap-1 mt-auto flex-wrap leading-tight pt-0.5">
+          <span className="text-[12px] sm:text-[13px] font-black text-slate-900 leading-none">
+            {formatPrice(currentPrice)}
+          </span>
+          {hasDiscount && (
+            <span className="text-[10px] text-slate-400 line-through leading-none font-normal">
+              {formatPrice(originalPrice)}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const NewArrivalsSection = ({ latitude, longitude }) => {
   const [products, setProducts] = useState([]);
   const [displayProducts, setDisplayProducts] = useState([]);
@@ -44,7 +231,7 @@ const NewArrivalsSection = ({ latitude, longitude }) => {
           newArrivals: "true",
           sort: "newest",
           conditionType: "all",
-          limit: 20,
+          limit: 30,
           page: 1,
         };
         if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
@@ -56,7 +243,8 @@ const NewArrivalsSection = ({ latitude, longitude }) => {
         const rawItems = getItems(res);
 
         if (!cancelled) {
-          const formatted = rawItems.slice(0, 20).map((p) => ({
+          // Exactly latest 30 products (10 rows of 3)
+          const formatted = rawItems.slice(0, 30).map((p) => ({
             ...p,
             id: p._id || p.id,
             image: p.mainImage || p.variants?.[0]?.images?.[0] || p.image || "",
@@ -114,20 +302,22 @@ const NewArrivalsSection = ({ latitude, longitude }) => {
   if (isLoading && products.length === 0) {
     return (
       <section
-        className="mx-4 mt-6 overflow-hidden rounded-[24px] bg-gradient-to-br from-[#ffd5df] via-[#ffe4eb] to-[#fff0f4] py-5 px-3.5 shadow-[0_8px_25px_rgba(244,114,182,0.15)] border border-pink-200/60"
+        className="mx-3.5 md:mx-6 mt-4 overflow-hidden rounded-[24px] bg-[#FFB27F] py-4 px-3 sm:px-4 shadow-sm border border-[#ff9d60]/40"
         aria-label="Loading New Arrivals"
       >
-        <div className="flex items-center gap-2 px-1 mb-4">
-          <div className="h-6 w-36 bg-pink-200/70 animate-pulse rounded-md" />
+        <div className="flex items-center gap-2 px-1 mb-3">
+          <div className="h-6 w-36 bg-white/40 animate-pulse rounded-md" />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="flex flex-col">
-              <div className="aspect-square w-full rounded-[18px] bg-white/90 p-3 shadow-xs border border-white flex items-center justify-center">
-                <div className="w-full h-full bg-pink-50 animate-pulse rounded-[12px]" />
-              </div>
-              <div className="mt-2 px-0.5 h-4 bg-pink-200/60 animate-pulse rounded-md w-3/4" />
-              <div className="mt-1 px-0.5 h-4 bg-pink-200/60 animate-pulse rounded-md w-1/2" />
+        <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div
+              key={i}
+              className="bg-white rounded-2xl p-2 sm:p-2.5 flex flex-col justify-between shadow-sm border border-white/60 h-44"
+            >
+              <div className="aspect-square w-full rounded-xl bg-slate-100 animate-pulse mb-1.5" />
+              <div className="h-3.5 bg-slate-200 animate-pulse rounded w-3/4 mb-1" />
+              <div className="h-3 bg-slate-100 animate-pulse rounded w-1/2 mb-2" />
+              <div className="h-4 bg-slate-200 animate-pulse rounded w-1/3 mt-auto" />
             </div>
           ))}
         </div>
@@ -142,99 +332,29 @@ const NewArrivalsSection = ({ latitude, longitude }) => {
   return (
     <div className="w-full">
       <section
-        className="mx-4 mt-2 overflow-hidden rounded-[24px] bg-gradient-to-br from-[#ffd5df] via-[#ffe4eb] to-[#fff0f4] py-5 px-3.5 shadow-[0_8px_25px_rgba(244,114,182,0.15)] border border-pink-200/60"
+        className="mx-3.5 md:mx-6 mt-4 overflow-hidden rounded-[24px] bg-[#FFB27F] py-4 px-3 sm:px-4 shadow-sm border border-[#ff9d60]/40"
         aria-label="New Arrivals"
       >
-      {/* Header with New Icon */}
-      <h2 className="fk-section-heading flex items-center gap-2 px-1">
-        <span>New Arrivals</span>
-        <Sparkles
-          size={22}
-          className="shrink-0 text-[#ec4899]"
-          fill="#f472b6"
-          strokeWidth={1.8}
-          aria-label="New Arrivals Icon"
-        />
-      </h2>
+        {/* Header with Sparkles Icon */}
+        <div className="flex items-center justify-between mb-3 px-0.5">
+          <h2 className="text-[17px] sm:text-[19px] font-extrabold text-slate-900 tracking-tight flex items-center gap-1.5">
+            <span>New Arrivals</span>
+            <Sparkles size={18} className="text-[#e11d48]" fill="#e11d48" />
+          </h2>
+        </div>
 
-      {/* Vertical 2-in-a-row Grid (Top-to-down, NOT sliding) */}
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        {displayProducts.map((product) => {
-          const id = product.id || product._id;
-          const { currentPrice, originalPrice, hasDiscount, discountPercent } =
-            getProductPriceInfo(product);
-          const variantText = getProductVariantText(product);
-          const image = product.image;
-
-          return (
-            <Link
-              key={id}
-              to={getProductUrl(product)}
-              className="group flex flex-col active:scale-[0.98] transition-transform min-w-0"
-            >
-              {/* Full Cover Image Container with visible off-white / grey background and border */}
-              <div className="customer-product-clean-image relative aspect-square w-full rounded-2xl bg-[#f1f3f6] border border-[#e0e3e8] p-0 flex items-center justify-center overflow-hidden shadow-2xs">
-                {image ? (
-                  <img
-                    src={applyCloudinaryTransform(image, "f_auto,q_auto,w_400")}
-                    alt={product.name}
-                    loading="lazy"
-                    className={cn(
-                      "w-full h-full transition-transform duration-300 group-hover:scale-105",
-                      isPngImage(image)
-                        ? "is-png-image object-contain p-1"
-                        : "is-normal-image object-cover p-0"
-                    )}
-                  />
-                ) : (
-                  <ImageOff
-                    size={28}
-                    className="text-slate-300"
-                    aria-hidden="true"
-                  />
-                )}
-              </div>
-
-              {/* Product Info Hierarchy (No gaps between name, variant, and price) */}
-              <div className="flex flex-col mt-1.5 px-0.5 min-w-0">
-                {/* 1. Product Name */}
-                <h4 className="fk-product-title truncate text-[13px] font-semibold text-[#212121] leading-tight group-hover:text-[#2874f0] transition-colors">
-                  {product.name}
-                </h4>
-
-                {/* 2. Variant */}
-                <p className="text-[11px] font-medium text-slate-500 leading-tight mt-0.5 truncate">
-                  {variantText}
-                </p>
-
-                {/* 3. Price: Discount price, original price with cross line (if discount), else only original price */}
-                <div className="mt-0.5 flex items-baseline gap-1.5 leading-tight flex-wrap">
-                  {hasDiscount ? (
-                    <>
-                      <span className="fk-product-price text-[13px] font-bold text-[#212121]">
-                        {formatPrice(currentPrice)}
-                      </span>
-                      <span className="fk-product-mrp text-[11px] text-slate-400 line-through font-normal">
-                        {formatPrice(originalPrice)}
-                      </span>
-                      <span className="fk-product-discount text-[11px] font-bold text-[#16a34a]">
-                        {discountPercent}% off
-                      </span>
-                    </>
-                  ) : (
-                    <span className="fk-product-price text-[13px] font-bold text-[#212121]">
-                      {formatPrice(originalPrice || currentPrice)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
-    </section>
+        {/* 3-in-a-row Grid (Max 30 products / 10 rows) */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+          {displayProducts.map((product) => (
+            <NewArrivalProductCard
+              key={product.id || product._id}
+              product={product}
+            />
+          ))}
+        </div>
+      </section>
     </div>
   );
 };
 
-export default NewArrivalsSection;
+export default React.memo(NewArrivalsSection);

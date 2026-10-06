@@ -6,80 +6,18 @@ import {
   X, 
   ArrowUpRight, 
   History, 
-  TrendingUp, 
-  ImageOff,
   Clock
 } from 'lucide-react';
 import { customerApi } from '../services/customerApi';
+import { useProductDetail } from '../context/ProductDetailContext';
 import { getJSON, setJSON, STORAGE_KEYS } from '@core/utils/storage';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
-import { getProductUrl } from '@/core/utils/productUrl';
 import { cn } from '@/lib/utils';
 
-const DEFAULT_POPULAR_SUGGESTIONS = [
-  {
-    term: 'mobile 5g',
-    categoryName: 'in Mobiles',
-    image: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?auto=format&fit=crop&q=80&w=200',
-  },
-  {
-    term: 'mobile',
-    categoryName: 'in Mobiles',
-    image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=200',
-  },
-  {
-    term: 'mobile under 10000',
-    categoryName: '',
-    image: 'https://images.unsplash.com/photo-1580910051074-3eb694886505?auto=format&fit=crop&q=80&w=200',
-  },
-  {
-    term: 'motorola mobile 5g',
-    categoryName: '',
-    image: 'https://images.unsplash.com/photo-1567581935884-3349723552ca?auto=format&fit=crop&q=80&w=200',
-  },
-  {
-    term: '4g mobile',
-    categoryName: '',
-    image: 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&q=80&w=200',
-  },
-  {
-    term: 'samsung 5g mobile',
-    categoryName: '',
-    image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?auto=format&fit=crop&q=80&w=200',
-  },
-  {
-    term: 'vivo mobile 5g',
-    categoryName: '',
-    image: 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?auto=format&fit=crop&q=80&w=200',
-  },
-  {
-    term: 'realme 5g mobile',
-    categoryName: '',
-    image: 'https://images.unsplash.com/photo-1574944985070-8f3ebc6b79d2?auto=format&fit=crop&q=80&w=200',
-  },
-  {
-    term: 'gaming mobile 5g',
-    categoryName: '',
-    image: 'https://images.unsplash.com/photo-1533228876829-65c94e7b5025?auto=format&fit=crop&q=80&w=200',
-  },
-  {
-    term: 'sony mobile 5g',
-    categoryName: '',
-    image: 'https://images.unsplash.com/photo-1585060544812-6b45742d762f?auto=format&fit=crop&q=80&w=200',
-  },
-  {
-    term: 'chana',
-    categoryName: 'in Groceries',
-    image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=200',
-  },
-  {
-    term: 'laptop',
-    categoryName: 'in Electronics',
-    image: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&q=80&w=200',
-  },
-];
+const MAX_RECENT_SEARCHES = 12;
 
 const SearchPage = () => {
+  const { openProduct } = useProductDetail();
   const navigate = useNavigate();
   const location = useRouterLocation();
   const inputRef = useRef(null);
@@ -90,10 +28,12 @@ const SearchPage = () => {
   const [liveCategories, setLiveCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Recent Searches in LocalStorage
+  // Recent Searches from LocalStorage (max 12)
   const [pastSearches, setPastSearches] = useState(() => {
     const saved = getJSON(STORAGE_KEYS.RECENT_SEARCHES, []);
-    return Array.isArray(saved) ? saved.filter((s) => typeof s === 'string') : [];
+    return Array.isArray(saved) 
+      ? saved.filter((s) => typeof s === 'string' && s.trim().length > 0).slice(0, MAX_RECENT_SEARCHES) 
+      : [];
   });
 
   // Focus input on mount
@@ -101,11 +41,11 @@ const SearchPage = () => {
     inputRef.current?.focus();
   }, []);
 
-  // Save to history helper
+  // Save to history helper (stores up to 12)
   const saveSearch = (term) => {
     const clean = term?.trim();
     if (!clean) return;
-    const updated = [clean, ...pastSearches.filter((s) => s.toLowerCase() !== clean.toLowerCase())].slice(0, 12);
+    const updated = [clean, ...pastSearches.filter((s) => s.toLowerCase() !== clean.toLowerCase())].slice(0, MAX_RECENT_SEARCHES);
     setPastSearches(updated);
     setJSON(STORAGE_KEYS.RECENT_SEARCHES, updated);
   };
@@ -151,7 +91,7 @@ const SearchPage = () => {
       setIsLoading(true);
       try {
         const [prodRes, catRes] = await Promise.allSettled([
-          customerApi.getProducts({ search: trimmed, limit: 8 }),
+          customerApi.getProducts({ search: trimmed, limit: 10 }),
           customerApi.getCategories?.() || Promise.resolve({ data: [] }),
         ]);
 
@@ -189,25 +129,33 @@ const SearchPage = () => {
     };
   }, [query]);
 
-  // Build suggestion rows (Image 2 layout)
+  // Build suggestion rows
   const suggestions = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
 
-    // When query is typed:
+    // 1. When query is typed: show live category & product results
     if (trimmed) {
       const items = [];
 
-      // 1. Category matches (e.g. "mobilesh in Mobiles")
+      // Exact term typed at top
+      items.push({
+        term: query.trim(),
+        categoryName: '',
+        image: null,
+        type: 'exact',
+      });
+
+      // Category matches (e.g. "Electronics in Electronics")
       liveCategories.forEach((cat) => {
         items.push({
-          term: trimmed,
+          term: cat.name,
           categoryName: `in ${cat.name}`,
           image: cat.image,
           type: 'category',
         });
       });
 
-      // 2. Product title matches
+      // Product title matches
       liveProducts.forEach((p) => {
         const title = p.name || '';
         const img = p.image || p.mainImage || p.variants?.[0]?.images?.[0];
@@ -221,71 +169,33 @@ const SearchPage = () => {
         });
       });
 
-      // 3. Fallback popular suggestions that match the search substring
-      const matchedPopular = DEFAULT_POPULAR_SUGGESTIONS.filter((s) =>
-        s.term.toLowerCase().includes(trimmed)
-      );
-      matchedPopular.forEach((pop) => {
-        if (!items.some((it) => it.term.toLowerCase() === pop.term.toLowerCase())) {
-          items.push(pop);
-        }
-      });
-
-      // If user typed something specific, make sure exact term is at top
-      if (!items.some((it) => it.term.toLowerCase() === trimmed)) {
-        items.unshift({
-          term: query.trim(),
-          categoryName: '',
-          image: null,
-          type: 'exact',
-        });
-      }
-
-      return items;
+      return items.slice(0, MAX_RECENT_SEARCHES);
     }
 
-    // When query is empty:
-    // Show past searches + popular suggestions
-    const items = [];
-
-    pastSearches.forEach((pastTerm) => {
-      const matchedPop = DEFAULT_POPULAR_SUGGESTIONS.find(
-        (s) => s.term.toLowerCase() === pastTerm.toLowerCase()
-      );
-      items.push({
-        term: pastTerm,
-        categoryName: matchedPop?.categoryName || '',
-        image: matchedPop?.image || null,
-        isRecent: true,
-      });
-    });
-
-    DEFAULT_POPULAR_SUGGESTIONS.forEach((pop) => {
-      if (!items.some((it) => it.term.toLowerCase() === pop.term.toLowerCase())) {
-        items.push(pop);
-      }
-    });
-
-    return items;
+    // 2. When query is empty: ONLY show recent searches (max 12)
+    return pastSearches.slice(0, MAX_RECENT_SEARCHES).map((pastTerm) => ({
+      term: pastTerm,
+      isRecent: true,
+    }));
   }, [query, liveProducts, liveCategories, pastSearches]);
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-800 pb-16">
-      {/* 1. Header (Soft light blue background matching Image 2) */}
-      <header className="sticky top-0 z-40 bg-[#dbeafe] border-b border-blue-200/60 px-3.5 pt-3 pb-2.5 shadow-xs">
+      {/* 1. Header with Search Input */}
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-100 px-3.5 pt-3 pb-2.5 shadow-2xs">
         <div className="flex items-center gap-2.5">
           {/* Back Arrow */}
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="p-1 -ml-1 text-slate-800 hover:text-slate-950 active:scale-95 transition-transform"
+            className="p-1 -ml-1 text-slate-800 hover:text-slate-950 active:scale-95 transition-transform cursor-pointer"
             aria-label="Back"
           >
             <ArrowLeft size={22} strokeWidth={2.2} />
           </button>
 
-          {/* Search Pill Input (matching Image 2) */}
-          <div className="flex-1 bg-white rounded-full border border-sky-300 px-3.5 py-1.5 flex items-center gap-2 shadow-xs focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
+          {/* Search Input Box */}
+          <div className="flex-1 bg-slate-50 border border-slate-200/90 rounded-full px-3.5 py-1.5 flex items-center gap-2 shadow-2xs focus-within:bg-white focus-within:border-slate-400 transition-all">
             <Search size={18} className="text-slate-400 shrink-0" strokeWidth={2.2} />
             <input
               ref={inputRef}
@@ -294,7 +204,7 @@ const SearchPage = () => {
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Search for products, categories..."
-              className="w-full bg-transparent text-[14.5px] font-medium text-slate-900 placeholder:text-slate-400 outline-none"
+              className="w-full bg-transparent text-[14px] font-medium text-slate-900 placeholder:text-slate-400 outline-none"
             />
             {query && (
               <button
@@ -303,7 +213,7 @@ const SearchPage = () => {
                   setQuery('');
                   inputRef.current?.focus();
                 }}
-                className="p-0.5 text-slate-400 hover:text-slate-600 rounded-full"
+                className="p-0.5 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
                 aria-label="Clear"
               >
                 <X size={16} strokeWidth={2.5} />
@@ -313,55 +223,68 @@ const SearchPage = () => {
         </div>
       </header>
 
-      {/* 2. Suggestions / Recent Searches List (matching Image 2) */}
-      <main className="w-full bg-white divide-y divide-slate-100">
-        {/* If recent searches exist and query is empty, show a small header */}
-        {!query.trim() && pastSearches.length > 0 && (
-          <div className="flex items-center justify-between px-4 py-2 bg-slate-50/70 border-b border-slate-100 text-xs text-slate-500 font-semibold">
-            <span className="flex items-center gap-1.5">
-              <Clock size={13} className="text-slate-400" />
-              <span>Recent Searches</span>
-            </span>
-            <button
-              type="button"
-              onClick={handleClearAllHistory}
-              className="text-primary hover:underline text-[11px]"
-            >
-              Clear All
-            </button>
-          </div>
-        )}
+      {/* 2. Recent Searches Header (when query is empty and recent searches exist) */}
+      {!query.trim() && pastSearches.length > 0 && (
+        <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-100 text-xs text-slate-600 font-semibold">
+          <span className="flex items-center gap-1.5">
+            <Clock size={13} className="text-slate-500" />
+            <span>Recent Searches ({pastSearches.length})</span>
+          </span>
+          <button
+            type="button"
+            onClick={handleClearAllHistory}
+            className="text-orange-600 hover:underline text-[11px] font-bold cursor-pointer"
+          >
+            Clear All
+          </button>
+        </div>
+      )}
 
+      {/* 3. Empty State (when no recent searches and no query typed) */}
+      {!query.trim() && pastSearches.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-24 px-4 text-center">
+          <div className="w-14 h-14 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center mb-3 text-slate-400">
+            <History size={24} />
+          </div>
+          <h3 className="text-sm font-bold text-slate-800 mb-1">No Recent Searches</h3>
+          <p className="text-xs text-slate-400 max-w-[240px]">
+            Search for groceries, fashion, electronics, and daily essentials.
+          </p>
+        </div>
+      )}
+
+      {/* 4. Suggestions / Recent Searches List (Max 12) */}
+      <main className="w-full bg-white divide-y divide-slate-100">
         {suggestions.map((item, index) => {
           return (
             <div
               key={`${item.term}-${index}`}
               onClick={() => {
                 if (item.product) {
-                  navigate(getProductUrl(item.product));
+                  openProduct(item.product);
                 } else {
                   executeSearch(item.term);
                 }
               }}
-              className="flex items-center justify-between px-4 py-3 hover:bg-slate-50/80 active:bg-slate-100 cursor-pointer transition-colors"
+              className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 active:bg-slate-100 cursor-pointer transition-colors"
             >
               <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                {/* Left Thumbnail (matching Image 2 phone/product icon) */}
-                <div className="w-9 h-11 shrink-0 rounded-xs bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden p-0.5">
+                {/* Left Icon or Product Thumbnail */}
+                <div className="w-8 h-8 shrink-0 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden">
                   {item.image ? (
                     <img
                       src={applyCloudinaryTransform(item.image, 'f_auto,q_auto,w_100')}
                       alt={item.term}
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-cover"
                     />
                   ) : item.isRecent ? (
-                    <History size={17} className="text-slate-400" />
+                    <History size={16} className="text-slate-500" />
                   ) : (
-                    <Search size={16} className="text-slate-400" />
+                    <Search size={16} className="text-slate-500" />
                   )}
                 </div>
 
-                {/* Center Text (Bold term + Optional blue category) */}
+                {/* Center Text (Term + Optional Category) */}
                 <div className="min-w-0 flex-1 flex flex-col justify-center">
                   <span className="text-[14px] font-semibold text-slate-900 truncate leading-snug">
                     {item.term}
@@ -374,14 +297,15 @@ const SearchPage = () => {
                 </div>
               </div>
 
-              {/* Right: Diagonal Arrow (matching Image 2) or Remove for recent */}
+              {/* Right Action: Remove Button (for recent items) + Arrow Button */}
               <div className="flex items-center gap-1 pl-2">
                 {item.isRecent && (
                   <button
                     type="button"
                     onClick={(e) => handleRemoveSearch(e, item.term)}
-                    className="p-1.5 text-slate-300 hover:text-slate-500 rounded-full active:scale-90"
+                    className="p-1.5 text-slate-300 hover:text-red-500 rounded-full active:scale-90 transition-colors cursor-pointer"
                     title="Remove from history"
+                    aria-label="Remove search term"
                   >
                     <X size={14} />
                   </button>
@@ -392,10 +316,10 @@ const SearchPage = () => {
                     e.stopPropagation();
                     executeSearch(item.term);
                   }}
-                  className="p-1 text-slate-400 hover:text-slate-600 rounded-full"
+                  className="p-1 text-slate-400 hover:text-slate-700 rounded-full cursor-pointer"
                   aria-label="Search this term"
                 >
-                  <ArrowUpRight size={18} strokeWidth={1.8} />
+                  <ArrowUpRight size={17} strokeWidth={1.8} />
                 </button>
               </div>
             </div>

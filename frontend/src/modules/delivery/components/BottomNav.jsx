@@ -59,10 +59,10 @@ const BottomNav = () => {
                 <item.icon
                   size={18}
                   strokeWidth={isActive ? 2.5 : 2}
-                  className={cn("transition-colors shrink-0", isActive ? "text-orange-400" : "text-slate-700")}
+                  className={cn("transition-colors shrink-0", isActive ? "text-[#6666FF]" : "text-slate-700")}
                 />
                 {item.hasNotification && (
-                  <span className="absolute -top-0.5 -right-1 w-2 h-2 bg-[#FF5722] rounded-full border border-white shadow-xs" />
+                  <span className="absolute -top-0.5 -right-1 w-2 h-2 bg-[#6666FF] rounded-full border border-white shadow-xs" />
                 )}
               </motion.div>
               <span className={cn(

@@ -70,6 +70,10 @@ const productSchema = new mongoose.Schema(
             icon: { type: String, trim: true },
             label: { type: String, trim: true },
         }],
+        specifications: [{
+            key: { type: String, trim: true },
+            value: { type: String, trim: true },
+        }],
         shelfLife: {
             type: String,
             trim: true,
@@ -236,6 +240,12 @@ productSchema.index({ subcategoryId: 1, status: 1 });
 productSchema.index({ sellerId: 1, status: 1 });
 productSchema.index({ sellerId: 1, approvalStatus: 1, createdAt: -1 });
 productSchema.index({ sellerId: 1, createdAt: -1, _id: -1 });
+productSchema.index({ headerId: 1, status: 1, isTopDeal: 1 });
+productSchema.index({ headerId: 1, status: 1, isBestseller: 1 });
+productSchema.index({ headerId: 1, status: 1, createdAt: -1 });
+productSchema.index({ categoryId: 1, subcategoryId: 1, status: 1 });
+productSchema.index({ status: 1, isTopDeal: 1 });
+productSchema.index({ status: 1, isBestseller: 1 });
 productSchema.index({ name: "text", tags: "text" }); // For better search if regex is too slow
 
 export default mongoose.model("Product", productSchema);

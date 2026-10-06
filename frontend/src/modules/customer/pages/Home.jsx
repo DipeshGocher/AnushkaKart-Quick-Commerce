@@ -190,7 +190,7 @@ const ALL_CATEGORY = {
 };
 
 const EMPTY_HERO_CONFIG = {
-  banners: { items: [] },
+  banners: { items: getDefaultHomeHeroBanners() },
   categoryIds: [],
 };
 
@@ -420,11 +420,12 @@ const Home = () => {
         productParams.lat = currentLocation.latitude;
         productParams.lng = currentLocation.longitude;
       }
-      const [catRes, prodRes, expRes, sectionsRes] = await Promise.all([
+      const [catRes, prodRes, expRes, sectionsRes, heroRes] = await Promise.all([
         customerApi.getCategories(),
         hasValidLocation ? customerApi.getProducts(productParams) : Promise.resolve({ data: { success: true, result: { items: [] } } }),
         customerApi.getExperienceSections({ pageType: "home" }).catch(() => null),
         hasValidLocation ? customerApi.getOfferSections({ lat: currentLocation.latitude, lng: currentLocation.longitude }).catch(() => ({ data: {} })) : Promise.resolve({ data: { results: [] } }),
+        customerApi.getHeroConfig({ pageType: "home" }).catch(() => null),
       ]);
       const nextHomeData = {
         categories: [ALL_CATEGORY],
@@ -438,6 +439,10 @@ const Home = () => {
         formattedHeaders: [],
         heroConfig: heroConfigMemoryCache.__home__ || EMPTY_HERO_CONFIG,
       };
+      if (heroRes?.data?.success && heroRes.data?.result) {
+        nextHomeData.heroConfig = heroRes.data.result;
+        heroConfigMemoryCache.__home__ = heroRes.data.result;
+      }
       if (catRes.data.success) {
         const dbCats = catRes.data.results || catRes.data.result || [];
         const catMap = {};
@@ -697,10 +702,12 @@ const Home = () => {
       >
         {isAllCategorySelected && (() => {
           const hasVideo = settings?.homeVideoBanner?.isVisible && settings.homeVideoBanner.videoUrl;
-          const configuredBanners = heroConfig.banners?.items || [];
-          const homeBanners = isAllCategorySelected && configuredBanners.length < MIN_HOME_HERO_BANNERS
-            ? getDefaultHomeHeroBanners()
-            : configuredBanners;
+          const configuredBanners = (heroConfig.banners?.items || []).filter(
+            (b) => b && b.imageUrl && b.status !== "inactive"
+          );
+          const homeBanners = configuredBanners.length > 0
+            ? configuredBanners
+            : getDefaultHomeHeroBanners();
           const hasBanners = homeBanners.length > 0;
           if (!hasVideo && !hasBanners) return null;
 
@@ -755,7 +762,13 @@ const Home = () => {
           </div>
         )}
 
-        {isAllCategorySelected && <ForYouProductsSection />}
+        {isAllCategorySelected && (
+          <ForYouProductsSection
+            categories={displayCategories}
+            latitude={currentLocation?.latitude}
+            longitude={currentLocation?.longitude}
+          />
+        )}
 
         {!isAllCategorySelected && (
           <HeaderCategoryPageView

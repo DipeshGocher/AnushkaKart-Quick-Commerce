@@ -545,18 +545,19 @@
   transform: scale(1.05);
 }
 
-/* Signature Left Curved Corner Bar Design (Orange #FF5722) */
+/* Signature Left Curved Corner Bar Design (Delivery Theme #6666FF) */
 .card-left-bar-magenta,
 .card-left-pill-magenta,
 .card-left-bar-orange,
-.card-left-pill-orange {
+.card-left-pill-orange,
+.card-left-pill-primary {
   position: relative;
   overflow: hidden;
-  border: 1.5px solid rgba(255, 87, 34, 0.28) !important;
-  border-left: 5.5px solid #FF5722 !important;
+  border: 1.5px solid rgba(102, 102, 255, 0.22) !important;
+  border-left: 5.5px solid #6666FF !important;
   border-radius: 20px;
-  background-color: #FFF7ED !important;
-  box-shadow: 0 4px 14px -2px rgba(255, 87, 34, 0.06);
+  background-color: #F8F8FF !important;
+  box-shadow: 0 4px 14px -2px rgba(102, 102, 255, 0.08);
 }
 
 

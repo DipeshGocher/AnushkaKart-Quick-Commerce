@@ -39,6 +39,24 @@ const heroConfigSchema = new mongoose.Schema(
     categoryIds: [
       { type: mongoose.Schema.Types.ObjectId, ref: "Category" },
     ],
+    // Top Deals section customization (for category pages)
+    topDealsTitle: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    topDealsProductIds: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
+    ],
+    // Best Selling Categories section customization (for home page)
+    bestSellingTitle: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    bestSellingCategoryIds: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "Category" },
+    ],
   },
   { timestamps: true }
 );

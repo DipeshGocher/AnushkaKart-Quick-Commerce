@@ -125,7 +125,7 @@ const BestsellerManagement = () => {
           <div className="flex flex-col gap-2">
             <label className="text-sm font-semibold text-slate-700">Header Category (Page)</label>
             <select
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-colors"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
               value={selectedHeaderId}
               onChange={(e) => setSelectedHeaderId(e.target.value)}
             >
@@ -179,17 +179,17 @@ const BestsellerManagement = () => {
           <div className="p-4 border border-slate-200 rounded-lg bg-slate-50 max-h-[400px] overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : mainCategories.length === 0 ? (
               <p className="text-sm text-slate-500 text-center py-4">No categories found.</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {mainCategories.map((cat) => (
-                  <label key={cat._id} className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-md cursor-pointer hover:border-orange-500 transition-colors">
+                  <label key={cat._id} className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-md cursor-pointer hover:border-primary transition-colors">
                     <input
                       type="checkbox"
-                      className="w-4 h-4 text-orange-500 rounded border-slate-300 focus:ring-orange-500"
+                      className="w-4 h-4 text-primary rounded border-slate-300 focus:ring-primary"
                       checked={selectedMainCategoryIds.includes(cat._id)}
                       onChange={() => handleCheckboxChange(cat._id)}
                     />
@@ -206,18 +206,18 @@ const BestsellerManagement = () => {
 
         {/* Selected Categories Display (Chips) */}
         {selectedMainCategoryIds.length > 0 && (
-          <div className="mb-8 p-4 bg-orange-50 border border-orange-100 rounded-lg">
-            <h3 className="text-sm font-semibold text-orange-800 mb-3">Currently Selected ({selectedMainCategoryIds.length})</h3>
+          <div className="mb-8 p-4 bg-brand-50 border border-brand-100 rounded-lg">
+            <h3 className="text-sm font-semibold text-brand-800 mb-3">Currently Selected ({selectedMainCategoryIds.length})</h3>
             <div className="flex flex-wrap gap-2">
               {selectedMainCategoryIds.map(id => {
                 const cat = mainCategories.find(c => c._id === id);
                 if (!cat) return null;
                 return (
-                  <div key={id} className="flex items-center gap-1 bg-white border border-orange-200 text-orange-700 px-3 py-1.5 rounded-full shadow-sm text-sm font-medium">
+                  <div key={id} className="flex items-center gap-1 bg-white border border-brand-200 text-brand-700 px-3 py-1.5 rounded-full shadow-sm text-sm font-medium">
                     <span>{cat.name}</span>
                     <button 
                       onClick={() => handleCheckboxChange(id)}
-                      className="ml-1 text-orange-400 hover:text-red-500 hover:bg-orange-100 rounded-full p-0.5 transition-colors focus:outline-none"
+                      className="ml-1 text-brand-400 hover:text-red-500 hover:bg-brand-100 rounded-full p-0.5 transition-colors focus:outline-none"
                     >
                       <X size={14} strokeWidth={3} />
                     </button>
@@ -233,7 +233,7 @@ const BestsellerManagement = () => {
           <Button
             onClick={handleSave}
             disabled={saving || loading}
-            className="bg-orange-600 hover:bg-orange-700 text-white font-medium px-6 py-2.5 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+            className="bg-primary hover:bg-primary/90 text-white font-medium px-6 py-2.5 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {saving ? (
               <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>

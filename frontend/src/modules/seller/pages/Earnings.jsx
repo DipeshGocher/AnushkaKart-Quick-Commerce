@@ -226,8 +226,8 @@ const Earnings = () => {
                   />
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={1} />
-                      <stop offset="95%" stopColor="#818cf8" stopOpacity={1} />
+                      <stop offset="5%" stopColor="#6666FF" stopOpacity={1} />
+                      <stop offset="95%" stopColor="#5555EE" stopOpacity={1} />
                     </linearGradient>
                   </defs>
                 </BarChart>

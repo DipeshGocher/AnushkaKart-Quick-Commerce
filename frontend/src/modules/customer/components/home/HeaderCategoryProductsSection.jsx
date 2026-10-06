@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ImageOff, Package } from "lucide-react";
 import { customerApi } from "../../services/customerApi";
+import { useProductDetail } from "../../context/ProductDetailContext";
 import { applyCloudinaryTransform, isPngImage } from "@/core/utils/imageUtils";
 import { cn } from "@/lib/utils";
 import { getProductUrl, getProductVariantText, getProductPriceInfo } from "@/core/utils/productUrl";
@@ -121,6 +122,7 @@ const formatPrice = (value) =>
   }).format(value);
 
 const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
+  const { openProduct } = useProductDetail();
   const [sections, setSections] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
@@ -373,13 +375,13 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
                         product.variants?.[0]?.images?.[0];
 
                       return (
-                        <Link
+                        <div
                           key={id}
-                          to={getProductUrl(product)}
-                          className="group flex flex-col bg-white rounded-2xl p-2.5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-white hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-all active:scale-[0.98] w-[140px] min-w-[140px] sm:w-[160px] sm:min-w-[160px] shrink-0 snap-start"
+                          onClick={() => openProduct(product)}
+                          className="group flex flex-col bg-white rounded-2xl p-2.5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-white hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-all active:scale-[0.98] w-[140px] min-w-[140px] sm:w-[160px] sm:min-w-[160px] shrink-0 snap-start cursor-pointer"
                         >
                           {/* Clean Full Cover Image Container */}
-                          <div className="customer-product-clean-image relative aspect-square w-full rounded-xl bg-[#f8f9fa] p-1 flex items-center justify-center overflow-hidden">
+                          <div className="customer-product-clean-image relative aspect-square w-full rounded-xl bg-[#f8f9fa] overflow-hidden">
                             {image ? (
                               <img
                                 src={applyCloudinaryTransform(
@@ -388,12 +390,7 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
                                 )}
                                 alt={product.name}
                                 loading="lazy"
-                                className={cn(
-                                  "w-full h-full transition-transform duration-300 group-hover:scale-105",
-                                  isPngImage(image)
-                                    ? "is-png-image object-contain p-0.5"
-                                    : "is-normal-image object-cover p-0"
-                                )}
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                               />
                             ) : (
                               <ImageOff
@@ -437,7 +434,7 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
                               )}
                             </div>
                           </div>
-                        </Link>
+                        </div>
                       );
                     })}
                   </div>

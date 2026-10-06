@@ -12,6 +12,7 @@ import ProductDetailSheet from '../components/shared/ProductDetailSheet';
 import { useProductDetail } from '../context/ProductDetailContext';
 import { customerApi } from '../services/customerApi';
 import MiniCart from '../components/shared/MiniCart';
+import ProductCard from '../components/shared/ProductCard';
 import { useLocation as useAppLocation } from '../context/LocationContext';
 import { useSettings } from '@core/context/SettingsContext';
 
@@ -518,28 +519,28 @@ const CategoryProductsPage = () => {
           <>
             {/* ── UPPER SIDE: ROUND SHAPE SUB CATEGORIES FILTER ── */}
             {availableSubCategories.length > 0 && (
-              <section className="bg-white border-b border-slate-100 px-3 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
-                <div className="flex items-start gap-4 overflow-x-auto no-scrollbar pb-1">
+              <section className="bg-white border-b border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+                <div className="flex items-start gap-3.5 overflow-x-auto no-scrollbar pt-3.5 pb-2.5 px-4 sm:px-5">
                   {/* "All" Circular Round Filter */}
                   <button
                     type="button"
                     onClick={() => handleSubCatClick('all')}
-                    className="group flex flex-col items-center shrink-0 text-center select-none active:scale-95 transition-transform"
+                    className="group flex flex-col items-center shrink-0 text-center select-none active:scale-95 transition-transform cursor-pointer"
                   >
                     <div
                       className={cn(
-                        "w-[58px] h-[58px] rounded-full flex items-center justify-center transition-all duration-200 shadow-2xs",
+                        "w-[48px] h-[48px] sm:w-[52px] sm:h-[52px] rounded-full flex items-center justify-center transition-all duration-200 shadow-2xs",
                         selectedSubCatId === 'all'
-                          ? "bg-[#028ce8] text-white border-2 border-[#028ce8] ring-4 ring-[#028ce8]/20 shadow-xs scale-105"
-                          : "bg-[#f4f7fb] text-slate-700 border border-slate-200/90 hover:border-[#028ce8]/40 hover:bg-[#edf3fc]"
+                          ? "bg-[#6666FF] text-white border-2 border-[#6666FF] ring-3 ring-[#6666FF]/25 shadow-xs"
+                          : "bg-[#f4f7fb] text-slate-700 border border-slate-200/90 hover:border-[#6666FF]/40 hover:bg-[#6666FF]/5"
                       )}
                     >
-                      <LayoutGrid size={22} className={selectedSubCatId === 'all' ? 'text-white' : 'text-[#028ce8]'} />
+                      <LayoutGrid size={18} className={selectedSubCatId === 'all' ? 'text-white' : 'text-[#6666FF]'} />
                     </div>
                     <span
                       className={cn(
-                        "mt-1.5 text-[11px] font-semibold line-clamp-1 max-w-[64px] text-center leading-tight transition-colors",
-                        selectedSubCatId === 'all' ? "text-[#028ce8] font-bold" : "text-slate-800 group-hover:text-[#028ce8]"
+                        "mt-1.5 text-[10px] sm:text-[11px] font-semibold line-clamp-1 max-w-[56px] text-center leading-tight transition-colors",
+                        selectedSubCatId === 'all' ? "text-[#6666FF] font-bold" : "text-slate-800 group-hover:text-[#6666FF]"
                       )}
                     >
                       All
@@ -558,14 +559,14 @@ const CategoryProductsPage = () => {
                         ref={isSelected ? selectedSubCatRef : null}
                         type="button"
                         onClick={() => handleSubCatClick(sub)}
-                        className="group flex flex-col items-center shrink-0 text-center select-none active:scale-95 transition-transform"
+                        className="group flex flex-col items-center shrink-0 text-center select-none active:scale-95 transition-transform cursor-pointer"
                       >
                         <div
                           className={cn(
-                            "w-[58px] h-[58px] rounded-full flex items-center justify-center p-2.5 overflow-hidden transition-all duration-200 shadow-2xs",
+                            "w-[48px] h-[48px] sm:w-[52px] sm:h-[52px] rounded-full flex items-center justify-center p-0 overflow-hidden transition-all duration-200 shadow-2xs",
                             isSelected
-                              ? "bg-[#eff5ff] border-2 border-[#028ce8] ring-4 ring-[#028ce8]/25 shadow-xs scale-105"
-                              : "bg-white border border-slate-200/90 hover:border-[#028ce8]/40 hover:bg-[#f8faff]"
+                              ? "bg-[#6666FF]/8 border-2 border-[#6666FF] ring-3 ring-[#6666FF]/25 shadow-xs"
+                              : "bg-white border border-slate-200/90 hover:border-[#6666FF]/40 hover:bg-[#6666FF]/5"
                           )}
                         >
                           {subImage ? (
@@ -573,18 +574,18 @@ const CategoryProductsPage = () => {
                               src={applyCloudinaryTransform(subImage, 'f_auto,q_auto,w_120')}
                               alt={sub.name}
                               loading="lazy"
-                              className="w-full h-full object-contain mix-blend-multiply transition-transform group-hover:scale-110"
+                              className="w-full h-full object-cover transition-transform group-hover:scale-110"
                             />
                           ) : sub.iconId ? (
-                            <CategoryIcon iconId={sub.iconId} className="w-6 h-6 text-[#028ce8]" />
+                            <CategoryIcon iconId={sub.iconId} className="w-5 h-5 text-[#6666FF]" />
                           ) : (
-                            <ShoppingBag size={20} className="text-[#028ce8]" />
+                            <ShoppingBag size={18} className="text-[#6666FF]" />
                           )}
                         </div>
                         <span
                           className={cn(
-                            "mt-1.5 text-[11px] font-medium line-clamp-2 max-w-[68px] text-center leading-tight transition-colors",
-                            isSelected ? "text-[#028ce8] font-bold" : "text-slate-800 group-hover:text-[#028ce8]"
+                            "mt-1.5 text-[10px] sm:text-[11px] font-medium line-clamp-2 max-w-[58px] text-center leading-tight transition-colors",
+                            isSelected ? "text-[#6666FF] font-bold" : "text-slate-800 group-hover:text-[#6666FF]"
                           )}
                         >
                           {sub.name}
@@ -622,7 +623,7 @@ const CategoryProductsPage = () => {
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="text-xs text-[#028ce8] font-bold hover:underline shrink-0"
+                  className="text-xs text-[#6666FF] font-bold hover:underline shrink-0"
                 >
                   Clear Search
                 </button>
@@ -631,7 +632,7 @@ const CategoryProductsPage = () => {
                   <button
                     type="button"
                     onClick={() => handleSubCatClick('all')}
-                    className="text-xs text-[#028ce8] font-bold hover:underline shrink-0"
+                    className="text-xs text-[#6666FF] font-bold hover:underline shrink-0"
                   >
                     View All
                   </button>
@@ -641,12 +642,13 @@ const CategoryProductsPage = () => {
 
             {/* ── ALL PRODUCTS (2 IN ONE ROW GRID) ── */}
             {isProductsLoading ? (
-              <div className="grid grid-cols-2 gap-3 px-3 pb-24 pt-2">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-4 pb-24 pt-2">
                 {[...Array(6)].map((_, i) => (
-                  <div key={i} className="flex flex-col space-y-2">
-                    <div className="aspect-[4/4.5] bg-slate-200 animate-pulse rounded-2xl" />
-                    <div className="h-3.5 bg-slate-200 animate-pulse rounded-md w-3/4" />
-                    <div className="h-4 bg-slate-200 animate-pulse rounded-md w-1/2" />
+                  <div key={i} className="flex flex-col animate-pulse">
+                    <div className="w-full rounded-[12px] bg-[#F0F0F0]" style={{ aspectRatio: '0.88' }} />
+                    <div className="mt-2.5 h-3.5 bg-slate-100 rounded-md w-3/4" />
+                    <div className="mt-2 h-4 bg-slate-100 rounded-md w-1/2" />
+                    <div className="mt-1.5 h-3.5 bg-slate-100 rounded-md w-2/3" />
                   </div>
                 ))}
               </div>
@@ -665,7 +667,7 @@ const CategoryProductsPage = () => {
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
-                    className="mt-4 px-4 py-2 bg-[#028ce8] text-white text-xs font-bold rounded-full shadow-xs active:scale-95 transition-transform flex items-center gap-1.5"
+                    className="mt-4 px-4 py-2 bg-[#6666FF] text-white text-xs font-bold rounded-full shadow-xs active:scale-95 transition-transform flex items-center gap-1.5 cursor-pointer"
                   >
                     <RotateCcw size={13} />
                     <span>Clear Search Filter</span>
@@ -674,7 +676,7 @@ const CategoryProductsPage = () => {
                   <button
                     type="button"
                     onClick={() => handleSubCatClick('all')}
-                    className="mt-4 px-4 py-2 bg-[#028ce8] text-white text-xs font-bold rounded-full shadow-xs active:scale-95 transition-transform flex items-center gap-1.5"
+                    className="mt-4 px-4 py-2 bg-[#6666FF] text-white text-xs font-bold rounded-full shadow-xs active:scale-95 transition-transform flex items-center gap-1.5 cursor-pointer"
                   >
                     <RotateCcw size={13} />
                     <span>View All {activeMainCategory?.name || 'Category'} Products</span>
@@ -705,7 +707,7 @@ const CategoryProductsPage = () => {
                           .finally(() => setIsProductsLoading(false));
                       }
                     }}
-                    className="mt-4 px-4 py-2 bg-[#028ce8] text-white text-xs font-bold rounded-full shadow-xs active:scale-95 transition-transform flex items-center gap-1.5"
+                    className="mt-4 px-4 py-2 bg-[#6666FF] text-white text-xs font-bold rounded-full shadow-xs active:scale-95 transition-transform flex items-center gap-1.5 cursor-pointer"
                   >
                     <RotateCcw size={13} />
                     <span>Refresh Products</span>
@@ -713,106 +715,13 @@ const CategoryProductsPage = () => {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 px-3 pb-24 pt-2">
-                {filteredProducts.map((product) => {
-                  const id = product.id || product._id;
-                  const originalPrice = Number(product.price ?? product.originalPrice) || 0;
-                  const currentPrice = Number(product.salePrice ?? product.price) || 0;
-                  const hasDiscount = originalPrice > currentPrice && currentPrice > 0;
-                  const discountPercent = hasDiscount
-                    ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
-                    : 0;
-                  const image =
-                    product.mainImage ||
-                    product.image ||
-                    product.variants?.[0]?.images?.[0];
-                  const isWish = isInWishlist(id);
-                  const rating =
-                    Number(product.rating) > 0 ? Number(product.rating).toFixed(1) : '5.0';
-
-                  return (
-                    <div
-                      key={id}
-                      onClick={() => openProduct(product)}
-                      className="group flex flex-col cursor-pointer active:scale-[0.99] transition-transform select-none min-w-0"
-                    >
-                      {/* Product Card Image Box */}
-                      <div className="customer-product-clean-image relative aspect-[4/4.5] w-full rounded-2xl bg-[#f1f3f6] border border-[#e0e3e8] flex items-center justify-center p-0 overflow-hidden shadow-2xs transition-colors">
-                        {/* Rating Pill on Bottom-Left */}
-                        <div className="absolute bottom-2 left-2 z-10 bg-white/90 backdrop-blur-xs px-2 py-0.5 rounded-full flex items-center gap-1 shadow-2xs border border-slate-200/50">
-                          <span className="text-[11px] font-bold text-slate-800 leading-none">
-                            {rating}
-                          </span>
-                          <Star size={11} className="fill-emerald-600 text-emerald-600" />
-                        </div>
-
-                        {/* Wishlist Heart on Top-Right */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleWishlist(product);
-                          }}
-                          className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-white/90 backdrop-blur-xs text-slate-700 hover:text-red-500 active:scale-90 transition-transform shadow-2xs border-0"
-                          aria-label="Wishlist"
-                        >
-                          <Heart
-                            size={14}
-                            className={cn(isWish ? 'fill-red-500 text-red-500' : 'text-slate-600')}
-                          />
-                        </button>
-
-                        {/* Centered Product Image */}
-                        {image ? (
-                          <img
-                            src={applyCloudinaryTransform(image, 'f_auto,q_auto,w_400')}
-                            alt={product.name}
-                            loading="lazy"
-                            className={cn(
-                              "w-full h-full transition-transform duration-300 group-hover:scale-105",
-                              isPngImage(image)
-                                ? "is-png-image object-contain p-1"
-                                : "is-normal-image object-cover p-0"
-                            )}
-                          />
-                        ) : (
-                          <ImageOff size={28} className="text-slate-300" />
-                        )}
-                      </div>
-
-                      {/* 1. Product Title */}
-                      <h3 className="mt-1.5 px-0.5 truncate text-[13.5px] font-semibold text-slate-900 leading-tight group-hover:text-blue-600 transition-colors">
-                        {product.name}
-                      </h3>
-
-                      {/* 2. Variant */}
-                      <p className="text-[11px] font-medium text-slate-500 leading-tight mt-0.5 px-0.5 truncate">
-                        {getProductVariantText(product)}
-                      </p>
-
-                      {/* 3. Price: Discount price, original price with cross line (if discount), else only original price */}
-                      <div className="mt-0.5 px-0.5 flex items-baseline gap-1.5 leading-tight flex-wrap">
-                        {hasDiscount ? (
-                          <>
-                            <span className="text-[14px] font-bold text-slate-900">
-                              {formatPrice(currentPrice)}
-                            </span>
-                            <span className="text-[11.5px] text-slate-400 line-through font-normal">
-                              {formatPrice(originalPrice)}
-                            </span>
-                            <span className="text-[11px] font-bold text-emerald-600">
-                              {discountPercent}% off
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-[14px] font-bold text-slate-900">
-                            {formatPrice(originalPrice || currentPrice)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-4 pb-24 pt-2">
+                {filteredProducts.map((product) => (
+                  <ProductCard
+                    key={product.id || product._id}
+                    product={product}
+                  />
+                ))}
               </div>
             )}
           </>
@@ -820,8 +729,7 @@ const CategoryProductsPage = () => {
       </main>
 
       <MiniCart />
-      <ProductDetailSheet />
-    </div>
+      </div>
   );
 };
 

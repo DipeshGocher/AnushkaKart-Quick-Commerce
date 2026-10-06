@@ -1,35 +1,54 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
-  Package, ChevronRight, CheckCircle2, ChevronLeft,
-  Search, SlidersHorizontal, ShoppingBag, 
-  X, RotateCcw, AlertCircle, Clock
+  ArrowLeft,
+  Search, 
+  SlidersHorizontal, 
+  ChevronRight, 
+  Check, 
+  Building2, 
+  Package, 
+  X, 
+  RotateCcw,
+  CheckCircle2
 } from 'lucide-react';
 import { customerApi } from '../services/customerApi';
 import { getOrderStatusLabel, getLegacyStatusFromOrder } from '@/shared/utils/orderStatus';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 import PageSkeleton from '@/shared/components/PageSkeleton';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
-const PROMO_BANNERS = [
-  {
-    id: 1,
-    badge: 'SUPER SAVINGS',
-    title: 'Get 10% Extra Savings',
-    subtitle: 'On your next Grocery & Daily Essentials order',
-    bg: 'from-orange-600 via-amber-600 to-slate-900',
-    btnText: 'Shop Deals',
-    link: '/offers'
-  }
+// Filter tabs matching user specification and Flipkart style
+const TABS = [
+  { id: 'all', label: 'All' },
+  { id: 'delivered', label: 'Delivered' },
+  { id: 'returned', label: 'Returned' },
+  { id: 'pending', label: 'Pending' },
+  { id: 'cancelled', label: 'Cancelled' },
 ];
+
+const formatOrderDate = (dateString) => {
+  if (!dateString) return '';
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return '';
+  const now = new Date();
+  const month = d.toLocaleDateString('en-US', { month: 'short' });
+  const day = String(d.getDate()).padStart(2, '0');
+  if (d.getFullYear() === now.getFullYear()) {
+    return `${month} ${day}`;
+  }
+  return `${month} ${day}, ${d.getFullYear()}`;
+};
 
 const OrdersPage = () => {
   const navigate = useNavigate();
-  const reduceMotion = useReducedMotion();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeBannerIdx, setActiveBannerIdx] = useState(0);
+  const [selectedTab, setSelectedTab] = useState('all');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [timeFilter, setTimeFilter] = useState('all');
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -51,17 +70,59 @@ const OrdersPage = () => {
     fetchOrders();
   }, []);
 
-  // Counts
-  const counts = useMemo(() => {
-    return {
-      all: orders.length,
-    };
-  }, [orders]);
-
-  // Filtered orders based on search query
+  // Filtered orders based on selectedTab, searchQuery, and timeFilter
   const filteredOrders = useMemo(() => {
     let list = orders;
 
+    // 1. Tab filter (All, Delivered, Returned, Pending, Cancelled)
+    if (selectedTab !== 'all') {
+      list = list.filter((order) => {
+        const legacy = getLegacyStatusFromOrder(order);
+        const rs = order?.returnStatus;
+        const hasReturn = rs && rs !== 'none';
+        const isRefunded = rs === 'refund_completed' || order.status === 'refunded' || order.isRefunded;
+
+        if (selectedTab === 'delivered') {
+          return legacy === 'delivered' && !hasReturn;
+        }
+        if (selectedTab === 'returned') {
+          return hasReturn || isRefunded || legacy === 'returned';
+        }
+        if (selectedTab === 'pending') {
+          return ['pending', 'confirmed', 'packed', 'out_for_delivery', 'created', 'seller_pending', 'seller_accepted', 'delivery_search', 'delivery_assigned', 'pickup_ready'].includes(legacy) && !hasReturn;
+        }
+        if (selectedTab === 'cancelled') {
+          return legacy === 'cancelled';
+        }
+        return true;
+      });
+    }
+
+    // 2. Time filter
+    if (timeFilter !== 'all') {
+      const currentYear = new Date().getFullYear();
+      list = list.filter((order) => {
+        const orderDate = new Date(order.createdAt);
+        const orderYear = orderDate.getFullYear();
+        if (timeFilter === 'last30') {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          return orderDate >= thirtyDaysAgo;
+        }
+        if (timeFilter === 'currentYear') {
+          return orderYear === currentYear;
+        }
+        if (timeFilter === 'prevYear') {
+          return orderYear === currentYear - 1;
+        }
+        if (timeFilter === 'older') {
+          return orderYear < currentYear - 1;
+        }
+        return true;
+      });
+    }
+
+    // 3. Search query filter
     if (searchQuery.trim()) {
       const query = searchQuery.trim().toLowerCase();
       list = list.filter((o) => {
@@ -72,233 +133,316 @@ const OrdersPage = () => {
     }
 
     return list;
-  }, [orders, searchQuery]);
+  }, [orders, selectedTab, timeFilter, searchQuery]);
 
   if (loading) {
     return <PageSkeleton variant="rows" />;
   }
 
   return (
-    <motion.div
-      initial={reduceMotion ? false : { opacity: 0.94, top: 20 }}
-      animate={{ opacity: 1, top: 0 }}
-      transition={{ duration: reduceMotion ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
-      className="relative min-h-screen bg-[#f1f4f8] pb-24 font-sans antialiased text-slate-900"
-    >
+    <div className="min-h-screen bg-white font-sans antialiased text-slate-900">
       {/* Top Header */}
-      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 py-3.5 border-b border-slate-200/80 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <header className="sticky top-0 z-30 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(-1)}
-            className="w-10 h-10 flex items-center justify-center hover:bg-slate-100 rounded-full transition-colors -ml-1 cursor-pointer"
+            className="w-8 h-8 flex items-center justify-center -ml-1.5 text-slate-900 active:scale-90 transition-transform cursor-pointer"
+            aria-label="Go back"
           >
-            <ChevronLeft size={24} className="text-slate-800" />
+            <ArrowLeft size={22} className="stroke-[2.2]" />
           </button>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">My Orders</h1>
+          <h1 className="text-[18px] sm:text-[19px] font-bold text-slate-900 tracking-tight">
+            My Orders
+          </h1>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-3xl mx-auto px-3.5 sm:px-4 pt-3 space-y-3.5">
-        {/* Flipkart Promo Banner Carousel */}
-        {PROMO_BANNERS.length > 0 && (
-          <div className="relative rounded-2xl overflow-hidden shadow-sm border border-slate-200/60 bg-gradient-to-r p-4 sm:p-5 text-white transition-all bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-950">
-            <div className="flex items-center justify-between gap-4">
-              <div className="space-y-1 max-w-[70%]">
-                <span className="inline-block bg-amber-400 text-slate-950 font-black text-[10px] uppercase px-2 py-0.5 rounded-full tracking-wider">
-                  {PROMO_BANNERS[activeBannerIdx].badge}
-                </span>
-                <h3 className="font-extrabold text-base sm:text-lg leading-tight text-white tracking-tight">
-                  {PROMO_BANNERS[activeBannerIdx].title}
-                </h3>
-                <p className="text-xs text-slate-300 font-medium line-clamp-1">
-                  {PROMO_BANNERS[activeBannerIdx].subtitle}
-                </p>
-              </div>
-              <button
-                onClick={() => navigate(PROMO_BANNERS[activeBannerIdx].link)}
-                className="bg-amber-400 hover:bg-amber-300 text-slate-950 px-3.5 py-1.5 rounded-full text-xs font-bold shrink-0 shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap"
-              >
-                {PROMO_BANNERS[activeBannerIdx].btnText} →
-              </button>
-            </div>
-
-            {/* Carousel Dots */}
-            <div className="flex justify-center gap-1.5 mt-3">
-              {PROMO_BANNERS.map((b, idx) => (
-                <button
-                  key={b.id}
-                  onClick={() => setActiveBannerIdx(idx)}
-                  className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                    activeBannerIdx === idx ? 'w-5 bg-white' : 'w-1.5 bg-white/40'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Search & Filter Bar */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search your order..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-9 py-2.5 bg-white rounded-xl border border-slate-200/90 text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 shadow-2xs transition"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
-              >
-                <X size={15} />
-              </button>
-            )}
-          </div>
-
-          <button
-            onClick={() => setSearchQuery('')}
-            className="flex items-center gap-1.5 px-3 py-2.5 bg-white border border-slate-200/90 rounded-xl text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer shrink-0"
-          >
-            <SlidersHorizontal size={14} className="text-slate-600" />
-            <span>Filters</span>
-          </button>
-        </div>
-
-        {/* Orders List */}
-        <div className="space-y-3 pt-1">
-          {filteredOrders.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
-              <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                <Package size={32} className="text-slate-400" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900 mb-1">
-                {searchQuery ? 'No matching orders found' : 'No orders yet'}
-              </h3>
-              <p className="text-slate-500 text-xs sm:text-sm mb-5 max-w-[280px]">
-                {searchQuery 
-                  ? 'Try searching with a different product name or order ID.' 
-                  : 'Start shopping your favorite groceries and everyday essentials.'
-                }
-              </p>
-              <Link
-                to="/"
-                className="px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-sm transition-all text-white cursor-pointer bg-orange-600 hover:bg-orange-700"
-              >
-                Shop Groceries
-              </Link>
-            </div>
-          ) : (
-            filteredOrders.map((order) => {
-              const legacy = getLegacyStatusFromOrder(order);
-              const firstItem = order.items?.[0] || {};
-              const remainingCount = (order.items?.length || 1) - 1;
-              const formattedDate = new Date(order.createdAt).toLocaleDateString('en-US', {
-                month: 'short',
-                day: '2-digit',
-                year: 'numeric',
-              });
-
-              // Status line text & color like Flipkart
-              let statusText = `Placed on ${formattedDate}`;
-              let statusDotColor = 'bg-amber-500';
-
-              if (legacy === 'delivered') {
-                statusText = `Delivered on ${formattedDate}`;
-                statusDotColor = 'bg-emerald-600';
-              } else if (legacy === 'cancelled') {
-                statusText = `Cancelled on ${formattedDate}`;
-                statusDotColor = 'bg-rose-500';
-              } else if (legacy === 'out_for_delivery') {
-                statusText = 'Out for Delivery';
-                statusDotColor = 'bg-blue-600';
-              } else if (legacy === 'confirmed') {
-                statusText = `Confirmed on ${formattedDate}`;
-                statusDotColor = 'bg-orange-500';
-              }
-
-              return (
-                <Link
-                  to={`/orders/${order.orderId}`}
-                  key={order._id || order.orderId}
-                  className="block bg-white rounded-2xl p-4 shadow-2xs border border-slate-200/80 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer group"
-                >
-                  <div className="flex items-center gap-3.5">
-                    {/* Left: Product Image Box */}
-                    <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center p-1.5 shrink-0 overflow-hidden">
-                      {firstItem.image ? (
-                        <img
-                          src={applyCloudinaryTransform(firstItem.image)}
-                          alt={firstItem.name || 'Order product'}
-                          loading="lazy"
-                          className="w-full h-full object-contain group-hover:scale-105 transition-transform"
-                        />
-                      ) : (
-                        <Package size={24} className="text-slate-400" />
-                      )}
-                    </div>
-
-                    {/* Middle: Content */}
-                    <div className="flex-1 min-w-0">
-                      {/* Status Line with Dot */}
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <span className={`w-2 h-2 rounded-full ${statusDotColor} shrink-0`} />
-                        <h4 className="font-bold text-slate-900 text-xs sm:text-sm tracking-tight truncate">
-                          {statusText}
-                        </h4>
-                      </div>
-
-                      {/* Product Name */}
-                      <p className="text-xs text-slate-600 font-medium line-clamp-1 leading-snug">
-                        {firstItem.name || 'Order Item'}
-                        {remainingCount > 0 ? ` + ${remainingCount} more item${remainingCount > 1 ? 's' : ''}` : ''}
-                      </p>
-
-                      {/* Section & Total Meta Line */}
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        <span className="inline-flex items-center gap-1 bg-orange-50 text-orange-700 border border-orange-200/70 text-[10.5px] font-extrabold px-2 py-0.5 rounded-md">
-                          <ShoppingBag size={10} className="text-orange-600" />
-                          Grocery
-                        </span>
-
-                        <span className="text-slate-300 text-xs">•</span>
-                        <span className="text-xs font-bold text-slate-900">
-                          ₹{order.pricing?.total || 0}
-                        </span>
-                        <span className="text-slate-300 text-xs">•</span>
-                        <span className="text-[11px] font-medium text-slate-500">
-                          #{order.orderId?.slice(-6)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Right: Chevron */}
-                    <div className="shrink-0 pl-1 text-slate-400 group-hover:text-slate-700 group-hover:translate-x-0.5 transition-all">
-                      <ChevronRight size={18} />
-                    </div>
-                  </div>
-
-                  {/* Refund/Return info strip if order was refunded or returned */}
-                  {order.returnStatus && order.returnStatus !== 'none' && (
-                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs bg-slate-50 -mx-4 -mb-4 px-4 py-2 rounded-b-2xl">
-                      <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
-                        <CheckCircle2 size={13} />
-                        <span>Return {order.returnStatus}</span>
-                      </div>
-                      <span className="text-slate-500 font-semibold text-[11px]">
-                        Ref: #{order.orderId?.slice(-6)}
-                      </span>
-                    </div>
-                  )}
-                </Link>
-              );
-            })
+      {/* Search Bar & Filters Button */}
+      <section className="px-4 pt-3 pb-2 flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search your order..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-8 py-2 bg-white rounded-xl border border-slate-200/90 text-[14px] font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-400 transition shadow-2xs"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+              aria-label="Clear search"
+            >
+              <X size={15} />
+            </button>
           )}
         </div>
-      </div>
-    </motion.div>
+
+        <button
+          onClick={() => setIsFilterModalOpen(true)}
+          className="flex items-center gap-1.5 py-2 px-1 text-[13.5px] sm:text-[14px] font-medium text-slate-800 hover:text-slate-950 transition cursor-pointer shrink-0"
+        >
+          <SlidersHorizontal size={15} className="text-slate-700 stroke-[2]" />
+          <span>Filters</span>
+        </button>
+      </section>
+
+      {/* Upper Sorting / Filter Pills: All, Delivered, Returned, Pending, Cancelled */}
+      <nav className="px-4 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar border-b border-gray-100">
+        {TABS.map((tab) => {
+          const isSelected = selectedTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setSelectedTab(tab.id)}
+              className={cn(
+                "px-4 py-1.5 rounded-lg text-[13px] font-medium transition-all whitespace-nowrap cursor-pointer select-none",
+                isSelected
+                  ? "bg-black text-white border border-black shadow-2xs"
+                  : "bg-white text-slate-800 border border-slate-300 hover:bg-slate-50"
+              )}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* Orders Listing: Flipkart-Style Rows */}
+      <main className="divide-y divide-gray-100 pb-24">
+        {filteredOrders.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+            <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-3 text-slate-400">
+              <Package size={30} />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 mb-1">
+              {searchQuery ? 'No matching orders found' : 'No orders found'}
+            </h3>
+            <p className="text-slate-500 text-xs sm:text-sm mb-5 max-w-[280px]">
+              {searchQuery 
+                ? 'Try searching with a different product name or order ID.' 
+                : selectedTab !== 'all' 
+                ? `You do not have any ${selectedTab} orders.` 
+                : 'Start exploring products and place your first order.'
+              }
+            </p>
+            {selectedTab !== 'all' || searchQuery ? (
+              <button
+                onClick={() => {
+                  setSelectedTab('all');
+                  setSearchQuery('');
+                  setTimeFilter('all');
+                }}
+                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-black hover:bg-slate-800 transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+              >
+                <RotateCcw size={13} />
+                <span>Show All Orders</span>
+              </button>
+            ) : (
+              <Link
+                to="/"
+                className="px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-white bg-black hover:bg-slate-800 transition active:scale-95 cursor-pointer"
+              >
+                Start Shopping
+              </Link>
+            )}
+          </div>
+        ) : (
+          filteredOrders.map((order) => {
+            const legacy = getLegacyStatusFromOrder(order);
+            const firstItem = order.items?.[0] || {};
+            const remainingCount = (order.items?.length || 1) - 1;
+            const formattedDate = formatOrderDate(order.createdAt);
+            const rs = order?.returnStatus;
+            const isRefundCompleted = rs === 'refund_completed' || order.status === 'refunded' || order.isRefunded;
+            const isReturned = rs && rs !== 'none';
+
+            // Status title & subtitle logic matching Flipkart UI reference
+            let statusTitle = `Delivered on ${formattedDate}`;
+            let statusDesc = firstItem.name || 'Order Item';
+
+            if (isRefundCompleted) {
+              statusTitle = 'Refund Completed';
+              statusDesc = firstItem.name || 'Order Item';
+            } else if (isReturned) {
+              statusTitle = getOrderStatusLabel(order);
+              statusDesc = firstItem.name || 'Order Item';
+            } else if (legacy === 'delivered') {
+              statusTitle = `Delivered on ${formattedDate}`;
+              statusDesc = firstItem.name || 'Order Item';
+            } else if (legacy === 'cancelled') {
+              statusTitle = `Cancelled on ${formattedDate}`;
+              statusDesc = order.cancelReason || 'Your order was cancelled as per your request';
+            } else if (legacy === 'out_for_delivery') {
+              statusTitle = 'Out for Delivery';
+              statusDesc = firstItem.name || 'Order Item';
+            } else if (legacy === 'confirmed' || legacy === 'packed') {
+              statusTitle = `Confirmed on ${formattedDate}`;
+              statusDesc = firstItem.name || 'Order Item';
+            } else {
+              statusTitle = `Placed on ${formattedDate}`;
+              statusDesc = firstItem.name || 'Order Item';
+            }
+
+            return (
+              <Link
+                to={`/orders/${order.orderId || order._id}`}
+                key={order._id || order.orderId}
+                className="block bg-white px-4 py-3.5 hover:bg-slate-50/70 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-3.5">
+                  {/* Left: Product Image Container (#F0F0F0 rounded-xl) */}
+                  <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-[12px] bg-[#F0F0F0] flex items-center justify-center shrink-0 overflow-hidden p-1">
+                    {firstItem.image ? (
+                      <img
+                        src={applyCloudinaryTransform(firstItem.image, 'f_auto,q_auto,w_200')}
+                        alt={firstItem.name || 'Order Product'}
+                        loading="lazy"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <Package size={22} className="text-slate-400" />
+                    )}
+                  </div>
+
+                  {/* Middle: Status & Product Description */}
+                  <div className="flex-1 min-w-0 pr-2">
+                    <h3 className="text-[14.5px] sm:text-[15px] font-semibold text-slate-900 leading-tight">
+                      {statusTitle}
+                    </h3>
+                    <p className="text-[12.5px] sm:text-[13px] text-[#707070] font-normal truncate mt-1 leading-snug">
+                      {statusDesc}
+                      {remainingCount > 0 && !isRefundCompleted && legacy !== 'cancelled' ? ` + ${remainingCount} more` : ''}
+                    </p>
+                  </div>
+
+                  {/* Right: Chevron */}
+                  <ChevronRight size={17} className="text-slate-800 shrink-0 stroke-[2.2]" />
+                </div>
+
+                {/* Refund strip if refunded (matching reference screenshot) */}
+                {isRefundCompleted && (
+                  <div className="mt-2.5 bg-[#F9F9F9] rounded-lg px-3 py-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full border border-emerald-600 flex items-center justify-center">
+                        <Check size={10} className="text-emerald-600 stroke-[3]" />
+                      </div>
+                      <span className="text-[12.5px] font-medium text-slate-800">
+                        Refund of ₹{order.pricing?.total || order.refundAmount || 0}
+                      </span>
+                    </div>
+                    <Building2 size={15} className="text-slate-600" />
+                  </div>
+                )}
+              </Link>
+            );
+          })
+        )}
+      </main>
+
+      {/* Filters Modal / Bottom Sheet */}
+      <AnimatePresence>
+        {isFilterModalOpen && (
+          <div
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-2xs flex items-end justify-center"
+            onClick={() => setIsFilterModalOpen(false)}
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 280 }}
+              className="w-full max-w-md bg-white rounded-t-3xl p-5 shadow-2xl space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h4 className="text-[16px] font-bold text-slate-900">Filters</h4>
+                <button
+                  onClick={() => setIsFilterModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Status Section */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Order Status
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {TABS.map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setSelectedTab(tab.id)}
+                      className={cn(
+                        "px-3 py-2 rounded-xl text-xs font-medium border text-left transition cursor-pointer",
+                        selectedTab === tab.id
+                          ? "bg-black text-white border-black"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                      )}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Order Time Section */}
+              <div className="space-y-2 pt-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Order Time
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'all', label: 'Any Time' },
+                    { id: 'last30', label: 'Last 30 Days' },
+                    { id: 'currentYear', label: `${new Date().getFullYear()}` },
+                    { id: 'prevYear', label: `${new Date().getFullYear() - 1}` },
+                    { id: 'older', label: 'Older' },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setTimeFilter(t.id)}
+                      className={cn(
+                        "px-3 py-2 rounded-xl text-xs font-medium border text-left transition cursor-pointer",
+                        timeFilter === t.id
+                          ? "bg-black text-white border-black"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                      )}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
+                <button
+                  onClick={() => {
+                    setSelectedTab('all');
+                    setTimeFilter('all');
+                    setSearchQuery('');
+                    setIsFilterModalOpen(false);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Clear All
+                </button>
+                <button
+                  onClick={() => setIsFilterModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-black text-white text-xs font-bold hover:bg-slate-800 transition cursor-pointer"
+                >
+                  Apply Filters
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 

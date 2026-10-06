@@ -237,19 +237,19 @@ const Dashboard = () => {
       {/* Header */}
       <header
         style={{
-          background: "linear-gradient(180deg, rgba(255, 87, 34, 0.90) 0%, rgba(255, 112, 67, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%)"
+          background: "linear-gradient(180deg, rgba(102, 102, 255, 0.90) 0%, rgba(136, 136, 255, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%)"
         }}
-        className="px-6 pt-12 pb-4 flex justify-between items-center sticky top-0 z-30 transition-all duration-300 border-b border-orange-200/50 shadow-2xs backdrop-blur-md">
+        className="px-6 pt-12 pb-4 flex justify-between items-center sticky top-0 z-30 transition-all duration-300 border-b border-[#6666FF]/20 shadow-2xs backdrop-blur-md">
         <div className="flex items-center gap-2.5">
           <img src={settings?.logoUrl || "/logo.png"} alt="Logo" className="h-8 object-contain drop-shadow-xs" />
           <h1 className="text-lg font-bold text-gray-900 tracking-tight ml-1">{user?.name || "Delivery Partner"}</h1>
         </div>
         <div
-          className="relative p-2.5 bg-white/90 border border-orange-200/60 rounded-full hover:bg-white transition-colors cursor-pointer group shadow-2xs"
+          className="relative p-2.5 bg-white/90 border border-[#6666FF]/20 rounded-full hover:bg-white transition-colors cursor-pointer group shadow-2xs"
           onClick={() => navigate("/delivery/notifications")}>
           <Bell
             size={20}
-            className="text-gray-700 group-hover:text-[#FF5722] transition-colors"
+            className="text-gray-700 group-hover:text-[#6666FF] transition-colors"
           />
           {unreadCount > 0 && (
             <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 border-2 border-white rounded-full animate-pulse"></span>
@@ -259,19 +259,19 @@ const Dashboard = () => {
 
       {/* Online/Offline Toggle */}
       <div className="px-6 py-4">
-        <div className="bg-white rounded-2xl p-3.5 flex justify-between items-center border border-orange-200/80 shadow-sm">
+        <div className="bg-white rounded-2xl p-3.5 flex justify-between items-center border border-[#6666FF]/25 shadow-sm">
           <div className="flex items-center gap-2.5">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isOnline ? "bg-[#FF5722]/10 text-[#FF5722]" : "bg-gray-100 text-gray-400"}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isOnline ? "bg-[#6666FF]/10 text-[#6666FF]" : "bg-gray-100 text-gray-400"}`}>
               {isOnline ? <Sun size={20} strokeWidth={2.5} /> : <XCircle size={20} strokeWidth={2.5} />}
             </div>
-            <span className={`text-sm font-bold ${isOnline ? "text-[#FF5722]" : "text-gray-500"}`}>
+            <span className={`text-sm font-bold ${isOnline ? "text-[#6666FF]" : "text-gray-500"}`}>
               {isOnline ? "You are Online" : "You are Offline"}
             </span>
           </div>
           
           <button 
             onClick={handleOnlineToggle}
-            className={`w-14 h-8 rounded-full p-1 transition-all duration-300 ease-in-out flex items-center ${isOnline ? 'bg-[#FF5722] shadow-sm' : 'bg-gray-300'}`}
+            className={`w-14 h-8 rounded-full p-1 transition-all duration-300 ease-in-out flex items-center ${isOnline ? 'bg-[#6666FF] shadow-sm' : 'bg-gray-300'}`}
           >
             <motion.div 
               className="w-6 h-6 bg-white rounded-full shadow-md"
@@ -291,7 +291,7 @@ const Dashboard = () => {
             className={cn(
               "flex-1 py-3 px-4 rounded-xl text-center text-xs font-black transition-all duration-300 uppercase tracking-widest",
               activeTab === "delivery"
-                ? "bg-[#FF5722] text-white shadow-md"
+                ? "bg-[#6666FF] text-white shadow-md"
                 : "text-gray-500 hover:text-gray-700 hover:bg-gray-200/50"
             )}
           >
@@ -302,7 +302,7 @@ const Dashboard = () => {
             className={cn(
               "flex-1 py-3 px-4 rounded-xl text-center text-xs font-black transition-all duration-300 uppercase tracking-widest",
               activeTab === "return"
-                ? "bg-[#FF5722] text-white shadow-md"
+                ? "bg-[#6666FF] text-white shadow-md"
                 : "text-gray-500 hover:text-gray-700 hover:bg-gray-200/50"
             )}
           >
@@ -314,7 +314,7 @@ const Dashboard = () => {
       {/* Main Content */}
       <div className="px-6 space-y-5">
         {/* Earnings Card */}
-        <div className="bg-gradient-to-br from-[#FF5722] via-[#EA580C] to-[#C2410C] rounded-[24px] p-5 shadow-xl relative overflow-hidden text-white flex justify-between border border-white/20">
+        <div className="bg-gradient-to-br from-[#7777FF] via-[#6666FF] to-[#4F4FDD] rounded-[24px] p-5 shadow-xl relative overflow-hidden text-white flex justify-between border border-white/20">
           <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-xl"></div>
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-black/10 rounded-full -ml-16 -mb-16 blur-lg"></div>
 
@@ -329,13 +329,13 @@ const Dashboard = () => {
               </span>
             </div>
 
-            <div className="flex items-center text-[10px] font-bold text-yellow-200 mb-5">
+            <div className="flex items-center text-[10px] font-bold text-[#EEEEFF] mb-5">
               <Flame size={13} className="mr-1 fill-yellow-300 text-yellow-300" /> 5% more than yesterday
             </div>
 
             <button 
               onClick={() => navigate("/delivery/earnings")}
-              className="text-xs font-extrabold text-white hover:text-orange-100 transition-colors flex items-center bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full w-fit shadow-sm border border-white/25"
+              className="text-xs font-extrabold text-white hover:text-[#EEEEFF] transition-colors flex items-center bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full w-fit shadow-sm border border-white/25"
             >
               View Details <ChevronRight size={14} className="ml-1" />
             </button>
@@ -359,7 +359,7 @@ const Dashboard = () => {
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white rounded-2xl p-4 text-center shadow-sm border border-slate-200/70 flex flex-col items-center justify-between">
             <p className="text-[10px] font-black text-gray-700 uppercase tracking-wider mb-2">Completed</p>
-            <div className="flex justify-center mb-1 text-[#FF5722] bg-orange-50 rounded-xl p-2">
+            <div className="flex justify-center mb-1 text-[#6666FF] bg-[#EEEEFF]/60 rounded-xl p-2">
               <CheckSquare size={20} strokeWidth={2.5} />
             </div>
             <p className="text-xl font-black text-gray-900 mb-0.5">{earnings.deliveries}</p>
@@ -386,13 +386,13 @@ const Dashboard = () => {
         </div>
 
         {/* Incentive Zone (Tips) */}
-        <div className="bg-gradient-to-r from-orange-50/80 via-amber-50/60 to-orange-50/80 rounded-[20px] p-4 border border-orange-200/50 shadow-sm flex items-center justify-between overflow-hidden relative">
+        <div className="bg-gradient-to-r from-[#F5F5FF]/90 via-[#EEEEFF]/60 to-[#F5F5FF]/90 rounded-[20px] p-4 border border-[#6666FF]/20 shadow-sm flex items-center justify-between overflow-hidden relative">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/40 rounded-full -mr-16 -mt-16 blur-xl"></div>
           
           <div className="relative z-10 pl-2">
-            <h3 className="text-[#FF5722] font-black text-sm mb-1 uppercase tracking-tight">Customer Tips</h3>
+            <h3 className="text-[#6666FF] font-black text-sm mb-1 uppercase tracking-tight">Customer Tips</h3>
             <p className="text-[11px] text-gray-600 font-medium leading-tight max-w-[140px]">
-              You have earned an extra <br/><span className="font-extrabold text-[#FF5722] text-sm">₹{earnings.incentiveData?.tipsReceived || 0}</span> in tips today
+              You have earned an extra <br/><span className="font-extrabold text-[#6666FF] text-sm">₹{earnings.incentiveData?.tipsReceived || 0}</span> in tips today
             </p>
           </div>
           
@@ -425,10 +425,10 @@ const Dashboard = () => {
                 key="waiting"
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-2xl p-6 border-2 border-[#FF5722]/30 shadow-md shadow-[#FF5722]/10 text-center">
+                className="bg-white rounded-2xl p-6 border-2 border-[#6666FF]/30 shadow-md shadow-[#6666FF]/10 text-center">
                 <div className="flex justify-center mb-3">
-                  <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center border border-orange-100">
-                    <Package className="text-[#FF5722]" size={24} />
+                  <div className="w-12 h-12 rounded-full bg-[#EEEEFF]/60 flex items-center justify-center border border-[#6666FF]/20">
+                    <Package className="text-[#6666FF]" size={24} />
                   </div>
                 </div>
                 <h3 className="ds-h3 text-gray-900 mb-1 font-extrabold">
@@ -442,7 +442,7 @@ const Dashboard = () => {
                   ends.
                 </p>
                 <div className="mt-4 flex items-center justify-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                  <span className="w-2 h-2 bg-[#FF5722] rounded-full animate-pulse" />
+                  <span className="w-2 h-2 bg-[#6666FF] rounded-full animate-pulse" />
                   Listening for assignments
                 </div>
               </motion.div>

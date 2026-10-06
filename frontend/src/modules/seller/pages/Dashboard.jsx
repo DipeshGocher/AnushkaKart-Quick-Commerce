@@ -340,8 +340,8 @@ const Dashboard = () => {
               <AreaChart data={revenueChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.05} />
+                    <stop offset="5%" stopColor="#6666FF" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#6666FF" stopOpacity={0.05} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -373,7 +373,7 @@ const Dashboard = () => {
                 <Area
                   type="monotone"
                   dataKey="sales"
-                  stroke="#4f46e5"
+                  stroke="#6666FF"
                   strokeWidth={2}
                   fill="url(#revenueGradient)"
                   isAnimationActive={true}
@@ -407,7 +407,7 @@ const Dashboard = () => {
                     color: "#334155",
                   }}
                 />
-                <Bar dataKey="A" fill="#4f46e5" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="A" fill="#6666FF" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

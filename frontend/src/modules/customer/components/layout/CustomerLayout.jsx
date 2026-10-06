@@ -133,14 +133,12 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
             <ProductDetailSheet />
             <VariantSelectionSheet />
 
-            <div className="hidden md:block">
-                {showFooter && <Footer />}
-            </div>
-
-            {/* Mobile Footer Message logic */}
-            <div className="md:hidden">
-                {finalShowFooterMessageMobile && <MobileFooterMessage />}
-            </div>
+            {/* Footer logic: render only for laptop, desktop, and large screen devices (hidden on mobile, tablet, iPad) */}
+            {showFooter && (
+                <div className="hidden lg:block">
+                    <Footer />
+                </div>
+            )}
 
             {/* Spacer to push content above the fixed BottomNav */}
             {showBottomNav && !isProductDetailOpen && (

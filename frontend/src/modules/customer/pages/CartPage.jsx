@@ -165,11 +165,11 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                   <div className="flex gap-3.5">
                     {/* Left Column: Image Box + Stepper underneath */}
                     <div className="flex flex-col items-center shrink-0">
-                      <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-lg bg-[#f5f5f5] p-1.5 flex items-center justify-center overflow-hidden">
+                      <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-lg bg-[#f5f5f5] flex items-center justify-center overflow-hidden">
                         <img
                           src={applyCloudinaryTransform(item.image || item.mainImage)}
                           alt={item.name}
-                          className="w-full h-full object-contain"
+                          className="w-full h-full object-cover"
                           loading="lazy"
                         />
                       </div>

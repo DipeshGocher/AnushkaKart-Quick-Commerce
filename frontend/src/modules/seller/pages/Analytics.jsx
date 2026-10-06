@@ -373,8 +373,8 @@ const Analytics = () => {
                   margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#6666FF" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#6666FF" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient
                       id="colorTraffic"
@@ -423,7 +423,7 @@ const Analytics = () => {
                   <Area
                     type="monotone"
                     dataKey="sales"
-                    stroke="#3b82f6"
+                    stroke="#6666FF"
                     strokeWidth={4}
                     fillOpacity={1}
                     fill="url(#colorSales)"

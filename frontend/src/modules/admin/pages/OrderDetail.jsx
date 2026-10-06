@@ -269,20 +269,20 @@ const OrderDetail = () => {
                         </div>
                         {/* Kit Add-On Items */}
                         {order.kitAddons && order.kitAddons.length > 0 && (
-                            <div className="px-6 py-4 bg-orange-50/50 border-t border-orange-100">
-                                <h4 className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <div className="px-6 py-4 bg-brand-50/50 border-t border-brand-100">
+                                <h4 className="text-[10px] font-black text-brand-600 uppercase tracking-widest mb-3 flex items-center gap-2">
                                     <Package className="h-3.5 w-3.5" />
                                     Kit Add-On Items
                                 </h4>
                                 <div className="space-y-2">
                                     {order.kitAddons.map((addon, idx) => (
-                                        <div key={idx} className="flex items-center gap-3 bg-white rounded-xl p-3 border border-orange-100">
-                                            <div className="h-10 w-10 rounded-lg overflow-hidden flex-shrink-0 border border-orange-100 bg-orange-50">
+                                        <div key={idx} className="flex items-center gap-3 bg-white rounded-xl p-3 border border-brand-100">
+                                            <div className="h-10 w-10 rounded-lg overflow-hidden flex-shrink-0 border border-brand-100 bg-brand-50">
                                                 {addon.image ? (
                                                     <img src={addon.image} alt={addon.name} className="w-full h-full object-cover" />
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center">
-                                                        <Package className="h-4 w-4 text-orange-300" />
+                                                        <Package className="h-4 w-4 text-brand-300" />
                                                     </div>
                                                 )}
                                             </div>
@@ -290,7 +290,7 @@ const OrderDetail = () => {
                                                 <span className="text-sm font-black text-slate-900">{addon.name}</span>
                                                 <span className="text-xs font-medium text-slate-400 ml-2">{addon.unit}</span>
                                             </div>
-                                            <span className="bg-orange-100 px-2.5 py-1 rounded-lg text-xs font-black text-orange-700">×{addon.quantity}</span>
+                                            <span className="bg-brand-100 px-2.5 py-1 rounded-lg text-xs font-black text-brand-700">×{addon.quantity}</span>
                                             <span className="text-sm font-black text-slate-900 min-w-[60px] text-right">₹{addon.subtotal || addon.quantity * addon.price}</span>
                                         </div>
                                     ))}
@@ -321,7 +321,7 @@ const OrderDetail = () => {
                             Shop Node Information
                         </h4>
                         <div className="flex items-center gap-4">
-                            <div className="h-16 w-16 bg-orange-50 rounded-2xl flex items-center justify-center ds-h2 font-black text-orange-600 uppercase">
+                            <div className="h-16 w-16 bg-brand-50 rounded-2xl flex items-center justify-center ds-h2 font-black text-brand-600 uppercase">
                                 {order.seller?.shopName?.[0] || 'S'}
                             </div>
                             <div className="text-left">

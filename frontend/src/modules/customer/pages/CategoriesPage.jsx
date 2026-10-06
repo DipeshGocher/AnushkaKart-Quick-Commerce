@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Mic, Search, ShoppingBag, ShoppingCart, X } from 'lucide-react';
+import { ArrowLeft, Mic, Search, ShoppingBag, ShoppingCart, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { customerApi } from '../services/customerApi';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 import { useSettings } from '@core/context/SettingsContext';
 import { useCart } from '../context/CartContext';
 import CategoryIcon from '@shared/components/CategoryIcon';
-import { CATEGORY_BANNER_PRESET_VERSION, getCategoryBannerPreset } from '@shared/constants/categoryBannerPresets';
 import { slugify } from '@/core/utils/productUrl';
 
 const isAllOrForYou = (cat) => {
@@ -26,7 +25,6 @@ const CategoriesPage = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isListening, setIsListening] = useState(false);
-    const [activeBannerIndex, setActiveBannerIndex] = useState(0);
     const contentPaneRef = useRef(null);
     const sidebarRef = useRef(null);
     const navigate = useNavigate();
@@ -133,27 +131,6 @@ const CategoriesPage = () => {
 
     const isForYouActive = activeHeaderId === 'for_you';
     const activeSection = isForYouActive ? null : (visibleSections.find((section) => section.id === activeHeaderId) || visibleSections[0] || null);
-    const activeHeaderKey = activeSection?.id || '';
-
-    const bannerSlides = !isForYouActive && settings?.categoriesBanner?.isVisible !== false && activeSection
-        ? Number(settings?.categoriesBanner?.presetVersion || 0) >= CATEGORY_BANNER_PRESET_VERSION
-            ? (settings?.categoriesBanner?.banners || []).filter((item) => String(item.headerCategoryId || '') === String(activeSection.id) && item.image)
-            : (() => {
-                const preset = getCategoryBannerPreset(activeSection.name);
-                return preset ? [{ image: preset.image, title: activeSection.name, buttonLink: `/category/${activeSection.id}` }] : [];
-            })()
-        : [];
-    const currentBanner = bannerSlides[activeBannerIndex] || bannerSlides[0] || null;
-
-    useEffect(() => {
-        setActiveBannerIndex(0);
-        if (bannerSlides.length < 2) return undefined;
-
-        const timer = window.setInterval(() => {
-            setActiveBannerIndex((index) => (index + 1) % bannerSlides.length);
-        }, 4500);
-        return () => window.clearInterval(timer);
-    }, [activeHeaderKey, bannerSlides.length]);
 
     useEffect(() => {
         if (activeHeaderId === 'for_you') return;
@@ -233,13 +210,13 @@ const CategoriesPage = () => {
                 state={navState}
                 className="group flex min-w-0 flex-col items-center text-center"
             >
-                <span className="customer-category-tile-image flex h-[72px] w-[72px] aspect-square items-center justify-center overflow-hidden rounded-[20px] bg-[#f4f4f4] hover:bg-[#eaeaea] border border-[#e5e7eb] p-1.5 transition-all duration-150 group-hover:border-slate-300 group-active:scale-95 shadow-2xs">
+                <span className="customer-category-tile-image flex h-[76px] w-[76px] aspect-square items-center justify-center overflow-hidden rounded-[20px] bg-[#f4f4f4] hover:bg-[#eaeaea] border border-[#e5e7eb] p-0 transition-all duration-150 group-hover:border-slate-300 group-active:scale-95 shadow-2xs">
                     {tile.image ? (
                         <img
                             src={applyCloudinaryTransform(tile.image, 'f_auto,q_auto,w_300')}
                             alt={tile.name}
                             loading="lazy"
-                            className="h-full w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform"
+                            className="h-full w-full object-cover group-hover:scale-105 transition-transform"
                         />
                     ) : (
                         <ShoppingBag size={24} className="text-slate-400" />
@@ -412,59 +389,7 @@ const CategoriesPage = () => {
                                 const allSubcategories = (section.categories || []).flatMap((cat) => cat.subcategories || []);
                                 return (
                                     <motion.div initial={{ opacity: 0.92, y: 6 }} animate={{ opacity: 1, y: 0 }} key={section.id} className="customer-category-header-section pb-8">
-                                        {/* Banner Slide */}
-                                        {currentBanner?.image ? (
-                                            <div className="mb-3 overflow-hidden rounded-[22px] bg-[#e8efff] shadow-2xs">
-                                                {currentBanner.buttonLink && currentBanner.buttonLink !== '/' ? (
-                                                    <Link to={currentBanner.buttonLink} className="block">
-                                                        <img
-                                                            src={applyCloudinaryTransform(currentBanner.image, 'f_auto,q_auto,w_900')}
-                                                            alt={currentBanner.title || `${section.name} banner`}
-                                                            className="customer-category-banner-image w-full object-cover"
-                                                        />
-                                                    </Link>
-                                                ) : (
-                                                    <img
-                                                        src={applyCloudinaryTransform(currentBanner.image, 'f_auto,q_auto,w_900')}
-                                                        alt={currentBanner.title || `${section.name} banner`}
-                                                        className="customer-category-banner-image w-full object-cover"
-                                                    />
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <div className="customer-category-fallback-banner mb-3 flex items-center justify-between overflow-hidden rounded-[22px] bg-[#e8efff] px-3">
-                                                <div className="relative z-10 max-w-[62%]">
-                                                    <h2 className="text-base font-bold leading-tight text-[#171717]">{section.name}</h2>
-                                                    <span className="mt-2 inline-flex h-7 w-10 items-center justify-center rounded-full bg-black text-white">
-                                                        <ArrowRight size={17} />
-                                                    </span>
-                                                </div>
-                                                {section.image && (
-                                                    <img
-                                                        src={applyCloudinaryTransform(section.image, 'f_auto,q_auto,w_240')}
-                                                        alt=""
-                                                        className="h-full max-h-[110px] w-[42%] object-contain"
-                                                    />
-                                                )}
-                                            </div>
-                                        )}
-                                        {bannerSlides.length > 1 && (
-                                            <div className="mb-3 flex items-center justify-center gap-1.5" role="tablist" aria-label={`${section.name} banners`}>
-                                                {bannerSlides.map((slide, index) => (
-                                                    <button
-                                                        key={`${slide.image}-${index}`}
-                                                        type="button"
-                                                        onClick={() => setActiveBannerIndex(index)}
-                                                        className={`h-1.5 rounded-full transition-all ${index === activeBannerIndex ? 'w-6 bg-[#2875e8]' : 'w-2 bg-slate-300'}`}
-                                                        aria-label={`Show ${section.name} banner ${index + 1}`}
-                                                        aria-selected={index === activeBannerIndex}
-                                                        role="tab"
-                                                    />
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        {/* Main Categories (NO header text below banner, directly in 3 columns) */}
+                                        {/* Main Categories (directly in 3 columns) */}
                                         {query && section.categories.length === 0 ? (
                                             <div className="py-6 text-center text-xs text-slate-500">No categories matching “{searchQuery}”.</div>
                                         ) : (

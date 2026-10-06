@@ -645,6 +645,9 @@ orderSchema.index(
     partialFilterExpression: { "placement.idempotencyKeyExpiry": { $type: "date" } }
   }
 );
+orderSchema.index({ customer: 1, createdAt: -1, _id: -1 });
+orderSchema.index({ seller: 1, createdAt: -1, _id: -1 });
+orderSchema.index({ warehouseId: 1, status: 1, createdAt: -1 });
 
 orderSchema.pre('save', function(next) {
   if (!this.orderStatus) {

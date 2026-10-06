@@ -1,28 +1,36 @@
 @import "tailwindcss";
 @import "./styles/design-system.css";
 @import "./styles/customer-theme.css";
+@import "./styles/delivery-theme.css";
+@import "./styles/admin-seller-theme.css";
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Brand colors: Orange (#FF5722) & Navy Blue (#0047AB) combination */
-  --primary: #FF5722; 
-  --primary-color: #FF5722;
+  /* Brand colors: Primary (#6666FF) matching Delivery Partner ecosystem */
+  --primary: #6666FF; 
+  --primary-color: #6666FF;
+  --primary-hover: #5555EE;
+  --primary-dark: #4F4FDD;
+  --primary-light: #EEEEFF;
+  --primary-soft: #F5F5FF;
+  --primary-border: rgba(102, 102, 255, 0.20);
+  --primary-ring: rgba(102, 102, 255, 0.25);
   --secondary: #0047AB; 
   --secondary-color: #0047AB;
   
-  /* Dynamic Brand Shades based on primary */
-  --brand-50: color-mix(in srgb, var(--primary), white 95%);
-  --brand-100: color-mix(in srgb, var(--primary), white 90%);
-  --brand-200: color-mix(in srgb, var(--primary), white 70%);
-  --brand-300: color-mix(in srgb, var(--primary), white 50%);
-  --brand-400: color-mix(in srgb, var(--primary), white 20%);
-  --brand-500: var(--primary);
-  --brand-600: color-mix(in srgb, var(--primary), black 10%);
-  --brand-700: color-mix(in srgb, var(--primary), black 25%);
-  --brand-800: color-mix(in srgb, var(--primary), black 40%);
-  --brand-900: color-mix(in srgb, var(--primary), black 60%);
-  --brand-950: color-mix(in srgb, var(--primary), black 80%);
+  /* Dynamic Brand Shades based on #6666FF */
+  --brand-50: #F5F5FF;
+  --brand-100: #EEEEFF;
+  --brand-200: #D8D8FF;
+  --brand-300: #B8B8FF;
+  --brand-400: #8F8FFF;
+  --brand-500: #6666FF;
+  --brand-600: #5555EE;
+  --brand-700: #4F4FDD;
+  --brand-800: #3E3ECC;
+  --brand-900: #2E2EAA;
+  --brand-950: #1E1E77;
 
   --primary-dark: var(--brand-700);
   --radius: 0.5rem;
@@ -41,7 +49,7 @@
   --destructive: oklch(0.6 0.23 25);
   --border: oklch(0.92 0.01 260);
   --input: oklch(0.92 0.01 260);
-  --ring: oklch(0.6 0.15 260);
+  --ring: rgba(102, 102, 255, 0.25);
 
   /* Additional UI Variables */
   --sidebar-dark: #0F172A;
@@ -49,8 +57,9 @@
   --glass-border: rgba(255, 255, 255, 0.4);
 
   /* Cart pill fill & Brand gradient */
-  --customer-mini-cart-color: #FF5722;
-  --brand-gradient: linear-gradient(135deg, #FF5722 0%, #EA580C 50%, #0047AB 100%);
+  --customer-mini-cart-color: #2875e8;
+  --brand-gradient: linear-gradient(135deg, #7777FF 0%, #6666FF 50%, #5555EE 100%);
+  --admin-card-gradient: linear-gradient(135deg, #7777FF 0%, #6666FF 50%, #5555EE 100%);
 }
 
 body {

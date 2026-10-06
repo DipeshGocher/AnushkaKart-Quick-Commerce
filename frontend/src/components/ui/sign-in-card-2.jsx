@@ -11,6 +11,8 @@ export function SignInCard2({
   onBack,
   backPath = "/customer",
   showBackButton = true,
+  logoUrl = "/logo.png",
+  appName = "Anushka Store",
   footer,
   className,
   containerClassName
@@ -30,30 +32,39 @@ export function SignInCard2({
       "auth-reference min-h-screen w-full relative flex items-center justify-center bg-white text-[#171923]",
       containerClassName
     )}>
-      <div className="w-full min-h-screen relative flex flex-col">
+      <div className="w-full min-h-screen relative flex flex-col justify-center">
+          {/* Back / Close button placed lower to avoid dynamic island / notch collision */}
           {showBackButton && (
             <button 
               type="button"
               onClick={handleBack}
-              className="absolute left-5 top-7 sm:left-8 sm:top-9 z-20 w-10 h-10 text-[#202833] hover:bg-slate-100 rounded-full flex items-center justify-center transition-colors cursor-pointer"
+              className="absolute left-4 top-12 sm:left-7 sm:top-10 z-30 w-10 h-10 text-[#202833] hover:bg-slate-100 rounded-full flex items-center justify-center transition-colors cursor-pointer"
               title="Close"
+              aria-label="Close"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5 text-slate-800 stroke-[2.2]" />
             </button>
           )}
 
-          <div className={cn("auth-reference-content w-full max-w-[680px] mx-auto flex-1 flex flex-col justify-center px-5 sm:px-8 py-24", className)}>
-            <div className="text-center mb-8 sm:mb-10">
-              <p className="auth-reference-brand text-2xl sm:text-3xl font-bold tracking-tight text-[#172238] mb-16 sm:mb-20">Welcome here</p>
+          <div className={cn("auth-reference-content w-full max-w-[480px] sm:max-w-[540px] mx-auto flex flex-col justify-center px-6 sm:px-8 py-12 sm:py-16", className)}>
+            <div className="text-center mb-6 sm:mb-8">
+              {/* Anushka Store Logo replacing "Welcome here" text */}
+              <div className="flex justify-center mb-6 sm:mb-8">
+                <img 
+                  src={logoUrl || "/logo.png"} 
+                  alt={appName || "Anushka Store"} 
+                  className="h-11 sm:h-13 w-auto object-contain max-w-[200px]"
+                />
+              </div>
 
               {title && (
-                <h1 className="text-2xl sm:text-3xl font-bold text-[#171923] tracking-tight mb-2">
+                <h1 className="text-xl sm:text-2xl font-bold text-[#171923] tracking-tight mb-1.5">
                   {title}
                 </h1>
               )}
               
               {subtitle && (
-                <p className="text-[#6f737c] text-base sm:text-lg font-normal max-w-lg mx-auto">
+                <p className="text-[#6f737c] text-sm sm:text-base font-normal max-w-sm mx-auto">
                   {subtitle}
                 </p>
               )}
@@ -63,13 +74,14 @@ export function SignInCard2({
             <div className="relative z-10">
               {children}
             </div>
-          </div>
 
-          {footer && (
-            <div className="auth-reference-footer w-full text-center text-sm font-medium text-slate-600 px-5 pb-8">
-              {footer}
-            </div>
-          )}
+            {/* Registration Text / Footer placed higher up directly below form */}
+            {footer && (
+              <div className="auth-reference-footer w-full text-center text-xs sm:text-sm font-medium text-slate-600 mt-6 sm:mt-8">
+                {footer}
+              </div>
+            )}
+          </div>
       </div>
     </div>
   );

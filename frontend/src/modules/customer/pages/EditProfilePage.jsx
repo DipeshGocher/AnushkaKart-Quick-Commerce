@@ -53,7 +53,7 @@ const EditProfilePage = () => {
     };
 
     return (
-        <div className="customer-edit-profile-page min-h-screen bg-[#f1f4f8] font-sans pb-10">
+        <div className="customer-edit-profile-page min-h-screen bg-[#f1f4f8] font-sans pb-16 flex flex-col">
             {/* Header */}
             <div className="customer-edit-profile-header bg-white sticky top-0 z-30 px-4 py-3 flex items-center gap-3 shadow-sm border-b border-slate-100">
                 <Link to="/profile" className="customer-edit-profile-back p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors">
@@ -62,15 +62,15 @@ const EditProfilePage = () => {
                 <h1 className="text-lg font-black text-[#0F172A]">Profile Settings</h1>
             </div>
 
-            <div className="customer-edit-profile-content max-w-xl mx-auto p-5">
+            <div className="customer-edit-profile-content max-w-xl mx-auto p-5 flex-1 flex flex-col justify-center w-full">
 
                 {/* Edit Form */}
                 <form onSubmit={handleSubmit} className="customer-edit-profile-form space-y-5">
                     <div className="customer-edit-profile-card bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-5">
                         <div className="customer-edit-profile-field">
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Full Name</label>
-                            <div className="customer-edit-profile-control flex items-center gap-3 bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200 focus-within:border-[#2875E8] focus-within:ring-4 focus-within:ring-[#2875E8]/10 transition-all">
-                                <UserRound className="customer-edit-profile-icon" size={16} />
+                            <div className="customer-edit-profile-control flex items-center gap-3 bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200 focus-within:border-[#6666FF] focus-within:ring-4 focus-within:ring-[#6666FF]/15 transition-all">
+                                <UserRound className="customer-edit-profile-icon text-[#6666FF]" size={16} />
                                 <input
                                     type="text"
                                     name="name"
@@ -89,8 +89,8 @@ const EditProfilePage = () => {
 
                         <div className="customer-edit-profile-field">
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Phone Number</label>
-                            <div className="customer-edit-profile-control flex items-center gap-3 bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200 focus-within:border-[#2875E8] focus-within:ring-4 focus-within:ring-[#2875E8]/10 transition-all">
-                                <Phone className="customer-edit-profile-icon" size={16} />
+                            <div className="customer-edit-profile-control flex items-center gap-3 bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200 focus-within:border-[#6666FF] focus-within:ring-4 focus-within:ring-[#6666FF]/15 transition-all">
+                                <Phone className="customer-edit-profile-icon text-[#6666FF]" size={16} />
                                 <input
                                     type="tel"
                                     name="phone"
@@ -104,8 +104,8 @@ const EditProfilePage = () => {
 
                         <div className="customer-edit-profile-field">
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Email Address</label>
-                            <div className="customer-edit-profile-control flex items-center gap-3 bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200 focus-within:border-[#2875E8] focus-within:ring-4 focus-within:ring-[#2875E8]/10 transition-all">
-                                <Mail className="customer-edit-profile-icon" size={16} />
+                            <div className="customer-edit-profile-control flex items-center gap-3 bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200 focus-within:border-[#6666FF] focus-within:ring-4 focus-within:ring-[#6666FF]/15 transition-all">
+                                <Mail className="customer-edit-profile-icon text-[#6666FF]" size={16} />
                                 <input
                                     type="email"
                                     name="email"
@@ -119,8 +119,8 @@ const EditProfilePage = () => {
 
                         <div className="customer-edit-profile-field">
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Bio</label>
-                            <div className="customer-edit-profile-control customer-edit-profile-bio-control flex gap-3 bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200 focus-within:border-[#2875E8] focus-within:ring-4 focus-within:ring-[#2875E8]/10 transition-all">
-                                <FileText className="customer-edit-profile-icon mt-0.5" size={16} />
+                            <div className="customer-edit-profile-control customer-edit-profile-bio-control flex gap-3 bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200 focus-within:border-[#6666FF] focus-within:ring-4 focus-within:ring-[#6666FF]/15 transition-all">
+                                <FileText className="customer-edit-profile-icon mt-0.5 text-[#6666FF]" size={16} />
                                 <textarea
                                     name="bio"
                                     value={formData.bio}
@@ -136,7 +136,7 @@ const EditProfilePage = () => {
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="customer-edit-profile-save w-full py-4 bg-gradient-to-r from-[#2875E8] via-[#1F66D3] to-[#0F172A] text-white font-bold rounded-2xl shadow-lg shadow-orange-500/25 hover:from-[#1F66D3] hover:to-[#0F172A] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                        className="customer-edit-profile-save w-full py-4 bg-gradient-to-r from-[#7777FF] via-[#6666FF] to-[#5555EE] text-white font-bold rounded-2xl shadow-lg shadow-[#6666FF]/25 hover:from-[#6666FF] hover:to-[#4F4FDD] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                     >
                         {isLoading ? (
                             <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -146,7 +146,7 @@ const EditProfilePage = () => {
                         {isLoading ? 'Saving...' : 'Save Changes'}
                     </button>
 
-                    <Link to="/profile" className="customer-edit-profile-cancel w-full">
+                    <Link to="/profile" className="customer-edit-profile-cancel w-full block text-center py-3.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-2xl hover:bg-slate-50 transition-colors cursor-pointer">
                         Cancel
                     </Link>
                 </form>

@@ -54,7 +54,7 @@ const WishlistPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f1f4f8] pb-16 font-sans">
+    <div className="min-h-screen bg-[#f1f4f8] pb-16 font-sans flex flex-col">
       {/* Sticky Top Header */}
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 py-3 border-b border-slate-200/80 flex items-center justify-between shadow-2xs">
         <div className="flex items-center gap-2">
@@ -87,19 +87,18 @@ const WishlistPage = () => {
       </div>
 
       {/* Product List or Empty State */}
-      <div className="px-3 sm:px-4 max-w-7xl mx-auto pt-4">
+      <div className={`px-3 sm:px-4 max-w-7xl mx-auto w-full ${activeWishlist.length > 0 ? 'pt-4' : 'flex-1 flex flex-col justify-center items-center py-6 -mt-8'}`}>
         {activeWishlist.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-3 gap-y-5">
             {activeWishlist.map((product) => (
               <ProductCard
                 key={product.id || product._id}
                 product={product}
-                neutralBg={true}
               />
             ))}
           </div>
         ) : (
-          <div className="max-w-md mx-auto my-6 p-7 sm:p-8 text-center bg-white rounded-3xl border border-slate-200/80 shadow-sm">
+          <div className="max-w-md w-full mx-auto p-7 sm:p-8 text-center bg-white rounded-3xl border border-slate-200/80 shadow-sm">
             <div className="w-44 h-44 sm:w-52 sm:h-52 mx-auto mb-4 relative flex items-center justify-center">
               <img 
                 src="/empty-wishlist-box.png" 
@@ -118,7 +117,7 @@ const WishlistPage = () => {
 
             <button
               onClick={() => navigate('/categories')}
-              className="w-full py-3.5 px-6 text-white text-sm font-extrabold rounded-2xl transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2 bg-[#2875E8] hover:bg-orange-600 shadow-orange-500/25"
+              className="w-full py-3.5 px-6 text-white text-sm font-extrabold rounded-2xl transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2 bg-[#6666FF] hover:bg-[#5555EE] shadow-[#6666FF]/25"
             >
               <span>Explore Grocery Items</span>
               <ArrowRight size={16} />

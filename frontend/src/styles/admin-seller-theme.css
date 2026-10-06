@@ -1,0 +1,46 @@
+/* ==========================================================================
+   ADMIN & SELLER / VENDOR PANEL THEME SYSTEM
+   Primary Theme Color: #6666FF
+   Follows Delivery Partner Application ecosystem brand tokens
+   ========================================================================== */
+
+:root {
+  /* Admin & Seller Core Brand Tokens */
+  --admin-primary: #6666FF;
+  --admin-primary-hover: #5555EE;
+  --admin-primary-dark: #4F4FDD;
+  --admin-primary-light: #EEEEFF;
+  --admin-primary-soft: #F5F5FF;
+  --admin-primary-border: rgba(102, 102, 255, 0.20);
+  --admin-primary-ring: rgba(102, 102, 255, 0.25);
+
+  --seller-primary: #6666FF;
+  --seller-primary-hover: #5555EE;
+  --seller-primary-dark: #4F4FDD;
+  --seller-primary-light: #EEEEFF;
+  --seller-primary-soft: #F5F5FF;
+  --seller-primary-border: rgba(102, 102, 255, 0.20);
+  --seller-primary-ring: rgba(102, 102, 255, 0.25);
+
+  /* Primary Gradient */
+  --admin-gradient: linear-gradient(135deg, #7777FF 0%, #6666FF 50%, #5555EE 100%);
+  --seller-gradient: linear-gradient(135deg, #7777FF 0%, #6666FF 50%, #5555EE 100%);
+}
+
+/* Focused UI controls for Admin & Seller */
+.admin-primary-btn,
+.seller-primary-btn {
+  background-color: #6666FF;
+  color: #ffffff;
+  transition: all 0.2s ease-in-out;
+}
+
+.admin-primary-btn:hover,
+.seller-primary-btn:hover {
+  background-color: #5555EE;
+}
+
+.admin-primary-btn:active,
+.seller-primary-btn:active {
+  background-color: #4F4FDD;
+}

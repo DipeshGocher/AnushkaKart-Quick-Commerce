@@ -20,11 +20,11 @@ const colorMap = {
     "text-violet-600 bg-violet-50 border-violet-100 group-hover:bg-violet-100/50",
   cyan: "text-brand-600 bg-brand-50 border-brand-100 group-hover:bg-brand-100/50",
   orange:
-    "text-orange-600 bg-orange-50 border-orange-100 group-hover:bg-orange-100/50",
+    "text-brand-600 bg-brand-50 border-brand-100 group-hover:bg-brand-100/50",
   green:
     "text-brand-600 bg-brand-50 border-brand-100 group-hover:bg-brand-100/50",
   sky: "text-brand-600 bg-brand-50 border-brand-100 group-hover:bg-brand-100/50",
-  pink: "text-orange-600 bg-orange-50 border-orange-100 group-hover:bg-orange-100/50",
+  pink: "text-brand-600 bg-brand-50 border-brand-100 group-hover:bg-brand-100/50",
   fuchsia:
     "text-fuchsia-600 bg-fuchsia-50 border-fuchsia-100 group-hover:bg-fuchsia-100/50",
   red: "text-red-600 bg-red-50 border-red-100 group-hover:bg-red-100/50",

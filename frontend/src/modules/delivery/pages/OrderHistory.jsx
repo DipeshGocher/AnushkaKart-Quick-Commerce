@@ -162,9 +162,9 @@ const OrderHistory = () => {
       {/* Header */}
       <div 
         style={{
-          background: "linear-gradient(180deg, rgba(255, 87, 34, 0.90) 0%, rgba(255, 112, 67, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%)"
+          background: "linear-gradient(180deg, rgba(102, 102, 255, 0.90) 0%, rgba(136, 136, 255, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%)"
         }}
-        className="p-4 sticky top-0 z-30 backdrop-blur-md border-b border-orange-200/50 shadow-2xs">
+        className="p-4 sticky top-0 z-30 backdrop-blur-md border-b border-[#6666FF]/20 shadow-2xs">
         <h1 className="ds-h2 text-gray-900 mb-4">Order History</h1>
 
         {/* Search & Filter */}
@@ -179,7 +179,7 @@ const OrderHistory = () => {
               placeholder="Search Order ID, Customer..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all border border-transparent focus:border-primary/20"
+              className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#6666FF]/50 transition-all border border-transparent focus:border-[#6666FF]/20"
             />
           </div>
         </div>
@@ -191,7 +191,7 @@ const OrderHistory = () => {
               key={status}
               onClick={() => setFilter(status.toLowerCase())}
               className={`snap-start h-9 px-4 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${filter === status.toLowerCase()
-                ? "bg-[#FF5722] text-white border-transparent shadow-md font-black"
+                ? "bg-[#6666FF] text-white border-transparent shadow-md font-black"
                 : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                 }`}
             >
@@ -204,14 +204,14 @@ const OrderHistory = () => {
       {/* Orders List */}
       <div className="p-4 space-y-4 max-w-lg mx-auto">
         {refreshing && (
-          <div className="flex items-center justify-center gap-2 py-1 text-xs font-medium text-primary">
-            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <div className="flex items-center justify-center gap-2 py-1 text-xs font-medium text-[#6666FF]">
+            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#6666FF] border-t-transparent" />
             <span>Updating…</span>
           </div>
         )}
         {initialLoading ? (
           <div className="flex justify-center py-20">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#6666FF]"></div>
           </div>
         ) : (
           <AnimatePresence mode="popLayout">
@@ -238,15 +238,15 @@ const OrderHistory = () => {
                     <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start mb-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1 min-w-0 flex-wrap">
-                          <span className="font-bold text-[#FF5722] text-sm group-hover:text-[#EA580C] transition-colors break-all">
+                          <span className="font-bold text-[#6666FF] text-sm group-hover:text-[#5555EE] transition-colors break-all">
                             #{order.orderId}
                           </span>
                           <span
                             className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${displayOrderStatus(order) === "delivered"
-                              ? "bg-orange-50 text-[#FF5722] border border-orange-100"
+                              ? "bg-[#EEEEFF] text-[#6666FF] border border-[#6666FF]/20"
                               : displayOrderStatus(order) === "cancelled"
                                 ? "bg-red-50 text-red-600 border border-red-100"
-                                : "bg-orange-50 text-[#FF5722] border border-orange-100"
+                                : "bg-[#EEEEFF] text-[#6666FF] border border-[#6666FF]/20"
                               }`}>
                             {displayOrderStatus(order)}
                           </span>
@@ -264,9 +264,9 @@ const OrderHistory = () => {
                       </div>
                     </div>
 
-                    <div className="bg-white rounded-xl p-3 border border-orange-100/70 shadow-2xs my-3 space-y-2">
+                    <div className="bg-white rounded-xl p-3 border border-[#6666FF]/15 shadow-2xs my-3 space-y-2">
                       <div className="flex items-start">
-                        <div className="w-2 h-2 rounded-full bg-[#FF5722] mt-1.5 mr-2 flex-shrink-0 shadow-[0_0_8px_rgba(255,87,34,0.5)]"></div>
+                        <div className="w-2 h-2 rounded-full bg-[#6666FF] mt-1.5 mr-2 flex-shrink-0 shadow-[0_0_8px_rgba(102,102,255,0.5)]"></div>
                         <div>
                           <p className="ds-caption text-gray-500 mb-0.5">Store</p>
                           <p className="text-sm font-medium text-gray-800 line-clamp-1">
@@ -274,8 +274,8 @@ const OrderHistory = () => {
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-start border-t border-orange-50 pt-2">
-                        <div className="w-2 h-2 rounded-full bg-[#EA580C] mt-1.5 mr-2 flex-shrink-0 shadow-[0_0_8px_rgba(234,88,12,0.5)]"></div>
+                      <div className="flex items-start border-t border-[#6666FF]/10 pt-2">
+                        <div className="w-2 h-2 rounded-full bg-[#5555EE] mt-1.5 mr-2 flex-shrink-0 shadow-[0_0_8px_rgba(85,85,238,0.5)]"></div>
                         <div>
                           <p className="ds-caption text-gray-500 mb-0.5">
                             Customer
@@ -298,7 +298,7 @@ const OrderHistory = () => {
                           min
                         </span>
                       </div>
-                      <div className="flex items-center text-[#FF5722] font-bold group-hover:underline self-end sm:self-auto">
+                      <div className="flex items-center text-[#6666FF] font-bold group-hover:underline self-end sm:self-auto">
                         View Details <ChevronRight size={14} className="ml-0.5" />
                       </div>
                     </div>

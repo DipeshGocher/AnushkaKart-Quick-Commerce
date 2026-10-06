@@ -8,7 +8,14 @@ const ProductDetailContext = createContext();
 export const useProductDetail = () => {
     const context = useContext(ProductDetailContext);
     if (!context) {
-        return {};
+        return {
+            selectedProduct: null,
+            isOpen: false,
+            isLoading: false,
+            error: null,
+            openProduct: () => {},
+            closeProduct: () => {}
+        };
     }
     return context;
 };
@@ -38,8 +45,9 @@ export const ProductDetailProvider = ({ children }) => {
 
                 customerApi.getProductById(productParam, params)
                     .then(res => {
-                        if (res.data.success) {
-                            setSelectedProduct(res.data.result || res.data.results || res.data);
+                        if (res.data?.success) {
+                            const p = res.data.result || res.data.results || res.data.data || res.data;
+                            setSelectedProduct(p);
                             setIsOpen(true);
                             setError(null);
                         }
@@ -47,8 +55,6 @@ export const ProductDetailProvider = ({ children }) => {
                     .catch(err => {
                         console.error("Failed to fetch product from URL", err);
                         setError(err.response?.data?.message || "Failed to load product");
-                        setIsOpen(true); // Open sheet to show error state
-                        setSelectedProduct(null);
                     })
                     .finally(() => {
                         setIsLoading(false);
@@ -64,13 +70,15 @@ export const ProductDetailProvider = ({ children }) => {
     }, [searchParams.get('product'), currentLocation?.latitude, currentLocation?.longitude]);
 
     const openProduct = (product) => {
+        if (!product) return;
         setSelectedProduct(product);
         setIsOpen(true);
-        if (product) {
-            const idOrSlug = product.slug || product._id || product.id;
+        const idOrSlug = product.slug || product._id || product.id;
+        if (idOrSlug) {
             setSearchParams((prev) => {
-                prev.set('product', idOrSlug);
-                return prev;
+                const next = new URLSearchParams(prev);
+                next.set('product', idOrSlug);
+                return next;
             }, { replace: false });
         }
     };
@@ -82,8 +90,9 @@ export const ProductDetailProvider = ({ children }) => {
             setError(null);
         }, 300);
         setSearchParams((prev) => {
-            prev.delete('product');
-            return prev;
+            const next = new URLSearchParams(prev);
+            next.delete('product');
+            return next;
         }, { replace: true });
     };
 

@@ -23,10 +23,10 @@ import ApplicationPending from '../../modules/seller/pages/ApplicationPending';
 import AdminAuth from '../../modules/admin/pages/AdminAuth';
 import DeliveryAuth from '../../modules/delivery/pages/DeliveryAuth';
 import CustomerAuth from '../../modules/customer/pages/CustomerAuth';
-
-import CategoriesPage from '../../modules/customer/pages/CategoriesPage';
+import VerifyOtpPage from '../../modules/customer/pages/VerifyOtpPage';
 
 // Customer Pages (lazy-loaded)
+const CategoriesPage = lazy(() => import('../../modules/customer/pages/CategoriesPage'));
 const Home = lazy(() => import('../../modules/customer/pages/Home'));
 const CategoryProductsPage = lazy(() => import('../../modules/customer/pages/CategoryProductsPage'));
 const WishlistPage = lazy(() => import('../../modules/customer/pages/WishlistPage'));
@@ -55,55 +55,34 @@ const WalletPage = lazy(() => import('../../modules/customer/pages/WalletPage'))
 const NotificationsPage = lazy(() => import('../../modules/customer/pages/NotificationsPage'));
 
 
-// Lazy load heavy modules
-const SellerModule = lazy(() => import('../../modules/seller/routes/index'));
+import SellerRoutes, { sellerRoutes } from '../../modules/seller/routes/index';
 import AdminRoutes, { adminRoutes } from '../../modules/admin/routes/index';
-const DeliveryModule = lazy(() => import('../../modules/delivery/routes/index'));
+import DeliveryRoutes, { deliveryRoutes } from '../../modules/delivery/routes/index';
 const DynamicLegalPage = lazy(() => import('../../shared/components/DynamicLegalPage'));
 
 import CustomerLayout from '../../modules/customer/components/layout/CustomerLayout';
 
-const AnimatedCustomerPage = ({ children }) => {
-    const location = useLocation();
-    const navigationType = useNavigationType();
-    const reduceMotion = useReducedMotion();
-    const isTabNavigation = navigationType === 'PUSH' && location.state?.pageTransition === 'tab';
-    const direction = location.state?.tabDirection === -1 ? -1 : 1;
-    const transition = reduceMotion ? { duration: 0 } : { duration: 0.24, ease: [0.32, 0.72, 0, 1] };
-    const variants = {
-        initial: ({ tab, side }) => tab
-            ? { left: `${side * 100}vw`, top: 0, opacity: 1 }
-            : { left: 0, top: 28, opacity: 0.94 },
-        animate: { left: 0, top: 0, opacity: 1 },
-        exit: ({ tab, side }) => tab
-            ? { left: `${side * -100}vw`, top: 0, opacity: 1 }
-            : { left: 0, top: -18, opacity: 0.94 },
-    };
-
+const AnimatedCustomerPage = () => {
     return (
-        <AnimatePresence mode="wait" initial={false} custom={{ tab: isTabNavigation, side: direction }}>
-            <motion.div
-                key={location.pathname}
-                custom={{ tab: isTabNavigation, side: direction }}
-                variants={variants}
-                initial={reduceMotion ? false : 'initial'}
-                animate="animate"
-                exit={reduceMotion ? undefined : 'exit'}
-                transition={transition}
-                className="relative w-full flex-1 flex flex-col"
-            >
-                <Suspense fallback={<PageSkeleton />}>
-                    {children}
-                </Suspense>
-            </motion.div>
-        </AnimatePresence>
+        <div className="w-full flex-1 flex flex-col">
+            <Suspense fallback={<PageSkeleton />}>
+                <Outlet />
+            </Suspense>
+        </div>
     );
 };
 
 const CustomerLayoutWrapper = () => {
-    const outlet = useOutlet();
-
     useEffect(() => {
+        const path = window.location.pathname;
+        if (
+            path.startsWith('/admin') ||
+            path.startsWith('/seller') ||
+            path.startsWith('/delivery') ||
+            path.startsWith('/warehouse')
+        ) {
+            return;
+        }
         setActiveRole(ROLES.CUSTOMER);
     }, []);
 
@@ -116,7 +95,7 @@ const CustomerLayoutWrapper = () => {
                                 <VariantSelectionProvider>
                                     <ScrollToTop />
                                     <CustomerLayout>
-                                        <AnimatedCustomerPage>{outlet}</AnimatedCustomerPage>
+                                        <AnimatedCustomerPage />
                                     </CustomerLayout>
                                 </VariantSelectionProvider>
                             </ProductDetailProvider>
@@ -129,7 +108,7 @@ const CustomerLayoutWrapper = () => {
 
 const RESERVED_CUSTOMER_SLUGS = new Set([
     'admin', 'seller', 'delivery', 'unauthorized', 'marketplace', 'api', 
-    'login', 'signup', 'categories', 'category', 'product', 'products', 
+    'login', 'signup', 'verify-otp', 'categories', 'category', 'product', 'products', 
     'search', 'orders', 'cart', 'wishlist', 'settings', 'profile', 
     'wallet', 'notifications', 'checkout', 'support', 'privacy', 'about', 'offers'
 ]);
@@ -138,6 +117,9 @@ const HierarchicalProductRoute = () => {
     const { headerSlug } = useParams();
     const cleanHeader = String(headerSlug || '').toLowerCase();
     if (cleanHeader && RESERVED_CUSTOMER_SLUGS.has(cleanHeader)) {
+        if (['admin', 'seller', 'delivery', 'warehouse'].includes(cleanHeader)) {
+            return <Navigate to={window.location.pathname} replace />;
+        }
         return <Navigate to={`/${cleanHeader}`} replace />;
     }
     return <ProductDetailPage />;
@@ -157,6 +139,10 @@ const AppRouter = () => {
                 {
                     path: 'signup',
                     element: <CustomerAuth />,
+                },
+                {
+                    path: 'verify-otp',
+                    element: <VerifyOtpPage />,
                 },
                 {
                     path: 'seller/auth',
@@ -192,14 +178,15 @@ const AppRouter = () => {
                     element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="privacy" audience="delivery" /></Suspense>,
                 },
                 {
-                    path: 'seller/*',
+                    path: 'seller',
                     element: (
                         <ProtectedRoute>
                             <RoleGuard allowedRoles={[UserRole.SELLER]}>
-                                <SellerModule />
+                                <SellerRoutes />
                             </RoleGuard>
                         </ProtectedRoute>
                     ),
+                    children: sellerRoutes,
                 },
                 {
                     path: 'admin',
@@ -213,14 +200,15 @@ const AppRouter = () => {
                     children: adminRoutes,
                 },
                 {
-                    path: 'delivery/*',
+                    path: 'delivery',
                     element: (
                         <ProtectedRoute>
                             <RoleGuard allowedRoles={[UserRole.DELIVERY]}>
-                                <DeliveryModule />
+                                <DeliveryRoutes />
                             </RoleGuard>
                         </ProtectedRoute>
                     ),
+                    children: deliveryRoutes,
                 },
                 {
                     path: 'unauthorized',

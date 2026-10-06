@@ -40,13 +40,13 @@ const QuickCategorySlider = ({ categories, onCategoryClick }) => {
                 className="flex flex-col items-center gap-2 min-w-[88px] max-w-[96px] md:min-w-[104px] md:max-w-[110px] cursor-pointer group/item snap-start transition-all active:scale-95 text-center">
                 {/* Clean Light Grey Category Box Container matching reference design */}
                 <div
-                  className="w-[84px] h-[84px] md:w-[100px] md:h-[100px] bg-[#f4f4f4] border border-[#e5e7eb] rounded-2xl overflow-hidden flex items-center justify-center shadow-2xs transition-all duration-300 group-hover/item:-translate-y-1 group-hover/item:bg-[#eaeaea] group-hover/item:shadow-sm p-1.5">
+                  className="w-[84px] h-[84px] md:w-[100px] md:h-[100px] bg-[#f4f4f4] border border-[#e5e7eb] rounded-2xl overflow-hidden flex items-center justify-center shadow-2xs transition-all duration-300 group-hover/item:-translate-y-1 group-hover/item:bg-[#eaeaea] group-hover/item:shadow-sm p-0">
                   <img
                     src={applyCloudinaryTransform(cat.image, "f_auto,q_auto,w_300,dpr_auto")}
                     alt={cat.name}
                     loading={index < 5 ? "eager" : "lazy"}
                     fetchPriority={index < 5 ? "high" : "auto"}
-                    className="w-full h-full object-contain mix-blend-multiply group-hover/item:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-300"
                   />
                 </div>
                 {/* Label text */}

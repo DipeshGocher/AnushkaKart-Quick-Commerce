@@ -30,6 +30,16 @@ const deliverySchema = new mongoose.Schema(
             trim: true,
         },
 
+        dob: {
+            type: String,
+            trim: true,
+        },
+
+        bloodGroup: {
+            type: String,
+            trim: true,
+        },
+
         accountHolder: {
             type: String,
             trim: true,

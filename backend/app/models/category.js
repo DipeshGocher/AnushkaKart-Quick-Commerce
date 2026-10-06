@@ -254,6 +254,10 @@ categorySchema.index({ catalogType: 1, type: 1, status: 1 });
 categorySchema.index({ type: 1, status: 1 });
 categorySchema.index({ parentId: 1, status: 1 });
 categorySchema.index({ name: 1 });
+categorySchema.index({ type: 1, parentId: 1, status: 1 });
+categorySchema.index({ headerId: 1, type: 1, status: 1 });
+categorySchema.index({ type: 1, isFeatured: 1, status: 1 });
+categorySchema.index({ type: 1, status: 1, sortOrder: 1 });
 
 // Virtual for children categories
 categorySchema.virtual("children", {

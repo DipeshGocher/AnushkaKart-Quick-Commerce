@@ -52,6 +52,34 @@ const AdminSettings = () => {
     const [activeTab, setActiveTab] = useState('general');
     const [logoUploading, setLogoUploading] = useState(false);
     const [faviconUploading, setFaviconUploading] = useState(false);
+    const [deliveryBadgeUploading, setDeliveryBadgeUploading] = useState(false);
+    const deliveryBadgeInputRef = useRef(null);
+
+    const handleDeliveryBadgeUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            showToast('Please select an image file (PNG, JPG, etc.)', 'error');
+            return;
+        }
+        setDeliveryBadgeUploading(true);
+        try {
+            const fd = new FormData();
+            fd.append('image', file);
+            const res = await adminApi.uploadSettingsImage(fd, 'deliverybadge');
+            const url = res.data?.result?.url || res.data?.url;
+            if (url) {
+                handleInputChange('deliveryBadgeImage', url);
+                showToast('Delivery badge image uploaded. Click Save Changes to apply.', 'success');
+            } else throw new Error('No URL returned');
+        } catch (err) {
+            console.error(err);
+            showToast(err.response?.data?.message || 'Failed to upload delivery badge image', 'error');
+        } finally {
+            setDeliveryBadgeUploading(false);
+            e.target.value = '';
+        }
+    };
     const [bannerHeaderCategories, setBannerHeaderCategories] = useState([]);
     const logoInputRef = useRef(null);
     const faviconInputRef = useRef(null);
@@ -123,6 +151,13 @@ const AdminSettings = () => {
             videoUrl: '',
             isVisible: false,
         },
+        deliveryBadgeText: '30 min',
+        deliveryBadgeImage: '',
+        deliveryBadgeBg: 'linear-gradient(135deg, #ff9f43 0%, #ff793f 100%)',
+        deliveryBadgeEnabled: true,
+        bestSellingTitle: 'Best Selling Categories',
+        bestSellingCategoryIds: [],
+        categoryTopDeals: {},
         weather: {
             isEnabled: true,
             condition: 'Rain',
@@ -846,6 +881,172 @@ const AdminSettings = () => {
                                         placeholder="❤️"
                                         maxLength={10}
                                     />
+                                </div>
+                                <div className="md:col-span-2 pt-6 border-t border-slate-100">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div>
+                                            <h4 className="text-sm font-black text-slate-900 tracking-tight">
+                                                Header Delivery Badge / Logo (30 min badge)
+                                            </h4>
+                                            <p className="text-xs font-bold text-slate-500 mt-0.5">
+                                                Customize the fast delivery badge displayed next to the address selector in the customer header.
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            role="switch"
+                                            aria-checked={settings.deliveryBadgeEnabled !== false}
+                                            onClick={() => handleInputChange('deliveryBadgeEnabled', settings.deliveryBadgeEnabled === false)}
+                                            className={cn(
+                                                "relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-200 cursor-pointer",
+                                                settings.deliveryBadgeEnabled !== false ? "bg-emerald-500" : "bg-slate-300"
+                                            )}
+                                        >
+                                            <span
+                                                className={cn(
+                                                    "inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform duration-200",
+                                                    settings.deliveryBadgeEnabled !== false ? "translate-x-7" : "translate-x-1"
+                                                )}
+                                            />
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/70 p-5 rounded-2xl border border-slate-200/80">
+                                        <div className="space-y-4">
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                    Badge Text
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={settings.deliveryBadgeText ?? '30 min'}
+                                                    onChange={(e) => handleInputChange('deliveryBadgeText', e.target.value)}
+                                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/20"
+                                                    placeholder="E.g. 30 min, 15 min, Express"
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                    Badge Logo / Image (Optional)
+                                                </label>
+                                                <input
+                                                    type="file"
+                                                    ref={deliveryBadgeInputRef}
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                    onChange={handleDeliveryBadgeUpload}
+                                                />
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => !deliveryBadgeUploading && deliveryBadgeInputRef.current?.click()}
+                                                        className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-2xs cursor-pointer flex items-center gap-1.5"
+                                                    >
+                                                        {deliveryBadgeUploading ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin text-brand-600" />
+                                                        ) : (
+                                                            <Upload className="h-4 w-4 text-slate-400" />
+                                                        )}
+                                                        {settings.deliveryBadgeImage ? "Change Image" : "Upload Badge Image"}
+                                                    </button>
+                                                    {settings.deliveryBadgeImage && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleInputChange('deliveryBadgeImage', '')}
+                                                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl"
+                                                            title="Remove image"
+                                                        >
+                                                            <X className="h-4 w-4" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <input
+                                                    type="url"
+                                                    value={settings.deliveryBadgeImage || ''}
+                                                    onChange={(e) => handleInputChange('deliveryBadgeImage', e.target.value)}
+                                                    placeholder="Or paste image URL"
+                                                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-500/20"
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                    Background Gradient / Color
+                                                </label>
+                                                <div className="flex flex-wrap gap-2 mb-2">
+                                                    {[
+                                                        { name: "Orange", val: "linear-gradient(135deg, #ff9f43 0%, #ff793f 100%)" },
+                                                        { name: "Blue", val: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)" },
+                                                        { name: "Green", val: "linear-gradient(135deg, #10b981 0%, #059669 100%)" },
+                                                        { name: "Purple", val: "linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)" },
+                                                        { name: "Dark", val: "#0f172a" },
+                                                    ].map((preset) => (
+                                                        <button
+                                                            key={preset.name}
+                                                            type="button"
+                                                            onClick={() => handleInputChange('deliveryBadgeBg', preset.val)}
+                                                            className="px-2.5 py-1 rounded-lg text-xs font-bold text-white shadow-2xs cursor-pointer hover:opacity-90"
+                                                            style={{ background: preset.val }}
+                                                        >
+                                                            {preset.name}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    value={settings.deliveryBadgeBg ?? 'linear-gradient(135deg, #ff9f43 0%, #ff793f 100%)'}
+                                                    onChange={(e) => handleInputChange('deliveryBadgeBg', e.target.value)}
+                                                    className="w-full px-3 py-2 text-xs font-mono bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-500/20"
+                                                    placeholder="CSS background (e.g. #ff793f or linear-gradient(...))"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Live Preview */}
+                                        <div className="flex flex-col items-center justify-center p-6 bg-white rounded-xl border border-slate-200 text-center space-y-3">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                Header Live Preview
+                                            </span>
+                                            <div
+                                                className="h-[40px] px-3.5 rounded-xl flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(255,122,0,0.25)] select-none transition-all"
+                                                style={{
+                                                    background: settings.deliveryBadgeBg || 'linear-gradient(135deg, #ff9f43 0%, #ff793f 100%)',
+                                                    color: '#ffffff',
+                                                }}
+                                            >
+                                                {settings.deliveryBadgeImage ? (
+                                                    <img
+                                                        src={settings.deliveryBadgeImage}
+                                                        alt="Delivery logo"
+                                                        className="h-[26px] max-w-[85px] object-contain"
+                                                    />
+                                                ) : (() => {
+                                                    const t = (settings.deliveryBadgeText || "30 min").trim();
+                                                    const m = t.match(/^(\d+)\s*(.*)$/);
+                                                    return m ? (
+                                                        <>
+                                                            <span className="text-[20px] font-black leading-none tracking-tight text-white">
+                                                                {m[1]}
+                                                            </span>
+                                                            {m[2] && (
+                                                                <span className="text-[12px] font-bold leading-none lowercase text-white">
+                                                                    {m[2]}
+                                                                </span>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-[13px] font-black leading-none text-white px-1">
+                                                            {t}
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </div>
+                                            <span className="text-[11px] font-bold text-slate-400">
+                                                {settings.deliveryBadgeEnabled !== false ? "Visible in Header" : "Hidden in Header"}
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </Card>

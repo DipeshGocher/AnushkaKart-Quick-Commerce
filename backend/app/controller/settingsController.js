@@ -55,6 +55,13 @@ const ALLOWED_KEYS = [
   "categoriesBanner",
   "homeVideoBanner",
   "weather",
+  "deliveryBadgeText",
+  "deliveryBadgeImage",
+  "deliveryBadgeBg",
+  "deliveryBadgeEnabled",
+  "bestSellingTitle",
+  "bestSellingCategoryIds",
+  "categoryTopDeals",
 ];
 
 function flattenForMongoSet(prefix, value, target) {
@@ -162,6 +169,16 @@ const updateSettingsSchema = Joi.object({
     condition: Joi.string().max(100),
     icon: Joi.string().max(100),
   }).unknown(false),
+  deliveryBadgeText: Joi.string().allow("").max(100),
+  deliveryBadgeImage: Joi.string().allow("").max(2000),
+  deliveryBadgeBg: Joi.string().allow("").max(50),
+  deliveryBadgeEnabled: Joi.boolean(),
+  bestSellingTitle: Joi.string().allow("").max(200),
+  bestSellingCategoryIds: Joi.array().items(Joi.string().max(100)),
+  categoryTopDeals: Joi.object().pattern(Joi.string(), Joi.object({
+    title: Joi.string().allow("").max(200),
+    productIds: Joi.array().items(Joi.string().max(100)),
+  }).unknown(true)),
 }).unknown(false);
 
 /**
@@ -182,7 +199,7 @@ export const getPublicSettings = async (req, res) => {
       async () => {
         const existing = await Setting.findOne(filter)
           .select(
-            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor footerMessage footerEmoji returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval categoriesBanner homeVideoBanner weather createdAt",
+            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor footerMessage footerEmoji returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval categoriesBanner homeVideoBanner weather deliveryBadgeText deliveryBadgeImage deliveryBadgeBg deliveryBadgeEnabled bestSellingTitle bestSellingCategoryIds categoryTopDeals createdAt",
           )
           .lean();
         return existing || null;
@@ -281,7 +298,7 @@ export const updateSettings = async (req, res) => {
 export const uploadSettingsImage = async (req, res) => {
   try {
     const type = (req.query.type || "logo").toLowerCase();
-    if (type !== "logo" && type !== "favicon" && type !== "categoriesbanner" && type !== "homevideobanner") {
+    if (type !== "logo" && type !== "favicon" && type !== "categoriesbanner" && type !== "homevideobanner" && type !== "deliverybadge") {
       return handleResponse(res, 400, "type must be logo, favicon, categoriesbanner, or homevideobanner");
     }
 

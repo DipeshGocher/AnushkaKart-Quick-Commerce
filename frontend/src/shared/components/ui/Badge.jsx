@@ -4,10 +4,10 @@ import { cn } from '@/lib/utils';
 
 const Badge = ({ children, variant = 'gray', className, ...props }) => {
     const variantStyles = {
-        primary: 'bg-primary-50 text-primary-700 border-primary-100 hover:bg-primary-100',
-        success: 'bg-brand-50 text-primary border-brand-100 hover:bg-brand-100',
-        warning: 'bg-yellow-50 text-yellow-700 border-yellow-100 hover:bg-yellow-100',
-        error: 'bg-red-50 text-red-700 border-red-100 hover:bg-red-100',
+        primary: 'bg-brand-50 text-brand-700 border-brand-100 hover:bg-brand-100',
+        success: 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100',
+        warning: 'bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-100',
+        error: 'bg-rose-50 text-rose-700 border-rose-100 hover:bg-rose-100',
         info: 'bg-brand-50 text-brand-700 border-brand-100 hover:bg-brand-100',
         gray: 'bg-gray-50 text-gray-700 border-gray-100 hover:bg-gray-100',
     };
@@ -28,4 +28,3 @@ const Badge = ({ children, variant = 'gray', className, ...props }) => {
 };
 
 export default Badge;
-

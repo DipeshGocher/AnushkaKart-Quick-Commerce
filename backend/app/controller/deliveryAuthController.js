@@ -211,18 +211,22 @@ export const getDeliveryProfile = async (req, res) => {
 ================================ */
 export const updateDeliveryProfile = async (req, res) => {
     try {
-        const { name, vehicleType, vehicleNumber, drivingLicenseNumber, currentArea, isOnline } = req.body;
+        const { name, email, address, dob, bloodGroup, vehicleType, vehicleNumber, drivingLicenseNumber, currentArea, isOnline } = req.body;
 
         const delivery = await Delivery.findById(req.user.id);
         if (!delivery) {
             return handleResponse(res, 404, "Delivery partner not found");
         }
 
-        if (name) delivery.name = name;
-        if (vehicleType) delivery.vehicleType = vehicleType;
-        if (vehicleNumber) delivery.vehicleNumber = vehicleNumber;
-        if (drivingLicenseNumber) delivery.drivingLicenseNumber = drivingLicenseNumber;
-        if (currentArea) delivery.currentArea = currentArea;
+        if (name !== undefined) delivery.name = name;
+        if (email !== undefined) delivery.email = email;
+        if (address !== undefined) delivery.address = address;
+        if (dob !== undefined) delivery.dob = dob;
+        if (bloodGroup !== undefined) delivery.bloodGroup = bloodGroup;
+        if (vehicleType !== undefined) delivery.vehicleType = vehicleType;
+        if (vehicleNumber !== undefined) delivery.vehicleNumber = vehicleNumber;
+        if (drivingLicenseNumber !== undefined) delivery.drivingLicenseNumber = drivingLicenseNumber;
+        if (currentArea !== undefined) delivery.currentArea = currentArea;
 
         // Capture going-offline transition before the save so we know whether
         // to drop the rider's realtime presence nodes after the write.

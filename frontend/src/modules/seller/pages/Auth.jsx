@@ -1274,7 +1274,7 @@ const Auth = () => {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className={`${!isLogin && signupStep > 1 ? "w-2/3" : "w-full"} relative bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md shadow-orange-500/25 focus:outline-none focus:ring-2 focus:ring-orange-500/30 active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 group`}>
+                    className={`${!isLogin && signupStep > 1 ? "w-2/3" : "w-full"} relative bg-gradient-to-r from-[#7777FF] via-[#6666FF] to-[#5555EE] hover:from-[#6666FF] hover:to-[#4F4FDD] text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md shadow-[#6666FF]/25 focus:outline-none focus:ring-2 focus:ring-[#6666FF]/30 active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 group`}>
                     {isLoading
                       ? "WORKING..."
                       : isLogin
@@ -1304,7 +1304,7 @@ const Auth = () => {
                         phone: createInitialVerificationState(),
                       });
                     }}
-                    className="text-orange-600 hover:underline font-bold transition-colors">
+                    className="text-primary hover:underline font-bold transition-colors">
                     {isLogin ? "Register Store" : "Sign In"}
                   </button>
                 </p>

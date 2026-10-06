@@ -95,9 +95,9 @@ const Notifications = () => {
       {/* Header */}
       <div 
         style={{
-          background: "linear-gradient(180deg, rgba(255, 87, 34, 0.90) 0%, rgba(255, 112, 67, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%)"
+          background: "linear-gradient(180deg, rgba(102, 102, 255, 0.90) 0%, rgba(136, 136, 255, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%)"
         }}
-        className="p-4 sticky top-0 z-30 backdrop-blur-md border-b border-orange-200/50 shadow-2xs">
+        className="p-4 sticky top-0 z-30 backdrop-blur-md border-b border-[#6666FF]/20 shadow-2xs">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center">
             <Button
@@ -151,7 +151,7 @@ const Notifications = () => {
                     <div className="flex items-start">
                       <div
                         className={`p-3 rounded-full mr-4 flex-shrink-0 ${notification.type === "order"
-                          ? "bg-orange-100 text-[#FF5722]"
+                          ? "bg-[#EEEEFF] text-[#6666FF]"
                           : notification.isRead ? "bg-gray-100 text-gray-400" : "bg-brand-100 text-brand-600"
                           }`}>
                         {notification.type === "order" ? <Megaphone size={20} /> : <Bell size={20} />}

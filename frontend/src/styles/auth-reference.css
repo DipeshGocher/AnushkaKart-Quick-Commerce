@@ -3,19 +3,20 @@
 }
 
 .auth-reference-content {
-  min-height: 100vh;
+  min-height: auto;
 }
 
 .auth-reference input:not([type="checkbox"]):not([type="radio"]),
 .auth-reference select,
 .auth-reference textarea {
-  min-height: 58px;
-  border-color: #2868df;
-  border-radius: 12px;
+  min-height: 52px;
+  border-color: #e2e8f0;
+  border-radius: 14px;
   background-color: #fff;
   color: #252932;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
+  transition: all 0.2s ease;
 }
 
 .auth-reference input::placeholder,
@@ -27,45 +28,116 @@
 .auth-reference input:focus,
 .auth-reference select:focus,
 .auth-reference textarea:focus {
-  border-color: #2868df;
-  box-shadow: 0 0 0 2px rgb(40 104 223 / 12%);
+  border-color: #6666FF !important;
+  box-shadow: 0 0 0 3px rgba(102, 102, 255, 0.20) !important;
+}
+
+.auth-reference .customer-auth-bare-input {
+  border: 0 !important;
+  box-shadow: none !important;
+  background-color: transparent !important;
+  min-height: auto !important;
+}
+
+.auth-reference .customer-auth-bare-input:focus {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* 4 OTP Digit Boxes in VerifyOtpPage */
+.auth-reference .otp-box {
+  width: 56px !important;
+  height: 64px !important;
+  min-height: 64px !important;
+  max-width: 56px !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+  border-color: #cbd5e1 !important;
+  border-radius: 16px !important;
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+  font-size: 26px !important;
+  font-weight: 800 !important;
+  text-align: center !important;
+  outline: none !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.auth-reference .otp-box:hover {
+  border-color: #94a3b8 !important;
+  background-color: #ffffff !important;
+}
+
+.auth-reference .otp-box.is-filled {
+  border-color: #6666FF !important;
+  background-color: rgba(102, 102, 255, 0.06) !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 3px rgba(102, 102, 255, 0.1) !important;
+}
+
+.auth-reference .otp-box:focus {
+  border-color: #6666FF !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 0 0 4px rgba(102, 102, 255, 0.22) !important;
+  transform: scale(1.04) !important;
+}
+
+@media (max-width: 480px) {
+  .auth-reference .otp-box {
+    width: 50px !important;
+    height: 58px !important;
+    min-height: 58px !important;
+    max-width: 50px !important;
+    font-size: 22px !important;
+  }
 }
 
 .auth-reference button[type="submit"] {
-  min-height: 60px;
+  min-height: 52px;
   border: 0;
-  border-radius: 9px;
-  background: #ff641d !important;
+  border-radius: 14px;
+  background: #6666FF !important;
   color: #fff !important;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
-  box-shadow: 0 10px 22px rgb(255 100 29 / 16%);
+  box-shadow: 0 10px 22px rgba(102, 102, 255, 0.25) !important;
+  transition: all 0.2s ease;
 }
 
 .auth-reference button[type="submit"]:hover {
-  background: #ed5712 !important;
+  background: #5555EE !important;
+}
+
+.auth-reference button[type="submit"]:active {
+  background: #4F4FDD !important;
+  transform: scale(0.99);
 }
 
 .auth-reference button[class*="from-orange-"],
 .auth-reference button[class*="from-amber-"] {
-  background: #ff641d !important;
+  background: #6666FF !important;
   color: #fff !important;
 }
 
 .auth-reference a,
 .auth-reference-footer button,
 .auth-reference-footer span {
-  color: #2468d8;
+  color: #6666FF;
+}
+
+.auth-reference a:hover,
+.auth-reference-footer button:hover {
+  color: #5555EE;
 }
 
 @media (max-width: 640px) {
   .auth-reference-content {
-    min-height: 100svh;
-    padding-top: 7rem;
-    padding-bottom: 5rem;
+    min-height: auto;
+    padding-top: 4.5rem;
+    padding-bottom: 2rem;
   }
 
   .auth-reference-brand {
-    margin-bottom: 3.5rem;
+    margin-bottom: 1.5rem;
   }
 }

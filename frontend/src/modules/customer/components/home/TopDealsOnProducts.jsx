@@ -2,10 +2,13 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ImageOff, ChevronLeft, ChevronRight } from 'lucide-react';
 import { customerApi } from '../../services/customerApi';
+import { useSettings } from '@core/context/SettingsContext';
 import { applyCloudinaryTransform, isPngImage } from '@/core/utils/imageUtils';
 import { cn } from '@/lib/utils';
 
 const TopDealsOnProducts = () => {
+  const { settings } = useSettings();
+  const sectionTitle = settings?.bestSellingTitle?.trim() || 'Best Selling Categories';
   const [subcategories, setSubcategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const scrollRef = useRef(null);
@@ -32,11 +35,24 @@ const TopDealsOnProducts = () => {
             (c) => c.type === 'subcategory' && c.status !== 'inactive' && c.catalogType !== 'refurbished'
           );
 
-          // Filter subcategories marked as featured in admin panel
+          // 1. Check if admin configured explicit category IDs in settings
+          const explicitIds = Array.isArray(settings?.bestSellingCategoryIds) && settings.bestSellingCategoryIds.length > 0
+            ? settings.bestSellingCategoryIds.map(String)
+            : [];
+
+          if (explicitIds.length > 0) {
+            const itemMap = new Map(allItems.map((c) => [String(c._id || c.id), c]));
+            const explicitItems = explicitIds.map((id) => itemMap.get(id)).filter(Boolean);
+            if (explicitItems.length > 0) {
+              setSubcategories(explicitItems);
+              return;
+            }
+          }
+
+          // 2. Filter subcategories marked as featured in admin panel
           const featured = subs.filter((c) => c.isFeatured === true);
 
-          // If admin has marked subcategories as featured, display all featured ones!
-          // Otherwise gracefully fallback to active subcategories (up to 24 with images first)
+          // 3. Fallback to active subcategories
           if (featured.length > 0) {
             setSubcategories(featured);
           } else {
@@ -60,7 +76,7 @@ const TopDealsOnProducts = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [settings?.bestSellingCategoryIds]);
 
   // Organize subcategories into columns of 2 rows (3 columns visible per swipe screen)
   const columns = useMemo(() => {
@@ -126,7 +142,7 @@ const TopDealsOnProducts = () => {
         {/* Section Heading & Desktop Scroll Controls */}
         <div className="flex items-center justify-between mb-3.5 px-1">
           <h2 className="text-[17px] sm:text-[19px] font-black tracking-tight text-gray-900">
-            Best Selling Categories
+            {sectionTitle}
           </h2>
 
           {isMultiScreen && (
@@ -203,16 +219,13 @@ const TopDealsOnProducts = () => {
                         className="group bg-white rounded-2xl p-2 sm:p-2.5 shadow-[0_2px_10px_rgba(0,0,0,0.04)] border border-white hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-all duration-200 active:scale-[0.98] flex flex-col items-center justify-between min-h-[140px] sm:min-h-[160px] w-full"
                       >
                         {/* Big Image box */}
-                        <div className="relative aspect-square w-full rounded-xl p-1 flex items-center justify-center overflow-hidden">
+                        <div className="relative aspect-square w-full rounded-xl overflow-hidden flex items-center justify-center">
                           {image ? (
                             <img
                               src={applyCloudinaryTransform(image, 'f_auto,q_auto,w_300')}
                               alt={sub.name}
                               loading="lazy"
-                              className={cn(
-                                'h-full w-full object-contain transition-transform duration-300 group-hover:scale-105',
-                                isPngImage(image) ? 'p-1' : 'p-0.5'
-                              )}
+                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                             />
                           ) : (
                             <ImageOff size={28} className="text-slate-300" aria-hidden="true" />

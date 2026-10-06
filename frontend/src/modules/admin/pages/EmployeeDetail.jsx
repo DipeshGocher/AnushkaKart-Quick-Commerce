@@ -46,7 +46,7 @@ const EmployeeDetail = () => {
     if (isLoading) {
         return (
             <div className="h-[80vh] flex flex-col items-center justify-center space-y-4">
-                <Loader2 className="h-10 w-10 text-orange-500 animate-spin" />
+                <Loader2 className="h-10 w-10 text-primary animate-spin" />
                 <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Loading Employee Details...</p>
             </div>
         );
@@ -83,7 +83,7 @@ const EmployeeDetail = () => {
                 <div>
                     <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Referral Code</h3>
                     <div className="flex items-center gap-3">
-                        <span className="text-3xl font-bold text-orange-600 bg-orange-50 px-4 py-2 rounded-xl border border-orange-100">
+                        <span className="text-3xl font-bold text-brand-600 bg-brand-50 px-4 py-2 rounded-xl border border-brand-100">
                             {employee.referralCode}
                         </span>
                         <button 

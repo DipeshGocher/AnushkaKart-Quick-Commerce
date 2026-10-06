@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Star, Heart, ImageOff, RotateCcw, ChevronRight } from 'lucide-react';
+import { Star, Heart, ImageOff, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { applyCloudinaryTransform, isPngImage } from '@/core/utils/imageUtils';
 import { slugify, getProductVariantText } from '@/core/utils/productUrl';
 import { customerApi } from '../../services/customerApi';
+import { useSettings } from '@core/context/SettingsContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { useProductDetail } from '../../context/ProductDetailContext';
+import ProductCard from '../shared/ProductCard';
 import {
   getCategoryHeaderColor,
   CATEGORY_CARD_BG,
@@ -145,13 +147,33 @@ const HeaderCategoryPageView = ({
 
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { openProduct } = useProductDetail();
+  const { settings } = useSettings();
 
   const [selectedMainCatId, setSelectedMainCatId] = useState('all');
   const [selectedSubCatId, setSelectedSubCatId] = useState('all');
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [categoryHeroConfig, setCategoryHeroConfig] = useState(null);
 
   const headerId = String(headerCategory?._id || headerCategory?.id || '');
+
+  // Fetch hero & top deals configuration for this category page from Admin CMS
+  useEffect(() => {
+    if (!headerId) return;
+    let isMounted = true;
+    customerApi.getHeroConfig({ pageType: 'header', headerId })
+      .then((res) => {
+        if (!isMounted) return;
+        const data = res?.data?.result || res?.data || res;
+        setCategoryHeroConfig(data);
+      })
+      .catch((err) => {
+        console.error('Failed to load category hero config:', err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [headerId]);
 
   // Dynamic light matching colors derived from the active header category
   const headerBaseColor = useMemo(() => {
@@ -373,27 +395,42 @@ const HeaderCategoryPageView = ({
   };
 
   // Top Deals products for this category:
-  // 1. Prioritize products explicitly marked as isTopDeal (from Admin/Seller checkbox).
-  // 2. If none explicitly marked yet, display the top discount products for this category.
+  // 1. Prioritize products explicitly configured in CMS topDealsProductIds.
+  // 2. Prioritize products marked as isTopDeal (from Admin/Seller checkbox).
+  // 3. Fallback to top discount products for this category.
   const topDealsProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
 
-    const marked = products.filter(
-      (p) => p.isTopDeal === true || p.isTopDeal === 'true'
-    );
-    if (marked.length >= 4) {
-      return [...marked].sort((a, b) => getDiscountPercent(b) - getDiscountPercent(a)).slice(0, 16);
+    const configuredIds = (
+      categoryHeroConfig?.topDealsProductIds?.length
+        ? categoryHeroConfig.topDealsProductIds
+        : settings?.categoryTopDeals?.[headerCategory?.slug]?.productIds ||
+          settings?.categoryTopDeals?.[headerId]?.productIds ||
+          []
+    ).map(String);
+
+    let explicitMatches = [];
+    if (configuredIds.length > 0) {
+      const prodMap = new Map(products.map((p) => [String(p._id || p.id), p]));
+      explicitMatches = configuredIds.map((id) => prodMap.get(id)).filter(Boolean);
     }
+
+    const marked = products.filter(
+      (p) => (p.isTopDeal === true || p.isTopDeal === 'true') &&
+             !explicitMatches.some((ep) => (ep._id || ep.id) === (p._id || p.id))
+    );
 
     const discounted = products
       .filter((p) => {
         const orig = Number(p.price ?? p.originalPrice) || 0;
         const curr = Number(p.salePrice ?? p.price) || 0;
-        return orig > curr && curr > 0;
+        const alreadyIn = explicitMatches.some((ep) => (ep._id || ep.id) === (p._id || p.id)) ||
+                          marked.some((m) => (m._id || m.id) === (p._id || p.id));
+        return !alreadyIn && orig > curr && curr > 0;
       })
       .sort((a, b) => getDiscountPercent(b) - getDiscountPercent(a));
 
-    const combinedList = [...marked, ...discounted.filter((d) => !marked.some((m) => (m._id || m.id) === (d._id || d.id)))];
+    const combinedList = [...explicitMatches, ...marked, ...discounted];
     if (combinedList.length >= 6) {
       return combinedList.slice(0, 16);
     }
@@ -401,7 +438,22 @@ const HeaderCategoryPageView = ({
     // Mix in remaining category products so the horizontal scrolling row always has plenty of items
     const remaining = products.filter((p) => !combinedList.some((c) => (c._id || c.id) === (p._id || p.id)));
     return [...combinedList, ...remaining].slice(0, 16);
-  }, [products]);
+  }, [products, categoryHeroConfig, settings?.categoryTopDeals, headerCategory, headerId]);
+
+  // Top Deals custom title from CMS or default theme
+  const topDealsTitle = useMemo(() => {
+    if (categoryHeroConfig?.topDealsTitle?.trim()) {
+      return categoryHeroConfig.topDealsTitle.trim();
+    }
+    const slugKey = headerCategory?.slug || '';
+    if (settings?.categoryTopDeals?.[slugKey]?.title?.trim()) {
+      return settings.categoryTopDeals[slugKey].title.trim();
+    }
+    if (settings?.categoryTopDeals?.[headerId]?.title?.trim()) {
+      return settings.categoryTopDeals[headerId].title.trim();
+    }
+    return dealsTheme.title;
+  }, [categoryHeroConfig, settings?.categoryTopDeals, headerCategory, headerId, dealsTheme.title]);
 
   // Prepare items for 2-row grid: insert Top Deals promo card at index 1 (Row 2, Col 1 matching reference image)
   const subCategoryGridItems = useMemo(() => {
@@ -417,7 +469,18 @@ const HeaderCategoryPageView = ({
     return items;
   }, [subCategories, topDealsProducts.length]);
 
-  const bannerImg = getCategoryBanner(headerCategory?.name, headerCategory?.slug);
+  // Dynamic category hero banner from CMS HeroConfig, Settings, or default theme asset
+  const bannerImg = useMemo(() => {
+    const cmsBanner = categoryHeroConfig?.banners?.items?.find((b) => b?.imageUrl && b?.status !== 'inactive')?.imageUrl;
+    if (cmsBanner) return cmsBanner;
+
+    const settingsBanner = settings?.categoriesBanner?.banners?.find(
+      (b) => String(b.headerCategoryId) === headerId && b.image
+    )?.image;
+    if (settingsBanner) return settingsBanner;
+
+    return getCategoryBanner(headerCategory?.name, headerCategory?.slug);
+  }, [categoryHeroConfig, settings?.categoriesBanner?.banners, headerId, headerCategory]);
 
   const isTwoRows = displayCategoriesList.length >= 8;
 
@@ -476,7 +539,7 @@ const HeaderCategoryPageView = ({
                     {/* Big rounded square tile with soft matching category background */}
                     <div
                       className={cn(
-                        'w-full aspect-square rounded-2xl flex items-center justify-center p-1.5 overflow-hidden transition-all duration-200 shadow-2xs group-hover:brightness-[0.97]',
+                        'w-full aspect-square rounded-2xl flex items-center justify-center p-0 overflow-hidden transition-all duration-200 shadow-2xs group-hover:brightness-[0.97]',
                         isSelected
                           ? 'border-2 shadow-xs'
                           : 'border'
@@ -491,7 +554,7 @@ const HeaderCategoryPageView = ({
                         src={applyCloudinaryTransform(imageSrc, 'f_auto,q_auto,w_300')}
                         alt={cat.name}
                         loading="lazy"
-                        className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-200"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                       />
                     </div>
 
@@ -616,42 +679,11 @@ const HeaderCategoryPageView = ({
               }}
             />
 
-            {/* Top row: Title + Big Billion Days style badge + See All */}
+            {/* Top row: Title */}
             <div className="relative z-10 flex items-center justify-between pb-3 px-0.5">
               <h2 className="text-[17px] sm:text-[19px] font-black text-white tracking-tight leading-tight drop-shadow-xs capitalize">
-                {dealsTheme.title}
+                {topDealsTitle}
               </h2>
-
-              <div className="flex items-center gap-2 shrink-0">
-                {/* Circular golden medallion badge matching Flipkart reference */}
-                <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-tr from-amber-400 via-yellow-200 to-amber-500 p-0.5 shadow-md flex items-center justify-center select-none">
-                  <div className="w-full h-full rounded-full bg-[#0a1e3f] flex flex-col items-center justify-center text-center p-0.5 border border-yellow-300/60 overflow-hidden">
-                    <span className="text-[5.5px] sm:text-[6px] font-extrabold text-yellow-300 uppercase leading-none tracking-tight">
-                      {dealsTheme.badgeTitle}
-                    </span>
-                    {/* Golden ribbon banner across center */}
-                    <div className="w-full bg-gradient-to-r from-yellow-500 via-amber-300 to-yellow-500 text-[#0a1e3f] font-black text-[6.5px] sm:text-[7px] py-0.5 my-0.5 rounded-xs shadow-2xs uppercase leading-none tracking-tighter whitespace-nowrap text-center">
-                      {dealsTheme.badgeRibbon}
-                    </div>
-                    <span className="text-[5px] sm:text-[5.5px] font-bold text-yellow-200 uppercase leading-none">
-                      {dealsTheme.badgeBottom}
-                    </span>
-                  </div>
-                </div>
-
-                {/* See All link */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const el = document.getElementById('recommended-items-section');
-                    if (el) el.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  className="bg-white/20 hover:bg-white/30 backdrop-blur-xs text-white text-[11px] sm:text-[11.5px] font-bold px-2.5 py-1 rounded-full border border-white/30 transition-all flex items-center gap-0.5 cursor-pointer select-none active:scale-95 shadow-2xs"
-                >
-                  <span>See All</span>
-                  <ChevronRight size={12} strokeWidth={2.5} />
-                </button>
-              </div>
             </div>
 
             {/* Horizontal scrollable row of Top Deals cards with right slide feature */}
@@ -668,8 +700,6 @@ const HeaderCategoryPageView = ({
                     product.variants?.[0]?.images?.[0];
                   const isWish = isInWishlist(id);
                   const variantText = getProductVariantText(product);
-
-                  const dealPillText = discount > 0 ? `From ₹${currentPrice}` : `Under ₹${currentPrice}`;
 
                   return (
                     <div
@@ -700,28 +730,15 @@ const HeaderCategoryPageView = ({
                             src={applyCloudinaryTransform(image, 'f_auto,q_auto,w_300')}
                             alt={product.name}
                             loading="lazy"
-                            className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-200"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                           />
                         ) : (
                           <ImageOff size={26} className="text-slate-300" />
                         )}
                       </div>
 
-                      {/* 2. Prominent Pill directly below image (Exact like Flipkart reference image) */}
-                      <div
-                        className="mt-1.5 w-full py-1 px-1.5 rounded-full text-center shadow-xs flex items-center justify-center transition-transform group-hover:scale-[1.02]"
-                        style={{
-                          backgroundColor: dealsTheme.pillBg,
-                          color: dealsTheme.pillText,
-                        }}
-                      >
-                        <span className="text-[10.5px] sm:text-[11px] font-black tracking-tight leading-none truncate">
-                          {dealPillText}
-                        </span>
-                      </div>
-
-                      {/* 3. Text details below pill: Name -> Variant -> Price (Strictly zero gap) */}
-                      <div className="w-full flex flex-col items-center mt-1 px-0.5 text-center">
+                      {/* 2. Text details: Name -> Variant -> Price */}
+                      <div className="w-full flex flex-col items-center mt-1.5 px-0.5 text-center">
                         {/* Product Name */}
                         <p className="m-0 p-0 text-[11.5px] sm:text-[12px] font-bold text-white leading-tight tracking-tight w-full truncate">
                           {product.name}
@@ -803,97 +820,13 @@ const HeaderCategoryPageView = ({
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 px-3 pb-24">
-          {filteredProducts.map((product) => {
-            const id = product.id || product._id;
-            const originalPrice = Number(product.price ?? product.originalPrice) || 0;
-            const currentPrice = Number(product.salePrice ?? product.price) || 0;
-            const hasDiscount = originalPrice > currentPrice && currentPrice > 0;
-            const discountPercent = hasDiscount
-              ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
-              : 0;
-            const image =
-              product.mainImage ||
-              product.image ||
-              product.variants?.[0]?.images?.[0];
-            const isWish = isInWishlist(id);
-            const rating =
-              Number(product.rating) > 0 ? Number(product.rating).toFixed(1) : '5.0';
-
-            return (
-              <div
-                key={id}
-                onClick={() => openProduct(product)}
-                className="group flex flex-col cursor-pointer active:scale-[0.99] transition-transform select-none min-w-0"
-              >
-                {/* Product Card Image Box - Matching Reference Screenshot */}
-                <div className="customer-product-clean-image relative aspect-[4/4.5] w-full rounded-2xl bg-[#f1f3f6] border border-[#e0e3e8] flex items-center justify-center p-0 overflow-hidden shadow-2xs transition-colors">
-                  {/* Rating Pill on Bottom-Left */}
-                  <div className="absolute bottom-2 left-2 z-10 bg-white/90 backdrop-blur-xs px-2 py-0.5 rounded-full flex items-center gap-1 shadow-2xs border border-slate-200/50">
-                    <span className="text-[11px] font-bold text-slate-800 leading-none">
-                      {rating}
-                    </span>
-                    <Star size={11} className="fill-emerald-600 text-emerald-600" />
-                  </div>
-
-                  {/* Wishlist Heart on Top-Right */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleWishlist(product);
-                    }}
-                    className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-white/90 backdrop-blur-xs text-slate-700 hover:text-red-500 active:scale-90 transition-transform shadow-2xs border-0"
-                    aria-label="Wishlist"
-                  >
-                    <Heart
-                      size={14}
-                      className={cn(isWish ? 'fill-red-500 text-red-500' : 'text-slate-600')}
-                    />
-                  </button>
-
-                  {/* Centered Product Image */}
-                  {image ? (
-                    <img
-                      src={applyCloudinaryTransform(image, 'f_auto,q_auto,w_400')}
-                      alt={product.name}
-                      loading="lazy"
-                      className={cn(
-                        "w-full h-full transition-transform duration-300 group-hover:scale-105",
-                        isPngImage(image)
-                          ? "is-png-image object-contain p-1"
-                          : "is-normal-image object-cover p-0"
-                      )}
-                    />
-                  ) : (
-                    <ImageOff size={28} className="text-slate-300" />
-                  )}
-                </div>
-
-                {/* Product Title */}
-                <h3 className="mt-1.5 px-0.5 truncate text-[13.5px] font-semibold text-slate-900 leading-tight group-hover:text-blue-600 transition-colors">
-                  {product.name}
-                </h3>
-
-                {/* Price Row: Strikethrough MRP -> Current Price -> Green Discount % */}
-                <div className="mt-0.5 px-0.5 flex items-baseline gap-1.5 leading-tight flex-wrap">
-                  {hasDiscount && (
-                    <span className="text-[12px] text-slate-400 line-through font-normal">
-                      {formatPrice(originalPrice)}
-                    </span>
-                  )}
-                  <span className="text-[14px] font-bold text-slate-900">
-                    {formatPrice(currentPrice)}
-                  </span>
-                  {hasDiscount && (
-                    <span className="text-[11.5px] font-bold text-emerald-600">
-                      {discountPercent}% OFF
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+        <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-4 pb-24">
+          {filteredProducts.map((product) => (
+            <ProductCard
+              key={product.id || product._id}
+              product={product}
+            />
+          ))}
         </div>
       )}
     </div>

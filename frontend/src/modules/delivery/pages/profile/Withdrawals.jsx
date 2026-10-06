@@ -208,7 +208,7 @@ const Withdrawals = () => {
                         >
                             <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                                 <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                                    <Wallet size={18} className="text-[#FF5722]" />
+                                    <Wallet size={18} className="text-[#6666FF]" />
                                     Withdraw Funds
                                 </h3>
                                 <button onClick={() => setIsModalOpen(false)} className="p-1 rounded-full hover:bg-slate-200 text-slate-500 transition-colors">
@@ -227,7 +227,7 @@ const Withdrawals = () => {
                                             placeholder="0.00"
                                             value={amount}
                                             onChange={(e) => setAmount(e.target.value)}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 pl-12 pr-4 font-bold text-xl outline-none focus:border-[#FF5722] focus:ring-2 focus:ring-[#FF5722]/20 transition-all"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 pl-12 pr-4 font-bold text-xl outline-none focus:border-[#6666FF] focus:ring-2 focus:ring-[#6666FF]/20 transition-all"
                                         />
                                     </div>
                                 </div>
@@ -247,7 +247,7 @@ const Withdrawals = () => {
                                         }
                                     }}
                                     disabled={loading || !amount || Number(amount) <= 0}
-                                    className="w-full py-3.5 rounded-xl font-bold text-sm shadow-md bg-[#FF5722] hover:bg-[#EA580C] text-white"
+                                    className="w-full py-3.5 rounded-xl font-bold text-sm shadow-md bg-[#6666FF] hover:bg-[#5555EE] text-white"
                                 >
                                     {loading ? <RotateCw className="animate-spin mr-2" size={18} /> : null}
                                     {loading ? "PROCESSING..." : "SUBMIT REQUEST"}

@@ -108,9 +108,9 @@ const CodCash = () => {
     <div className="bg-[#f1f4f8] min-h-screen pb-24">
       <div 
         style={{
-          background: "linear-gradient(180deg, rgba(255, 87, 34, 0.90) 0%, rgba(255, 112, 67, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%)"
+          background: "linear-gradient(180deg, rgba(102, 102, 255, 0.90) 0%, rgba(136, 136, 255, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%)"
         }}
-        className="p-4 sticky top-0 z-30 backdrop-blur-md border-b border-orange-200/50 shadow-2xs">
+        className="p-4 sticky top-0 z-30 backdrop-blur-md border-b border-[#6666FF]/20 shadow-2xs">
         <div className="flex justify-between items-center max-w-lg mx-auto">
           <div className="flex items-center gap-3">
             <Button
@@ -164,7 +164,7 @@ const CodCash = () => {
                   It is calculated after your delivery commission.
                 </p>
               </div>
-              <div className="p-3 rounded-xl bg-orange-50 text-[#FF5722]">
+              <div className="p-3 rounded-xl bg-[#EEEEFF] text-[#6666FF]">
                 <IndianRupee size={22} />
               </div>
             </div>
@@ -187,11 +187,11 @@ const CodCash = () => {
               </div>
             </div>
 
-            <div className="mt-4 rounded-xl bg-orange-50/70 border border-orange-100 p-4">
+            <div className="mt-4 rounded-xl bg-[#EEEEFF]/70 border border-[#6666FF]/20 p-4">
               <div className="flex flex-col gap-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[11px] font-bold text-[#FF5722] uppercase">
+                    <p className="text-[11px] font-bold text-[#6666FF] uppercase">
                       Ready To Pay Now
                     </p>
                     <p className="text-xl font-extrabold text-gray-900 mt-1">
@@ -205,11 +205,11 @@ const CodCash = () => {
                 </div>
 
                 <div>
-                  <p className="text-[11px] font-bold text-[#FF5722] uppercase">
+                  <p className="text-[11px] font-bold text-[#6666FF] uppercase">
                     Enter Amount
                   </p>
                   <div className="mt-2 flex items-center gap-3">
-                    <div className="flex-1 rounded-xl border border-orange-200 bg-white px-4 py-3">
+                    <div className="flex-1 rounded-xl border border-[#6666FF]/30 bg-white px-4 py-3">
                       <label className="text-[11px] font-bold text-gray-500 uppercase block mb-1">
                         Amount To Pay
                       </label>
@@ -261,7 +261,7 @@ const CodCash = () => {
               {(Array.isArray(data.toCollect) ? data.toCollect : []).slice(0, 20).map((row) => (
                 <div
                   key={`collect-${row.orderId}`}
-                  className="flex items-center justify-between rounded-xl border border-orange-100 bg-orange-50/40 p-3"
+                  className="flex items-center justify-between rounded-xl border border-[#6666FF]/15 bg-[#EEEEFF]/40 p-3"
                 >
                   <div>
                     <p className="text-sm font-bold text-gray-900">Order #{row.orderId}</p>
@@ -270,7 +270,7 @@ const CodCash = () => {
                       {safeMoney(row.amountGross).toLocaleString()} (gross)
                     </p>
                   </div>
-                  <p className="text-sm font-extrabold text-[#FF5722]">
+                  <p className="text-sm font-extrabold text-[#6666FF]">
                     {RUPEE}
                     {safeMoney(row.amountNetExpected).toLocaleString()}
                   </p>

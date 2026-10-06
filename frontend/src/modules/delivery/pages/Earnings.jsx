@@ -89,9 +89,9 @@ const Earnings = () => {
       {/* Header & Sticky Area */}
       <div 
         style={{
-          background: "linear-gradient(180deg, rgba(255, 87, 34, 0.90) 0%, rgba(255, 112, 67, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%)"
+          background: "linear-gradient(180deg, rgba(102, 102, 255, 0.90) 0%, rgba(136, 136, 255, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%)"
         }}
-        className="sticky top-0 z-30 px-5 py-4 shadow-2xs border-b border-orange-200/50 backdrop-blur-md">
+        className="sticky top-0 z-30 px-5 py-4 shadow-2xs border-b border-[#6666FF]/20 backdrop-blur-md">
         <div className="flex items-center justify-between mb-6">
           <button onClick={() => navigate(-1)} className="p-1 -ml-1">
             <ChevronLeft size={24} className="text-gray-900" />
@@ -108,7 +108,7 @@ const Earnings = () => {
               onClick={() => setActiveTab(tab)}
               className={`flex-1 py-2 text-sm font-bold rounded-full transition-all capitalize ${
                 activeTab === tab
-                  ? "bg-[#FF5722] text-white shadow-sm"
+                  ? "bg-[#6666FF] text-white shadow-sm"
                   : "text-slate-500 hover:text-slate-800"
               }`}>
               {tab}
@@ -145,8 +145,8 @@ const Earnings = () => {
             </div>
             
             <div className="flex items-center mt-3 mb-6 text-[13px] font-bold">
-              <ArrowUpRight size={16} className="text-[#FF5722] mr-1" strokeWidth={3} />
-              <span className="text-[#FF5722] mr-1">12%</span>
+              <ArrowUpRight size={16} className="text-[#6666FF] mr-1" strokeWidth={3} />
+              <span className="text-[#6666FF] mr-1">12%</span>
               <span className="text-slate-400 font-medium">vs yesterday</span>
             </div>
 
@@ -194,13 +194,13 @@ const Earnings = () => {
                   />
                   <Bar
                     dataKey="earnings"
-                    fill="#FF5722"
+                    fill="#6666FF"
                     radius={[0, 0, 4, 4]}
                     stackId="a"
                   />
                   <Bar
                     dataKey="incentives"
-                    fill="#EA580C"
+                    fill="#5555EE"
                     radius={[4, 4, 0, 0]}
                     stackId="a"
                   />
@@ -208,7 +208,7 @@ const Earnings = () => {
               </ResponsiveContainer>
             </div>
 
-            <button className="text-[#FF5722] font-bold text-[14px] flex items-center justify-center">
+            <button className="text-[#6666FF] font-bold text-[14px] flex items-center justify-center">
               View Detailed Breakdown <ChevronRight size={16} className="ml-1" strokeWidth={2.5} />
             </button>
           </div>

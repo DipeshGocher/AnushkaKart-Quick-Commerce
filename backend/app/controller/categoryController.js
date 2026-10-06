@@ -76,27 +76,28 @@ export const getCategories = async (req, res) => {
               ? {}
               : { catalogType: { $ne: "refurbished" } };
 
-          const rawCategories = await Category.find(matchQuery)
-            .select(selectFields)
-            .populate({
-              path: "children",
-              select: selectFields,
-              match: childMatch,
-              options: { sort: { sortOrder: 1, name: 1 } },
-              populate: {
+          // Fetch categories and product counts in parallel
+          const [rawCategories, counts] = await Promise.all([
+            Category.find(matchQuery)
+              .select(selectFields)
+              .populate({
                 path: "children",
                 select: selectFields,
                 match: childMatch,
                 options: { sort: { sortOrder: 1, name: 1 } },
-              },
-            })
-            .sort({ sortOrder: 1, name: 1, _id: 1 })
-            .lean();
-
-          // Aggregate product counts
-          const counts = await Product.aggregate([
-            { $match: { status: "active", approvalStatus: "approved" } },
-            { $group: { _id: "$categoryId", count: { $sum: 1 } } }
+                populate: {
+                  path: "children",
+                  select: selectFields,
+                  match: childMatch,
+                  options: { sort: { sortOrder: 1, name: 1 } },
+                },
+              })
+              .sort({ sortOrder: 1, name: 1, _id: 1 })
+              .lean(),
+            Product.aggregate([
+              { $match: { status: "active", approvalStatus: "approved" } },
+              { $group: { _id: "$categoryId", count: { $sum: 1 } } }
+            ]),
           ]);
           const countMap = {};
           counts.forEach(c => {
@@ -157,15 +158,14 @@ export const getCategories = async (req, res) => {
         query.parentId = parentId;
       }
 
-      const [items, total] = await Promise.all([
+      // Fetch items, total count, and product counts in parallel
+      const [items, total, counts] = await Promise.all([
         Category.find(query).sort({ sortOrder: 1, name: 1 }).skip(skip).limit(limit).lean(),
         Category.countDocuments(query),
-      ]);
-
-      // Map counts for paginated items too
-      const counts = await Product.aggregate([
-        { $match: { status: "active", approvalStatus: "approved" } },
-        { $group: { _id: "$categoryId", count: { $sum: 1 } } }
+        Product.aggregate([
+          { $match: { status: "active", approvalStatus: "approved" } },
+          { $group: { _id: "$categoryId", count: { $sum: 1 } } }
+        ]),
       ]);
       const countMap = {};
       counts.forEach(c => {
@@ -204,11 +204,13 @@ export const getCategories = async (req, res) => {
     const categories = await getOrSet(
       cacheKey,
       async () => {
-        const rawCategories = await Category.find(query).sort({ sortOrder: 1, name: 1, _id: 1 }).lean();
-        
-        const counts = await Product.aggregate([
-          { $match: { status: "active", approvalStatus: "approved" } },
-          { $group: { _id: "$categoryId", count: { $sum: 1 } } }
+        // Fetch categories and product counts in parallel
+        const [rawCategories, counts] = await Promise.all([
+          Category.find(query).sort({ sortOrder: 1, name: 1, _id: 1 }).lean(),
+          Product.aggregate([
+            { $match: { status: "active", approvalStatus: "approved" } },
+            { $group: { _id: "$categoryId", count: { $sum: 1 } } }
+          ]),
         ]);
         const countMap = {};
         counts.forEach(c => {

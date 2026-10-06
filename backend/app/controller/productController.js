@@ -1063,6 +1063,26 @@ export const createProduct = async (req, res) => {
         // Not JSON
       }
     }
+    if (typeof productData.specifications === "string") {
+      try {
+        productData.specifications = JSON.parse(productData.specifications);
+      } catch (e) {
+        // Not JSON
+      }
+    }
+    if (Array.isArray(productData.specifications)) {
+      productData.specifications = productData.specifications
+        .filter((item) => item && (item.key || item.value))
+        .map((item) => ({
+          key: String(item.key || "").trim(),
+          value: String(item.value || "").trim(),
+        }));
+    } else if (productData.specifications && typeof productData.specifications === "object") {
+      productData.specifications = Object.entries(productData.specifications).map(([k, v]) => ({
+        key: String(k || "").trim(),
+        value: String(v || "").trim(),
+      }));
+    }
 
     if (!productData.name) {
       return handleResponse(res, 400, "Product name is required");
@@ -1326,6 +1346,26 @@ export const updateProduct = async (req, res) => {
       } catch (e) {
         // Not JSON
       }
+    }
+    if (typeof productData.specifications === "string") {
+      try {
+        productData.specifications = JSON.parse(productData.specifications);
+      } catch (e) {
+        // Not JSON
+      }
+    }
+    if (Array.isArray(productData.specifications)) {
+      productData.specifications = productData.specifications
+        .filter((item) => item && (item.key || item.value))
+        .map((item) => ({
+          key: String(item.key || "").trim(),
+          value: String(item.value || "").trim(),
+        }));
+    } else if (productData.specifications && typeof productData.specifications === "object") {
+      productData.specifications = Object.entries(productData.specifications).map(([k, v]) => ({
+        key: String(k || "").trim(),
+        value: String(v || "").trim(),
+      }));
     }
 
     if (productData.name) {

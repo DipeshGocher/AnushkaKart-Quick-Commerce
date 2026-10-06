@@ -135,19 +135,19 @@ const DeliveryConfirmation = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}>
           <Card
-            className={`p-6 border-l-4 ${isPrepaid ? "border-l-brand-500 bg-brand-50/30" : "border-l-[#FF5722] bg-orange-50/30"}`}>
+            className={`p-6 border-l-4 ${isPrepaid ? "border-l-brand-500 bg-brand-50/30" : "border-l-[#6666FF] bg-[#EEEEFF]/30"}`}>
             <div className="flex justify-between items-start mb-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">
                   {isPrepaid ? "Payment Status" : "Amount to Collect"}
                 </p>
                 <h2
-                  className={`text-4xl font-extrabold ${isPrepaid ? "text-brand-600" : "text-[#FF5722]"}`}>
+                  className={`text-4xl font-extrabold ${isPrepaid ? "text-brand-600" : "text-[#6666FF]"}`}>
                   {isPrepaid ? "PAID" : `₹${orderAmount}`}
                 </h2>
               </div>
               <div
-                className={`p-3 rounded-full ${isPrepaid ? "bg-brand-100 text-brand-600" : "bg-orange-100 text-[#FF5722]"}`}>
+                className={`p-3 rounded-full ${isPrepaid ? "bg-brand-100 text-brand-600" : "bg-[#EEEEFF] text-[#6666FF]"}`}>
                 {isPrepaid ? (
                   <CheckCircle size={32} />
                 ) : (
@@ -157,7 +157,7 @@ const DeliveryConfirmation = () => {
             </div>
 
             {!isPrepaid && (
-              <div className="bg-white p-4 rounded-xl border border-orange-100 shadow-sm mt-4">
+              <div className="bg-white p-4 rounded-xl border border-[#6666FF]/20 shadow-sm mt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Cash Received
                 </label>
@@ -169,7 +169,7 @@ const DeliveryConfirmation = () => {
                   </div>
                   <input
                     type="number"
-                    className="block w-full rounded-lg border-gray-300 pl-8 pr-4 py-3 focus:border-[#FF5722] focus:ring-[#FF5722] text-lg font-bold bg-gray-50 focus:bg-white transition-all outline-none"
+                    className="block w-full rounded-lg border-gray-300 pl-8 pr-4 py-3 focus:border-[#6666FF] focus:ring-[#6666FF] text-lg font-bold bg-gray-50 focus:bg-white transition-all outline-none"
                     placeholder="0.00"
                     value={cashCollected}
                     onChange={(e) => setCashCollected(e.target.value)}

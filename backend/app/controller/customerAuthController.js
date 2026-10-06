@@ -33,7 +33,6 @@ export const signupCustomer = async (req, res) => {
             rawPhone: payload.phone,
             flow: "signup",
             avatar: payload.avatar || payload.profileImage || "",
-            referralCode: payload.referralCode,
             ipAddress: req.ip,
         });
 

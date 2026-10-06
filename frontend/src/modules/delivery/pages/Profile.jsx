@@ -98,9 +98,9 @@ const Profile = () => {
       {/* Header */}
       <div 
         style={{
-          background: "linear-gradient(180deg, rgba(255, 87, 34, 0.90) 0%, rgba(255, 112, 67, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%)"
+          background: "linear-gradient(180deg, rgba(102, 102, 255, 0.90) 0%, rgba(136, 136, 255, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%)"
         }}
-        className="pt-12 pb-6 px-6 relative border-b border-orange-200/50 shadow-2xs backdrop-blur-md mb-6">
+        className="pt-12 pb-6 px-6 relative border-b border-[#6666FF]/20 shadow-2xs backdrop-blur-md mb-6">
         <h1 className="text-center text-gray-900 text-[16px] font-bold mb-8 tracking-wide">Profile</h1>
 
         <div className="flex items-center justify-between">
@@ -139,7 +139,7 @@ const Profile = () => {
               label="Personal Details"
               sub="Name, Address, Email"
               path="/delivery/profile/personal-details"
-              badgeBg="bg-orange-50/80 border-orange-100/70 text-[#FF5722]"
+              badgeBg="bg-[#EEEEFF]/80 border-[#6666FF]/20 text-[#6666FF]"
           />
           <MenuItem
               icon={ClipboardCheck}
@@ -153,7 +153,7 @@ const Profile = () => {
               label="Vehicle Information"
               sub="Bike, License, Insurance"
               path="/delivery/profile/vehicle-info"
-              badgeBg="bg-orange-50/80 border-orange-100/70 text-[#FF5722]"
+              badgeBg="bg-[#EEEEFF]/80 border-[#6666FF]/20 text-[#6666FF]"
           />
           <MenuItem
               icon={CreditCard}
@@ -300,7 +300,7 @@ const MenuItem = ({ icon: Icon, label, sub, path, onClick = undefined, badgeBg }
             className="card-left-pill-orange w-full text-left px-4 py-3.5 flex items-center justify-between shadow-[0_2px_8px_-2px_rgba(0,0,0,0.04)] hover:shadow-md cursor-pointer transition-all group"
         >
             <div className="flex items-center gap-3.5">
-                <div className={cn("w-10 h-10 rounded-full border flex items-center justify-center shadow-2xs group-hover:scale-108 transition-transform flex-shrink-0", badgeBg || "bg-orange-50 border-orange-100 text-[#FF5722]")}>
+                <div className={cn("w-10 h-10 rounded-full border flex items-center justify-center shadow-2xs group-hover:scale-108 transition-transform flex-shrink-0", badgeBg || "bg-[#EEEEFF] border-[#6666FF]/20 text-[#6666FF]")}>
                     <Icon size={18} strokeWidth={2.5} />
                 </div>
                 <div>

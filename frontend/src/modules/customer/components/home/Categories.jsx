@@ -32,11 +32,11 @@ const Categories = () => {
                             href={`/category/${category.name.toLowerCase()}`}
                             className="flex flex-col items-center gap-4 min-w-[140px] snap-start group cursor-pointer"
                         >
-                            <div className={`h-36 w-36 rounded-full ${category.color} p-4 flex items-center justify-center shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl border border-slate-100`}>
+                            <div className={`h-36 w-36 rounded-full ${category.color} p-0 flex items-center justify-center overflow-hidden shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl border border-slate-100`}>
                                 <img
                                     src={category.image}
                                     alt={category.name}
-                                    className="w-full h-full object-contain drop-shadow-sm mix-blend-multiply"
+                                    className="w-full h-full object-cover"
                                 />
                             </div>
                             <span className="text-lg font-medium text-slate-700 group-hover:text-brand-600 transition-colors">

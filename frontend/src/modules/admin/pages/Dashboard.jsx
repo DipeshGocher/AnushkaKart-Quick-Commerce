@@ -105,8 +105,8 @@ const AdminDashboard = () => {
             label: 'Total Orders',
             value: overview.totalOrders?.toLocaleString() || '0',
             icon: Truck,
-            color: 'text-orange-600',
-            bg: 'bg-orange-50',
+            color: 'text-brand-600',
+            bg: 'bg-brand-50',
             trend: '+18.4%',
             description: 'Last 30 days'
         },
@@ -170,8 +170,8 @@ const AdminDashboard = () => {
                                 <AreaChart data={chartData}>
                                     <defs>
                                         <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.1} />
-                                            <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
+                                            <stop offset="5%" stopColor="#6666FF" stopOpacity={0.1} />
+                                            <stop offset="95%" stopColor="#6666FF" stopOpacity={0} />
                                         </linearGradient>
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -201,7 +201,7 @@ const AdminDashboard = () => {
                                     <Area
                                         type="monotone"
                                         dataKey="revenue"
-                                        stroke="#4f46e5"
+                                        stroke="#6666FF"
                                         strokeWidth={3}
                                         fillOpacity={1}
                                         fill="url(#colorRevenue)"

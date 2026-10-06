@@ -12,12 +12,14 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { customerApi } from '../services/customerApi';
+import { useProductDetail } from '../context/ProductDetailContext';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useSettings } from '@core/context/SettingsContext';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 import { getProductUrl, getProductVariantText } from '@/core/utils/productUrl';
 import { cn } from '@/lib/utils';
+import ProductCard from '../components/shared/ProductCard';
 
 const formatPrice = (value) =>
   new Intl.NumberFormat('en-IN', {
@@ -37,6 +39,7 @@ const shuffleArray = (array) => {
 };
 
 const ProductsPage = () => {
+  const { openProduct } = useProductDetail();
   const navigate = useNavigate();
   const location = useRouterLocation();
   const { groceryCartCount } = useCart();
@@ -311,9 +314,9 @@ const ProductsPage = () => {
           type="button"
           onClick={() => handleHeaderCategoryClick('all')}
           className={cn(
-            "px-4 py-2 min-h-[36px] rounded-full text-[13px] font-semibold whitespace-nowrap transition-all shadow-2xs active:scale-95 border flex items-center justify-center",
+            "px-4 py-2 min-h-[36px] rounded-full text-[13px] font-semibold whitespace-nowrap transition-all shadow-2xs active:scale-95 border flex items-center justify-center cursor-pointer",
             selectedHeaderId === 'all'
-              ? "bg-gradient-to-r from-[#ff9f43] to-[#ff793f] text-white border-transparent shadow-[0_2px_8px_rgba(255,159,67,0.35)]"
+              ? "bg-[#6666FF] text-white border-transparent shadow-[0_2px_8px_rgba(102,102,255,0.35)]"
               : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
           )}
         >
@@ -329,9 +332,9 @@ const ProductsPage = () => {
               type="button"
               onClick={() => handleHeaderCategoryClick(header._id)}
               className={cn(
-                "px-4 py-2 min-h-[36px] rounded-full text-[13px] font-semibold whitespace-nowrap transition-all shadow-2xs active:scale-95 border flex items-center justify-center gap-1.5",
+                "px-4 py-2 min-h-[36px] rounded-full text-[13px] font-semibold whitespace-nowrap transition-all shadow-2xs active:scale-95 border flex items-center justify-center gap-1.5 cursor-pointer",
                 isSelected
-                  ? "bg-gradient-to-r from-[#ff9f43] to-[#ff793f] text-white border-transparent shadow-[0_2px_8px_rgba(255,159,67,0.35)]"
+                  ? "bg-[#6666FF] text-white border-transparent shadow-[0_2px_8px_rgba(102,102,255,0.35)]"
                   : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
               )}
             >
@@ -356,16 +359,16 @@ const ProductsPage = () => {
         </button>
       </div>
 
-      {/* 3. Product Listing Grid (Image Layout: 2 items per row) */}
-      <main className="px-2.5 py-3">
+      {/* 3. Product Listing Grid (Flipkart-Style 2 items per row) */}
+      <main className="px-4 py-3 pb-24">
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-x-2.5 gap-y-4">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-5">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="flex flex-col animate-pulse">
-                <div className="aspect-[4/4.5] w-full rounded-2xl bg-slate-100" />
-                <div className="mt-2 h-3 bg-slate-100 rounded-md w-3/4" />
-                <div className="mt-1 h-3 bg-slate-100 rounded-md w-1/2" />
-                <div className="mt-1.5 h-4 bg-slate-100 rounded-md w-2/3" />
+                <div className="w-full rounded-[12px] bg-[#F0F0F0]" style={{ aspectRatio: '0.88' }} />
+                <div className="mt-2.5 h-3.5 bg-slate-100 rounded-md w-3/4" />
+                <div className="mt-2 h-4 bg-slate-100 rounded-md w-1/2" />
+                <div className="mt-1.5 h-3.5 bg-slate-100 rounded-md w-2/3" />
               </div>
             ))}
           </div>
@@ -393,105 +396,13 @@ const ProductsPage = () => {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-x-2.5 gap-y-4">
-            {displayProducts.map((product, index) => {
-              const id = product.id || product._id;
-              const originalPrice = Number(product.price ?? product.originalPrice) || 0;
-              const currentPrice = Number(product.salePrice ?? product.price) || 0;
-              const hasDiscount = originalPrice > currentPrice && currentPrice > 0;
-              const discountPercent = hasDiscount
-                ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
-                : 0;
-              const image =
-                product.image ||
-                product.mainImage ||
-                product.variants?.[0]?.images?.[0];
-              const isPng = typeof image === 'string' && (image.toLowerCase().endsWith('.png') || image.toLowerCase().includes('.png?') || image.toLowerCase().includes('/png'));
-              const isWish = isInWishlist(id);
-              const variantCount = Array.isArray(product.variants) ? product.variants.length : 0;
-
-              return (
-                <div
-                  key={id}
-                  className="group flex flex-col cursor-pointer active:scale-[0.99] transition-transform min-w-0"
-                  onClick={() => navigate(getProductUrl(product))}
-                >
-                  {/* Top Image Box - Full Card Cover Image with visible off-white / grey background and border */}
-                  <div className="customer-product-clean-image relative aspect-[4/4.5] w-full rounded-2xl bg-[#f1f3f6] border border-[#e0e3e8] flex items-center justify-center p-0 overflow-hidden transition-colors shadow-2xs">
-                    {/* Wishlist Heart */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleWishlist(id);
-                      }}
-                      className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-white/90 backdrop-blur-xs text-slate-700 hover:text-red-500 active:scale-90 transition-transform shadow-2xs border-0"
-                      aria-label="Wishlist"
-                    >
-                      <Heart
-                        size={15}
-                        className={cn(isWish ? "fill-red-500 text-red-500" : "text-slate-600")}
-                      />
-                    </button>
-
-                    {/* Product Image */}
-                    {image ? (
-                      <img
-                        src={applyCloudinaryTransform(image, 'f_auto,q_auto,w_400')}
-                        alt={product.name}
-                        loading="lazy"
-                        className={cn(
-                          "w-full h-full transition-transform duration-300 group-hover:scale-105",
-                          isPng
-                            ? "is-png-image object-contain p-1"
-                            : "is-normal-image object-cover p-0"
-                        )}
-                      />
-                    ) : (
-                      <ImageOff size={28} className="text-slate-300" />
-                    )}
-
-                    {/* Variant Pill (e.g. "3 variants") */}
-                    {variantCount > 1 && (
-                      <span className="absolute bottom-1.5 right-1.5 z-10 bg-white/95 border border-blue-200 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-2xs">
-                        {variantCount} variants
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Product Title */}
-                  <h3 className="fk-product-title mt-1.5 px-0.5 truncate text-[13px] font-semibold text-[#212121] leading-tight group-hover:text-[#2874f0] transition-colors">
-                    {product.name}
-                  </h3>
-
-                  {/* Variant */}
-                  <p className="text-[11px] font-medium text-slate-500 leading-tight mt-0.5 px-0.5 truncate">
-                    {getProductVariantText(product)}
-                  </p>
-
-                  {/* Pricing Row: No gap, discount price, original price with line-through, % off */}
-                  <div className="mt-0.5 px-0.5 flex items-baseline gap-1.5 leading-tight flex-wrap">
-                    {hasDiscount ? (
-                      <>
-                        <span className="fk-product-price text-[13px] font-bold text-[#212121]">
-                          {formatPrice(currentPrice)}
-                        </span>
-                        <span className="fk-product-mrp text-[11px] text-slate-400 line-through font-normal">
-                          {formatPrice(originalPrice)}
-                        </span>
-                        <span className="fk-product-discount text-[11px] font-bold text-[#16a34a]">
-                          {discountPercent}% off
-                        </span>
-                      </>
-                    ) : (
-                      <span className="fk-product-price text-[13px] font-bold text-[#212121]">
-                        {formatPrice(originalPrice || currentPrice)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          <div className="grid grid-cols-2 gap-x-3 gap-y-5">
+            {displayProducts.map((product) => (
+              <ProductCard
+                key={product.id || product._id}
+                product={product}
+              />
+            ))}
           </div>
         )}
       </main>
@@ -533,10 +444,10 @@ const ProductsPage = () => {
                   }}
                   className="w-full flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-slate-50 text-sm font-medium text-slate-800 transition-colors"
                 >
-                  <span className={cn(activeSort === opt.id && "font-bold text-[#2874f0]")}>
+                  <span className={cn(activeSort === opt.id && "font-bold text-[#6666FF]")}>
                     {opt.label}
                   </span>
-                  {activeSort === opt.id && <Check size={16} className="text-[#2874f0]" />}
+                  {activeSort === opt.id && <Check size={16} className="text-[#6666FF]" />}
                 </button>
               ))}
             </div>
