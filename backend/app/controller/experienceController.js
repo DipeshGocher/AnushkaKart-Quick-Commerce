@@ -454,16 +454,26 @@ export const getPublicHeroConfig = async (req, res) => {
           categoryIds: config.categoryIds || [],
           topDealsTitle: config.topDealsTitle || "",
           topDealsProductIds: config.topDealsProductIds || [],
+          topDealsBgColor: config.topDealsBgColor || "",
+          topDealsTextColor: config.topDealsTextColor || "",
+          topDealsProductNameColor: config.topDealsProductNameColor || "",
+          topDealsPriceColor: config.topDealsPriceColor || "",
           bestSellingTitle: config.bestSellingTitle || "",
           bestSellingCategoryIds: config.bestSellingCategoryIds || [],
+          categorySectionBanners: config.categorySectionBanners || [],
         }
       : {
           banners: { items: [] },
           categoryIds: [],
           topDealsTitle: "",
           topDealsProductIds: [],
+          topDealsBgColor: "",
+          topDealsTextColor: "",
+          topDealsProductNameColor: "",
+          topDealsPriceColor: "",
           bestSellingTitle: "",
           bestSellingCategoryIds: [],
+          categorySectionBanners: [],
         };
 
     return handleResponse(res, 200, "Hero config fetched", payload);
@@ -498,8 +508,13 @@ export const getAdminHeroConfig = async (req, res) => {
         categoryIds: [],
         topDealsTitle: "",
         topDealsProductIds: [],
+        topDealsBgColor: "",
+        topDealsTextColor: "",
+        topDealsProductNameColor: "",
+        topDealsPriceColor: "",
         bestSellingTitle: "",
         bestSellingCategoryIds: [],
+        categorySectionBanners: [],
       }
     );
   } catch (error) {
@@ -516,8 +531,13 @@ export const upsertHeroConfig = async (req, res) => {
       categoryIds,
       topDealsTitle,
       topDealsProductIds,
+      topDealsBgColor,
+      topDealsTextColor,
+      topDealsProductNameColor,
+      topDealsPriceColor,
       bestSellingTitle,
       bestSellingCategoryIds,
+      categorySectionBanners,
     } = req.body;
 
     if (!["home", "header", "monthly_basket"].includes(pageType)) {
@@ -548,6 +568,9 @@ export const upsertHeroConfig = async (req, res) => {
         }))
       : [];
 
+    // For header category pages: strictly single banner; for home: multiple banners allowed
+    const finalBannerItems = pageType === "header" ? bannerItems.slice(0, 1) : bannerItems;
+
     const ids = Array.isArray(categoryIds) ? categoryIds.filter(Boolean) : [];
     const topDealIds = Array.isArray(topDealsProductIds) ? topDealsProductIds.filter(Boolean) : [];
     const bestSellingIds = Array.isArray(bestSellingCategoryIds) ? bestSellingCategoryIds.filter(Boolean) : [];
@@ -558,7 +581,7 @@ export const upsertHeroConfig = async (req, res) => {
     };
 
     const update = {
-      banners: { items: bannerItems },
+      banners: { items: finalBannerItems },
       categoryIds: ids,
     };
 
@@ -568,11 +591,43 @@ export const upsertHeroConfig = async (req, res) => {
     if (Array.isArray(topDealsProductIds)) {
       update.topDealsProductIds = topDealIds;
     }
+    if (typeof topDealsBgColor === "string") {
+      update.topDealsBgColor = topDealsBgColor.trim();
+    }
+    if (typeof topDealsTextColor === "string") {
+      update.topDealsTextColor = topDealsTextColor.trim();
+    }
+    if (typeof topDealsProductNameColor === "string") {
+      update.topDealsProductNameColor = topDealsProductNameColor.trim();
+    }
+    if (typeof topDealsPriceColor === "string") {
+      update.topDealsPriceColor = topDealsPriceColor.trim();
+    }
     if (typeof bestSellingTitle === "string") {
       update.bestSellingTitle = bestSellingTitle.trim();
     }
     if (Array.isArray(bestSellingCategoryIds)) {
       update.bestSellingCategoryIds = bestSellingIds;
+    }
+
+    if (Array.isArray(categorySectionBanners)) {
+      update.categorySectionBanners = categorySectionBanners.map((cs) => ({
+        headerId: cs.headerId || null,
+        headerName: cs.headerName || "",
+        banners: Array.isArray(cs.banners)
+          ? cs.banners
+              .filter((b) => b && b.imageUrl)
+              .slice(0, 1)
+              .map((b) => ({
+                imageUrl: b.imageUrl,
+                title: b.title || "",
+                subtitle: b.subtitle || "",
+                linkType: b.linkType || "none",
+                linkValue: b.linkValue || "",
+                status: b.status || "active",
+              }))
+          : [],
+      }));
     }
 
     if (typeof bestSellingTitle === "string" || Array.isArray(bestSellingCategoryIds)) {
@@ -583,12 +638,18 @@ export const upsertHeroConfig = async (req, res) => {
       await invalidate("cache:platform:settings:*");
     }
 
-    if (pageType === "header" && (typeof topDealsTitle === "string" || Array.isArray(topDealsProductIds))) {
+    if (pageType === "header") {
       const sUpdate = {};
       if (typeof topDealsTitle === "string") sUpdate[`categoryTopDeals.${headerId}.title`] = topDealsTitle.trim();
       if (Array.isArray(topDealsProductIds)) sUpdate[`categoryTopDeals.${headerId}.productIds`] = topDealIds;
-      await Setting.findOneAndUpdate({}, { $set: sUpdate }, { upsert: true });
-      await invalidate("cache:platform:settings:*");
+      if (typeof topDealsBgColor === "string") sUpdate[`categoryTopDeals.${headerId}.bgColor`] = topDealsBgColor.trim();
+      if (typeof topDealsTextColor === "string") sUpdate[`categoryTopDeals.${headerId}.textColor`] = topDealsTextColor.trim();
+      if (typeof topDealsProductNameColor === "string") sUpdate[`categoryTopDeals.${headerId}.productNameColor`] = topDealsProductNameColor.trim();
+      if (typeof topDealsPriceColor === "string") sUpdate[`categoryTopDeals.${headerId}.priceColor`] = topDealsPriceColor.trim();
+      if (Object.keys(sUpdate).length > 0) {
+        await Setting.findOneAndUpdate({}, { $set: sUpdate }, { upsert: true });
+        await invalidate("cache:platform:settings:*");
+      }
     }
 
     const config = await HeroConfig.findOneAndUpdate(

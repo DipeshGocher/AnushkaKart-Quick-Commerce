@@ -761,7 +761,7 @@ const Home = () => {
         "min-h-screen bg-white transition-all duration-300 ease-out",
         isAllCategorySelected
           ? (isScrolled ? "pt-[118px] md:pt-[136px]" : "pt-[275px] sm:pt-[280px] md:pt-[200px]")
-          : "pt-[122px] sm:pt-[130px] md:pt-[160px] lg:pt-[165px]"
+          : "pt-[122px] sm:pt-[126px] md:pt-[160px] lg:pt-[165px]"
       )}
     >
       <MainLocationHeader 
@@ -792,7 +792,7 @@ const Home = () => {
                   section={{ title: "" }}
                   items={homeBanners}
                   fullWidth
-                  edgeToEdge
+                  edgeToEdge={false}
                   peekNext={true}
                   autoPlayInterval={2500}
                   showDots={true}

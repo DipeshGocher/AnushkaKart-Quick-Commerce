@@ -441,7 +441,16 @@ const MainLocationHeader = ({
   const bgOpacity = useTransform(scrollY, [0, 160], [1, 1]);
 
   // Content animations
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
   const mobileTopHeight = useTransform(scrollY, [0, 22, 108], ["116px", "116px", "0px"]);
   const mobileTopOpacity = useTransform(scrollY, [0, 30, 95], [1, 1, 0]);
 
@@ -500,15 +509,16 @@ const MainLocationHeader = ({
           style={{
             backgroundColor: targetHeaderColor,
             paddingTop: isScrolled ? 16 : 14,
-            paddingBottom: (!isAllCategory || isScrolled) ? 2 : 4,
+            paddingBottom: (!isAllCategory || isScrolled) ? 3 : 4,
             borderBottomLeftRadius: 24,
             borderBottomRightRadius: 24,
             opacity: bgOpacity,
           }}
           className={cn(
-            "customer-location-header pointer-events-auto w-full md:max-w-7xl md:mx-auto px-4 overflow-hidden transform-gpu will-change-transform shadow-[0_8px_24px_rgba(0,0,0,0.12)] backdrop-blur-xl transition-all duration-300 rounded-b-[24px]",
+            "customer-location-header pointer-events-auto w-full md:max-w-7xl md:mx-auto px-4 overflow-hidden transform-gpu will-change-transform backdrop-blur-xl transition-all duration-300",
+            "rounded-b-[24px] shadow-[0_8px_24px_rgba(0,0,0,0.12)] border-b md:border-x",
             (!isAllCategory || isScrolled) && "is-category-mode",
-            isBright ? "is-bright-header border-b md:border-x border-black/10" : "is-dark-header border-b md:border-x border-white/10"
+            isBright ? "is-bright-header border-black/10" : "is-dark-header border-white/10"
           )}>
           <div className="absolute inset-0 pointer-events-none" style={{ background: isAllCategory ? 'linear-gradient(180deg, rgba(255,255,255,0.34) 0%, rgba(234,244,255,0.22) 100%)' : 'none' }} />
           <div className="absolute inset-x-0 top-0 h-px bg-white/40 pointer-events-none" />

@@ -1933,7 +1933,8 @@ export const getHeaderProducts = async (req, res) => {
     const effectiveLat = coords.valid ? coords.lat : 22.7196;
     const effectiveLng = coords.valid ? coords.lng : 75.8577;
 
-    const [heroConfigs, nearbySellerIds] = await Promise.all([
+    const [homeHeroConfig, heroConfigs, nearbySellerIds] = await Promise.all([
+      HeroConfig.findOne({ pageType: "home", headerId: null }).lean().catch(() => null),
       HeroConfig.find({
         pageType: "header",
         headerId: { $in: filteredHeaders.map((h) => h._id) },
@@ -1945,6 +1946,8 @@ export const getHeaderProducts = async (req, res) => {
 
     const bannerByHeaderId = new Map();
     const bannersByHeaderId = new Map();
+
+    // 1. First populate from header configs (if any, strictly single banner)
     (heroConfigs || []).forEach((hc) => {
       if (hc.headerId) {
         const activeItems = (hc.banners?.items || []).filter(
@@ -1952,7 +1955,20 @@ export const getHeaderProducts = async (req, res) => {
         );
         if (activeItems.length > 0) {
           bannerByHeaderId.set(hc.headerId.toString(), activeItems[0].imageUrl);
-          bannersByHeaderId.set(hc.headerId.toString(), activeItems);
+          bannersByHeaderId.set(hc.headerId.toString(), [activeItems[0]]);
+        }
+      }
+    });
+
+    // 2. Override with homeHeroConfig categorySectionBanners specifically configured for "All" page (single banner)
+    (homeHeroConfig?.categorySectionBanners || []).forEach((cs) => {
+      if (cs.headerId) {
+        const activeItems = (cs.banners || []).filter(
+          (b) => b.status !== "inactive" && b.imageUrl
+        );
+        if (activeItems.length > 0) {
+          bannerByHeaderId.set(cs.headerId.toString(), activeItems[0].imageUrl);
+          bannersByHeaderId.set(cs.headerId.toString(), [activeItems[0]]);
         }
       }
     });

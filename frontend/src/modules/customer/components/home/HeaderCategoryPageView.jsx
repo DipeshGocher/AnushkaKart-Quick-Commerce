@@ -477,62 +477,44 @@ const HeaderCategoryPageView = ({
     return items;
   }, [subCategories, topDealsProducts.length]);
 
-  // Dynamic category hero banners from CMS HeroConfig, Settings, or default category banner pairs
+  // Dynamic category hero banner from CMS HeroConfig, Settings, or single default category banner
   const categoryBanners = useMemo(() => {
-    // 1. From CMS HeroConfig
+    // 1. From CMS HeroConfig (single banner only)
     const cmsBanners = (categoryHeroConfig?.banners?.items || []).filter(
       (b) => b && b.imageUrl && b.status !== 'inactive'
     );
-    if (cmsBanners.length > 0) return cmsBanners;
+    if (cmsBanners.length > 0) return [cmsBanners[0]];
 
     // 2. From Settings
     const settingsBanners = (settings?.categoriesBanner?.banners || []).filter(
       (b) => String(b.headerCategoryId) === headerId && b.image
     );
     if (settingsBanners.length > 0) {
-      return settingsBanners.map((b) => ({
-        imageUrl: b.image,
-        title: b.title || headerCategory?.name || '',
-      }));
+      return [{
+        imageUrl: settingsBanners[0].image,
+        title: settingsBanners[0].title || headerCategory?.name || '',
+      }];
     }
 
-    // 3. Fallbacks matching category pairs
+    // 3. Single default banner for each category page
     const text = `${headerCategory?.name || ''} ${headerCategory?.slug || ''}`.toLowerCase();
     if (/grocer/i.test(text)) {
-      return [
-        { imageUrl: groceryBannerImg, title: 'Fresh Groceries' },
-        { imageUrl: freshGroceryAllBanner, title: 'Super Saver Deals' },
-      ];
+      return [{ imageUrl: groceryBannerImg, title: 'Fresh Groceries' }];
     }
     if (/electr/i.test(text)) {
-      return [
-        { imageUrl: electronicsBannerImg, title: 'Electronics Fest' },
-        { imageUrl: electronicsAllBanner, title: 'Mega Savings' },
-      ];
+      return [{ imageUrl: electronicsBannerImg, title: 'Electronics Fest' }];
     }
     if (/mobil|phone|smartphon/i.test(text)) {
-      return [
-        { imageUrl: mobilesBannerImg, title: 'Mobiles & Tablets' },
-        { imageUrl: mobilesAllBanner, title: 'Top Mobile Deals' },
-      ];
+      return [{ imageUrl: mobilesBannerImg, title: 'Mobiles & Tablets' }];
     }
     if (/beaut|cosmetic|skin/i.test(text)) {
-      return [
-        { imageUrl: beautyBannerImg, title: 'Beauty & Skincare' },
-        { imageUrl: beautyAllBanner, title: 'Glow Deals' },
-      ];
+      return [{ imageUrl: beautyBannerImg, title: 'Beauty & Skincare' }];
     }
     if (/fashion|cloth|apparel|kid/i.test(text)) {
-      return [
-        { imageUrl: fashionBannerImg, title: 'Fashion & Apparel' },
-        { imageUrl: fashionAllBanner, title: 'Trending Fashion' },
-      ];
+      return [{ imageUrl: fashionBannerImg, title: 'Fashion & Apparel' }];
     }
     if (/home|appliance|kitchen/i.test(text)) {
-      return [
-        { imageUrl: homeAppliancesBannerImg, title: 'Home & Kitchen' },
-        { imageUrl: homeAllBanner, title: 'Appliance Mega Sale' },
-      ];
+      return [{ imageUrl: homeAppliancesBannerImg, title: 'Home & Kitchen' }];
     }
 
     const singleFallback = getCategoryBanner(headerCategory?.name, headerCategory?.slug);
@@ -543,17 +525,18 @@ const HeaderCategoryPageView = ({
 
   return (
     <div className="w-full flex flex-col pb-20 select-none animate-in fade-in duration-300">
-      {/* ── 1. HEADER CATEGORY BANNER (FLIPKART STYLE COMPACT CAROUSEL) ── */}
+      {/* ── 1. HEADER CATEGORY BANNER (SINGLE STATIC BANNER ONLY) ── */}
       {categoryBanners.length > 0 && (
-        <div className="w-full relative overflow-hidden select-none mt-2 sm:mt-2.5 md:mt-3 mb-1">
+        <div className="w-full relative overflow-hidden select-none mt-2.5 sm:mt-3 mb-2 px-0 md:px-0">
           <ExperienceBannerCarousel
             section={{ title: "" }}
-            items={categoryBanners}
+            items={categoryBanners.slice(0, 1)}
             fullWidth
-            edgeToEdge
-            peekNext={true}
-            autoPlayInterval={2800}
-            showDots={categoryBanners.length > 1}
+            edgeToEdge={false}
+            peekNext={false}
+            stretchSingle={true}
+            autoPlayInterval={0}
+            showDots={false}
             showContentOverlay={false}
           />
         </div>
@@ -614,7 +597,12 @@ const HeaderCategoryPageView = ({
                         src={applyCloudinaryTransform(imageSrc, 'f_auto,q_auto,w_300')}
                         alt={cat.name}
                         loading="lazy"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.classList.add("opacity-40");
+                        }}
+                        className="w-full h-full object-contain p-1 group-hover:scale-105 transition-transform duration-200"
                       />
                     </div>
 
@@ -708,6 +696,11 @@ const HeaderCategoryPageView = ({
                         src={applyCloudinaryTransform(imageSrc, 'f_auto,q_auto,w_200')}
                         alt={sub.name}
                         loading="lazy"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.classList.add("opacity-40");
+                        }}
                         className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-200"
                       />
                     </div>
@@ -722,32 +715,38 @@ const HeaderCategoryPageView = ({
         </section>
       )}
 
-      {/* ── 2.5 TOP DEALS (FLIPKART STYLE CURVED CARD WITH DYNAMIC CATEGORY HEADER BACKGROUND & HORIZONTAL RIGHT SCROLL) ── */}
+      {/* ── 2.5 TOP DEALS (FULL-WIDTH SECTION WITHOUT SIDE BOX GAPS) ── */}
       {topDealsProducts.length > 0 && (
-        <section id="top-deals-section" className="my-3.5 px-3 sm:px-4 md:px-0">
-          <div
-            className="w-full rounded-[24px] sm:rounded-[28px] p-3.5 sm:p-4 pt-3.5 pb-4 shadow-[0_8px_24px_rgba(0,0,0,0.12)] relative overflow-hidden transition-all duration-300 select-none"
+        <section
+          id="top-deals-section"
+          className="w-full my-3 sm:my-4 px-0 relative overflow-hidden select-none transition-all duration-300"
+          style={{
+            background: categoryHeroConfig?.topDealsBgColor?.trim() || dealsTheme.gradient,
+          }}
+        >
+          {/* Subtle background glow & light pattern */}
+          <div 
+            className="absolute inset-0 pointer-events-none opacity-35 mix-blend-overlay"
             style={{
-              background: dealsTheme.gradient,
+              backgroundImage: 'radial-gradient(circle at 85% 15%, rgba(255,255,255,0.7) 0%, transparent 45%), radial-gradient(circle at 10% 85%, rgba(255,255,255,0.3) 0%, transparent 40%)',
             }}
-          >
-            {/* Subtle background glow & light pattern matching Flipkart card */}
-            <div 
-              className="absolute inset-0 pointer-events-none opacity-35 mix-blend-overlay"
-              style={{
-                backgroundImage: 'radial-gradient(circle at 85% 15%, rgba(255,255,255,0.7) 0%, transparent 45%), radial-gradient(circle at 10% 85%, rgba(255,255,255,0.3) 0%, transparent 40%)',
-              }}
-            />
+          />
 
+          <div className="w-full py-3.5 sm:py-4 px-4 sm:px-6 relative z-10">
             {/* Top row: Title */}
-            <div className="relative z-10 flex items-center justify-between pb-3 px-0.5">
-              <h2 className="text-[17px] sm:text-[19px] font-black text-white tracking-tight leading-tight drop-shadow-xs capitalize">
+            <div className="flex items-center justify-between pb-3 px-0.5">
+              <h2
+                className="text-[17px] sm:text-[19px] font-black tracking-tight leading-tight drop-shadow-xs capitalize"
+                style={{
+                  color: categoryHeroConfig?.topDealsTextColor?.trim() || '#ffffff',
+                }}
+              >
                 {topDealsTitle}
               </h2>
             </div>
 
             {/* Horizontal scrollable row of Top Deals cards with right slide feature */}
-            <div className="relative z-10 w-full overflow-x-auto no-scrollbar scroll-smooth pb-1 -mx-1 px-1">
+            <div className="w-full overflow-x-auto no-scrollbar scroll-smooth pb-1 -mx-1 px-1">
               <div className="flex items-start gap-2.5 sm:gap-3.5">
                 {topDealsProducts.map((product) => {
                   const id = product.id || product._id;
@@ -759,7 +758,6 @@ const HeaderCategoryPageView = ({
                     product.image ||
                     product.variants?.[0]?.images?.[0];
                   const isWish = isInWishlist(id);
-                  const variantText = getProductVariantText(product);
 
                   return (
                     <div
@@ -790,34 +788,47 @@ const HeaderCategoryPageView = ({
                             src={applyCloudinaryTransform(image, 'f_auto,q_auto,w_300')}
                             alt={product.name}
                             loading="lazy"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.classList.add("opacity-40");
+                            }}
+                            className="w-full h-full object-contain p-1 group-hover:scale-105 transition-transform duration-200"
                           />
                         ) : (
                           <ImageOff size={26} className="text-slate-300" />
                         )}
                       </div>
 
-                      {/* 2. Text details: Name -> Variant -> Price */}
+                      {/* 2. Text details: Name -> Price (Variants removed as requested) */}
                       <div className="w-full flex flex-col items-center mt-1.5 px-0.5 text-center">
                         {/* Product Name */}
-                        <p className="m-0 p-0 text-[11.5px] sm:text-[12px] font-bold text-white leading-tight tracking-tight w-full truncate">
+                        <p
+                          className="m-0 p-0 text-[11.5px] sm:text-[12px] font-bold leading-tight tracking-tight w-full truncate"
+                          style={{
+                            color: categoryHeroConfig?.topDealsProductNameColor?.trim() || categoryHeroConfig?.topDealsTextColor?.trim() || '#ffffff',
+                          }}
+                        >
                           {product.name}
                         </p>
 
-                        {/* Variant Text */}
-                        {variantText && (
-                          <p className="m-0 p-0 text-[9.5px] sm:text-[10px] text-white/80 font-medium truncate leading-tight w-full mt-0.5">
-                            {variantText}
-                          </p>
-                        )}
-
-                        {/* Price Row: Discounted Price + Strikethrough Original Price */}
-                        <div className="m-0 p-0 flex items-center justify-center gap-1 mt-0.5 leading-tight flex-wrap">
-                          <span className="text-[11.5px] sm:text-[12px] font-black text-white leading-tight">
+                        {/* Price Row: Discounted Price + Strikethrough Original Price (No variant text) */}
+                        <div className="m-0 p-0 flex items-center justify-center gap-1 mt-1 leading-tight flex-wrap">
+                          <span
+                            className="text-[11.5px] sm:text-[12px] font-black leading-tight"
+                            style={{
+                              color: categoryHeroConfig?.topDealsPriceColor?.trim() || '#ffffff',
+                            }}
+                          >
                             ₹{currentPrice}
                           </span>
                           {originalPrice > currentPrice && (
-                            <span className="text-[9.5px] sm:text-[10px] text-white/60 line-through font-normal leading-tight">
+                            <span
+                              className="text-[9.5px] sm:text-[10px] line-through font-normal leading-tight opacity-75"
+                              style={{
+                                color: categoryHeroConfig?.topDealsPriceColor?.trim() || '#ffffff',
+                              }}
+                            >
                               ₹{originalPrice}
                             </span>
                           )}

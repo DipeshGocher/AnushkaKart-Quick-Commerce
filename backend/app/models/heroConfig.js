@@ -48,6 +48,26 @@ const heroConfigSchema = new mongoose.Schema(
     topDealsProductIds: [
       { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
     ],
+    topDealsBgColor: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    topDealsTextColor: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    topDealsProductNameColor: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    topDealsPriceColor: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     // Best Selling Categories section customization (for home page)
     bestSellingTitle: {
       type: String,
@@ -56,6 +76,14 @@ const heroConfigSchema = new mongoose.Schema(
     },
     bestSellingCategoryIds: [
       { type: mongoose.Schema.Types.ObjectId, ref: "Category" },
+    ],
+    // Category sections banners on Home ("All") page
+    categorySectionBanners: [
+      {
+        headerId: { type: mongoose.Schema.Types.ObjectId, ref: "Category" },
+        headerName: { type: String, trim: true, default: "" },
+        banners: [heroBannerItemSchema],
+      },
     ],
   },
   { timestamps: true }

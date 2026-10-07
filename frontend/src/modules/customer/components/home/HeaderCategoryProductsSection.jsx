@@ -279,17 +279,19 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
         );
         const displayProducts = products.slice(0, 16);
 
-        // Compute active banners for this section (from CMS array, single banner, or default)
+        // Compute active single banner for this section (strictly single banner on All page)
         const activeCmsBanners = (Array.isArray(header?.banners) ? header.banners : []).filter(
           (b) => b && b.imageUrl && b.status !== "inactive"
         );
         let sectionBanners = [];
         if (activeCmsBanners.length > 0) {
-          sectionBanners = activeCmsBanners.map((b) => ({
-            ...b,
-            linkType: b.linkType || "header",
-            linkValue: b.linkValue || headerId,
-          }));
+          sectionBanners = [
+            {
+              ...activeCmsBanners[0],
+              linkType: activeCmsBanners[0].linkType || "header",
+              linkValue: activeCmsBanners[0].linkValue || headerId,
+            },
+          ];
         } else if (header?.banner) {
           sectionBanners = [
             {
@@ -329,16 +331,18 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
                   <h2 className="fk-section-heading">{headerName}</h2>
                 </div>
 
-                {/* Category Banner Carousel (All-page compatible card style, dynamically adjusts as banners are added) */}
+                {/* Category Banner (Single banner per section on All page) */}
                 {sectionBanners.length > 0 ? (
                   <div className="px-0 md:px-4 mb-3.5">
                     <ExperienceBannerCarousel
-                      items={sectionBanners}
+                      items={sectionBanners.slice(0, 1)}
                       fullWidth
-                      edgeToEdge
-                      peekNext={true}
-                      autoPlayInterval={2800}
-                      showDots={sectionBanners.length > 1}
+                      edgeToEdge={false}
+                      peekNext={false}
+                      stretchSingle={true}
+                      isSectionBanner={true}
+                      autoPlayInterval={0}
+                      showDots={false}
                       showContentOverlay={false}
                     />
                   </div>
@@ -415,7 +419,12 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
                                 )}
                                 alt={product.name}
                                 loading="lazy"
-                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                referrerPolicy="no-referrer"
+                                onError={(e) => {
+                                  e.currentTarget.onerror = null;
+                                  e.currentTarget.classList.add("opacity-40");
+                                }}
+                                className="w-full h-full object-contain p-1.5 transition-transform duration-300 group-hover:scale-105"
                               />
                             ) : (
                               <ImageOff

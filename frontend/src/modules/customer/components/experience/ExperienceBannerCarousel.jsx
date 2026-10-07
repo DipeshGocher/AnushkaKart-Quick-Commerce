@@ -22,7 +22,9 @@ const ExperienceBannerCarousel = ({
   showDots = false,
   showContentOverlay = true,
   peekNext = true,
+  stretchSingle = false,
   autoPlayInterval = 2500,
+  isSectionBanner = false,
 }) => {
   const navigate = useNavigate();
   const [activeIndex, setActiveIndex] = React.useState(0);
@@ -79,12 +81,14 @@ const ExperienceBannerCarousel = ({
       setContainerWidth(parentW);
       if (cardRef.current) {
         const cWidth = cardRef.current.offsetWidth;
-        setCardStep(cWidth + slideGap);
+        const effectiveGap = (mobile && edgeToEdge && !peekNext) ? 0 : slideGap;
+        setCardStep(cWidth + effectiveGap);
       }
     } else if (cardRef.current) {
-      setCardStep(cardRef.current.offsetWidth + slideGap);
+      const effectiveGap = (mobile && edgeToEdge && !peekNext) ? 0 : slideGap;
+      setCardStep(cardRef.current.offsetWidth + effectiveGap);
     }
-  }, [slideGap]);
+  }, [slideGap, edgeToEdge, peekNext]);
 
   React.useEffect(() => {
     measureCardStep();
@@ -204,6 +208,7 @@ const ExperienceBannerCarousel = ({
     const standard3SlotWidth = Math.floor((containerWidth - 2 * slideGap) / 3);
     
     if (totalItems === 1) {
+      if (stretchSingle) return containerWidth;
       // 1 banner: identical card size as "All" page, perfectly centered with zero crop
       return Math.min(standard3SlotWidth, 420);
     }
@@ -217,7 +222,7 @@ const ExperienceBannerCarousel = ({
     const currentNumVisible = Math.min(numVisible, totalItems);
     const totalGaps = (currentNumVisible - 1) * slideGap;
     return Math.max(200, Math.floor((containerWidth - totalGaps) / currentNumVisible));
-  }, [isMobile, containerWidth, totalItems, numVisible, slideGap]);
+  }, [isMobile, containerWidth, totalItems, numVisible, slideGap, stretchSingle]);
 
   if (!items.length) return null;
 
@@ -232,8 +237,12 @@ const ExperienceBannerCarousel = ({
       <div
         className={cn(
           "w-full overflow-hidden touch-pan-y",
-          totalItems <= 2
+          edgeToEdge
+            ? "px-0"
+            : totalItems === 1
             ? "px-3.5 sm:px-4 md:px-0 flex justify-center"
+            : !isMobile && totalItems === 2
+            ? "px-4 md:px-0 flex justify-center"
             : "pl-3.5 sm:pl-4 md:pl-0"
         )}
       >
@@ -247,7 +256,7 @@ const ExperienceBannerCarousel = ({
           animate={{
             x: (!isMobile && totalItems <= 2)
               ? 0
-              : (cardStep ? -(activeIndex * cardStep) : `-${(activeIndex / totalItems) * 100}%`),
+              : (cardStep ? -(activeIndex * cardStep) : (isMobile && edgeToEdge && !peekNext) ? `-${activeIndex * 100}%` : `-${(activeIndex / totalItems) * 100}%`),
           }}
           transition={
             isMobile
@@ -261,7 +270,10 @@ const ExperienceBannerCarousel = ({
           style={
             !isMobile && totalItems <= 2
               ? { width: "100%", columnGap: `${slideGap}px` }
-              : { width: "max-content", columnGap: `${slideGap}px` }
+              : {
+                  width: "max-content",
+                  columnGap: (isMobile && edgeToEdge && !peekNext) ? "0px" : `${slideGap}px`,
+                }
           }
         >
           {visibleItems.map((banner, idx) => (
@@ -271,26 +283,49 @@ const ExperienceBannerCarousel = ({
               onClick={() => handleBannerClick(banner)}
               style={
                 !isMobile && desktopCardWidth > 0
-                  ? { width: `${desktopCardWidth}px`, height: "205px" }
+                  ? { width: `${desktopCardWidth}px`, height: isSectionBanner ? "145px" : "205px" }
+                  : (isMobile && edgeToEdge && !peekNext)
+                  ? { width: containerWidth ? `${containerWidth}px` : "100vw" }
                   : undefined
               }
               className={cn(
-                "relative shrink-0 overflow-hidden rounded-2xl md:rounded-3xl bg-slate-100 flex items-center justify-center cursor-pointer shadow-[0_4px_16px_rgba(0,0,0,0.06)] border border-slate-100/80 transition-shadow",
+                "relative shrink-0 overflow-hidden flex items-center justify-center cursor-pointer transition-shadow",
+                edgeToEdge
+                  ? "rounded-none md:rounded-2xl border-0 shadow-none md:shadow-[0_4px_16px_rgba(0,0,0,0.06)] md:border md:border-slate-100/80 bg-slate-100"
+                  : "rounded-2xl md:rounded-3xl bg-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.06)] border border-slate-100/80",
                 isMobile
-                  ? totalItems === 1
-                    ? "w-full max-w-[360px] mx-auto aspect-[1.95/1] sm:aspect-[2.1/1]"
+                  ? isSectionBanner
+                    ? (edgeToEdge && !peekNext)
+                      ? "aspect-[2.85/1] sm:aspect-[2.95/1]"
+                      : totalItems === 1
+                      ? stretchSingle
+                        ? "w-full aspect-[2.85/1] sm:aspect-[2.95/1]"
+                        : "w-full max-w-[360px] mx-auto aspect-[2.85/1] sm:aspect-[2.95/1]"
+                      : peekNext
+                      ? "w-[84vw] sm:w-[80vw] aspect-[2.85/1] sm:aspect-[2.95/1]"
+                      : fullWidth
+                      ? "w-[90vw] aspect-[2.85/1] sm:aspect-[2.95/1]"
+                      : "w-[85vw] aspect-[2.85/1] sm:aspect-[2.95/1]"
+                    : (edgeToEdge && !peekNext)
+                    ? "aspect-[2/1] sm:aspect-[2.1/1]"
+                    : totalItems === 1
+                    ? stretchSingle
+                      ? "w-full aspect-[2.1/1]"
+                      : "w-full max-w-[360px] mx-auto aspect-[1.95/1] sm:aspect-[2.1/1]"
                     : peekNext
                     ? "w-[84vw] sm:w-[80vw] aspect-[1.95/1] sm:aspect-[2.1/1]"
                     : fullWidth
                     ? "w-[90vw] aspect-[2/1] sm:aspect-[21/9]"
                     : "w-[85vw] aspect-[2/1] sm:aspect-[21/9]"
                   : totalItems === 1
-                  ? "h-[205px] max-w-[420px] mx-auto"
+                  ? stretchSingle
+                    ? isSectionBanner ? "w-full h-[145px]" : "w-full h-[205px]"
+                    : isSectionBanner ? "h-[145px] max-w-[420px] mx-auto" : "h-[205px] max-w-[420px] mx-auto"
                   : totalItems === 2
-                  ? "h-[205px] max-w-[440px]"
+                  ? isSectionBanner ? "h-[145px] max-w-[440px]" : "h-[205px] max-w-[440px]"
                   : numVisible >= 3
-                  ? "w-[calc((100%-24px)/3)] h-[200px] lg:h-[205px]"
-                  : "w-[calc((100%-12px)/2)] h-[200px] lg:h-[205px]"
+                  ? isSectionBanner ? "w-[calc((100%-24px)/3)] h-[140px] lg:h-[145px]" : "w-[calc((100%-24px)/3)] h-[200px] lg:h-[205px]"
+                  : isSectionBanner ? "w-[calc((100%-12px)/2)] h-[140px] lg:h-[145px]" : "w-[calc((100%-12px)/2)] h-[200px] lg:h-[205px]"
               )}
             >
               {banner.isVideo ? (
@@ -322,9 +357,13 @@ const ExperienceBannerCarousel = ({
                         )
                       : undefined
                   }
-                  sizes="(max-width: 768px) 85vw, 420px"
-                  alt={banner.title || section?.title || "Banner"}
-                  className="w-full h-full object-cover object-center pointer-events-none"
+                  sizes={stretchSingle && totalItems === 1
+                    ? "(max-width: 768px) 100vw, 1280px"
+                    : "(max-width: 768px) 85vw, 420px"}
+                  className={cn(
+                    "w-full h-full pointer-events-none",
+                    isSectionBanner ? "object-cover object-center" : "object-cover object-top sm:object-center"
+                  )}
                   loading={idx === 0 ? "eager" : "lazy"}
                   fetchPriority={idx === 0 ? "high" : "low"}
                   decoding="async"

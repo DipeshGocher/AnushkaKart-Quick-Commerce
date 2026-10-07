@@ -163,6 +163,11 @@ const ProductCard = ({ product, className, priority = false }) => {
             src={applyCloudinaryTransform(rawImg, "f_auto,q_auto,w_400")}
             alt={product?.name || "Product"}
             loading={priority ? "eager" : "lazy"}
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.classList.add("opacity-40");
+            }}
             className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover:scale-105"
           />
         ) : (

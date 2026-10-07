@@ -277,7 +277,12 @@ const SearchPage = () => {
                     <img
                       src={applyCloudinaryTransform(item.image, 'f_auto,q_auto,w_100')}
                       alt={item.term}
-                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                      className="w-full h-full object-contain p-0.5"
                     />
                   ) : item.isRecent ? (
                     <History size={16} className="text-slate-500" />

@@ -22,7 +22,12 @@ const CategoryIcon = ({ iconId, imageUrl, alt = 'Category', className = 'w-6 h-6
         src={imageUrl}
         alt={alt}
         style={style}
-        className={`${className} object-cover`}
+        referrerPolicy="no-referrer"
+        onError={(e) => {
+          e.currentTarget.onerror = null;
+          e.currentTarget.style.display = 'none';
+        }}
+        className={`${className} object-contain`}
       />
     );
   }

@@ -33,138 +33,7 @@ const truncateCategoryName = (name, maxLength = 12) => {
   return trimmed;
 };
 
-// Helper to provide rich 3D gradient styling & shadows for category badges matching the "For You" 3D logo
-const getCategory3DTheme = (cat) => {
-  const name = String(cat?.name || "").toLowerCase().trim();
 
-  // Grocery
-  if (
-    name.includes("groc") ||
-    name.includes("kirana") ||
-    name.includes("fresh") ||
-    name.includes("veg") ||
-    name.includes("fruit")
-  ) {
-    return {
-      gradient: "from-[#10b981] via-[#059669] to-[#047857]",
-      accentGlow: "shadow-[0_4px_12px_rgba(16,185,129,0.35)]",
-      border: "border-emerald-300/40",
-    };
-  }
-
-  // Home Appliances / Home & Kitchen
-  if (name.includes("home") || name.includes("appli") || name.includes("kitchen")) {
-    return {
-      gradient: "from-[#f59e0b] via-[#d97706] to-[#b45309]",
-      accentGlow: "shadow-[0_4px_12px_rgba(245,158,11,0.35)]",
-      border: "border-amber-300/40",
-    };
-  }
-
-  // Fashion / Clothing
-  if (
-    name.includes("fashion") ||
-    name.includes("cloth") ||
-    name.includes("wear") ||
-    name.includes("apparel")
-  ) {
-    return {
-      gradient: "from-[#ec4899] via-[#d946ef] to-[#a855f7]",
-      accentGlow: "shadow-[0_4px_12px_rgba(236,72,153,0.35)]",
-      border: "border-pink-300/40",
-    };
-  }
-
-  // Beauty & Skincare / Personal Care
-  if (
-    name.includes("beauty") ||
-    name.includes("skin") ||
-    name.includes("care") ||
-    name.includes("cosmetic")
-  ) {
-    return {
-      gradient: "from-[#f43f5e] via-[#e11d48] to-[#be123c]",
-      accentGlow: "shadow-[0_4px_12px_rgba(244,63,94,0.35)]",
-      border: "border-rose-300/40",
-    };
-  }
-
-  // Mobile / Smartphones
-  if (name.includes("mobile") || name.includes("phone") || name.includes("smart")) {
-    return {
-      gradient: "from-[#0284c7] via-[#0369a1] to-[#075985]",
-      accentGlow: "shadow-[0_4px_12px_rgba(2,132,199,0.35)]",
-      border: "border-sky-300/40",
-    };
-  }
-
-  // Electronics / Gadgets / Tech
-  if (name.includes("electr") || name.includes("tech") || name.includes("gadget")) {
-    return {
-      gradient: "from-[#6366f1] via-[#4f46e5] to-[#4338ca]",
-      accentGlow: "shadow-[0_4px_12px_rgba(99,102,241,0.35)]",
-      border: "border-indigo-300/40",
-    };
-  }
-
-  // Kids / Baby / Toys
-  if (name.includes("kid") || name.includes("baby") || name.includes("toy")) {
-    return {
-      gradient: "from-[#06b6d4] via-[#0891b2] to-[#0e7490]",
-      accentGlow: "shadow-[0_4px_12px_rgba(6,182,212,0.35)]",
-      border: "border-cyan-300/40",
-    };
-  }
-
-  // Sports & Fitness
-  if (name.includes("sport") || name.includes("fitness") || name.includes("gym")) {
-    return {
-      gradient: "from-[#2563eb] via-[#1d4ed8] to-[#1e40af]",
-      accentGlow: "shadow-[0_4px_12px_rgba(37,99,235,0.35)]",
-      border: "border-blue-300/40",
-    };
-  }
-
-  // Pet Supplies
-  if (name.includes("pet") || name.includes("dog") || name.includes("cat")) {
-    return {
-      gradient: "from-[#ea580c] via-[#c2410c] to-[#9a3412]",
-      accentGlow: "shadow-[0_4px_12px_rgba(234,88,12,0.35)]",
-      border: "border-orange-300/40",
-    };
-  }
-
-  // Dynamic vibrant themes for any custom created header category in database
-  const dynamicPalettes = [
-    {
-      gradient: "from-[#8b5cf6] via-[#7c3aed] to-[#6d28d9]",
-      accentGlow: "shadow-[0_4px_12px_rgba(139,92,246,0.35)]",
-      border: "border-purple-300/40",
-    },
-    {
-      gradient: "from-[#14b8a6] via-[#0d9488] to-[#0f766e]",
-      accentGlow: "shadow-[0_4px_12px_rgba(20,184,166,0.35)]",
-      border: "border-teal-300/40",
-    },
-    {
-      gradient: "from-[#f97316] via-[#ea580c] to-[#c2410c]",
-      accentGlow: "shadow-[0_4px_12px_rgba(249,115,22,0.35)]",
-      border: "border-orange-300/40",
-    },
-    {
-      gradient: "from-[#10b981] via-[#059669] to-[#047857]",
-      accentGlow: "shadow-[0_4px_12px_rgba(16,185,129,0.35)]",
-      border: "border-emerald-300/40",
-    },
-  ];
-
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const index = Math.abs(hash) % dynamicPalettes.length;
-  return dynamicPalettes[index];
-};
 
 const ForYouProductsSection = ({ categories: propCategories, latitude, longitude }) => {
   const { openProduct } = useProductDetail();
@@ -394,13 +263,13 @@ const ForYouProductsSection = ({ categories: propCategories, latitude, longitude
             className="flex flex-col items-center shrink-0 cursor-pointer select-none pt-1 group"
           >
             {/* For You 3D Icon */}
-            <div className="w-14 h-11 flex items-center justify-center">
+            <div className="w-[64px] h-[50px] sm:w-[70px] sm:h-[54px] flex items-center justify-center">
               <img
                 src={forYouIconImg}
                 alt="For You"
                 className={cn(
                   "w-full h-full object-contain block drop-shadow-xs transition-transform duration-200",
-                  activeTab === "for_you" ? "scale-105" : "opacity-85 group-hover:opacity-100 group-hover:scale-105"
+                  activeTab === "for_you" ? "scale-105" : "opacity-90 group-hover:opacity-100 group-hover:scale-105"
                 )}
               />
             </div>
@@ -419,18 +288,17 @@ const ForYouProductsSection = ({ categories: propCategories, latitude, longitude
 
             {/* Active Blue Bar Indicator */}
             {activeTab === "for_you" ? (
-              <div className="w-14 h-[3px] bg-[#2874f0] rounded-t-full mt-2 relative z-10 shadow-xs" />
+              <div className="w-[60px] sm:w-[66px] h-[3.5px] bg-[#2874f0] rounded-t-full mt-2 relative z-10 shadow-xs" />
             ) : (
-              <div className="w-14 h-[3px] bg-transparent rounded-t-full mt-2" />
+              <div className="w-[60px] sm:w-[66px] h-[3.5px] bg-transparent rounded-t-full mt-2" />
             )}
           </div>
 
-          {/* 2. Header Categories Tabs with Rich 3D Pill Cards matching For You style */}
+          {/* 2. Header Categories Tabs with Offwhite Pill Cards */}
           {displayHeaders.map((cat) => {
             const catId = String(cat._id || cat.id);
             const isActive = activeTab === catId;
             const displayName = truncateCategoryName(cat.name, 12);
-            const theme = getCategory3DTheme(cat);
 
             return (
               <div
@@ -438,36 +306,29 @@ const ForYouProductsSection = ({ categories: propCategories, latitude, longitude
                 onClick={(e) => handleTabSelect(catId, e.currentTarget)}
                 className="flex flex-col items-center shrink-0 cursor-pointer select-none pt-1 group"
               >
-                {/* 3D Category Pill Card */}
-                <div className="w-14 h-11 flex items-center justify-center relative">
+                {/* Offwhite Category Pill Card with clear image view */}
+                <div className="w-[64px] h-[50px] sm:w-[70px] sm:h-[54px] flex items-center justify-center relative">
                   <div
                     className={cn(
-                      "w-[48px] h-[33px] rounded-[13px] bg-gradient-to-br flex items-center justify-center relative overflow-hidden transition-all duration-300 border select-none",
-                      theme.gradient,
-                      theme.border,
+                      "w-[58px] h-[44px] sm:w-[64px] sm:h-[48px] rounded-[16px] flex items-center justify-center relative overflow-hidden transition-all duration-200 border select-none",
                       isActive
-                        ? `scale-105 ${theme.accentGlow} ring-2 ring-blue-500/30`
-                        : "opacity-85 group-hover:opacity-100 group-hover:scale-105"
+                        ? "bg-white border-[#2874f0] ring-2 ring-blue-500/25 shadow-xs scale-105"
+                        : "bg-[#F8F9FA] border-slate-200/90 shadow-[0_1px_3px_rgba(0,0,0,0.04)] group-hover:bg-slate-100/90 group-hover:border-slate-300 group-hover:scale-105"
                     )}
                   >
-                    {/* Glossy top shine highlight layer */}
-                    <div className="absolute inset-x-0 top-0 h-[48%] bg-gradient-to-b from-white/35 via-white/10 to-transparent pointer-events-none rounded-t-[12px]" />
-                    {/* Subtle bottom shadow depth */}
-                    <div className="absolute inset-x-0 bottom-0 h-[30%] bg-gradient-to-t from-black/25 to-transparent pointer-events-none rounded-b-[12px]" />
-
-                    {/* Category Icon / Image with 3D elevation */}
+                    {/* Category Icon / Image - enlarged & sharp on offwhite background */}
                     {cat.iconImage || (cat.image && !cat.image.includes("placeholder")) ? (
                       <img
                         src={cat.iconImage || cat.image}
                         alt={cat.name}
-                        className="w-6 h-6 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)] relative z-10 transition-transform duration-200 group-hover:scale-110"
+                        className="w-[34px] h-[34px] sm:w-[38px] sm:h-[38px] object-contain relative z-10 transition-transform duration-200 group-hover:scale-105"
                       />
                     ) : (
                       <CategoryIcon
                         iconId={cat.iconId}
                         alt={cat.name}
-                        className="w-5 h-5 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)] relative z-10 transition-transform duration-200 group-hover:scale-110"
-                        style={{ color: "#ffffff" }}
+                        className="w-7 h-7 text-slate-700 relative z-10 transition-transform duration-200 group-hover:scale-105"
+                        style={{ color: "#334155" }}
                       />
                     )}
                   </div>
@@ -487,9 +348,9 @@ const ForYouProductsSection = ({ categories: propCategories, latitude, longitude
 
                 {/* Active Blue Bar Indicator */}
                 {isActive ? (
-                  <div className="w-14 h-[3px] bg-[#2874f0] rounded-t-full mt-2 relative z-10 shadow-xs" />
+                  <div className="w-[60px] sm:w-[66px] h-[3.5px] bg-[#2874f0] rounded-t-full mt-2 relative z-10 shadow-xs" />
                 ) : (
-                  <div className="w-14 h-[3px] bg-transparent rounded-t-full mt-2" />
+                  <div className="w-[60px] sm:w-[66px] h-[3.5px] bg-transparent rounded-t-full mt-2" />
                 )}
               </div>
             );

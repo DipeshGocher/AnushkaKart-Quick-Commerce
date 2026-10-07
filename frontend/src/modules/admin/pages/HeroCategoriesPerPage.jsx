@@ -14,6 +14,44 @@ import { useToast } from "@shared/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import { getDefaultHomeHeroBanners, MIN_HOME_HERO_BANNERS } from "@shared/constants/homeHeroDefaults";
 
+// Default banners for "All" page header category sections
+import freshGroceryAllBanner from "@/assets/banners/fresh_grocery_all_banner.jpg";
+import electronicsAllBanner from "@/assets/banners/electronics_all_banner.jpg";
+import mobilesAllBanner from "@/assets/banners/mobiles_all_banner.jpg";
+import beautyAllBanner from "@/assets/banners/beauty_all_banner.jpg";
+import fashionAllBanner from "@/assets/banners/fashion_all_banner.jpg";
+import homeAllBanner from "@/assets/banners/home_all_banner.jpg";
+
+// Default banners for Category pages
+import groceryBannerImg from "@/assets/banners/groceries_header_banner.jpg";
+import electronicsBannerImg from "@/assets/banners/electronics_section_banner.jpg";
+import mobilesBannerImg from "@/assets/banners/mobiles_section_banner.jpg";
+import beautyBannerImg from "@/assets/banners/beauty_section_banner.jpg";
+import fashionBannerImg from "@/assets/banners/fashion_section_banner.jpg";
+import homeAppliancesBannerImg from "@/assets/banners/home_appliances_section_banner.jpg";
+
+const getDefaultCategoryHeroBanner = (name = "", slug = "") => {
+  const text = `${name || ""} ${slug || ""}`.toLowerCase();
+  if (/grocer/i.test(text)) return groceryBannerImg;
+  if (/electr/i.test(text)) return electronicsBannerImg;
+  if (/mobil|phone|smartphon/i.test(text)) return mobilesBannerImg;
+  if (/beaut|cosmetic|skin/i.test(text)) return beautyBannerImg;
+  if (/fashion|cloth|apparel/i.test(text)) return fashionBannerImg;
+  if (/home|appliance|kitchen/i.test(text)) return homeAppliancesBannerImg;
+  return null;
+};
+
+const getDefaultSectionBannerForCategory = (name = "", slug = "") => {
+  const text = `${name || ""} ${slug || ""}`.toLowerCase();
+  if (/grocer/i.test(text)) return freshGroceryAllBanner;
+  if (/electr/i.test(text)) return electronicsAllBanner;
+  if (/mobil|phone|smartphon/i.test(text)) return mobilesAllBanner;
+  if (/beaut|cosmetic|skin/i.test(text)) return beautyAllBanner;
+  if (/fashion|cloth|apparel/i.test(text)) return fashionAllBanner;
+  if (/home|appliance|kitchen/i.test(text)) return homeAllBanner;
+  return null;
+};
+
 const emptyBannerItem = () => ({
   imageUrl: "",
   title: "",
@@ -39,8 +77,15 @@ export default function HeroCategoriesPerPage() {
   // Custom Top Deals & Best Selling states
   const [formTopDealsTitle, setFormTopDealsTitle] = useState("");
   const [formTopDealsProductIds, setFormTopDealsProductIds] = useState([]);
+  const [formTopDealsBgColor, setFormTopDealsBgColor] = useState("");
+  const [formTopDealsTextColor, setFormTopDealsTextColor] = useState("");
+  const [formTopDealsProductNameColor, setFormTopDealsProductNameColor] = useState("");
+  const [formTopDealsPriceColor, setFormTopDealsPriceColor] = useState("");
   const [formBestSellingTitle, setFormBestSellingTitle] = useState("Best Selling Categories");
   const [formBestSellingCategoryIds, setFormBestSellingCategoryIds] = useState([]);
+  
+  // Custom Category Sections Banners for Home ("All") page
+  const [formSectionBanners, setFormSectionBanners] = useState([]);
 
   // Products available for category top deals selection
   const [categoryProducts, setCategoryProducts] = useState([]);
@@ -58,7 +103,10 @@ export default function HeroCategoriesPerPage() {
       try {
         const treeRes = await adminApi.getCategoryTree();
         const tree = treeRes.data?.results || treeRes.data?.result || [];
-        const headerList = Array.isArray(tree) ? tree : [];
+        const rawHeaders = Array.isArray(tree) ? tree : [];
+        const headerList = rawHeaders.filter(
+          (h) => (h.name?.trim().toLowerCase() !== "all") && (h.slug?.trim().toLowerCase() !== "all")
+        );
         if (cancelled) return;
         setHeaders(headerList);
 
@@ -91,8 +139,10 @@ export default function HeroCategoriesPerPage() {
           },
         ];
 
+        const validHeaderList = headerList;
+
         await Promise.all(
-          headerList.map(async (h) => {
+          validHeaderList.map(async (h) => {
             const res = await adminApi.getHeroConfig({
               pageType: "header",
               headerId: h._id,
@@ -133,6 +183,10 @@ export default function HeroCategoriesPerPage() {
     setFormBanners([emptyBannerItem()]);
     setFormTopDealsTitle("");
     setFormTopDealsProductIds([]);
+    setFormTopDealsBgColor("");
+    setFormTopDealsTextColor("");
+    setFormTopDealsProductNameColor("");
+    setFormTopDealsPriceColor("");
     setFormBestSellingTitle("Best Selling Categories");
     setFormBestSellingCategoryIds([]);
     setCategoryProducts([]);
@@ -148,13 +202,25 @@ export default function HeroCategoriesPerPage() {
       const items = result.banners?.items || [];
       const catIds = result.categoryIds || [];
 
-      setFormBanners(
-        row.pageType === "home" && items.length === 0
-          ? getDefaultHomeHeroBanners().map((banner) => ({ ...banner, isUploading: false }))
-          : items.length
-          ? items.map((b) => ({ ...b, isUploading: false }))
-          : [emptyBannerItem()]
-      );
+      if (row.pageType === "home") {
+        setFormBanners(
+          items.length === 0
+            ? getDefaultHomeHeroBanners().map((banner) => ({ ...banner, isUploading: false }))
+            : items.map((b) => ({ ...b, isUploading: false }))
+        );
+      } else {
+        // Category page: strictly single banner
+        if (items.length > 0) {
+          setFormBanners([{ ...items[0], isUploading: false, isDefault: false }]);
+        } else {
+          const defBanner = getDefaultCategoryHeroBanner(row.label, row.label);
+          setFormBanners([
+            defBanner
+              ? { imageUrl: defBanner, title: row.label, isUploading: false, isDefault: true }
+              : emptyBannerItem(),
+          ]);
+        }
+      }
       setFormCategoryIds(Array.isArray(catIds) ? catIds : []);
 
       if (row.pageType === "home") {
@@ -164,6 +230,36 @@ export default function HeroCategoriesPerPage() {
             ? result.bestSellingCategoryIds.map((c) => String(c?._id || c))
             : []
         );
+
+        // Populate Home category section banners for all active header categories (single banner per section)
+        const savedSections = Array.isArray(result.categorySectionBanners)
+          ? result.categorySectionBanners
+          : [];
+        const validHeaders = headers.filter(
+          (h) => (h.name?.trim().toLowerCase() !== "all") && (h.slug?.trim().toLowerCase() !== "all")
+        );
+
+        const initialSections = validHeaders.map((h) => {
+          const found = savedSections.find((s) => String(s.headerId) === String(h._id));
+          if (found && Array.isArray(found.banners) && found.banners.length > 0) {
+            return {
+              headerId: h._id,
+              headerName: h.name,
+              banners: [{ ...found.banners[0], isUploading: false, isDefault: false }],
+            };
+          }
+          const defBanner = getDefaultSectionBannerForCategory(h.name, h.slug);
+          return {
+            headerId: h._id,
+            headerName: h.name,
+            banners: [
+              defBanner
+                ? { imageUrl: defBanner, title: h.name, isUploading: false, isDefault: true }
+                : emptyBannerItem(),
+            ],
+          };
+        });
+        setFormSectionBanners(initialSections);
       } else {
         setFormTopDealsTitle(result.topDealsTitle || `Top deals on ${row.label}`);
         setFormTopDealsProductIds(
@@ -171,6 +267,10 @@ export default function HeroCategoriesPerPage() {
             ? result.topDealsProductIds.map((p) => String(p?._id || p))
             : []
         );
+        setFormTopDealsBgColor(result.topDealsBgColor || "");
+        setFormTopDealsTextColor(result.topDealsTextColor || "");
+        setFormTopDealsProductNameColor(result.topDealsProductNameColor || "");
+        setFormTopDealsPriceColor(result.topDealsPriceColor || "");
 
         // Fetch products for this category to allow picking top deal products
         setProductsLoading(true);
@@ -239,6 +339,36 @@ export default function HeroCategoriesPerPage() {
     }
   };
 
+  // Section Banner handlers for Home ("All") category sections (strictly single banner per section)
+  const updateSectionBannerItem = (secIdx, changes) => {
+    setFormSectionBanners((prev) => {
+      const next = [...prev];
+      const sec = { ...next[secIdx] };
+      const current = sec.banners?.[0] || emptyBannerItem();
+      sec.banners = [{ ...current, ...changes, isDefault: false }];
+      next[secIdx] = sec;
+      return next;
+    });
+  };
+
+  const handleSectionBannerFileChange = async (secIdx, file) => {
+    if (!file) return;
+    updateSectionBannerItem(secIdx, { isUploading: true });
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+      const res = await adminApi.uploadExperienceBanner(fd);
+      const url = res.data?.result?.url || res.data?.url;
+      if (!url) throw new Error("Upload failed");
+      updateSectionBannerItem(secIdx, { imageUrl: url, isUploading: false, isDefault: false });
+      showToast("Section banner image uploaded successfully", "success");
+    } catch (e) {
+      console.error(e);
+      updateSectionBannerItem(secIdx, { isUploading: false });
+      showToast("Failed to upload section banner image", "error");
+    }
+  };
+
   const toggleCategory = (catId) => {
     setFormCategoryIds((prev) =>
       prev.includes(catId) ? prev.filter((id) => id !== catId) : [...prev, catId]
@@ -260,18 +390,44 @@ export default function HeroCategoriesPerPage() {
   };
 
   const handleSave = async () => {
-    const items = formBanners.filter((b) => b.imageUrl).map((b) => ({
-      imageUrl: b.imageUrl,
-      title: b.title || "",
-      subtitle: b.subtitle || "",
-      linkType: b.linkType || "none",
-      linkValue: b.linkValue || "",
-      status: b.status || "active",
-    }));
-
     if (!editingRow) return;
+
+    // For Home: all valid banners; For category pages: only 1 banner
+    const rawBanners = editingRow.pageType === "home" ? formBanners : formBanners.slice(0, 1);
+    const items = rawBanners
+      .filter((b) => b && b.imageUrl && !b.isDefault)
+      .map((b) => ({
+        imageUrl: b.imageUrl,
+        title: b.title || "",
+        subtitle: b.subtitle || "",
+        linkType: b.linkType || "none",
+        linkValue: b.linkValue || "",
+        status: b.status || "active",
+      }));
+
     setSaving(true);
     try {
+      const cleanedSectionBanners = editingRow.pageType === "home"
+        ? formSectionBanners.map((sec) => {
+            const b = sec.banners?.[0];
+            const hasCustom = b && b.imageUrl && !b.isDefault;
+            return {
+              headerId: sec.headerId,
+              headerName: sec.headerName,
+              banners: hasCustom
+                ? [{
+                    imageUrl: b.imageUrl,
+                    title: b.title || sec.headerName,
+                    subtitle: b.subtitle || "",
+                    linkType: b.linkType || "header",
+                    linkValue: b.linkValue || String(sec.headerId),
+                    status: b.status || "active",
+                  }]
+                : [],
+            };
+          }).filter((sec) => sec.banners.length > 0)
+        : [];
+
       await adminApi.setHeroConfig({
         pageType: editingRow.pageType,
         headerId: editingRow.headerId || undefined,
@@ -279,8 +435,13 @@ export default function HeroCategoriesPerPage() {
         categoryIds: formCategoryIds,
         topDealsTitle: formTopDealsTitle,
         topDealsProductIds: formTopDealsProductIds,
+        topDealsBgColor: formTopDealsBgColor,
+        topDealsTextColor: formTopDealsTextColor,
+        topDealsProductNameColor: formTopDealsProductNameColor,
+        topDealsPriceColor: formTopDealsPriceColor,
         bestSellingTitle: formBestSellingTitle,
         bestSellingCategoryIds: formBestSellingCategoryIds,
+        categorySectionBanners: cleanedSectionBanners,
       });
 
       // Synchronize with platform settings for full dual compatibility
@@ -298,6 +459,10 @@ export default function HeroCategoriesPerPage() {
               [editingRow.headerId]: {
                 title: formTopDealsTitle,
                 productIds: formTopDealsProductIds,
+                bgColor: formTopDealsBgColor,
+                textColor: formTopDealsTextColor,
+                productNameColor: formTopDealsProductNameColor,
+                priceColor: formTopDealsPriceColor,
               },
             },
           });
@@ -391,9 +556,15 @@ export default function HeroCategoriesPerPage() {
                       {row.label}
                     </td>
                     <td className="py-4 text-xs font-semibold text-slate-600">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-black bg-blue-50 text-blue-700">
-                        {row.bannerCount} banner{row.bannerCount !== 1 ? "s" : ""}
-                      </span>
+                      {row.pageType === "home" ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-black bg-blue-50 text-blue-700">
+                          {row.bannerCount} banner{row.bannerCount !== 1 ? "s" : ""} (Carousel)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-black bg-emerald-50 text-emerald-700">
+                          {row.bannerCount > 0 ? "1 banner (Single)" : "Default banner"}
+                        </span>
+                      )}
                     </td>
                     <td className="py-4 text-xs text-slate-600">
                       <div>
@@ -456,22 +627,26 @@ export default function HeroCategoriesPerPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <label className="text-[11px] font-black text-slate-700 uppercase tracking-wider block">
-                    1. Hero Banners ({editingRow.label})
+                    {editingRow.pageType === "home"
+                      ? "1. Hero Banners (All Page Carousel)"
+                      : `1. Hero Banner (${editingRow.label})`}
                   </label>
                   <p className="text-[11px] text-slate-500">
                     {editingRow.pageType === "home"
-                      ? "Main top carousel banners for 'All' (Home) page."
-                      : `Top banner image displayed when visiting the ${editingRow.label} category page.`}
+                      ? "Main top carousel banners for 'All' (Home) page (multiple banners supported)."
+                      : `Top banner image displayed when visiting the ${editingRow.label} category page (single banner only).`}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={addBannerItem}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-white border border-slate-200 text-primary hover:bg-primary/5 cursor-pointer shadow-xs"
-                >
-                  <HiOutlinePlus className="h-3.5 w-3.5" />
-                  Add banner
-                </button>
+                {editingRow.pageType === "home" && (
+                  <button
+                    type="button"
+                    onClick={addBannerItem}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-white border border-slate-200 text-primary hover:bg-primary/5 cursor-pointer shadow-xs"
+                  >
+                    <HiOutlinePlus className="h-3.5 w-3.5" />
+                    Add banner
+                  </button>
+                )}
               </div>
 
               <div className="space-y-3">
@@ -506,18 +681,35 @@ export default function HeroCategoriesPerPage() {
                               >
                                 {item.isUploading ? "Uploading…" : item.imageUrl ? "Replace Image" : "Upload Image"}
                               </label>
-                              <span className="text-[10px] font-semibold text-slate-400">(Recommended 1920 × 500 px or high-res)</span>
+                              {editingRow.pageType !== "home" && !item.isDefault && getDefaultCategoryHeroBanner(editingRow.label, editingRow.label) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const def = getDefaultCategoryHeroBanner(editingRow.label, editingRow.label);
+                                    updateBannerItem(idx, { imageUrl: def, isDefault: true });
+                                  }}
+                                  className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-[10px] font-bold text-slate-600 transition-colors cursor-pointer"
+                                  title="Restore default category banner"
+                                >
+                                  Reset to Default
+                                </button>
+                              )}
+                              <span className="text-[10px] font-semibold text-slate-400">
+                                {editingRow.pageType !== "home" && item.isDefault
+                                  ? "(Current Default Banner)"
+                                  : "(Recommended 1920 × 500 px or high-res)"}
+                              </span>
                             </div>
                             <input
                               value={item.imageUrl || ""}
-                              onChange={(e) => updateBannerItem(idx, { imageUrl: e.target.value })}
+                              onChange={(e) => updateBannerItem(idx, { imageUrl: e.target.value, isDefault: false })}
                               className="w-full px-3 py-1.5 bg-slate-50 rounded-xl text-xs font-medium border border-slate-200 outline-none focus:border-primary"
                               placeholder="Or paste banner image URL..."
                             />
                           </div>
                         </div>
                       </div>
-                      {formBanners.length > 1 && (
+                      {editingRow.pageType === "home" && formBanners.length > 1 && (
                         <button
                           type="button"
                           onClick={() => removeBannerItem(idx)}
@@ -612,6 +804,95 @@ export default function HeroCategoriesPerPage() {
               </div>
             )}
 
+            {/* 3. HOME PAGE: CATEGORY SECTIONS BANNERS ("ALL" PAGE) */}
+            {editingRow.pageType === "home" && (
+              <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/80 space-y-4">
+                <div>
+                  <label className="text-[11px] font-black text-slate-700 uppercase tracking-wider block">
+                    3. Category Sections Banners on "All" Page
+                  </label>
+                  <p className="text-[11px] text-slate-500">
+                    Customize the single banner displayed inside each category section (Grocery, Home Appliances, Fashion, etc.) on the Home ("All") page.
+                  </p>
+                </div>
+
+                <div className="space-y-3.5">
+                  {formSectionBanners.map((sec, secIdx) => {
+                    const bItem = sec.banners?.[0] || emptyBannerItem();
+                    return (
+                      <Card key={sec.headerId || secIdx} className="p-3.5 bg-white border-slate-200/90 shadow-xs space-y-3">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-primary" />
+                            <h4 className="text-xs font-bold text-slate-900">
+                              {sec.headerName} <span className="text-[11px] font-semibold text-slate-400">Section Banner (Single)</span>
+                            </h4>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200/70">
+                          <div className="w-24 h-16 rounded-xl bg-white border border-slate-200 overflow-hidden flex items-center justify-center shrink-0 shadow-2xs">
+                            {bItem.imageUrl ? (
+                              <img
+                                src={bItem.imageUrl}
+                                alt={bItem.title || sec.headerName}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <HiOutlinePhoto className="h-7 w-7 text-slate-300" />
+                            )}
+                          </div>
+
+                          <div className="flex-1 min-w-0 space-y-1.5">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              id={`sec-banner-file-${secIdx}`}
+                              onChange={(e) => handleSectionBannerFileChange(secIdx, e.target.files?.[0])}
+                            />
+                            <div className="flex items-center gap-2">
+                              <label
+                                htmlFor={`sec-banner-file-${secIdx}`}
+                                className="inline-block px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[11px] font-bold text-slate-700 cursor-pointer hover:bg-slate-50 shadow-2xs"
+                              >
+                                {bItem.isUploading ? "Uploading…" : bItem.imageUrl ? "Replace Image" : "Upload Image"}
+                              </label>
+                              {!bItem.isDefault && getDefaultSectionBannerForCategory(sec.headerName) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const defBanner = getDefaultSectionBannerForCategory(sec.headerName);
+                                    updateSectionBannerItem(secIdx, {
+                                      imageUrl: defBanner,
+                                      isDefault: true,
+                                    });
+                                  }}
+                                  className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-[10px] font-bold text-slate-600 transition-colors cursor-pointer"
+                                  title="Restore original pre-configured banner"
+                                >
+                                  Reset to Default
+                                </button>
+                              )}
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                {bItem.isDefault ? "(Current Default Banner)" : "(Recommended 1200 × 500 px)"}
+                              </span>
+                            </div>
+                            <input
+                              value={bItem.imageUrl || ""}
+                              onChange={(e) => updateSectionBannerItem(secIdx, { imageUrl: e.target.value })}
+                              className="w-full px-3 py-1.5 bg-white rounded-xl text-xs font-medium border border-slate-200 outline-none focus:border-primary shadow-2xs"
+                              placeholder="Or paste image URL..."
+                            />
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* 3. CATEGORY PAGES: TOP DEALS SECTION TITLE & PRODUCTS */}
             {editingRow.pageType === "header" && (
               <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/80 space-y-4">
@@ -635,6 +916,160 @@ export default function HeroCategoriesPerPage() {
                     placeholder={`E.g. Top deals on ${editingRow.label}, Mega Savings...`}
                     className="w-full px-3.5 py-2 bg-white rounded-xl text-xs font-bold text-slate-900 border border-slate-200 outline-none focus:border-primary"
                   />
+                </div>
+
+                {/* Colors & Appearance Customization */}
+                <div className="p-3.5 bg-white rounded-xl border border-slate-200/90 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider block">
+                        Top Deals Colors & Styling
+                      </label>
+                      <p className="text-[10px] text-slate-500">
+                        Customize card background color and text colors so it doesn't look too dark.
+                      </p>
+                    </div>
+                    {(formTopDealsBgColor || formTopDealsTextColor || formTopDealsProductNameColor || formTopDealsPriceColor) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormTopDealsBgColor("");
+                          setFormTopDealsTextColor("");
+                          setFormTopDealsProductNameColor("");
+                          setFormTopDealsPriceColor("");
+                        }}
+                        className="text-[10px] font-bold text-rose-500 hover:underline cursor-pointer"
+                      >
+                        Reset to default colors
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* 1. Div / Background Color */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                        Card Background Color
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={formTopDealsBgColor && formTopDealsBgColor.startsWith("#") ? formTopDealsBgColor : "#1e293b"}
+                          onChange={(e) => setFormTopDealsBgColor(e.target.value)}
+                          className="w-8 h-8 rounded-lg border border-slate-200 p-0.5 cursor-pointer shrink-0"
+                          title="Pick background color"
+                        />
+                        <input
+                          type="text"
+                          value={formTopDealsBgColor}
+                          onChange={(e) => setFormTopDealsBgColor(e.target.value)}
+                          placeholder="Default (or hex e.g. #2563eb)"
+                          className="flex-1 px-2.5 py-1.5 bg-slate-50 rounded-lg text-xs font-semibold border border-slate-200 outline-none focus:border-primary"
+                        />
+                      </div>
+                    </div>
+
+                    {/* 2. Heading Text Color */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                        Heading Title Color
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={formTopDealsTextColor && formTopDealsTextColor.startsWith("#") ? formTopDealsTextColor : "#ffffff"}
+                          onChange={(e) => setFormTopDealsTextColor(e.target.value)}
+                          className="w-8 h-8 rounded-lg border border-slate-200 p-0.5 cursor-pointer shrink-0"
+                          title="Pick title color"
+                        />
+                        <input
+                          type="text"
+                          value={formTopDealsTextColor}
+                          onChange={(e) => setFormTopDealsTextColor(e.target.value)}
+                          placeholder="Default (#ffffff)"
+                          className="flex-1 px-2.5 py-1.5 bg-slate-50 rounded-lg text-xs font-semibold border border-slate-200 outline-none focus:border-primary"
+                        />
+                      </div>
+                    </div>
+
+                    {/* 3. Product Name Color */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                        Product Name Color
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={formTopDealsProductNameColor && formTopDealsProductNameColor.startsWith("#") ? formTopDealsProductNameColor : "#ffffff"}
+                          onChange={(e) => setFormTopDealsProductNameColor(e.target.value)}
+                          className="w-8 h-8 rounded-lg border border-slate-200 p-0.5 cursor-pointer shrink-0"
+                          title="Pick product name color"
+                        />
+                        <input
+                          type="text"
+                          value={formTopDealsProductNameColor}
+                          onChange={(e) => setFormTopDealsProductNameColor(e.target.value)}
+                          placeholder="Default (#ffffff)"
+                          className="flex-1 px-2.5 py-1.5 bg-slate-50 rounded-lg text-xs font-semibold border border-slate-200 outline-none focus:border-primary"
+                        />
+                      </div>
+                    </div>
+
+                    {/* 4. Price Color */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                        Price Color
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={formTopDealsPriceColor && formTopDealsPriceColor.startsWith("#") ? formTopDealsPriceColor : "#ffffff"}
+                          onChange={(e) => setFormTopDealsPriceColor(e.target.value)}
+                          className="w-8 h-8 rounded-lg border border-slate-200 p-0.5 cursor-pointer shrink-0"
+                          title="Pick price color"
+                        />
+                        <input
+                          type="text"
+                          value={formTopDealsPriceColor}
+                          onChange={(e) => setFormTopDealsPriceColor(e.target.value)}
+                          placeholder="Default (#ffffff)"
+                          className="flex-1 px-2.5 py-1.5 bg-slate-50 rounded-lg text-xs font-semibold border border-slate-200 outline-none focus:border-primary"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Live Mini Preview */}
+                  <div
+                    className="p-3 rounded-xl border border-white/20 transition-all flex items-center justify-between shadow-2xs"
+                    style={{
+                      background: formTopDealsBgColor || "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+                    }}
+                  >
+                    <div className="space-y-1">
+                      <span
+                        className="text-xs font-bold block"
+                        style={{ color: formTopDealsTextColor || "#ffffff" }}
+                      >
+                        {formTopDealsTitle || `Top deals on ${editingRow.label}`} (Preview)
+                      </span>
+                      <span
+                        className="text-[11px] font-semibold block"
+                        style={{ color: formTopDealsProductNameColor || "#ffffff" }}
+                      >
+                        Sample Product Name
+                      </span>
+                      <span
+                        className="text-[11px] font-black block"
+                        style={{ color: formTopDealsPriceColor || "#ffffff" }}
+                      >
+                        ₹499
+                      </span>
+                    </div>
+                    <div className="px-2.5 py-1 rounded-lg bg-white/10 text-[10px] font-bold text-white/80">
+                      Live Color Preview
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-2">

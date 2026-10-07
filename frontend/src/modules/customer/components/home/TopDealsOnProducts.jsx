@@ -225,7 +225,12 @@ const TopDealsOnProducts = () => {
                               src={applyCloudinaryTransform(image, 'f_auto,q_auto,w_300')}
                               alt={sub.name}
                               loading="lazy"
-                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.classList.add("opacity-40");
+                              }}
+                              className="h-full w-full object-contain p-1 transition-transform duration-300 group-hover:scale-105"
                             />
                           ) : (
                             <ImageOff size={28} className="text-slate-300" aria-hidden="true" />

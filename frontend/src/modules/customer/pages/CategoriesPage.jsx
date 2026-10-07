@@ -216,7 +216,12 @@ const CategoriesPage = () => {
                             src={applyCloudinaryTransform(tile.image, 'f_auto,q_auto,w_300')}
                             alt={tile.name}
                             loading="lazy"
-                            className="h-full w-full object-cover group-hover:scale-105 transition-transform"
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.classList.add("opacity-40");
+                            }}
+                            className="h-full w-full object-contain p-1 group-hover:scale-105 transition-transform"
                         />
                     ) : (
                         <ShoppingBag size={24} className="text-slate-400" />
