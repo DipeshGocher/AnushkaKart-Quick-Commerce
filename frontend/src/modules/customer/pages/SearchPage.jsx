@@ -182,8 +182,8 @@ const SearchPage = () => {
   return (
     <div className="min-h-screen bg-white font-sans text-slate-800 pb-16">
       {/* 1. Header with Search Input */}
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-100 px-3.5 pt-3 pb-2.5 shadow-2xs">
-        <div className="flex items-center gap-2.5">
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-2xs">
+        <div className="max-w-4xl mx-auto px-3.5 pt-3 pb-2.5 flex items-center gap-2.5">
           {/* Back Arrow */}
           <button
             type="button"
@@ -225,24 +225,26 @@ const SearchPage = () => {
 
       {/* 2. Recent Searches Header (when query is empty and recent searches exist) */}
       {!query.trim() && pastSearches.length > 0 && (
-        <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-100 text-xs text-slate-600 font-semibold">
-          <span className="flex items-center gap-1.5">
-            <Clock size={13} className="text-slate-500" />
-            <span>Recent Searches ({pastSearches.length})</span>
-          </span>
-          <button
-            type="button"
-            onClick={handleClearAllHistory}
-            className="text-orange-600 hover:underline text-[11px] font-bold cursor-pointer"
-          >
-            Clear All
-          </button>
+        <div className="bg-slate-50 border-b border-slate-100">
+          <div className="max-w-4xl mx-auto flex items-center justify-between px-4 py-2.5 text-xs text-slate-600 font-semibold">
+            <span className="flex items-center gap-1.5">
+              <Clock size={13} className="text-slate-500" />
+              <span>Recent Searches ({pastSearches.length})</span>
+            </span>
+            <button
+              type="button"
+              onClick={handleClearAllHistory}
+              className="text-orange-600 hover:underline text-[11px] font-bold cursor-pointer"
+            >
+              Clear All
+            </button>
+          </div>
         </div>
       )}
 
       {/* 3. Empty State (when no recent searches and no query typed) */}
       {!query.trim() && pastSearches.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-24 px-4 text-center">
+        <div className="flex flex-col items-center justify-center py-24 px-4 text-center max-w-4xl mx-auto">
           <div className="w-14 h-14 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center mb-3 text-slate-400">
             <History size={24} />
           </div>
@@ -254,7 +256,7 @@ const SearchPage = () => {
       )}
 
       {/* 4. Suggestions / Recent Searches List (Max 12) */}
-      <main className="w-full bg-white divide-y divide-slate-100">
+      <main className="max-w-4xl mx-auto w-full bg-white divide-y divide-slate-100">
         {suggestions.map((item, index) => {
           return (
             <div

@@ -18,6 +18,7 @@ import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 import PageSkeleton from '@/shared/components/PageSkeleton';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import AccountDesktopLayout from '../components/layout/AccountDesktopLayout';
 
 // Filter tabs matching user specification and Flipkart style
 const TABS = [
@@ -139,7 +140,7 @@ const OrdersPage = () => {
     return <PageSkeleton variant="rows" />;
   }
 
-  return (
+  const mobileOrdersView = (
     <div className="min-h-screen bg-white font-sans antialiased text-slate-900">
       {/* Top Header */}
       <header className="sticky top-0 z-30 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
@@ -340,6 +341,154 @@ const OrdersPage = () => {
           })
         )}
       </main>
+    </div>
+  );
+
+  const desktopOrdersContent = (
+    <div className="space-y-4">
+      {/* Search & Tabs */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+        <div className="relative flex-1 max-w-md">
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search your orders here..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-8 py-2 bg-slate-50 hover:bg-slate-100/70 focus:bg-white rounded-xl border border-slate-200 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          {TABS.map((tab) => {
+            const isSelected = selectedTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setSelectedTab(tab.id)}
+                className={cn(
+                  "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer",
+                  isSelected
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                )}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Orders List */}
+      {filteredOrders.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mb-3 text-slate-400">
+            <Package size={26} />
+          </div>
+          <h3 className="text-base font-bold text-slate-900 mb-1">
+            {searchQuery ? 'No matching orders found' : 'No orders found'}
+          </h3>
+          <p className="text-xs text-slate-500 mb-4">
+            {searchQuery ? 'Try searching with different keywords' : 'You have not placed any orders yet'}
+          </p>
+          {selectedTab !== 'all' || searchQuery ? (
+            <button
+              onClick={() => {
+                setSelectedTab('all');
+                setSearchQuery('');
+                setTimeFilter('all');
+              }}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-black hover:bg-slate-800 transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+            >
+              <RotateCcw size={13} />
+              <span>Show All Orders</span>
+            </button>
+          ) : (
+            <Link
+              to="/"
+              className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-black hover:bg-slate-800 transition active:scale-95 cursor-pointer"
+            >
+              Start Shopping
+            </Link>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredOrders.map((order) => {
+            const legacy = getLegacyStatusFromOrder(order);
+            const firstItem = order.items?.[0] || {};
+            const remainingCount = (order.items?.length || 1) - 1;
+            const formattedDate = formatOrderDate(order.createdAt);
+            const totalAmount = order.totalAmount || order.grandTotal || 0;
+
+            return (
+              <Link
+                to={`/orders/${order.orderId || order._id}`}
+                key={order._id || order.orderId}
+                className="block bg-white rounded-xl border border-slate-200 hover:border-slate-300 p-4 transition-all hover:shadow-xs group cursor-pointer"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 overflow-hidden p-1.5">
+                    {firstItem.image ? (
+                      <img
+                        src={applyCloudinaryTransform(firstItem.image, 'f_auto,q_auto,w_200')}
+                        alt={firstItem.name || 'Product'}
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <Package size={24} className="text-slate-400" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-bold text-slate-900 line-clamp-1 group-hover:text-blue-600 transition-colors">
+                      {firstItem.name || 'Order Item'}
+                      {remainingCount > 0 && <span className="text-xs text-slate-400 font-normal"> + {remainingCount} more</span>}
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-1">Order #{order.orderId || String(order._id).slice(-8)}</p>
+                    <p className="text-xs font-semibold text-slate-600 mt-1">Total: <span className="font-bold text-slate-900">₹{totalAmount}</span></p>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <div className="flex items-center gap-1.5 justify-end">
+                      <span className={cn(
+                        "w-2.5 h-2.5 rounded-full shrink-0",
+                        legacy === 'delivered' ? "bg-emerald-500" : legacy === 'cancelled' ? "bg-red-500" : "bg-amber-500"
+                      )} />
+                      <span className="text-xs font-bold text-slate-800 capitalize">
+                        {legacy === 'delivered' ? `Delivered on ${formattedDate}` : legacy === 'cancelled' ? 'Cancelled' : legacy}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-blue-600 font-semibold mt-1 group-hover:underline">View Details →</p>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      <AccountDesktopLayout
+        activeTab="orders"
+        pageTitle="My Orders"
+        mobileContent={mobileOrdersView}
+      >
+        {desktopOrdersContent}
+      </AccountDesktopLayout>
 
       {/* Filters Modal / Bottom Sheet */}
       <AnimatePresence>
@@ -442,7 +591,7 @@ const OrdersPage = () => {
           </div>
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 };
 

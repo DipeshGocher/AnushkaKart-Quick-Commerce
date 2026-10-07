@@ -27,6 +27,13 @@ export const adminCatalogApi = {
     updateProduct: (id, formData) =>
         axiosInstance.put(`/products/${id}`, formData),
     deleteProduct: (id) => axiosInstance.delete(`/products/${id}`),
+
+    // Dynamic Attributes Management
+    getAttributes: (params) => axiosInstance.get('/attributes', { params }),
+    getCategoryAttributes: (categoryId) => axiosInstance.get(`/attributes/category/${categoryId}`),
+    createAttribute: (data) => axiosInstance.post('/attributes', data),
+    updateAttribute: (id, data) => axiosInstance.put(`/attributes/${id}`, data),
+    deleteAttribute: (id) => axiosInstance.delete(`/attributes/${id}`),
 };
 
 export default adminCatalogApi;

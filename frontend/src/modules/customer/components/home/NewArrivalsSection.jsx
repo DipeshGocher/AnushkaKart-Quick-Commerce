@@ -302,13 +302,13 @@ const NewArrivalsSection = ({ latitude, longitude }) => {
   if (isLoading && products.length === 0) {
     return (
       <section
-        className="mx-3.5 md:mx-6 mt-4 overflow-hidden rounded-[24px] bg-[#FFB27F] py-4 px-3 sm:px-4 shadow-sm border border-[#ff9d60]/40"
+        className="mx-3.5 sm:mx-4 md:mx-0 mt-4 overflow-hidden rounded-[24px] bg-[#FFB27F] py-4 px-3 sm:px-4 md:px-6 shadow-sm border border-[#ff9d60]/40"
         aria-label="Loading New Arrivals"
       >
         <div className="flex items-center gap-2 px-1 mb-3">
           <div className="h-6 w-36 bg-white/40 animate-pulse rounded-md" />
         </div>
-        <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-2.5 md:gap-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
               key={i}
@@ -332,7 +332,7 @@ const NewArrivalsSection = ({ latitude, longitude }) => {
   return (
     <div className="w-full">
       <section
-        className="mx-3.5 md:mx-6 mt-4 overflow-hidden rounded-[24px] bg-[#FFB27F] py-4 px-3 sm:px-4 shadow-sm border border-[#ff9d60]/40"
+        className="mx-3.5 sm:mx-4 md:mx-0 mt-4 overflow-hidden rounded-[24px] bg-[#FFB27F] py-4 px-3 sm:px-4 md:px-6 shadow-sm border border-[#ff9d60]/40"
         aria-label="New Arrivals"
       >
         {/* Header with Sparkles Icon */}
@@ -343,8 +343,8 @@ const NewArrivalsSection = ({ latitude, longitude }) => {
           </h2>
         </div>
 
-        {/* 3-in-a-row Grid (Max 30 products / 10 rows) */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+        {/* Responsive Grid: 3 columns on mobile, 4 to 6 columns on desktop */}
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-2.5 md:gap-3">
           {displayProducts.map((product) => (
             <NewArrivalProductCard
               key={product.id || product._id}

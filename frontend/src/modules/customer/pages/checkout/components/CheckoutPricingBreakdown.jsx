@@ -41,18 +41,18 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
   return (
     <>
       {/* Tip for Partner */}
-      <motion.div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl p-4 border border-orange-100">
-        <div className="flex items-center gap-2 mb-3">
-          <Heart size={18} className="text-orange-500 fill-orange-500" />
-          <h3 className="font-black text-slate-800">Tip your delivery partner</h3>
+      <motion.div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl p-4 lg:p-3 border border-orange-100">
+        <div className="flex items-center gap-2 mb-2 lg:mb-1.5">
+          <Heart size={18} className="text-orange-500 fill-orange-500 lg:w-4 lg:h-4" />
+          <h3 className="font-black text-slate-800 text-sm lg:text-xs">Tip your delivery partner</h3>
         </div>
-        <p className="text-xs text-slate-600 mb-3">100% of the tip goes to them</p>
+        <p className="text-xs lg:text-[11px] text-slate-600 mb-2.5 lg:mb-2">100% of the tip goes to them</p>
         <div className="grid grid-cols-4 gap-2">
           {tipAmounts.map((tip) => (
             <button
               key={tip.value}
               onClick={() => onSelectTip(tip.value)}
-              className={`py-2 rounded-xl border-2 transition-all font-bold text-sm ${
+              className={`py-2 lg:py-1.5 rounded-xl border-2 transition-all font-bold text-sm lg:text-xs ${
                 selectedTip === tip.value
                   ? "border-orange-500 bg-orange-100 text-orange-700"
                   : "border-orange-200 bg-white text-slate-700 hover:border-orange-300"
@@ -64,43 +64,43 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
       </motion.div>
 
       {/* Bill Details */}
-      <motion.div className="bg-white rounded-[2rem] p-6 shadow-xl shadow-gray-200/50 border border-slate-100">
-        <div className="flex items-center gap-2 mb-6">
-          <div className="h-10 w-10 rounded-2xl bg-brand-50 flex items-center justify-center">
-            <Clipboard size={20} className="text-primary" />
+      <motion.div className="bg-white rounded-[2rem] lg:rounded-2xl p-6 lg:p-4 shadow-xl shadow-gray-200/50 lg:shadow-xs border border-slate-100">
+        <div className="flex items-center gap-2 mb-6 lg:mb-3">
+          <div className="h-10 w-10 lg:h-8 lg:w-8 rounded-2xl lg:rounded-xl bg-brand-50 flex items-center justify-center">
+            <Clipboard size={20} className="text-primary lg:w-4 lg:h-4" />
           </div>
-          <h3 className="font-[1000] text-slate-800 text-xl tracking-tight uppercase">
+          <h3 className="font-[1000] text-slate-800 text-xl lg:text-sm tracking-tight uppercase">
             Order Summary
           </h3>
         </div>
 
         {previewError && !isPreviewLoading && (
-          <div className="mb-4 px-3 py-3 rounded-xl bg-red-50 border border-red-100 text-red-700 text-xs font-semibold leading-relaxed">
+          <div className="mb-4 lg:mb-2 px-3 py-3 lg:py-2 rounded-xl bg-red-50 border border-red-100 text-red-700 text-xs font-semibold leading-relaxed">
             {previewError}
           </div>
         )}
 
-        <div className="space-y-4">
+        <div className="space-y-4 lg:space-y-2">
           <div className="flex justify-between items-center px-2">
-            <span className="text-slate-500 font-bold text-[13px] uppercase tracking-wider">
+            <span className="text-slate-500 font-bold text-[13px] lg:text-xs uppercase tracking-wider">
               Item Total
             </span>
-            <span className="font-black text-slate-800">
+            <span className="font-black text-slate-800 text-sm lg:text-xs">
               ₹{pricingPreview?.productSubtotal ?? cartTotal}
             </span>
           </div>
           <div className="flex justify-between items-center px-2">
-            <span className="text-slate-500 font-bold text-[13px] uppercase tracking-wider">
+            <span className="text-slate-500 font-bold text-[13px] lg:text-xs uppercase tracking-wider">
               Delivery Fee
             </span>
-            <span className="font-black text-slate-800">
+            <span className="font-black text-slate-800 text-sm lg:text-xs">
               {pricingPreview ? `₹${deliveryFee}` : isPreviewLoading ? "…" : "—"}
             </span>
           </div>
           {pricingPreview &&
             typeof pricingPreview.distanceKmActual === "number" &&
             typeof pricingPreview.distanceKmRounded === "number" && (
-              <div className="px-2 -mt-3 flex items-center justify-between text-[11px] font-semibold text-slate-400">
+              <div className="px-2 -mt-3 lg:-mt-1 flex items-center justify-between text-[11px] lg:text-[10px] font-semibold text-slate-400">
                 <span>
                   Distance: {pricingPreview.distanceKmActual.toFixed(2)} km
                   {pricingPreview.distanceKmRounded
@@ -115,18 +115,18 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
               </div>
             )}
           <div className="flex justify-between items-center px-2">
-            <span className="text-slate-500 font-bold text-[13px] uppercase tracking-wider">
+            <span className="text-slate-500 font-bold text-[13px] lg:text-xs uppercase tracking-wider">
               Handling Fee
             </span>
-            <span className="font-black text-slate-800">
+            <span className="font-black text-slate-800 text-sm lg:text-xs">
               {pricingPreview ? `₹${handlingFee}` : isPreviewLoading ? "…" : "—"}
             </span>
           </div>
           <div className="flex justify-between items-center px-2">
-            <span className="text-slate-500 font-bold text-[13px] uppercase tracking-wider">
+            <span className="text-slate-500 font-bold text-[13px] lg:text-xs uppercase tracking-wider">
               Tax
             </span>
-            <span className="font-black text-slate-800">
+            <span className="font-black text-slate-800 text-sm lg:text-xs">
               {pricingPreview ? `₹${taxAmount}` : isPreviewLoading ? "…" : "—"}
             </span>
           </div>
@@ -167,10 +167,10 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
             </motion.div>
           )}
 
-          <div className="mt-4 pt-6 border-t-2 border-dashed border-slate-100">
+          <div className="mt-4 pt-6 lg:mt-3 lg:pt-3 border-t-2 border-dashed border-slate-100">
             <div className="flex justify-between items-center">
               <div className="flex flex-col">
-                <span className="font-[1000] text-slate-800 text-lg uppercase tracking-tight">
+                <span className="font-[1000] text-slate-800 text-lg lg:text-sm uppercase tracking-tight">
                   {isWalletCovered ? "Fully Covered" : "Total Payable"}
                 </span>
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
@@ -181,7 +181,7 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
                       : "Safe & Secure Payment"}
                 </span>
               </div>
-              <span className="font-[1000] text-primary text-3xl tracking-tighter italic">
+              <span className="font-[1000] text-primary text-3xl lg:text-2xl tracking-tighter italic">
                 {isPreviewLoading
                   ? "Calculating..."
                   : pricingPreview

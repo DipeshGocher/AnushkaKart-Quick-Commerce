@@ -42,8 +42,15 @@ const CategoryManagement = () => {
         description: '',
         status: 'active',
         type: 'header',
-        parentId: ''
+        parentId: '',
+        mappedAttributes: []
     });
+
+    const [allAttributes, setAllAttributes] = useState([]);
+    const [isCreatingAttr, setIsCreatingAttr] = useState(false);
+    const [newAttrName, setNewAttrName] = useState('');
+    const [newAttrType, setNewAttrType] = useState('text');
+    const [newAttrOptions, setNewAttrOptions] = useState('');
 
     const [imageFile, setImageFile] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(null);
@@ -58,9 +65,10 @@ const CategoryManagement = () => {
     const fetchCategories = async () => {
         setIsLoading(true);
         try {
-            const [categoriesRes, parentsRes] = await Promise.all([
+            const [categoriesRes, parentsRes, attributesRes] = await Promise.all([
                 adminApi.getCategories(),
-                adminApi.getParentUnits()
+                adminApi.getParentUnits(),
+                adminApi.getAttributes().catch(() => ({ data: { results: [] } }))
             ]);
 
             if (categoriesRes.data.success) {
@@ -68,6 +76,9 @@ const CategoryManagement = () => {
             }
             if (parentsRes.data.success) {
                 setParentUnits(parentsRes.data.results || parentsRes.data.result || []);
+            }
+            if (attributesRes?.data?.success) {
+                setAllAttributes(attributesRes.data.results || attributesRes.data.result || []);
             }
         } catch (error) {
             toast.error('Failed to fetch data');
@@ -182,7 +193,11 @@ const CategoryManagement = () => {
         try {
             const data = new FormData();
             Object.keys(formData).forEach(key => {
-                data.append(key, formData[key]);
+                if (key === 'mappedAttributes') {
+                    data.append('mappedAttributes', JSON.stringify(formData.mappedAttributes || []));
+                } else {
+                    data.append(key, formData[key]);
+                }
             });
             if (imageFile) {
                 data.append('image', imageFile);
@@ -223,6 +238,40 @@ const CategoryManagement = () => {
         }
     };
 
+    const handleCreateQuickAttribute = async () => {
+        if (!newAttrName.trim()) {
+            toast.error('Attribute name is required');
+            return;
+        }
+        try {
+            const optionsArray = newAttrOptions
+                .split(',')
+                .map(s => s.trim())
+                .filter(Boolean);
+
+            const res = await adminApi.createAttribute({
+                name: newAttrName.trim(),
+                inputType: newAttrType,
+                options: optionsArray
+            });
+
+            if (res.data?.success) {
+                const created = res.data.results || res.data.result;
+                toast.success(`Attribute "${created.name}" created!`);
+                setAllAttributes(prev => [...prev, created]);
+                setFormData(prev => ({
+                    ...prev,
+                    mappedAttributes: [...(prev.mappedAttributes || []), { attributeId: created._id, isRequired: false }]
+                }));
+                setNewAttrName('');
+                setNewAttrOptions('');
+                setIsCreatingAttr(false);
+            }
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to create attribute');
+        }
+    };
+
     const openModal = (type, parentId = '', item = null) => {
         if (item) {
             setFormData({
@@ -231,7 +280,13 @@ const CategoryManagement = () => {
                 description: item.description || '',
                 status: item.status || 'active',
                 type: item.type,
-                parentId: item.parentId || ''
+                parentId: item.parentId || '',
+                mappedAttributes: Array.isArray(item.mappedAttributes)
+                    ? item.mappedAttributes.map(m => ({
+                        attributeId: m.attributeId?._id || m.attributeId,
+                        isRequired: !!m.isRequired
+                    }))
+                    : []
             });
             setEditingItem(item);
             setPreviewUrl(item.image || null);
@@ -243,12 +298,14 @@ const CategoryManagement = () => {
                 description: '',
                 status: 'active',
                 type: type,
-                parentId: parentId || ''
+                parentId: parentId || '',
+                mappedAttributes: []
             });
             setEditingItem(null);
             setPreviewUrl(null);
             setImageFile(null);
         }
+        setIsCreatingAttr(false);
         setIsAddModalOpen(true);
     };
 
@@ -737,6 +794,135 @@ const CategoryManagement = () => {
                                             className="w-full px-4 py-2.5 bg-slate-100/50 border-none rounded-xl text-xs font-bold min-h-[80px] outline-none placeholder:text-slate-300"
                                             placeholder="Briefly describe this group..."
                                         />
+                                    </div>
+
+                                    {/* Assigned Attributes (EAV System) */}
+                                    <div className="space-y-2.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                                Assigned Attributes (EAV System)
+                                            </label>
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsCreatingAttr(!isCreatingAttr)}
+                                                className="text-[10px] font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1"
+                                            >
+                                                <Plus className="h-3 w-3" />
+                                                <span>{isCreatingAttr ? 'Cancel' : 'New Attribute'}</span>
+                                            </button>
+                                        </div>
+
+                                        {isCreatingAttr && (
+                                            <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200/60 space-y-2.5">
+                                                <p className="text-[10px] font-bold text-amber-900 uppercase">Create New Global Attribute</p>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Name (e.g. Dosage, Fabric)"
+                                                        value={newAttrName}
+                                                        onChange={(e) => setNewAttrName(e.target.value)}
+                                                        className="px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-xs font-semibold outline-none"
+                                                    />
+                                                    <select
+                                                        value={newAttrType}
+                                                        onChange={(e) => setNewAttrType(e.target.value)}
+                                                        className="px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-xs font-semibold outline-none"
+                                                    >
+                                                        <option value="text">Text (e.g. 500g, Red)</option>
+                                                        <option value="dropdown">Dropdown (List)</option>
+                                                        <option value="number">Number</option>
+                                                    </select>
+                                                </div>
+                                                {newAttrType === 'dropdown' && (
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Comma-separated options (e.g. 10mg, 20mg, 50mg)"
+                                                        value={newAttrOptions}
+                                                        onChange={(e) => setNewAttrOptions(e.target.value)}
+                                                        className="w-full px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-xs font-semibold outline-none"
+                                                    />
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={handleCreateQuickAttribute}
+                                                    className="px-3 py-1 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-700 transition-colors"
+                                                >
+                                                    Save & Assign
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        <div className="max-h-40 overflow-y-auto space-y-1.5 p-2 bg-slate-50 border border-slate-100 rounded-xl">
+                                            {allAttributes.length === 0 ? (
+                                                <p className="text-[11px] text-slate-400 p-2">No global attributes found. Click 'New Attribute' to create one.</p>
+                                            ) : (
+                                                allAttributes.map((attr) => {
+                                                    const mappedItem = (formData.mappedAttributes || []).find(
+                                                        (m) => String(m.attributeId) === String(attr._id || attr.id)
+                                                    );
+                                                    const isSelected = !!mappedItem;
+
+                                                    return (
+                                                        <div
+                                                            key={attr._id || attr.id}
+                                                            className={cn(
+                                                                "flex items-center justify-between p-2 rounded-lg text-xs transition-all",
+                                                                isSelected ? "bg-white border border-amber-200 shadow-sm" : "hover:bg-slate-100/60"
+                                                            )}
+                                                        >
+                                                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isSelected}
+                                                                    onChange={(e) => {
+                                                                        if (e.target.checked) {
+                                                                            setFormData((prev) => ({
+                                                                                ...prev,
+                                                                                mappedAttributes: [
+                                                                                    ...(prev.mappedAttributes || []),
+                                                                                    { attributeId: attr._id || attr.id, isRequired: false }
+                                                                                ]
+                                                                            }));
+                                                                        } else {
+                                                                            setFormData((prev) => ({
+                                                                                ...prev,
+                                                                                mappedAttributes: (prev.mappedAttributes || []).filter(
+                                                                                    (m) => String(m.attributeId) !== String(attr._id || attr.id)
+                                                                                )
+                                                                            }));
+                                                                        }
+                                                                    }}
+                                                                    className="h-3.5 w-3.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                                                                />
+                                                                <span className="font-bold text-slate-700">{attr.name}</span>
+                                                                <span className="text-[9px] text-slate-400 font-mono">({attr.inputType})</span>
+                                                            </label>
+
+                                                            {isSelected && (
+                                                                <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-slate-600 select-none">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={mappedItem.isRequired}
+                                                                        onChange={(e) => {
+                                                                            const updated = (formData.mappedAttributes || []).map((m) =>
+                                                                                String(m.attributeId) === String(attr._id || attr.id)
+                                                                                    ? { ...m, isRequired: e.target.checked }
+                                                                                    : m
+                                                                            );
+                                                                            setFormData((prev) => ({ ...prev, mappedAttributes: updated }));
+                                                                        }}
+                                                                        className="h-3 w-3 rounded border-rose-300 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                                                                    />
+                                                                    <span className={mappedItem.isRequired ? "text-rose-600 font-bold" : "text-slate-400"}>
+                                                                        Mandatory *
+                                                                    </span>
+                                                                </label>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
                                     </div>
 
                                     <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">

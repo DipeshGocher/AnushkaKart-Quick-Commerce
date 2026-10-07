@@ -111,6 +111,20 @@ const categorySchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    mappedAttributes: [
+      {
+        attributeId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Attribute",
+          required: true,
+        },
+        isRequired: {
+          type: Boolean,
+          default: false,
+        },
+      },
+    
+    ],
   },
   {
     timestamps: true,

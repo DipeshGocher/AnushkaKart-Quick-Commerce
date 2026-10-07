@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { useCart } from "../../context/CartContext";
 import { customerApi } from "../../services/customerApi";
 import CategoryIcon from "@shared/components/CategoryIcon";
-import { MapPin, Home, ChevronRight } from 'lucide-react';
+import { MapPin, Home, ChevronRight, LayoutGrid, ShoppingBag } from 'lucide-react';
 import { getCustomerHeaderColor, buildMiniCartColor, isBrightColor, getCategoryHeaderColor } from "../../utils/headerTheme";
 
 
@@ -186,6 +186,7 @@ const MainLocationHeader = ({
   categories = [],
   activeCategory,
   onCategorySelect,
+  isScrolled: isScrolledProp,
 }) => {
   const { scrollY } = useScroll();
   const { t, language, setLanguage, languages } = useTranslation();
@@ -208,7 +209,8 @@ const MainLocationHeader = ({
 
   const isMobileView = typeof window !== "undefined" && window.innerWidth < 768;
   const [isLocationOpen, setIsLocationOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
+  const [internalScrolled, setInternalScrolled] = useState(false);
+  const isScrolled = isScrolledProp !== undefined ? isScrolledProp : internalScrolled;
   const { currentLocation, refreshLocation, isFetchingLocation } =
     useLocation();
   const { isOpen: isProductDetailOpen } = useProductDetail();
@@ -217,12 +219,13 @@ const MainLocationHeader = ({
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
   useEffect(() => {
+    if (isScrolledProp !== undefined) return;
     let ticking = false;
     const handleScroll = () => {
       if (!ticking) {
         window.requestAnimationFrame(() => {
           const currentY = window.scrollY || document.documentElement.scrollTop || 0;
-          setIsScrolled((prev) => {
+          setInternalScrolled((prev) => {
             if (!prev && currentY > 40) return true;
             if (prev && currentY < 20) return false;
             return prev;
@@ -236,7 +239,7 @@ const MainLocationHeader = ({
     window.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [isScrolledProp]);
 
   useEffect(() => {
     let isMounted = true;
@@ -482,7 +485,7 @@ const MainLocationHeader = ({
 
   return (
     <>
-      <div className="fixed top-0 left-0 right-0 z-[200]">
+      <div className="fixed top-0 left-0 right-0 z-[200] pointer-events-none px-0 md:px-4 lg:px-6">
         <motion.div
           initial={false}
           animate={{
@@ -503,9 +506,9 @@ const MainLocationHeader = ({
             opacity: bgOpacity,
           }}
           className={cn(
-            "customer-location-header px-4 overflow-hidden transform-gpu will-change-transform shadow-[0_8px_24px_rgba(0,0,0,0.12)] backdrop-blur-xl transition-all duration-300 rounded-b-[24px]",
+            "customer-location-header pointer-events-auto w-full md:max-w-7xl md:mx-auto px-4 overflow-hidden transform-gpu will-change-transform shadow-[0_8px_24px_rgba(0,0,0,0.12)] backdrop-blur-xl transition-all duration-300 rounded-b-[24px]",
             (!isAllCategory || isScrolled) && "is-category-mode",
-            isBright ? "is-bright-header border-b border-black/10" : "is-dark-header border-b border-white/10"
+            isBright ? "is-bright-header border-b md:border-x border-black/10" : "is-dark-header border-b md:border-x border-white/10"
           )}>
           <div className="absolute inset-0 pointer-events-none" style={{ background: isAllCategory ? 'linear-gradient(180deg, rgba(255,255,255,0.34) 0%, rgba(234,244,255,0.22) 100%)' : 'none' }} />
           <div className="absolute inset-x-0 top-0 h-px bg-white/40 pointer-events-none" />
@@ -522,7 +525,7 @@ const MainLocationHeader = ({
           <div className={cn("absolute inset-x-0 bottom-0 h-px pointer-events-none", isAllCategory ? "bg-blue-200/80" : "hidden")} />
 
           {/* Desktop/Tablet Header Layout (md and above) */}
-          <div className={cn("hidden md:flex items-center justify-between relative z-20 px-2 lg:px-6 transition-all duration-300 mt-1", (isAllCategory && isScrolled) ? "mb-2" : "mb-8")}>
+          <div className={cn("hidden md:flex items-center justify-between relative z-20 w-full max-w-7xl mx-auto px-4 lg:px-8 transition-all duration-300 mt-1", (isAllCategory && isScrolled) ? "mb-2" : "mb-8")}>
             {/* Left Section: Logo + Location row */}
             <div className="flex items-center gap-4 lg:gap-8">
               <div
@@ -583,7 +586,31 @@ const MainLocationHeader = ({
             </div>
 
             {/* Right Section: clean icons over the glossy header */}
-            <div className="flex items-center gap-3.5 lg:gap-5 shrink-0">
+            <div className="flex items-center gap-2.5 lg:gap-3.5 shrink-0">
+              {/* Categories Button (Website / Desktop only) */}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => navigate("/categories")}
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 hover:bg-white text-slate-700 hover:text-primary transition-all cursor-pointer font-bold text-xs shadow-xs border border-slate-200/80"
+                title="All Categories"
+              >
+                <LayoutGrid size={15} className="text-primary shrink-0" />
+                <span>Categories</span>
+              </motion.button>
+
+              {/* Products Button (Website / Desktop only) */}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => navigate("/products")}
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 hover:bg-white text-slate-700 hover:text-emerald-700 transition-all cursor-pointer font-bold text-xs shadow-xs border border-slate-200/80"
+                title="All Products"
+              >
+                <ShoppingBag size={15} className="text-emerald-600 shrink-0" />
+                <span>Products</span>
+              </motion.button>
+
               {/* Cart Button */}
               <motion.button
                 whileHover={{ scale: 1.08, rotate: 5 }}
@@ -708,7 +735,7 @@ const MainLocationHeader = ({
           </div>
 
           {/* Categories Navigation Row (Icons & Names exactly like image) */}
-          <div className="relative w-full overflow-visible">
+          <div className="relative w-full max-w-7xl mx-auto overflow-visible">
             {/* Scroll arrows: desktop only */}
             {showLeftArrow && (
               <button
@@ -753,13 +780,13 @@ const MainLocationHeader = ({
               </div>
             </div>
 
-            {/* Desktop wrapper: full scrollable row */}
+            {/* Desktop wrapper: centered scrollable row */}
             <motion.div
               ref={navRef}
               style={{ height: (isAllCategory && !isScrolled) ? "80px" : "40px", opacity: 1, marginTop: 4 }}
               className={cn(
-                "relative z-10 -mx-2 hidden md:flex overflow-x-auto overflow-y-visible px-4 no-scrollbar scroll-smooth",
-                (isAllCategory && !isScrolled) ? "items-end gap-2 pb-1.5" : "items-end gap-3.5 pb-0"
+                "relative z-10 w-full hidden md:flex overflow-x-auto overflow-y-visible px-4 no-scrollbar scroll-smooth justify-center",
+                (isAllCategory && !isScrolled) ? "items-end gap-2.5 pb-1.5" : "items-end gap-4 pb-0"
               )}
             >
               {categories.map((cat) => (

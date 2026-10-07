@@ -208,9 +208,9 @@ const CategoriesPage = () => {
                 key={tile.id}
                 to={targetUrl}
                 state={navState}
-                className="group flex min-w-0 flex-col items-center text-center"
+                className="group flex min-w-0 flex-col items-center text-center p-1 md:p-1.5 rounded-2xl md:hover:bg-slate-50/80 transition-colors"
             >
-                <span className="customer-category-tile-image flex h-[76px] w-[76px] aspect-square items-center justify-center overflow-hidden rounded-[20px] bg-[#f4f4f4] hover:bg-[#eaeaea] border border-[#e5e7eb] p-0 transition-all duration-150 group-hover:border-slate-300 group-active:scale-95 shadow-2xs">
+                <span className="customer-category-tile-image flex h-[76px] w-[76px] md:h-[82px] md:w-[82px] aspect-square items-center justify-center overflow-hidden rounded-[20px] md:rounded-2xl bg-[#f4f4f4] hover:bg-[#eaeaea] md:hover:bg-white border border-[#e5e7eb] p-0 transition-all duration-150 group-hover:border-slate-300 md:group-hover:border-primary/40 group-active:scale-95 shadow-2xs md:group-hover:shadow-md">
                     {tile.image ? (
                         <img
                             src={applyCloudinaryTransform(tile.image, 'f_auto,q_auto,w_300')}
@@ -222,7 +222,7 @@ const CategoriesPage = () => {
                         <ShoppingBag size={24} className="text-slate-400" />
                     )}
                 </span>
-                <span className="mt-1.5 line-clamp-2 min-h-[26px] max-w-[78px] text-center text-[11px] font-semibold leading-[14px] text-[#0a2540] group-hover:text-primary tracking-tight">
+                <span className="mt-1.5 line-clamp-2 min-h-[26px] max-w-[78px] md:max-w-[88px] text-center text-[11px] md:text-xs font-semibold leading-[14px] text-[#0a2540] group-hover:text-primary tracking-tight">
                     {tile.name}
                 </span>
             </Link>
@@ -230,10 +230,10 @@ const CategoriesPage = () => {
     };
 
     return (
-        <div className="customer-categories-page min-h-screen bg-white pb-24 font-sans">
+        <div className="customer-categories-page min-h-screen md:h-screen md:overflow-hidden bg-white pb-24 md:pb-0 font-sans">
             {/* ── 1. Seamless White Header (No border or shadow, mixing into page) ── */}
-            <header className="customer-categories-header sticky top-0 z-40 bg-white">
-                <div className="flex h-14 items-center justify-between gap-3 px-4">
+            <header className="customer-categories-header sticky top-0 z-40 bg-white border-b border-transparent md:border-slate-100">
+                <div className="flex h-14 items-center justify-between gap-3 px-4 max-w-7xl mx-auto">
                     <div className="flex min-w-0 items-center gap-2">
                         <button
                             type="button"
@@ -247,7 +247,16 @@ const CategoriesPage = () => {
                             All Categories
                         </h1>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2.5 md:gap-4">
+                        {/* Quick link to Products on Desktop */}
+                        <Link
+                            to="/products"
+                            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
+                            title="All Products"
+                        >
+                            <ShoppingBag size={15} className="text-emerald-600" />
+                            <span>Products</span>
+                        </Link>
                         <button
                             type="button"
                             onClick={() => setIsSearchOpen((open) => !open)}
@@ -375,7 +384,7 @@ const CategoriesPage = () => {
                                             <h2 className="mb-3 text-[15px] font-bold tracking-tight text-[#171717]">
                                                 {header.name}
                                             </h2>
-                                            <div className="grid grid-cols-3 gap-x-3 gap-y-4 sm:gap-x-4 sm:gap-y-5">
+                                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-3 gap-y-4 sm:gap-4 md:gap-3 lg:gap-4">
                                                 {header.categories.map((cat) => renderTile(cat))}
                                             </div>
                                         </div>
@@ -393,7 +402,7 @@ const CategoriesPage = () => {
                                         {query && section.categories.length === 0 ? (
                                             <div className="py-6 text-center text-xs text-slate-500">No categories matching “{searchQuery}”.</div>
                                         ) : (
-                                            <div className="grid grid-cols-3 gap-x-3 gap-y-4 sm:gap-x-4 sm:gap-y-5">
+                                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-3 gap-y-4 sm:gap-4 md:gap-3 lg:gap-4">
                                                 {section.categories.map((cat) => renderTile(cat))}
                                             </div>
                                         )}
@@ -407,7 +416,7 @@ const CategoriesPage = () => {
                                                     <div className="h-px flex-1 bg-slate-200" />
                                                 </div>
 
-                                                <div className="grid grid-cols-3 gap-x-3 gap-y-4 sm:gap-x-4 sm:gap-y-5 pb-6">
+                                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-3 gap-y-4 sm:gap-4 md:gap-3 lg:gap-4 pb-6">
                                                     {allSubcategories.map((sub) => renderTile(sub, true))}
                                                 </div>
                                             </>

@@ -16,6 +16,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { customerApi } from '../services/customerApi';
 import { useLocation } from '../context/LocationContext';
+import AccountDesktopLayout from '../components/layout/AccountDesktopLayout';
 
 const AddressesPage = () => {
     const navigate = useNavigate();
@@ -279,7 +280,7 @@ const AddressesPage = () => {
         }
     };
 
-    return (
+    const mobileAddressesView = (
         <div className="min-h-screen bg-[#f1f4f8] pb-24 font-['Outfit',_sans-serif]">
             <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 pt-4 pb-3 border-b border-slate-100 mb-4 flex items-center gap-2">
                 <button
@@ -365,6 +366,107 @@ const AddressesPage = () => {
                     ))}
                 </div>
             </div>
+        </div>
+    );
+
+    const desktopAddressesContent = (
+        <div className="space-y-6">
+            {/* Add New Address Button */}
+            <div className="flex justify-between items-center pb-2">
+                <p className="text-sm text-slate-500 font-medium">
+                    {addresses.length} Saved {addresses.length === 1 ? 'Address' : 'Addresses'}
+                </p>
+                <button
+                    onClick={openAddModal}
+                    className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-colors flex items-center gap-2 shadow-xs cursor-pointer"
+                >
+                    <Plus size={16} strokeWidth={2.5} />
+                    <span>Add New Address</span>
+                </button>
+            </div>
+
+            {/* Address Cards Grid */}
+            {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[0, 1].map((i) => (
+                        <div key={i} className="bg-slate-50 rounded-2xl p-5 border border-slate-200 animate-pulse space-y-3">
+                            <div className="h-5 w-28 rounded bg-slate-200" />
+                            <div className="h-4 w-4/5 rounded bg-slate-200" />
+                            <div className="h-4 w-2/3 rounded bg-slate-200" />
+                        </div>
+                    ))}
+                </div>
+            ) : addresses.length === 0 ? (
+                <div className="bg-slate-50 rounded-2xl p-8 border border-dashed border-slate-200 text-center">
+                    <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 mx-auto mb-3">
+                        <MapPin size={22} />
+                    </div>
+                    <p className="text-slate-800 font-bold text-sm mb-1">No saved addresses found</p>
+                    <p className="text-slate-500 text-xs mb-4">Add your delivery address to proceed with orders quickly</p>
+                    <button
+                        onClick={openAddModal}
+                        className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition cursor-pointer"
+                    >
+                        Add Address
+                    </button>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {addresses.map((addr) => (
+                        <div
+                            key={addr.id}
+                            className="bg-white rounded-2xl p-5 border border-slate-200 hover:border-slate-300 shadow-2xs relative flex flex-col justify-between transition-all"
+                        >
+                            {addr.isDefault && (
+                                <div className="absolute top-0 right-0 bg-blue-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl uppercase tracking-wider">
+                                    Default
+                                </div>
+                            )}
+
+                            <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-bold uppercase tracking-wider">
+                                        {addr.type}
+                                    </span>
+                                    <span className="text-sm font-bold text-slate-900">{addr.name}</span>
+                                </div>
+                                <p className="text-slate-600 text-xs leading-relaxed mb-1">{addr.address}</p>
+                                <p className="text-slate-500 text-xs font-medium mb-2">
+                                    {[addr.city, addr.state, addr.pincode].filter(Boolean).join(', ')}
+                                </p>
+                                <p className="text-slate-700 font-bold text-xs">Phone: {addr.phone}</p>
+                            </div>
+
+                            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2">
+                                <button
+                                    onClick={() => handleEdit(addr)}
+                                    className="flex-1 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold text-xs transition flex items-center justify-center gap-1.5 border border-slate-200 cursor-pointer"
+                                >
+                                    <Edit2 size={13} /> Edit
+                                </button>
+                                <button
+                                    onClick={() => handleDelete(addr)}
+                                    className="flex-1 py-1.5 rounded-lg bg-slate-50 hover:bg-red-50 text-slate-700 hover:text-red-600 font-semibold text-xs transition flex items-center justify-center gap-1.5 border border-slate-200 cursor-pointer"
+                                >
+                                    <Trash2 size={13} /> Delete
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+
+    return (
+        <>
+            <AccountDesktopLayout
+                activeTab="addresses"
+                pageTitle="Manage Addresses"
+                mobileContent={mobileAddressesView}
+            >
+                {desktopAddressesContent}
+            </AccountDesktopLayout>
 
             {/* Add Address Modal */}
             <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
@@ -513,7 +615,7 @@ const AddressesPage = () => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </>
     );
 };
 

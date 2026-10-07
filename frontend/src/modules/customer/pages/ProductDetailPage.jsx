@@ -13,21 +13,21 @@ const ProductDetailPage = () => {
   const navigate = useNavigate();
 
   const headerSlug = String(params.headerSlug || '').toLowerCase();
-  if (headerSlug && RESERVED_MODULE_SLUGS.has(headerSlug)) {
-    navigate(`/${headerSlug}`, { replace: true });
-    return null;
-  }
-
   const productId = searchParams.get('id') || params.id || params.productSlug;
 
   useEffect(() => {
+    if (headerSlug && RESERVED_MODULE_SLUGS.has(headerSlug)) {
+      navigate(`/${headerSlug}`, { replace: true });
+      return;
+    }
+
     if (productId) {
       // Redirect with ?product query param which automatically triggers ProductDetailSheet globally
       navigate(`/?product=${encodeURIComponent(productId)}`, { replace: true });
     } else {
       navigate('/', { replace: true });
     }
-  }, [productId, navigate]);
+  }, [headerSlug, productId, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-white">

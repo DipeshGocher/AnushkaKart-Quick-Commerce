@@ -129,8 +129,8 @@ const Header = () => {
                     {/* Desktop Navigation */}
                     <nav className="hidden md:flex items-center gap-6">
                         <Link to="/" className="text-sm font-semibold text-white transition-opacity hover:opacity-80">Home</Link>
-
                         <Link to="/categories" className="text-sm font-semibold text-white transition-opacity hover:opacity-80">Categories</Link>
+                        <Link to="/products" className="text-sm font-semibold text-white transition-opacity hover:opacity-80">Products</Link>
                         <Link to="/offers" className="text-sm font-semibold text-white transition-opacity hover:opacity-80">Offers</Link>
                     </nav>
 

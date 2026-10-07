@@ -1084,6 +1084,23 @@ export const createProduct = async (req, res) => {
       }));
     }
 
+    if (typeof productData.dynamicAttributes === "string") {
+      try {
+        productData.dynamicAttributes = JSON.parse(productData.dynamicAttributes);
+      } catch (e) {
+        // Not JSON
+      }
+    }
+    if (Array.isArray(productData.dynamicAttributes)) {
+      productData.dynamicAttributes = productData.dynamicAttributes
+        .filter((item) => item && (item.name || item.value))
+        .map((item) => ({
+          attributeId: item.attributeId || null,
+          name: String(item.name || "").trim(),
+          value: String(item.value || "").trim(),
+        }));
+    }
+
     if (!productData.name) {
       return handleResponse(res, 400, "Product name is required");
     }
@@ -1368,6 +1385,23 @@ export const updateProduct = async (req, res) => {
       }));
     }
 
+    if (typeof productData.dynamicAttributes === "string") {
+      try {
+        productData.dynamicAttributes = JSON.parse(productData.dynamicAttributes);
+      } catch (e) {
+        // Not JSON
+      }
+    }
+    if (Array.isArray(productData.dynamicAttributes)) {
+      productData.dynamicAttributes = productData.dynamicAttributes
+        .filter((item) => item && (item.name || item.value))
+        .map((item) => ({
+          attributeId: item.attributeId || null,
+          name: String(item.name || "").trim(),
+          value: String(item.value || "").trim(),
+        }));
+    }
+
     if (productData.name) {
       if (!productData.slug || productData.slug.trim() === "") {
         productData.slug = slugify(productData.name);
@@ -1577,7 +1611,7 @@ export const getProductById = async (req, res) => {
         const query = isObjectId ? { _id: id } : { slug: id };
         return Product.findOne(query)
           .select(
-            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId isMonthlyKit status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights createdAt",
+            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId isMonthlyKit status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights specifications dynamicAttributes createdAt",
           )
           .populate("headerId", "name slug")
           .populate("categoryId", "name slug")
@@ -1910,13 +1944,15 @@ export const getHeaderProducts = async (req, res) => {
     ]);
 
     const bannerByHeaderId = new Map();
+    const bannersByHeaderId = new Map();
     (heroConfigs || []).forEach((hc) => {
       if (hc.headerId) {
-        const activeItem = (hc.banners?.items || []).find(
+        const activeItems = (hc.banners?.items || []).filter(
           (b) => b.status !== "inactive" && b.imageUrl
         );
-        if (activeItem?.imageUrl) {
-          bannerByHeaderId.set(hc.headerId.toString(), activeItem.imageUrl);
+        if (activeItems.length > 0) {
+          bannerByHeaderId.set(hc.headerId.toString(), activeItems[0].imageUrl);
+          bannersByHeaderId.set(hc.headerId.toString(), activeItems);
         }
       }
     });
@@ -1973,6 +2009,7 @@ export const getHeaderProducts = async (req, res) => {
               .lean();
           }
 
+          const cmsBanners = bannersByHeaderId.get(header._id.toString()) || [];
           const cmsBanner = bannerByHeaderId.get(header._id.toString()) || header.banner || null;
 
           return {
@@ -1982,6 +2019,7 @@ export const getHeaderProducts = async (req, res) => {
               slug: header.slug,
               image: header.image || null,
               banner: cmsBanner,
+              banners: cmsBanners,
               iconId: header.iconId || null,
               headerColor: header.headerColor || null,
               headerFontColor: header.headerFontColor || null,

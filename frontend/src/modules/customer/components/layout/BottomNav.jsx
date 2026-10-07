@@ -6,7 +6,12 @@ import { motion } from 'framer-motion';
 
 const isRouteActive = (itemPath, currentPath) => {
     if (itemPath === '/') {
-        return currentPath === '/' || currentPath === '/offers';
+        if (currentPath === '/' || currentPath === '/offers') return true;
+        const segments = currentPath.split('/').filter(Boolean);
+        if (segments.length === 1 && !['categories', 'category', 'products', 'product', 'cart', 'checkout', 'profile', 'orders', 'wishlist', 'addresses', 'settings', 'help', 'search', 'chat', 'notifications', 'shop-by-store'].includes(segments[0])) {
+            return true;
+        }
+        return false;
     }
     if (itemPath === '/categories') {
         return currentPath.startsWith('/categories') || currentPath.startsWith('/category');
@@ -293,7 +298,13 @@ const BottomNav = () => {
 
         // 1. Tapping Home
         if (item.path === '/') {
-            if (location.pathname === '/') {
+            const segments = location.pathname.split('/').filter(Boolean);
+            const isHeaderCategoryRoute = segments.length === 1 && !['categories', 'category', 'products', 'product', 'cart', 'checkout', 'profile', 'orders', 'wishlist', 'addresses', 'settings', 'help', 'search', 'chat', 'notifications', 'shop-by-store'].includes(segments[0]);
+
+            if (location.pathname === '/' || isHeaderCategoryRoute) {
+                if (location.pathname !== '/') {
+                    navigate('/');
+                }
                 window.dispatchEvent(new CustomEvent('anushkakart:reset-home-category'));
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;

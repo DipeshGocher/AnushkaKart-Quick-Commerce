@@ -26,22 +26,26 @@ import {
   UserCheck,
   ScrollText,
   Image as ImageIcon,
+  Palette,
 } from "lucide-react";
 
+import lazyWithRetry from "@/core/utils/lazyWithRetry";
+
+const LayoutBranding = lazyWithRetry(() => import("../pages/LayoutBranding"));
 const Dashboard = React.lazy(() => import("../pages/Dashboard"));
-const CategoryManagement = React.lazy(
+const CategoryManagement = lazyWithRetry(
   () => import("../pages/CategoryManagement"),
 );
-const HeaderCategories = React.lazy(
+const HeaderCategories = lazyWithRetry(
   () => import("../pages/categories/HeaderCategories"),
 );
-const Level2Categories = React.lazy(
+const Level2Categories = lazyWithRetry(
   () => import("../pages/categories/Level2Categories"),
 );
-const SubCategories = React.lazy(
+const SubCategories = lazyWithRetry(
   () => import("../pages/categories/SubCategories"),
 );
-const CategoryHierarchy = React.lazy(
+const CategoryHierarchy = lazyWithRetry(
   () => import("../pages/categories/CategoryHierarchy"),
 );
 const ProductManagement = React.lazy(
@@ -237,6 +241,13 @@ const navItems = [
     label: "Admin CMS",
   },
 
+  {
+    label: "Layout & Branding",
+    path: "/admin/layout-branding",
+    icon: Palette,
+    color: "indigo",
+  },
+
   // ── CMS PAGES (Banners, new banners, texts & content) ──
   {
     label: "Hero & Page Banners",
@@ -333,6 +344,7 @@ export const adminRoutes = [
   { path: "orders/view/:orderId", element: <OrderDetail /> },
   { path: "returns", element: <Returns /> },
   { path: "billing", element: <BillingCharges /> },
+  { path: "layout-branding", element: <LayoutBranding /> },
   { path: "settings", element: <AdminSettings /> },
   { path: "legal-pages", element: <LegalPageEditor /> },
   { path: "*", element: <Navigate to="/admin" replace /> },

@@ -91,8 +91,10 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
     const hideCartRoutes = ['/checkout', '/search', '/chat'];
 
     // If props are passed, use them. Otherwise, use route-based logic.
-    const isHierarchicalProduct = Boolean(new URLSearchParams(location.search).get('id') || (path.split('/').filter(Boolean).length >= 2 && !['category', 'orders', 'profile', 'seller', 'admin', 'delivery'].includes(path.split('/').filter(Boolean)[0])));
-    const showHeader = showHeaderProp !== undefined ? showHeaderProp : (!hideHeaderRoutes.includes(path) && !path.startsWith('/category') && !path.startsWith('/orders') && !path.startsWith('/products') && !path.startsWith('/product') && !isHierarchicalProduct);
+    const pathSegments = path.split('/').filter(Boolean);
+    const isHeaderCategoryRoute = pathSegments.length === 1 && !hideHeaderRoutes.includes(path) && !['offers', 'shop-by-store'].includes(pathSegments[0]);
+    const isHierarchicalProduct = Boolean(new URLSearchParams(location.search).get('id') || (pathSegments.length >= 2 && !['category', 'orders', 'profile', 'seller', 'admin', 'delivery'].includes(pathSegments[0])));
+    const showHeader = showHeaderProp !== undefined ? showHeaderProp : (!hideHeaderRoutes.includes(path) && !isHeaderCategoryRoute && !path.startsWith('/category') && !path.startsWith('/orders') && !path.startsWith('/products') && !path.startsWith('/product') && !isHierarchicalProduct);
     const showBottomNav = showBottomNavProp !== undefined ? showBottomNavProp : !hideBottomNavRoutes.includes(path);
     const showCart = showCartProp !== undefined ? showCartProp : (!hideCartRoutes.includes(path) && !path.startsWith('/orders'));
 
@@ -123,7 +125,7 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
                 </>
             )}
 
-            <main className={cn("flex-1 md:pb-0 overflow-x-clip", showHeader ? "pt-[100px] md:pt-[130px]" : "pt-0")}>
+            <main className={cn("flex-1 flex flex-col md:pb-0 overflow-x-clip", showHeader ? "pt-[100px] md:pt-[130px]" : "pt-0")}>
                 <div className="w-full flex-1 flex flex-col">
                     {children}
                 </div>
@@ -135,15 +137,15 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
 
             {/* Footer logic: render only for laptop, desktop, and large screen devices (hidden on mobile, tablet, iPad) */}
             {showFooter && (
-                <div className="hidden lg:block">
+                <div className="hidden lg:block mt-auto w-full">
                     <Footer />
                 </div>
             )}
 
-            {/* Spacer to push content above the fixed BottomNav */}
+            {/* Spacer to push content above the fixed BottomNav (mobile only) */}
             {showBottomNav && !isProductDetailOpen && (
                 <div 
-                    className="w-full shrink-0" 
+                    className="w-full shrink-0 md:hidden" 
                     style={{ height: "calc(4.5rem + env(safe-area-inset-bottom, 0px))" }} 
                     aria-hidden="true" 
                 />

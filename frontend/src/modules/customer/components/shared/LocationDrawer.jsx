@@ -341,15 +341,17 @@ const LocationDrawer = ({ isOpen, onClose }) => {
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[600]"
           />
 
-          <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            data-lenis-prevent
-            style={{ overscrollBehavior: "contain" }}
-            className="fixed bottom-0 left-0 right-0 bg-[#F3F4F6] rounded-t-[32px] z-[610] max-h-[90vh] overflow-y-auto outline-none shadow-2xl pb-8">
-            {/* Header */}
+          <div className="fixed inset-0 z-[610] flex items-end md:items-center justify-center p-0 md:p-4 pointer-events-none">
+            <motion.div
+              initial={{ y: "100%", opacity: 0.8 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 26, stiffness: 220 }}
+              data-lenis-prevent
+              style={{ overscrollBehavior: "contain" }}
+              className="pointer-events-auto w-full md:max-w-lg bg-[#F3F4F6] rounded-t-[32px] md:rounded-3xl max-h-[90vh] md:max-h-[85vh] overflow-y-auto outline-none shadow-2xl pb-8 md:pb-6 border-t md:border border-slate-200/60"
+            >
+              {/* Header */}
             <div className="sticky top-0 bg-[#F3F4F6] px-6 pt-6 pb-4 flex flex-col gap-4 z-20">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-extrabold text-[#1A1A1A]">
@@ -546,6 +548,7 @@ const LocationDrawer = ({ isOpen, onClose }) => {
               </div>
             </div>
           </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>

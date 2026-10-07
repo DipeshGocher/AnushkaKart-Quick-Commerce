@@ -252,6 +252,7 @@ const AppRouter = () => {
                         { path: ':headerSlug/:categorySlug/:subCategorySlug/:productSlug', element: <HierarchicalProductRoute /> },
                         { path: ':headerSlug/:categorySlug/:productSlug', element: <HierarchicalProductRoute /> },
                         { path: ':headerSlug/:productSlug', element: <HierarchicalProductRoute /> },
+                        { path: ':headerSlug', element: <Home /> },
                     ]
                 },
                 {

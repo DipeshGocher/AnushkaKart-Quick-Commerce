@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate, useLocation as useRouterLocation } from "react-router-dom";
+import { useNavigate, useLocation as useRouterLocation, useParams } from "react-router-dom";
+import { slugify } from "@/core/utils/productUrl";
 import { useInViewAnimation } from "@/core/hooks/useInViewAnimation";
 import { Sparkles, Heart, Snowflake, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -217,6 +218,7 @@ const getCachedHomePageData = (location) =>
   homePageDataCache.get(getHomePageDataCacheKey(location)) || null;
 
 const Home = () => {
+  const { headerSlug } = useParams();
   const { scrollY } = useScroll();
   const { user } = useAuth();
   const { isOpen: isProductDetailOpen } = useProductDetail();
@@ -226,6 +228,30 @@ const Home = () => {
   const routerLocation = useRouterLocation();
   const quickCatsRef = useRef(null);
   const cachedHomePageData = getCachedHomePageData(currentLocation);
+
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentY = window.scrollY || document.documentElement.scrollTop || 0;
+          setIsScrolled((prev) => {
+            if (!prev && currentY > 40) return true;
+            if (prev && currentY < 20) return false;
+            return prev;
+          });
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const { language } = useTranslation();
   const { getTranslatedText } = usePageTranslation(homeStaticTexts);
@@ -249,11 +275,39 @@ const Home = () => {
   const [categories, setCategories] = useState(() => cachedHomePageData?.categories || [ALL_CATEGORY]);
   const [activeCategory, setActiveCategory] = useState(() => cachedHomePageData?.activeCategory || ALL_CATEGORY);
 
+  // Synchronize activeCategory with URL route :headerSlug
+  useEffect(() => {
+    if (!categories || categories.length <= 1) return;
+
+    if (!headerSlug || headerSlug.toLowerCase() === 'all') {
+      const allCat = categories.find((c) => c._id === 'all' || c.id === 'all' || c.slug === 'all') || ALL_CATEGORY;
+      if (activeCategory?._id !== allCat._id) {
+        setActiveCategory(allCat);
+      }
+      return;
+    }
+
+    const targetSlug = slugify(headerSlug);
+    const matchedCategory = categories.find((c) => {
+      const catSlug = slugify(c.slug || c.name || '');
+      return catSlug === targetSlug;
+    });
+
+    if (matchedCategory) {
+      if (String(activeCategory?._id || activeCategory?.id) !== String(matchedCategory._id || matchedCategory.id)) {
+        setActiveCategory(matchedCategory);
+      }
+    }
+  }, [headerSlug, categories]);
+
   // Reset activeCategory to "All" when Home tab is clicked in BottomNav
   useEffect(() => {
     const handleResetHome = () => {
       const allCat = categories.find((c) => c._id === 'all' || c.id === 'all') || ALL_CATEGORY;
       setActiveCategory(allCat);
+      if (headerSlug) {
+        navigate('/', { replace: false });
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -261,16 +315,19 @@ const Home = () => {
     return () => {
       window.removeEventListener('anushkakart:reset-home-category', handleResetHome);
     };
-  }, [categories]);
+  }, [categories, headerSlug, navigate]);
 
   // Also reset to "All" when navigated from another page with state.resetToAll
   useEffect(() => {
     if (routerLocation.state?.resetToAll) {
       const allCat = categories.find((c) => c._id === 'all' || c.id === 'all') || ALL_CATEGORY;
       setActiveCategory(allCat);
+      if (headerSlug) {
+        navigate('/', { replace: false });
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [routerLocation.state, categories]);
+  }, [routerLocation.state, categories, headerSlug, navigate]);
   const [products, setProducts] = useState(() => cachedHomePageData?.products || []);
   const productsRef = useRef(cachedHomePageData?.products || []);
   const [quickCategories, setQuickCategories] = useState(() => cachedHomePageData?.quickCategories || []);
@@ -391,6 +448,11 @@ const Home = () => {
     setOfferSections(data.offerSections || []);
     if (data.heroConfig) setHeroConfig(data.heroConfig);
     setActiveCategory((prev) => {
+      if (headerSlug && headerSlug.toLowerCase() !== 'all') {
+        const targetSlug = slugify(headerSlug);
+        const matchFromUrl = (data.categories || []).find((c) => slugify(c.slug || c.name || '') === targetSlug);
+        if (matchFromUrl) return matchFromUrl;
+      }
       const parsed = getJSON(STORAGE_KEYS.EXPERIENCE_RETURN, null, { storage: "session" });
       if (parsed?.headerId) {
         const match = (data.formattedHeaders || []).find((h) => h._id === parsed.headerId);
@@ -660,7 +722,7 @@ const Home = () => {
   }, [displayHeaderSections, displayExperienceSections]);
   const isMobile = useMemo(() => isMobileOrWebView(), []);
   const opacity = useTransform(scrollY, (heroVisible && !isMobile) ? [0, 300] : [0, 0], [1, 0.6]);
-  const y = useTransform(scrollY, (heroVisible && !isMobile) ? [0, 300] : [0, 0], [0, 80]);
+  const y = useTransform(scrollY, (heroVisible && !isMobile) ? [0, 300] : [0, 0], [0, 0]);
   const scale = useTransform(scrollY, (heroVisible && !isMobile) ? [0, 300] : [0, 0], [1, 0.95]);
   const pointerEvents = useTransform(scrollY, (heroVisible && !isMobile) ? [0, 100] : [0, 0], ["auto", "none"]);
 
@@ -677,11 +739,18 @@ const Home = () => {
   };
 
   const handleCategorySelect = (cat) => {
-    const isAll = !cat || cat.id === "all" || cat._id === "all" || cat.slug === "all";
+    const isAll = !cat || cat.id === "all" || cat._id === "all" || cat.slug === "all" || (cat.name && cat.name.toLowerCase() === "all");
     if (isAll) {
       setActiveCategory(ALL_CATEGORY);
+      if (headerSlug) {
+        navigate('/', { replace: false });
+      }
     } else {
       setActiveCategory(cat);
+      const catSlug = slugify(cat.slug || cat.name);
+      if (catSlug && catSlug !== headerSlug) {
+        navigate(`/${catSlug}`, { replace: false });
+      }
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -689,11 +758,18 @@ const Home = () => {
   return (
     <div
       className={cn(
-        "min-h-screen bg-white transition-all duration-300",
-        isAllCategorySelected ? "pt-[290px] md:pt-[264px]" : "pt-[100px] md:pt-[106px]"
+        "min-h-screen bg-white transition-all duration-300 ease-out",
+        isAllCategorySelected
+          ? (isScrolled ? "pt-[118px] md:pt-[136px]" : "pt-[275px] sm:pt-[280px] md:pt-[200px]")
+          : "pt-[122px] sm:pt-[130px] md:pt-[160px] lg:pt-[165px]"
       )}
     >
-      <MainLocationHeader categories={displayCategories} activeCategory={activeCategory} onCategorySelect={handleCategorySelect} />
+      <MainLocationHeader 
+        categories={displayCategories} 
+        activeCategory={activeCategory} 
+        onCategorySelect={handleCategorySelect}
+        isScrolled={isScrolled}
+      />
 
       {isLoading ? <PageSkeleton variant="home-content" /> : <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -701,38 +777,25 @@ const Home = () => {
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       >
         {isAllCategorySelected && (() => {
-          const hasVideo = settings?.homeVideoBanner?.isVisible && settings.homeVideoBanner.videoUrl;
           const configuredBanners = (heroConfig.banners?.items || []).filter(
             (b) => b && b.imageUrl && b.status !== "inactive"
           );
           const homeBanners = configuredBanners.length > 0
             ? configuredBanners
             : getDefaultHomeHeroBanners();
-          const hasBanners = homeBanners.length > 0;
-          if (!hasVideo && !hasBanners) return null;
-
-          const combinedItems = [];
-          if (hasVideo) {
-            combinedItems.push({
-              isVideo: true,
-              videoUrl: settings.homeVideoBanner.videoUrl,
-            });
-          }
-          if (hasBanners) {
-            combinedItems.push(...homeBanners);
-          }
+          if (homeBanners.length === 0) return null;
 
           return (
             <motion.div ref={heroRef} className="block will-change-transform pt-0" style={isMobile ? { opacity: 1 } : { opacity, y, scale, pointerEvents }}>
-              <div className="w-full mt-2.5 mb-1 relative z-20 overflow-hidden">
+              <div className="w-full max-w-7xl mx-auto px-0 md:px-4 lg:px-6 mt-3 sm:mt-3.5 md:mt-4 mb-1 relative z-20 overflow-hidden">
                 <ExperienceBannerCarousel
                   section={{ title: "" }}
-                  items={combinedItems}
+                  items={homeBanners}
                   fullWidth
                   edgeToEdge
                   peekNext={true}
-                  autoPlayInterval={2000}
-                  showDots={false}
+                  autoPlayInterval={2500}
+                  showDots={true}
                   showContentOverlay={false}
                 />
               </div>
@@ -740,43 +803,57 @@ const Home = () => {
           );
         })()}
 
-        {isAllCategorySelected && <AllCategoriesGreeting categories={allMainCategories} firstName={firstName} />}
+        {isAllCategorySelected && (
+          <div className="w-full max-w-7xl mx-auto px-0 md:px-4 lg:px-6">
+            <AllCategoriesGreeting categories={allMainCategories} firstName={firstName} />
+          </div>
+        )}
         {isAllCategorySelected && <TopDealsOnProducts latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} />}
         {isAllCategorySelected && <HeaderCategoryProductsSection latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} />}
-        {isAllCategorySelected && <NewArrivalsSection latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} />}
-
         {isAllCategorySelected && (
-          <div
-            className="mx-3.5 md:mx-6 mt-4 mb-2 overflow-hidden rounded-2xl md:rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-slate-100/80 bg-white cursor-pointer hover:opacity-95 transition-all"
-            onClick={() => {
-              window.scrollTo({ top: 0, behavior: "smooth" });
-              navigate("/category/all");
-            }}
-          >
-            <img
-              src={quickCommerceBanner}
-              alt="Anushka Store Quick Commerce - Daily Essentials Delivered in Minutes"
-              className="w-full h-auto object-cover block"
-              loading="lazy"
-            />
+          <div className="w-full max-w-7xl mx-auto px-0 md:px-4 lg:px-6">
+            <NewArrivalsSection latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} />
           </div>
         )}
 
         {isAllCategorySelected && (
-          <ForYouProductsSection
-            categories={displayCategories}
-            latitude={currentLocation?.latitude}
-            longitude={currentLocation?.longitude}
-          />
+          <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-4 md:px-6 my-4">
+            <div
+              className="overflow-hidden rounded-2xl md:rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-slate-100/80 bg-white cursor-pointer hover:opacity-95 transition-all"
+              onClick={() => {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+                navigate("/category/all");
+              }}
+            >
+              <img
+                src={quickCommerceBanner}
+                alt="Anushka Store Quick Commerce - Daily Essentials Delivered in Minutes"
+                className="w-full h-[135px] sm:h-[155px] md:h-[185px] lg:h-[200px] object-cover block"
+                loading="lazy"
+              />
+            </div>
+          </div>
+        )}
+
+        {isAllCategorySelected && (
+          <div className="w-full max-w-7xl mx-auto px-0 md:px-4 lg:px-6">
+            <ForYouProductsSection
+              categories={displayCategories}
+              latitude={currentLocation?.latitude}
+              longitude={currentLocation?.longitude}
+            />
+          </div>
         )}
 
         {!isAllCategorySelected && (
-          <HeaderCategoryPageView
-            headerCategory={activeCategory}
-            categoryMap={displayCategoryMap}
-            subcategoryMap={displaySubcategoryMap}
-            currentLocation={currentLocation}
-          />
+          <div className="w-full max-w-7xl mx-auto px-0 md:px-4 lg:px-6">
+            <HeaderCategoryPageView
+              headerCategory={activeCategory}
+              categoryMap={displayCategoryMap}
+              subcategoryMap={displaySubcategoryMap}
+              currentLocation={currentLocation}
+            />
+          </div>
         )}
       </motion.div>}
     </div>

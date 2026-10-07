@@ -359,11 +359,49 @@ const ProductsPage = () => {
         </button>
       </div>
 
-      {/* 3. Product Listing Grid (Flipkart-Style 2 items per row) */}
-      <main className="px-4 py-3 pb-24">
+      {/* 3. Product Listing Grid (Flipkart-Style responsive desktop grid) */}
+      <main className="max-w-7xl mx-auto w-full px-4 py-3 pb-24">
+        {/* Desktop Breadcrumbs (hidden on mobile) */}
+        <nav className="hidden md:flex items-center gap-2 py-2 text-xs text-slate-500 font-medium border-b border-slate-100 mb-3">
+          <button onClick={() => navigate('/')} className="hover:text-blue-600 transition-colors cursor-pointer">Home</button>
+          <span className="text-slate-300">/</span>
+          <span className="text-slate-600 font-semibold">Products</span>
+          {searchQuery && (
+            <>
+              <span className="text-slate-300">/</span>
+              <span className="text-slate-900 font-bold">"{searchQuery}"</span>
+            </>
+          )}
+        </nav>
+
+        {/* Desktop Sort Bar (hidden on mobile) */}
+        <div className="hidden md:flex items-center gap-2 py-2 border-b border-slate-100 mb-4">
+          <span className="text-xs font-bold text-slate-700 uppercase tracking-wider mr-1">Sort By</span>
+          {[
+            { id: 'relevance', label: 'Relevance' },
+            { id: 'price_asc', label: 'Price -- Low to High' },
+            { id: 'price_desc', label: 'Price -- High to Low' },
+            { id: 'popularity', label: 'Popularity' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveSort(tab.id)}
+              className={cn(
+                "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                activeSort === tab.id
+                  ? "bg-blue-600 text-white font-bold shadow-xs"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-x-3 gap-y-5">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
               <div key={i} className="flex flex-col animate-pulse">
                 <div className="w-full rounded-[12px] bg-[#F0F0F0]" style={{ aspectRatio: '0.88' }} />
                 <div className="mt-2.5 h-3.5 bg-slate-100 rounded-md w-3/4" />
@@ -396,7 +434,7 @@ const ProductsPage = () => {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-x-3 gap-y-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5">
             {displayProducts.map((product) => (
               <ProductCard
                 key={product.id || product._id}

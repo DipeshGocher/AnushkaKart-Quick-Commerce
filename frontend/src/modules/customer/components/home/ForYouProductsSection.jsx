@@ -502,8 +502,8 @@ const ForYouProductsSection = ({ categories: propCategories, latitude, longitude
 
       {/* Initial Loading Skeleton */}
       {isLoading && products.length === 0 && (
-        <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-4">
-          {[...Array(6)].map((_, i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-4 md:gap-x-5 gap-y-4 sm:gap-y-6 px-3.5 sm:px-4 md:px-0">
+          {[...Array(10)].map((_, i) => (
             <div key={i} className="bg-white flex flex-col animate-pulse">
               <div
                 className="w-full rounded-[12px] bg-[#F0F0F0] mb-2.5"
@@ -525,9 +525,9 @@ const ForYouProductsSection = ({ categories: propCategories, latitude, longitude
         </div>
       )}
 
-      {/* 2 Products per row grid matching Flipkart-style cards (16px outer padding, 12px col gap, 20px row gap) */}
+      {/* Responsive Products Grid: 2 per row on mobile, 4 to 5 per row on desktop matching Flipkart */}
       {products.length > 0 && (
-        <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-4 md:gap-x-5 gap-y-4 sm:gap-y-6 px-3.5 sm:px-4 md:px-0">
           {products.map((item) => (
             <ProductCard
               key={item._id || item.id}

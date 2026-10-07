@@ -43,6 +43,32 @@ export const DEFAULT_SETTINGS = {
     sellerCreateRequiresApproval: false,
     sellerEditRequiresApproval: false,
   },
+  footerMessage: "Sab kuchh ek basket mein",
+  footerEmoji: "❤️",
+  footerDescription: "Your daily dose of fresh, organic, and healthy products delivered straight to your door. Freshness guaranteed.",
+  footerQuickLinksTitle: "Quick Links",
+  footerQuickLinks: [
+    { label: "Home", url: "/" },
+    { label: "About Us", url: "/about" },
+    { label: "Shop Products", url: "/products" },
+    { label: "Special Offers", url: "/offers" },
+    { label: "Contact & Help", url: "/support" },
+  ],
+  footerCategoriesTitle: "Categories",
+  footerCategoriesLinks: [
+    { label: "All Categories", url: "/categories" },
+    { label: "Groceries & Daily Essentials", url: "/category/Grocery" },
+    { label: "Fashion & Apparel", url: "/category/Fashion" },
+    { label: "Electronics & Gadgets", url: "/category/Electronics" },
+    { label: "Home & Kitchen Appliances", url: "/category/Home%20Appliances" },
+  ],
+  footerContactTitle: "Contact Us",
+  footerCopyright: "",
+  footerPrivacyUrl: "/privacy",
+  footerTermsUrl: "/support",
+  footerBgColor: "",
+  footerEnabled: true,
+
 };
 
 /**

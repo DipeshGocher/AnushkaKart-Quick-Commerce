@@ -1154,7 +1154,7 @@ const CheckoutPage = () => {
           </div>
 
           {/* Right Column */}
-          <div className="lg:col-span-5 xl:col-span-4 space-y-6 lg:sticky lg:top-8 lg:h-[calc(100vh-4rem)] lg:overflow-y-auto no-scrollbar pb-32 lg:pb-8">
+          <div className="lg:col-span-5 xl:col-span-4 space-y-4 lg:space-y-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-1.5rem)] lg:overflow-y-auto custom-scrollbar pb-32 lg:pb-4">
             {/* Coupon Section */}
             <CheckoutCouponSection
               coupons={coupons}
@@ -1195,7 +1195,7 @@ const CheckoutPage = () => {
             />
 
             {/* Desktop Slide to Pay */}
-            <div className="hidden lg:block">
+            <div className="hidden lg:block pt-1">
               <SlideToPay
                 amount={finalAmountToPay}
                 onSuccess={handlePlaceOrder}
@@ -1206,7 +1206,7 @@ const CheckoutPage = () => {
                     : "Order Now"
                 }
               />
-              <p className="text-center text-[10px] text-slate-400 font-bold mt-4 uppercase tracking-[0.1em]">
+              <p className="text-center text-[10px] text-slate-400 font-bold mt-2 uppercase tracking-[0.1em]">
                 🔒 SSL encrypted secure checkout
               </p>
             </div>
@@ -1340,6 +1340,10 @@ const CheckoutPage = () => {
           __html: `
             .no-scrollbar::-webkit-scrollbar { display: none; }
             .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+            .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+            .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+            .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
           `,
         }}
       />

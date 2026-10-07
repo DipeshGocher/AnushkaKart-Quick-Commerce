@@ -11,6 +11,7 @@ import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
 import { useTranslation } from '@core/context/LanguageContext';
 import { cn } from '@/lib/utils';
+import AccountDesktopLayout from '../components/layout/AccountDesktopLayout';
 
 const ProfilePage = () => {
     const { user, logout } = useAuth();
@@ -42,9 +43,8 @@ const ProfilePage = () => {
         return raw;
     };
 
-    return (
-        <>
-            <div className="customer-profile-page min-h-screen bg-[#f1f4f8] pb-20 font-['Outfit',_sans-serif]">
+    const mobileProfileView = (
+        <div className="customer-profile-page min-h-screen bg-[#f1f4f8] pb-20 font-['Outfit',_sans-serif]">
             {/* Header without Back Button */}
             <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 pt-4 pb-3 border-b border-slate-100 mb-4 flex items-center justify-between shadow-2xs">
                 <h1 className="text-xl font-bold text-slate-900 tracking-tight">{t('myProfile')}</h1>
@@ -176,6 +176,79 @@ const ProfilePage = () => {
 
             </div>
         </div>
+    );
+
+    const desktopProfileContent = (
+        <div className="space-y-8 max-w-2xl">
+            {/* Personal Information */}
+            <div>
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-base font-bold text-slate-800">Personal Information</h2>
+                    <Link
+                        to="/profile/edit"
+                        className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1.5"
+                    >
+                        <Edit2 size={13} />
+                        <span>Edit Details</span>
+                    </Link>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Full Name</p>
+                        <p className="text-sm font-bold text-slate-800 mt-1">{user?.name || 'Customer'}</p>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Account Type</p>
+                        <p className="text-sm font-bold text-slate-800 mt-1">Personal Account</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Contact Information */}
+            <div>
+                <h2 className="text-base font-bold text-slate-800 mb-4">Contact Information</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Mobile Number</p>
+                        <p className="text-sm font-bold text-slate-800 mt-1">+91 {formatIndiaPhone(user?.phone)}</p>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Email Address</p>
+                        <p className="text-sm font-bold text-slate-800 mt-1">{user?.email || 'Not provided'}</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* FAQs / Account Management */}
+            <div className="pt-4 border-t border-slate-100 space-y-4">
+                <h2 className="text-base font-bold text-slate-800">FAQs & Account Settings</h2>
+                <div className="space-y-2 text-sm text-slate-600">
+                    <p className="font-semibold text-slate-800">What happens when I update my email address (or mobile number)?</p>
+                    <p className="text-xs text-slate-500 leading-relaxed">Your login identifier will be updated. You'll receive all future notifications on the updated contact address.</p>
+                </div>
+
+                <div className="pt-4">
+                    <button
+                        onClick={() => setShowDeleteModal(true)}
+                        className="text-xs font-bold text-red-600 hover:text-red-700 hover:underline flex items-center gap-1.5 cursor-pointer"
+                    >
+                        <AlertTriangle size={14} />
+                        <span>Delete Account</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    return (
+        <>
+            <AccountDesktopLayout
+                activeTab="profile"
+                pageTitle="Profile Information"
+                mobileContent={mobileProfileView}
+            >
+                {desktopProfileContent}
+            </AccountDesktopLayout>
 
         {/* Logout Confirmation Modal */}
         {showLogoutModal && (

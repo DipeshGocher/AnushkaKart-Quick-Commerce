@@ -38,15 +38,15 @@ const CheckoutCouponSection = React.memo(function CheckoutCouponSection({
   return (
     <>
       {/* Inline coupon carousel */}
-      <motion.div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-        <div className="flex items-center justify-between mb-3">
+      <motion.div className="bg-white rounded-2xl lg:rounded-2xl p-4 lg:p-3 shadow-sm border border-slate-100">
+        <div className="flex items-center justify-between mb-3 lg:mb-2">
           <div className="flex items-center gap-2">
-            <Tag size={20} className="text-primary" />
-            <h3 className="font-black text-slate-800">Available Coupons</h3>
+            <Tag size={20} className="text-primary lg:w-4 lg:h-4" />
+            <h3 className="font-black text-slate-800 text-sm lg:text-xs">Available Coupons</h3>
           </div>
           <button
             onClick={() => onOpenChange(true)}
-            className="text-primary text-sm font-bold hover:underline">
+            className="text-primary text-sm lg:text-xs font-bold hover:underline">
             See All
           </button>
         </div>

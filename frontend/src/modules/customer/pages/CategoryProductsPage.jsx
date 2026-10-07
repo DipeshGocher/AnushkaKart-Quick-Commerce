@@ -91,6 +91,7 @@ const CategoryProductsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isProductsLoading, setIsProductsLoading] = useState(true);
+  const [sortBy, setSortBy] = useState('relevance');
 
   const selectedSubCatRef = useRef(null);
 
@@ -368,8 +369,17 @@ const CategoryProductsPage = () => {
       });
     }
 
+    // Apply sorting
+    if (sortBy === 'price_asc') {
+      list = [...list].sort((a, b) => (Number(a.salePrice || a.price || 0)) - (Number(b.salePrice || b.price || 0)));
+    } else if (sortBy === 'price_desc') {
+      list = [...list].sort((a, b) => (Number(b.salePrice || b.price || 0)) - (Number(a.salePrice || a.price || 0)));
+    } else if (sortBy === 'newest') {
+      list = [...list].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    }
+
     return list;
-  }, [products, selectedSubCatId, availableSubCategories, searchQuery]);
+  }, [products, selectedSubCatId, availableSubCategories, searchQuery, sortBy]);
 
   // Backend search fallback on Enter to fetch all matching category products
   const handleSearchKeyDown = async (e) => {
@@ -506,6 +516,29 @@ const CategoryProductsPage = () => {
 
       {/* ── Main Content Container ── */}
       <main className="max-w-7xl mx-auto w-full flex-1">
+        {/* Desktop Breadcrumbs (hidden on mobile) */}
+        <nav className="hidden md:flex items-center gap-2 px-4 py-2.5 text-xs text-slate-500 font-medium">
+          <button onClick={() => navigate('/')} className="hover:text-blue-600 transition-colors cursor-pointer">Home</button>
+          <span className="text-slate-300">/</span>
+          {activeHeader && (
+            <>
+              <button onClick={() => navigate(`/${activeHeader.slug || ''}`)} className="hover:text-blue-600 transition-colors cursor-pointer">
+                {activeHeader.name}
+              </button>
+              <span className="text-slate-300">/</span>
+            </>
+          )}
+          {activeMainCategory && (
+            <>
+              <span className="text-slate-600 font-semibold">{activeMainCategory.name}</span>
+              {selectedSubCategory && <span className="text-slate-300">/</span>}
+            </>
+          )}
+          {selectedSubCategory && (
+            <span className="text-slate-900 font-bold">{selectedSubCategory.name}</span>
+          )}
+        </nav>
+
         {isLoading ? (
           <div className="p-4 space-y-4">
             <div className="h-20 bg-slate-200 animate-pulse rounded-2xl" />
@@ -640,10 +673,35 @@ const CategoryProductsPage = () => {
               )}
             </div>
 
-            {/* ── ALL PRODUCTS (2 IN ONE ROW GRID) ── */}
+            {/* Desktop Sort By Tabs Bar */}
+            <div className="hidden md:flex items-center gap-2 px-4 py-2 border-b border-slate-100 my-2">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider mr-1">Sort By</span>
+              {[
+                { id: 'relevance', label: 'Relevance' },
+                { id: 'price_asc', label: 'Price -- Low to High' },
+                { id: 'price_desc', label: 'Price -- High to Low' },
+                { id: 'newest', label: 'Newest First' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setSortBy(tab.id)}
+                  className={cn(
+                    "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                    sortBy === tab.id
+                      ? "bg-blue-600 text-white font-bold shadow-xs"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* ── ALL PRODUCTS (Responsive Grid: 2 cols on mobile, 4-5 on desktop) ── */}
             {isProductsLoading ? (
-              <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-4 pb-24 pt-2">
-                {[...Array(6)].map((_, i) => (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 px-4 pb-24 pt-2">
+                {[...Array(10)].map((_, i) => (
                   <div key={i} className="flex flex-col animate-pulse">
                     <div className="w-full rounded-[12px] bg-[#F0F0F0]" style={{ aspectRatio: '0.88' }} />
                     <div className="mt-2.5 h-3.5 bg-slate-100 rounded-md w-3/4" />
@@ -715,7 +773,7 @@ const CategoryProductsPage = () => {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-4 pb-24 pt-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 px-4 pb-24 pt-2">
                 {filteredProducts.map((product) => (
                   <ProductCard
                     key={product.id || product._id}

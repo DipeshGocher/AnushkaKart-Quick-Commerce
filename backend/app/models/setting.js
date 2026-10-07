@@ -112,6 +112,55 @@ const settingSchema = new mongoose.Schema(
             type: String,
             default: "❤️",
         },
+        footerDescription: {
+            type: String,
+            default: "Your daily dose of fresh, organic, and healthy products delivered straight to your door. Freshness guaranteed.",
+        },
+        footerQuickLinksTitle: {
+            type: String,
+            default: "Quick Links",
+        },
+        footerQuickLinks: [
+            {
+                label: { type: String, trim: true },
+                url: { type: String, trim: true },
+            },
+        ],
+        footerCategoriesTitle: {
+            type: String,
+            default: "Categories",
+        },
+        footerCategoriesLinks: [
+            {
+                label: { type: String, trim: true },
+                url: { type: String, trim: true },
+            },
+        ],
+        footerContactTitle: {
+            type: String,
+            default: "Contact Us",
+        },
+        footerCopyright: {
+            type: String,
+            default: "",
+        },
+        footerPrivacyUrl: {
+            type: String,
+            default: "/privacy",
+        },
+        footerTermsUrl: {
+            type: String,
+            default: "/support",
+        },
+        footerBgColor: {
+            type: String,
+            default: "",
+        },
+        footerEnabled: {
+            type: Boolean,
+            default: true,
+        },
+
 
         // Optional: multi-tenant (null = default tenant)
         tenantId: {
@@ -282,30 +331,6 @@ const settingSchema = new mongoose.Schema(
                     buttonLink: { type: String, default: "/" },
                 }
             ]
-        },
-        homeVideoBanner: {
-            videoUrl: {
-                type: String,
-                default: "",
-            },
-            isVisible: {
-                type: Boolean,
-                default: false,
-            },
-        },
-        weather: {
-            isEnabled: {
-                type: Boolean,
-                default: true,
-            },
-            condition: {
-                type: String,
-                default: "Rain",
-            },
-            icon: {
-                type: String,
-                default: "CloudRain",
-            }
         },
     },
     {

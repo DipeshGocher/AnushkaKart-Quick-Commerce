@@ -72,48 +72,48 @@ const CheckoutPaymentSelector = React.memo(function CheckoutPaymentSelector({
       )}
 
       {/* Payment Method */}
-      <motion.div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-        <h3 className="font-black text-slate-800 mb-4 uppercase text-sm tracking-widest">
+      <motion.div className="bg-white rounded-2xl lg:rounded-2xl p-4 lg:p-3.5 shadow-sm border border-slate-100">
+        <h3 className="font-black text-slate-800 mb-4 lg:mb-2.5 uppercase text-sm lg:text-xs tracking-widest">
           Payment Method
         </h3>
-        <div className="space-y-2">
+        <div className="space-y-2 lg:space-y-1.5">
           {paymentMethods.map((method) => {
             const Icon = method.icon;
             return (
               <button
                 key={method.id}
                 onClick={() => onSelectPayment(method.id)}
-                className={`w-full p-3 rounded-xl border-2 transition-all flex items-center gap-3 ${
+                className={`w-full p-3 lg:p-2.5 rounded-xl border-2 transition-all flex items-center gap-3 lg:gap-2.5 ${
                   selectedPayment === method.id
                     ? "border-primary bg-brand-50"
                     : "border-slate-200 bg-white hover:border-slate-300"
                 }`}>
                 <div
-                  className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                  className={`h-10 w-10 lg:h-8 lg:w-8 rounded-full flex items-center justify-center shrink-0 ${
                     selectedPayment === method.id ? "bg-brand-100" : "bg-slate-100"
                   }`}>
                   <Icon
                     size={18}
-                    className={
+                    className={`lg:w-4 lg:h-4 ${
                       selectedPayment === method.id ? "text-primary" : "text-slate-600"
-                    }
+                    }`}
                   />
                 </div>
-                <div className="flex-1 text-left">
+                <div className="flex-1 text-left min-w-0">
                   <p
-                    className={`font-bold text-sm ${
+                    className={`font-bold text-sm lg:text-xs ${
                       selectedPayment === method.id ? "text-primary" : "text-slate-800"
                     }`}>
                     {method.label}
                   </p>
-                  <p className="text-xs text-slate-500">{method.sublabel}</p>
+                  <p className="text-xs lg:text-[11px] text-slate-500 truncate">{method.sublabel}</p>
                 </div>
                 <div
-                  className={`h-5 w-5 rounded-full border-2 flex items-center justify-center ${
+                  className={`h-5 w-5 lg:h-4 lg:w-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
                     selectedPayment === method.id ? "border-primary" : "border-slate-300"
                   }`}>
                   {selectedPayment === method.id && (
-                    <div className="h-3 w-3 rounded-full bg-primary" />
+                    <div className="h-3 w-3 lg:h-2 lg:w-2 rounded-full bg-primary" />
                   )}
                 </div>
               </button>

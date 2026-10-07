@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence, useAnimation, useDragControls } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { X, ChevronDown, FileText, Share2, Heart, Search, Clock, Minus, Plus, ShoppingBag, ShoppingCart, Star, MessageSquare, ArrowLeft, ChevronRight, ChevronLeft, Store, Building2, Package } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, FileText, Share2, Heart, Search, Clock, Minus, Plus, ShoppingBag, ShoppingCart, Star, MessageSquare, ArrowLeft, ChevronRight, ChevronLeft, Store, Building2, Package, RotateCcw, Banknote, ShieldCheck, Zap } from 'lucide-react';
 import { useProductDetail } from '../../context/ProductDetailContext';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { useCart } from '../../context/CartContext';
@@ -16,6 +16,7 @@ import { customerApi } from '../../services/customerApi';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import ParticleBurst from './ParticleBurst';
+import ProductCard from './ProductCard';
 
 
 const HIGHLIGHT_ICON_MAP = {
@@ -127,6 +128,9 @@ const ProductDetailSheet = () => {
     const [extendedProduct, setExtendedProduct] = useState(null);
     const [expandedSections, setExpandedSections] = useState(['specification']); // Start with description open
     const [showHeartPopup, setShowHeartPopup] = useState(false);
+    const [isDescriptionOpen, setIsDescriptionOpen] = useState(true);
+    const [similarProducts, setSimilarProducts] = useState([]);
+    const [similarLoading, setSimilarLoading] = useState(false);
     
     // Kit Add-ons State
     const [addons, setAddons] = useState([]);
@@ -142,6 +146,8 @@ const ProductDetailSheet = () => {
     };
 
     const scrollRef = useRef(null);
+    const desktopContentRef = useRef(null);
+    const mobileContentRef = useRef(null);
 
     const allImages = useMemo(() => {
         if (!selectedProduct) return [];
@@ -207,11 +213,51 @@ const ProductDetailSheet = () => {
         );
     }, [selectedProduct, extendedProduct]);
 
+    const fetchSimilarProducts = async (catId, currentProdId) => {
+        if (!catId) return;
+        try {
+            setSimilarLoading(true);
+            const params = { limit: 15 };
+            params.categoryId = catId;
+            if (currentLocation?.latitude && currentLocation?.longitude) {
+                params.lat = currentLocation.latitude;
+                params.lng = currentLocation.longitude;
+            }
+            const res = await customerApi.getProducts(params);
+            let items = [];
+            if (res.data?.success) {
+                const raw = res.data.results || res.data.result?.items || res.data.result || [];
+                items = (Array.isArray(raw) ? raw : []).filter(p => (p._id || p.id) !== currentProdId);
+            }
+            
+            // If fewer than 2 items found by categoryId, fall back to headerId
+            if (items.length < 2 && selectedProduct?.headerId) {
+                const hId = selectedProduct.headerId?._id || selectedProduct.headerId;
+                const hRes = await customerApi.getProducts({ headerId: hId, limit: 15 });
+                if (hRes.data?.success) {
+                    const hRaw = hRes.data.results || hRes.data.result?.items || hRes.data.result || [];
+                    const hItems = (Array.isArray(hRaw) ? hRaw : []).filter(p => (p._id || p.id) !== currentProdId);
+                    if (hItems.length > items.length) {
+                        items = hItems;
+                    }
+                }
+            }
+
+            setSimilarProducts(items.slice(0, 10));
+        } catch (err) {
+            console.error("Error fetching similar products:", err);
+            setSimilarProducts([]);
+        } finally {
+            setSimilarLoading(false);
+        }
+    };
+
     // Update variant when product changes
     useEffect(() => {
         setNewReview({ rating: 5, comment: '' });
         setLocalHasReviewed(false);
         setReviews([]);
+        setIsDescriptionOpen(true);
 
         if (selectedProduct && selectedProduct.variants && selectedProduct.variants.length > 0) {
             setSelectedVariant(selectedProduct.variants[0]);
@@ -224,6 +270,13 @@ const ProductDetailSheet = () => {
         setAddons([]);
         setAddonQuantities({});
 
+        if (desktopContentRef.current) {
+            desktopContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        if (mobileContentRef.current) {
+            mobileContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
         if (selectedProduct?.id || selectedProduct?._id) {
             const pid = selectedProduct.id || selectedProduct._id;
             fetchReviews(pid);
@@ -231,6 +284,9 @@ const ProductDetailSheet = () => {
             if (selectedProduct.isMonthlyKit) {
                 fetchAddons(pid);
             }
+
+            const catId = selectedProduct.categoryId?._id || selectedProduct.categoryId || selectedProduct.headerId?._id || selectedProduct.headerId;
+            fetchSimilarProducts(catId, pid);
         }
     }, [selectedProduct]);
 
@@ -529,17 +585,31 @@ const ProductDetailSheet = () => {
         }
     };
 
-    if (!selectedProduct) return null;
-
     const cleanDesc = cleanDescription(selectedProduct?.description);
 
     const activeProduct = extendedProduct || selectedProduct;
 
     const specificationsList = useMemo(() => {
+        if (!activeProduct && !selectedProduct) return [];
         const list = [];
         const seenKeys = new Set();
 
-        // 1. Custom specifications from database
+        // 1. Dynamic attributes from database
+        const dynamicAttrs = activeProduct?.dynamicAttributes;
+        if (Array.isArray(dynamicAttrs)) {
+            dynamicAttrs.forEach((attr) => {
+                if (attr && (attr.name || attr.value)) {
+                    const k = String(attr.name || '').trim();
+                    const v = String(attr.value || '').trim();
+                    if (k && v && !seenKeys.has(k.toLowerCase())) {
+                        seenKeys.add(k.toLowerCase());
+                        list.push({ label: k, value: v });
+                    }
+                }
+            });
+        }
+
+        // 1b. Custom specifications from database
         const rawSpecs = activeProduct?.specifications;
         if (Array.isArray(rawSpecs)) {
             rawSpecs.forEach((s) => {
@@ -589,10 +659,10 @@ const ProductDetailSheet = () => {
 
     const selectedAddons = addons.filter(a => (addonQuantities[a._id] || 0) > 0);
     const addonsTotal = selectedAddons.reduce((sum, a) => sum + (a.price * addonQuantities[a._id]), 0);
-    const displayPrice = (selectedVariant?.salePrice || selectedVariant?.price || selectedProduct.salePrice || selectedProduct.price || 0) + addonsTotal;
+    const displayPrice = (selectedVariant?.salePrice || selectedVariant?.price || selectedProduct?.salePrice || selectedProduct?.price || 0) + addonsTotal;
 
-    const KitAddonsUI = () => (
-        !addonsLoading && addons.length > 0 && (
+    const renderKitAddons = () => (
+        !addonsLoading && addons.length > 0 ? (
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -674,6 +744,178 @@ const ProductDetailSheet = () => {
                     })}
                 </div>
             </motion.div>
+        ) : null
+    );
+
+    const highlightItems = useMemo(() => {
+        if (displayHighlights && displayHighlights.length > 0) {
+            return displayHighlights.map(h => h.label);
+        }
+        if (specificationsList && specificationsList.length > 0) {
+            return specificationsList.slice(0, 5).map(s => `${s.value ? `${s.value} ${s.label}` : s.label}`);
+        }
+        return [
+            "100% Genuine and Brand Assured",
+            "Superfast Doorstep Delivery",
+            "Best Price Guaranteed"
+        ];
+    }, [displayHighlights, specificationsList]);
+
+    const groupedSpecifications = useMemo(() => {
+        if (!specificationsList || specificationsList.length === 0) return {};
+        const groups = {};
+
+        specificationsList.forEach(item => {
+            const key = item.label.toLowerCase();
+            let groupName = "GENERAL";
+
+            if (key.includes("battery") || key.includes("power") || key.includes("charging") || key.includes("mah")) {
+                groupName = "BATTERY & POWER FEATURES";
+            } else if (key.includes("os") || key.includes("operating system") || key.includes("processor") || key.includes("cpu") || key.includes("chip") || key.includes("ram") || key.includes("rom") || key.includes("storage")) {
+                groupName = "OS & PROCESSOR FEATURES";
+            } else if (key.includes("camera") || key.includes("lens") || key.includes("mp") || key.includes("video") || key.includes("photo")) {
+                groupName = "CAMERA FEATURES";
+            } else if (key.includes("display") || key.includes("screen") || key.includes("resolution") || key.includes("inch") || key.includes("refresh rate") || key.includes("pixel")) {
+                groupName = "DISPLAY FEATURES";
+            } else if (key.includes("box") || key.includes("pack") || key.includes("package") || key.includes("included") || key.includes("in the box")) {
+                groupName = "IN THE BOX";
+            } else if (key.includes("weight") || key.includes("shelf") || key.includes("fssai") || key.includes("country") || key.includes("origin") || key.includes("brand") || key.includes("container") || key.includes("model")) {
+                groupName = "GENERAL";
+            } else {
+                groupName = "MORE DETAILS";
+            }
+
+            if (!groups[groupName]) groups[groupName] = [];
+            groups[groupName].push(item);
+        });
+
+        return groups;
+    }, [specificationsList]);
+
+    const renderTrustBadges = () => (
+        <div className="grid grid-cols-3 gap-2.5 my-3.5">
+            {/* 7-Day Return */}
+            <div className="flex flex-col items-center justify-center p-3 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs hover:border-slate-300 transition-all">
+                <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-800 mb-2">
+                    <RotateCcw size={18} strokeWidth={2.3} />
+                </div>
+                <div className="flex items-center justify-center gap-0.5 text-[11px] sm:text-xs font-bold text-slate-900 leading-tight">
+                    <span>7-Day Return</span>
+                    <ChevronRight size={12} className="text-slate-400 shrink-0" />
+                </div>
+            </div>
+
+            {/* Cash on Delivery */}
+            <div className="flex flex-col items-center justify-center p-3 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs hover:border-slate-300 transition-all">
+                <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-800 mb-2">
+                    <Banknote size={18} strokeWidth={2.3} />
+                </div>
+                <span className="text-[11px] sm:text-xs font-bold text-slate-900 leading-tight">Cash on Delivery</span>
+                <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider mt-0.5">PAY AT DOORSTEP</span>
+            </div>
+
+            {/* 1 Year Warranty */}
+            <div className="flex flex-col items-center justify-center p-3 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs hover:border-slate-300 transition-all">
+                <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-800 mb-2">
+                    <ShieldCheck size={18} strokeWidth={2.3} />
+                </div>
+                <div className="flex items-center justify-center gap-0.5 text-[11px] sm:text-xs font-bold text-slate-900 leading-tight">
+                    <span>1 Year Warranty details</span>
+                    <ChevronRight size={12} className="text-slate-400 shrink-0" />
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderHighlightsCard = () => (
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs my-3">
+            <h3 className="text-base font-bold text-slate-900 mb-1">Highlights</h3>
+            <h4 className="text-[13px] font-semibold text-slate-800 mb-2.5">Product Highlights</h4>
+            <ul className="space-y-2">
+                {highlightItems.map((item, idx) => (
+                    <li key={idx} className="flex items-start gap-2.5 text-[13px] text-slate-800 leading-snug">
+                        <span className="text-slate-400 font-bold select-none text-sm leading-4">•</span>
+                        <span className="font-medium text-slate-800">{item}</span>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+
+    const renderDescriptionCard = () => (
+        <div className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden my-3">
+            <button
+                type="button"
+                onClick={() => setIsDescriptionOpen(!isDescriptionOpen)}
+                className="w-full flex items-center justify-between p-4 bg-white text-left transition-colors hover:bg-slate-50/50"
+            >
+                <span className="text-base font-bold text-slate-900">Product Description</span>
+                {isDescriptionOpen ? (
+                    <ChevronUp size={20} className="text-slate-600 shrink-0" />
+                ) : (
+                    <ChevronDown size={20} className="text-slate-600 shrink-0" />
+                )}
+            </button>
+
+            {isDescriptionOpen && (
+                <div className="p-4 pt-1 space-y-4 border-t border-slate-100">
+                    {/* Grouped Features / Specifications */}
+                    {Object.keys(groupedSpecifications).length > 0 ? (
+                        Object.entries(groupedSpecifications).map(([groupName, items]) => (
+                            <div key={groupName} className="space-y-2">
+                                <h5 className="text-xs font-bold text-slate-900 tracking-wider uppercase">
+                                    {groupName}
+                                </h5>
+                                <div className="space-y-1.5 pl-0.5">
+                                    {items.map((item, idx) => (
+                                        <div key={idx} className="flex items-start gap-2 text-[13px] leading-snug">
+                                            <span className="text-blue-500 font-bold select-none text-xs leading-4 shrink-0">.</span>
+                                            <span className="font-medium text-slate-800">
+                                                <span className="text-slate-600">{item.label}</span> {item.value}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))
+                    ) : null}
+
+                    {/* Clean Description Text */}
+                    {cleanDesc && (
+                        <div className="pt-2 border-t border-slate-100">
+                            <h5 className="text-xs font-bold text-slate-900 tracking-wider uppercase mb-2">
+                                PRODUCT DETAILS
+                            </h5>
+                            <div
+                                className="text-[13px] text-slate-600 font-normal leading-relaxed whitespace-pre-line"
+                                dangerouslySetInnerHTML={{ __html: cleanDesc }}
+                            />
+                        </div>
+                    )}
+
+                    {!cleanDesc && Object.keys(groupedSpecifications).length === 0 && (
+                        <p className="text-xs text-slate-400 italic py-1">No additional details available</p>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+
+    const renderSimilarProducts = () => (
+        similarProducts && similarProducts.length > 0 && (
+            <div className="my-5">
+                <div className="flex items-center justify-between mb-3 px-0.5">
+                    <h3 className="text-base font-bold text-slate-900 tracking-tight">Similar Products</h3>
+                    <span className="text-[11px] font-semibold text-slate-400">Swipe right →</span>
+                </div>
+                <div className="flex gap-3 overflow-x-auto no-scrollbar pb-3 pt-1 -mx-2 px-2 snap-x snap-mandatory">
+                    {similarProducts.map((p) => (
+                        <div key={p._id || p.id} className="w-[150px] sm:w-[170px] shrink-0 snap-start">
+                            <ProductCard product={p} />
+                        </div>
+                    ))}
+                </div>
+            </div>
         )
     );
 
@@ -821,10 +1063,33 @@ const ProductDetailSheet = () => {
                                         ))}
                                     </div>
                                 )}
+
+                                {/* Desktop Action Buttons: Add to Cart & Buy Now (Flipkart signature style) */}
+                                <div className="p-4 bg-white/95 backdrop-blur-sm border-t border-slate-100 flex items-center gap-3 z-20 mt-auto">
+                                    <button
+                                        type="button"
+                                        onClick={handleAddToCart}
+                                        className="flex-1 bg-[#ff9f00] hover:bg-[#f39700] active:scale-95 text-white font-bold text-xs lg:text-sm py-3.5 px-3 rounded-xl shadow-md shadow-amber-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer uppercase tracking-wider"
+                                    >
+                                        <ShoppingCart size={16} strokeWidth={2.5} />
+                                        <span>Add to Cart</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            closeProduct();
+                                            navigate('/checkout', { state: { directBuyItem: selectedProduct } });
+                                        }}
+                                        className="flex-1 bg-[#fb641b] hover:bg-[#f45305] active:scale-95 text-white font-bold text-xs lg:text-sm py-3.5 px-3 rounded-xl shadow-md shadow-orange-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer uppercase tracking-wider"
+                                    >
+                                        <Zap size={16} strokeWidth={2.5} />
+                                        <span>Buy Now</span>
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Right: Product Info (scrollable for tall basket content) */}
-                            <div className="flex-1 flex flex-col bg-white min-h-0 overflow-y-auto overscroll-contain">
+                            <div ref={desktopContentRef} className="flex-1 flex flex-col bg-white min-h-0 overflow-y-auto overscroll-contain">
                                 <div className="flex-1 px-7 py-6 lg:px-8 lg:py-7 space-y-3">
 
                                     {/* Top badges row */}
@@ -849,6 +1114,16 @@ const ProductDetailSheet = () => {
                                         <h1 className="text-[19px] lg:text-[22px] font-black text-[#111827] leading-[1.2] tracking-tight">
                                             {selectedProduct.name}
                                         </h1>
+                                        {/* Rating Badge (Flipkart style 4.2 ★ green badge) */}
+                                        <div className="flex items-center gap-2 mt-2">
+                                            <div className="inline-flex items-center gap-1 bg-emerald-600 text-white text-xs font-bold px-2 py-0.5 rounded-md shadow-2xs">
+                                                <span>{Number(selectedProduct.averageRating || selectedProduct.rating || 4.2).toFixed(1)}</span>
+                                                <Star size={11} fill="currentColor" strokeWidth={0} />
+                                            </div>
+                                            <span className="text-xs text-slate-500 font-medium">
+                                                ({selectedProduct.numReviews || selectedProduct.reviewsCount || 128} Ratings & Reviews)
+                                            </span>
+                                        </div>
                                     </motion.div>
 
                                     {/* Seller / Warehouse Name */}
@@ -897,8 +1172,8 @@ const ProductDetailSheet = () => {
                                             </div>
                                             <div>
                                                 {quantity > 0 ? (
-                                                    <div className="flex items-center gap-1 bg-white border border-brand-200 rounded-xl p-1 shadow-sm">
-                                                        <motion.button whileTap={{ scale: 0.85 }} onClick={handleDecrement} className="w-9 h-9 bg-brand-50 rounded-lg flex items-center justify-center text-brand-700 hover:bg-brand-100 transition-colors">
+                                                    <div className="flex items-center gap-1 bg-[#FFC200] border border-[#E6AC00] rounded-xl p-1 shadow-sm">
+                                                        <motion.button whileTap={{ scale: 0.85 }} onClick={handleDecrement} className="w-9 h-9 bg-white/70 rounded-lg flex items-center justify-center text-slate-900 hover:bg-white transition-colors">
                                                             <Minus size={16} strokeWidth={2.5} />
                                                         </motion.button>
                                                         <div className="w-8 flex justify-center items-center relative overflow-hidden h-6">
@@ -909,13 +1184,13 @@ const ProductDetailSheet = () => {
                                                                     animate={{ y: 0, opacity: 1 }}
                                                                     exit={{ y: -15, opacity: 0 }}
                                                                     transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                                                                    className="font-[800] text-base text-gray-800 text-center absolute"
+                                                                    className="font-black text-base text-slate-900 text-center absolute"
                                                                 >
                                                                     {quantity}
                                                                 </motion.span>
                                                             </AnimatePresence>
                                                         </div>
-                                                        <motion.button whileTap={{ scale: 0.85 }} onClick={handleIncrement} className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center text-white hover:bg-[var(--brand-400)] transition-colors shadow-sm">
+                                                        <motion.button whileTap={{ scale: 0.85 }} onClick={handleIncrement} className="w-9 h-9 bg-white/70 rounded-lg flex items-center justify-center text-slate-900 hover:bg-white transition-colors">
                                                             <Plus size={16} strokeWidth={2.5} />
                                                         </motion.button>
                                                     </div>
@@ -924,9 +1199,9 @@ const ProductDetailSheet = () => {
                                                         whileHover={{ scale: 1.02, y: -2 }}
                                                         whileTap={{ scale: 0.98 }}
                                                         onClick={handleAddToCart}
-                                                        className="bg-gradient-to-r from-primary to-[var(--brand-400)] text-white h-12 px-8 rounded-xl font-black text-[13px] flex items-center gap-2 shadow-lg shadow-brand-100 hover:shadow-brand-200 transition-all uppercase tracking-widest border border-white/20"
+                                                        className="bg-[#FFC200] hover:bg-[#F5B800] text-slate-900 h-12 px-8 rounded-xl font-bold text-[14px] flex items-center gap-2 shadow-md shadow-amber-200/50 hover:shadow-amber-300/60 transition-all uppercase tracking-wider border border-[#E6AC00] cursor-pointer"
                                                     >
-                                                        <ShoppingBag size={16} strokeWidth={3} />
+                                                        <ShoppingCart size={17} strokeWidth={2.5} />
                                                         Add to Cart
                                                     </motion.button>
                                                 )}
@@ -1019,47 +1294,22 @@ const ProductDetailSheet = () => {
                                     )}
 
                                     {/* Kit Addons (Desktop) */}
-                                    {selectedProduct.isMonthlyKit && <KitAddonsUI />}
+                                    {selectedProduct.isMonthlyKit && renderKitAddons()}
 
-                                    {/* Thin Divider between Select Variant and Specifications */}
+                                    {/* Thin Divider between Select Variant and Trust Badges */}
                                     <div className="border-t border-slate-100 my-4" />
 
-                                    {/* Specifications Section */}
-                                    <div className="py-1">
-                                        <h3 className="text-[15px] font-bold text-slate-900 tracking-tight mb-3">Specifications</h3>
-                                        {specificationPairs.length > 0 ? (
-                                            <div className="space-y-0">
-                                                {specificationPairs.map((pair, rowIndex) => (
-                                                    <div key={rowIndex} className="grid grid-cols-2 gap-4 py-2.5 border-b border-slate-100 last:border-b-0">
-                                                        {pair.map((item, colIndex) => (
-                                                            <div key={colIndex} className="min-w-0 pr-2">
-                                                                <span className="text-[11px] font-medium text-slate-400 block leading-tight">{item.label}</span>
-                                                                <span className="text-[13px] font-medium text-slate-800 block mt-1 break-words leading-snug">{item.value}</span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p className="text-[12px] text-slate-400 italic">No specifications available</p>
-                                        )}
-                                    </div>
+                                    {/* 1. 7-Day Return, Cash on Delivery, 1 Year Warranty */}
+                                    {renderTrustBadges()}
 
-                                    {/* Thin Divider between Specifications and Product Details */}
-                                    <div className="border-t border-slate-100 my-4" />
+                                    {/* 2. Highlights / Specification Card */}
+                                    {renderHighlightsCard()}
 
-                                    {/* Product Details Section */}
-                                    <div className="py-1">
-                                        <h3 className="text-[15px] font-bold text-slate-900 tracking-tight mb-2">Product Details</h3>
-                                        {cleanDesc ? (
-                                            <div
-                                                className="text-[13px] text-slate-600 font-normal leading-relaxed whitespace-pre-line"
-                                                dangerouslySetInnerHTML={{ __html: cleanDesc }}
-                                            />
-                                        ) : (
-                                            <p className="text-[12px] text-slate-400 italic">No details available</p>
-                                        )}
-                                    </div>
+                                    {/* 3. Product Description / Details Card (Default Open) */}
+                                    {renderDescriptionCard()}
+
+                                    {/* 4. Similar Products Section (Right Swipe) */}
+                                    {renderSimilarProducts()}
 
                                     {/* Bottom spacer */}
                                     <div className="h-6" />
@@ -1128,6 +1378,7 @@ const ProductDetailSheet = () => {
 
                         {/* Scrollable Content */}
                         <div
+                            ref={mobileContentRef}
                             className="flex-1 overflow-x-hidden overflow-y-auto no-scrollbar bg-white"
                             style={{ paddingBottom: 'calc(6.5rem + env(safe-area-inset-bottom, 20px))' }}
                             onScroll={handleScroll}
@@ -1292,53 +1543,28 @@ const ProductDetailSheet = () => {
                                 )}
 
                                 {/* Kit Addons (Mobile) */}
-                                {selectedProduct.isMonthlyKit && <KitAddonsUI />}
+                                {selectedProduct.isMonthlyKit && renderKitAddons()}
 
-                                {/* Thin Divider between Select Variant and Specifications */}
+                                {/* Thin Divider between Select Variant and Trust Badges */}
                                 <div className="border-t border-slate-100 my-3" />
 
-                                {/* Specifications Section */}
-                                <div className="py-1">
-                                    <h3 className="text-[14px] font-bold text-slate-900 tracking-tight mb-2.5">Specifications</h3>
-                                    {specificationPairs.length > 0 ? (
-                                        <div className="space-y-0">
-                                            {specificationPairs.map((pair, rowIndex) => (
-                                                <div key={rowIndex} className="grid grid-cols-2 gap-3 py-2 border-b border-slate-100 last:border-b-0">
-                                                    {pair.map((item, colIndex) => (
-                                                        <div key={colIndex} className="min-w-0 pr-1">
-                                                            <span className="text-[11px] font-medium text-slate-400 block leading-tight">{item.label}</span>
-                                                            <span className="text-[13px] font-medium text-slate-800 block mt-0.5 break-words leading-snug">{item.value}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-[12px] text-slate-400 italic">No specifications available</p>
-                                    )}
-                                </div>
+                                {/* 1. 7-Day Return, Cash on Delivery, 1 Year Warranty */}
+                                {renderTrustBadges()}
 
-                                {/* Thin Divider between Specifications and Product Details */}
-                                <div className="border-t border-slate-100 my-3" />
+                                {/* 2. Highlights / Specification Card */}
+                                {renderHighlightsCard()}
 
-                                {/* Product Details Section */}
-                                <div className="py-1">
-                                    <h3 className="text-[14px] font-bold text-slate-900 tracking-tight mb-2">Product Details</h3>
-                                    {cleanDesc ? (
-                                        <div
-                                            className="text-[13px] text-slate-600 font-normal leading-relaxed whitespace-pre-line"
-                                            dangerouslySetInnerHTML={{ __html: cleanDesc }}
-                                        />
-                                    ) : (
-                                        <p className="text-[12px] text-slate-400 italic">No details available</p>
-                                    )}
-                                </div>
+                                {/* 3. Product Description / Details Card (Default Open) */}
+                                {renderDescriptionCard()}
+
+                                {/* 4. Similar Products Section (Right Swipe) */}
+                                {renderSimilarProducts()}
                             </div>
                         </div>
 
                         {/* Sticky Bottom Action Bar */}
                         <div 
-                            className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-100 p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.08)] z-50 shrink-0"
+                            className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-100 p-3 sm:p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.08)] z-50 shrink-0"
                             style={{ paddingBottom: 'max(1.25rem, calc(0.75rem + env(safe-area-inset-bottom, 16px)))' }}
                         >
                             <div className="flex items-center justify-between gap-3 max-w-md mx-auto">
@@ -1346,69 +1572,48 @@ const ProductDetailSheet = () => {
                                 <Link
                                     to="/cart"
                                     onClick={closeProduct}
-                                    className="relative w-12 h-12 bg-[#EEF2FF] border border-[#C7D2FE] rounded-xl shadow-xs flex items-center justify-center text-[#1E3A8A] hover:bg-[#E0E7FF] active:scale-95 transition-all shrink-0"
+                                    className="relative w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-slate-800 hover:bg-slate-200 active:scale-95 transition-all shrink-0"
                                     title="View Cart"
                                 >
-                                    <ShoppingCart size={20} className="text-[#1E3A8A]" />
+                                    <ShoppingCart size={20} className="text-slate-800" />
                                     {(isRefurbishedProduct ? refurbishedCartCount : groceryCartCount) > 0 && (
-                                        <div className={cn(
-                                            "absolute -top-1.5 -right-1.5 text-white text-[10px] font-black w-4.5 h-4.5 rounded-full flex shrink-0 items-center justify-center shadow-md animate-in zoom-in duration-200",
-                                            isRefurbishedProduct ? "bg-blue-600" : "bg-[#2875E8]"
-                                        )}>
+                                        <div className="absolute -top-1.5 -right-1.5 text-slate-900 bg-[#FFC200] border border-white text-[10px] font-black w-4.5 h-4.5 rounded-full flex shrink-0 items-center justify-center shadow-xs">
                                             {(isRefurbishedProduct ? refurbishedCartCount : groceryCartCount) > 99 ? '99+' : (isRefurbishedProduct ? refurbishedCartCount : groceryCartCount)}
                                         </div>
                                     )}
                                 </Link>
 
-                                {/* Right Side: Add to Cart / Quantity Pill Button */}
+                                {/* Right Side: Flipkart-style Yellow Add to Cart / Quantity Pill Button */}
                                 {quantity > 0 ? (
-                                    <div className={cn(
-                                        "w-40 sm:w-48 text-white h-12 rounded-xl flex items-center justify-between px-2 shadow-md border border-white/20",
-                                        isRefurbishedProduct
-                                            ? "bg-gradient-to-r from-blue-600 to-indigo-600 shadow-blue-500/25"
-                                            : "bg-gradient-to-r from-[#2875E8] to-[#1F66D3] shadow-blue-500/20"
-                                    )}>
+                                    <div className="flex-1 bg-[#FFC200] text-slate-900 h-12 rounded-xl flex items-center justify-between px-3 shadow-md border border-[#E6AC00]">
                                         <motion.button
                                             whileTap={{ scale: 0.8 }}
                                             onClick={handleDecrement}
-                                            className="w-8 h-8 rounded-lg flex items-center justify-center text-white hover:bg-white/10 transition-colors"
+                                            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-900 hover:bg-black/10 transition-colors"
                                         >
-                                            <Minus size={16} strokeWidth={3} />
+                                            <Minus size={18} strokeWidth={3} />
                                         </motion.button>
                                         <div className="flex-1 flex justify-center items-center relative overflow-hidden h-6">
-                                            <AnimatePresence mode="popLayout">
-                                                <motion.span
-                                                    key={quantity}
-                                                    initial={{ y: 15, opacity: 0 }}
-                                                    animate={{ y: 0, opacity: 1 }}
-                                                    exit={{ y: -15, opacity: 0 }}
-                                                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                                                    className="font-black text-xs uppercase tracking-wider absolute"
-                                                >
-                                                    {quantity} in cart
-                                                </motion.span>
-                                            </AnimatePresence>
+                                            <span className="font-black text-xs uppercase tracking-wider text-slate-900">
+                                                {quantity} in cart
+                                            </span>
                                         </div>
                                         <motion.button
                                             whileTap={{ scale: 0.8 }}
                                             onClick={handleIncrement}
-                                            className="w-8 h-8 rounded-lg flex items-center justify-center text-white hover:bg-white/10 transition-colors"
+                                            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-900 hover:bg-black/10 transition-colors"
                                         >
-                                            <Plus size={16} strokeWidth={3} />
+                                            <Plus size={18} strokeWidth={3} />
                                         </motion.button>
                                     </div>
                                 ) : (
                                     <motion.button
-                                        whileHover={{ scale: 1.02 }}
+                                        whileHover={{ scale: 1.01 }}
                                         whileTap={{ scale: 0.96 }}
                                         onClick={handleAddToCart}
-                                        className={cn(
-                                            "w-40 sm:w-48 text-white h-12 rounded-xl font-black text-xs sm:text-[13px] flex items-center justify-center shadow-md transition-all border border-white/20 active:opacity-90 tracking-wider uppercase cursor-pointer",
-                                            isRefurbishedProduct
-                                                ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 shadow-blue-500/25"
-                                                : "bg-gradient-to-r from-[#2875E8] to-[#1F66D3] shadow-blue-500/20"
-                                        )}
+                                        className="flex-1 bg-[#FFC200] hover:bg-[#F5B800] text-slate-900 h-12 rounded-xl font-bold text-xs sm:text-[14px] flex items-center justify-center gap-2 shadow-md shadow-amber-200/50 border border-[#E6AC00] active:opacity-95 tracking-wider uppercase cursor-pointer"
                                     >
+                                        <ShoppingCart size={18} strokeWidth={2.5} />
                                         ADD TO CART
                                     </motion.button>
                                 )}

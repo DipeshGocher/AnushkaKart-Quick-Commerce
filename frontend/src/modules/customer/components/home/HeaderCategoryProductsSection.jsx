@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { getProductUrl, getProductVariantText, getProductPriceInfo } from "@/core/utils/productUrl";
 import { useTranslation } from "@core/context/LanguageContext";
 import { useDynamicTranslation } from "@/core/hooks/useDynamicTranslation";
+import ExperienceBannerCarousel from "../experience/ExperienceBannerCarousel";
 
 // Banners for "All" page header category sections
 import freshGroceryAllBanner from "@/assets/banners/fresh_grocery_all_banner.jpg";
@@ -278,6 +279,37 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
         );
         const displayProducts = products.slice(0, 16);
 
+        // Compute active banners for this section (from CMS array, single banner, or default)
+        const activeCmsBanners = (Array.isArray(header?.banners) ? header.banners : []).filter(
+          (b) => b && b.imageUrl && b.status !== "inactive"
+        );
+        let sectionBanners = [];
+        if (activeCmsBanners.length > 0) {
+          sectionBanners = activeCmsBanners.map((b) => ({
+            ...b,
+            linkType: b.linkType || "header",
+            linkValue: b.linkValue || headerId,
+          }));
+        } else if (header?.banner) {
+          sectionBanners = [
+            {
+              imageUrl: header.banner,
+              title: headerName,
+              linkType: "header",
+              linkValue: headerId,
+            },
+          ];
+        } else if (config.banner) {
+          sectionBanners = [
+            {
+              imageUrl: config.banner,
+              title: config.bannerAlt || headerName,
+              linkType: "header",
+              linkValue: headerId,
+            },
+          ];
+        }
+
         return (
           <div key={headerId || headerName} className="w-full">
             <section
@@ -297,25 +329,18 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
                   <h2 className="fk-section-heading">{headerName}</h2>
                 </div>
 
-                {/* Category Banner (Used specifically on "All" home page) */}
-                {config.banner ? (
-                  <div className="px-4 mb-3.5">
-                    <div
-                      onClick={() => {
-                        if (headerId) {
-                          window.scrollTo(0, 0);
-                          navigate("/category/" + headerId);
-                        }
-                      }}
-                      className="w-full overflow-hidden rounded-2xl shadow-[0_4px_16px_rgba(0,0,0,0.06)] border border-white/60 cursor-pointer active:scale-[0.99] transition-transform"
-                    >
-                      <img
-                        src={config.banner}
-                        alt={config.bannerAlt}
-                        className="w-full h-auto object-cover block"
-                        loading="lazy"
-                      />
-                    </div>
+                {/* Category Banner Carousel (All-page compatible card style, dynamically adjusts as banners are added) */}
+                {sectionBanners.length > 0 ? (
+                  <div className="px-0 md:px-4 mb-3.5">
+                    <ExperienceBannerCarousel
+                      items={sectionBanners}
+                      fullWidth
+                      edgeToEdge
+                      peekNext={true}
+                      autoPlayInterval={2800}
+                      showDots={sectionBanners.length > 1}
+                      showContentOverlay={false}
+                    />
                   </div>
                 ) : (
                   /* Banner Unavailable Placeholder Div (allows setting banner from Admin CMS) */

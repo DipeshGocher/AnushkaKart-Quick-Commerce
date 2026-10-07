@@ -36,6 +36,17 @@ const ALLOWED_KEYS = [
   "keywords",
   "footerMessage",
   "footerEmoji",
+  "footerDescription",
+  "footerQuickLinksTitle",
+  "footerQuickLinks",
+  "footerCategoriesTitle",
+  "footerCategoriesLinks",
+  "footerContactTitle",
+  "footerCopyright",
+  "footerPrivacyUrl",
+  "footerTermsUrl",
+  "footerBgColor",
+  "footerEnabled",
   "returnDeliveryCommission",
   "deliveryPricingMode",
   "pricingMode",
@@ -53,8 +64,6 @@ const ALLOWED_KEYS = [
   "lowStockAlertsEnabled",
   "productApproval",
   "categoriesBanner",
-  "homeVideoBanner",
-  "weather",
   "deliveryBadgeText",
   "deliveryBadgeImage",
   "deliveryBadgeBg",
@@ -117,6 +126,27 @@ const updateSettingsSchema = Joi.object({
   keywords: Joi.array().items(Joi.string().max(200)),
   footerMessage: Joi.string().allow("").max(200),
   footerEmoji: Joi.string().allow("").max(10),
+  footerDescription: Joi.string().allow("").max(1000),
+  footerQuickLinksTitle: Joi.string().allow("").max(200),
+  footerQuickLinks: Joi.array().items(
+    Joi.object({
+      label: Joi.string().allow("").max(100),
+      url: Joi.string().allow("").max(500),
+    })
+  ).default([]),
+  footerCategoriesTitle: Joi.string().allow("").max(200),
+  footerCategoriesLinks: Joi.array().items(
+    Joi.object({
+      label: Joi.string().allow("").max(100),
+      url: Joi.string().allow("").max(500),
+    })
+  ).default([]),
+  footerContactTitle: Joi.string().allow("").max(200),
+  footerCopyright: Joi.string().allow("").max(500),
+  footerPrivacyUrl: Joi.string().allow("").max(500),
+  footerTermsUrl: Joi.string().allow("").max(500),
+  footerBgColor: Joi.string().allow("").max(200),
+  footerEnabled: Joi.boolean(),
   returnDeliveryCommission: Joi.number().min(0),
   deliveryPricingMode: Joi.string().valid("fixed_price", "distance_based"),
   pricingMode: Joi.string().valid("fixed_price", "distance_based"),
@@ -160,15 +190,6 @@ const updateSettingsSchema = Joi.object({
       })
     ).default([]),
   }).unknown(false),
-  homeVideoBanner: Joi.object({
-    videoUrl: Joi.string().allow("").max(2000),
-    isVisible: Joi.boolean(),
-  }).unknown(false),
-  weather: Joi.object({
-    isEnabled: Joi.boolean(),
-    condition: Joi.string().max(100),
-    icon: Joi.string().max(100),
-  }).unknown(false),
   deliveryBadgeText: Joi.string().allow("").max(100),
   deliveryBadgeImage: Joi.string().allow("").max(2000),
   deliveryBadgeBg: Joi.string().allow("").max(50),
@@ -199,7 +220,7 @@ export const getPublicSettings = async (req, res) => {
       async () => {
         const existing = await Setting.findOne(filter)
           .select(
-            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor footerMessage footerEmoji returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval categoriesBanner homeVideoBanner weather deliveryBadgeText deliveryBadgeImage deliveryBadgeBg deliveryBadgeEnabled bestSellingTitle bestSellingCategoryIds categoryTopDeals createdAt",
+            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor address facebook twitter instagram linkedin youtube playStoreLink appStoreLink footerMessage footerEmoji footerDescription footerQuickLinksTitle footerQuickLinks footerCategoriesTitle footerCategoriesLinks footerContactTitle footerCopyright footerPrivacyUrl footerTermsUrl footerBgColor footerEnabled returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval categoriesBanner deliveryBadgeText deliveryBadgeImage deliveryBadgeBg deliveryBadgeEnabled bestSellingTitle bestSellingCategoryIds categoryTopDeals createdAt",
           )
           .lean();
         return existing || null;
@@ -298,8 +319,8 @@ export const updateSettings = async (req, res) => {
 export const uploadSettingsImage = async (req, res) => {
   try {
     const type = (req.query.type || "logo").toLowerCase();
-    if (type !== "logo" && type !== "favicon" && type !== "categoriesbanner" && type !== "homevideobanner" && type !== "deliverybadge") {
-      return handleResponse(res, 400, "type must be logo, favicon, categoriesbanner, or homevideobanner");
+    if (type !== "logo" && type !== "favicon" && type !== "categoriesbanner" && type !== "deliverybadge") {
+      return handleResponse(res, 400, "type must be logo, favicon, categoriesbanner, or deliverybadge");
     }
 
     if (req.file) {

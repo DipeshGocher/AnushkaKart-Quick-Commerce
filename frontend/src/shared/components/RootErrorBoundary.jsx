@@ -20,6 +20,22 @@ const RootErrorBoundary = () => {
         errorMessage = error.message;
     }
 
+    const isDynamicImportError =
+        typeof errorMessage === 'string' &&
+        (errorMessage.includes('Failed to fetch dynamically imported module') ||
+         errorMessage.includes('Importing a module script failed'));
+
+    React.useEffect(() => {
+        if (isDynamicImportError) {
+            const storageKey = 'boundary_reload_' + window.location.pathname;
+            const hasReloaded = sessionStorage.getItem(storageKey);
+            if (!hasReloaded) {
+                sessionStorage.setItem(storageKey, 'true');
+                window.location.reload();
+            }
+        }
+    }, [isDynamicImportError]);
+
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 font-outfit">
             <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center border border-gray-100">
@@ -28,12 +44,19 @@ const RootErrorBoundary = () => {
                 </div>
 
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">Oops!</h1>
-                <p className="text-gray-500 mb-6"> {errorMessage} </p>
+                <p className="text-gray-500 mb-6">
+                    {isDynamicImportError
+                        ? "A new version of this page was updated. Please refresh to load the latest version."
+                        : errorMessage}
+                </p>
 
                 <div className="space-y-3">
                     <button
-                        onClick={() => window.location.reload()}
-                        className="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 px-6 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary-200"
+                        onClick={() => {
+                            sessionStorage.clear();
+                            window.location.reload();
+                        }}
+                        className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 px-6 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer"
                     >
                         <RefreshCw className="w-5 h-5" />
                         Refresh Page

@@ -17,6 +17,8 @@ import {
   shiftHex,
 } from '../../utils/headerTheme';
 
+import ExperienceBannerCarousel from '../experience/ExperienceBannerCarousel';
+
 // Banner assets for header categories
 import groceryBannerImg from '@/assets/banners/groceries_header_banner.jpg';
 import electronicsBannerImg from '@/assets/banners/electronics_section_banner.jpg';
@@ -24,6 +26,12 @@ import mobilesBannerImg from '@/assets/banners/mobiles_section_banner.jpg';
 import beautyBannerImg from '@/assets/banners/beauty_section_banner.jpg';
 import fashionBannerImg from '@/assets/banners/fashion_section_banner.jpg';
 import homeAppliancesBannerImg from '@/assets/banners/home_appliances_section_banner.jpg';
+import freshGroceryAllBanner from '@/assets/banners/fresh_grocery_all_banner.jpg';
+import electronicsAllBanner from '@/assets/banners/electronics_all_banner.jpg';
+import mobilesAllBanner from '@/assets/banners/mobiles_all_banner.jpg';
+import beautyAllBanner from '@/assets/banners/beauty_all_banner.jpg';
+import fashionAllBanner from '@/assets/banners/fashion_all_banner.jpg';
+import homeAllBanner from '@/assets/banners/home_all_banner.jpg';
 
 const getCategoryBanner = (headerName = '', headerSlug = '') => {
   const text = `${headerName || ''} ${headerSlug || ''}`.toLowerCase();
@@ -469,32 +477,84 @@ const HeaderCategoryPageView = ({
     return items;
   }, [subCategories, topDealsProducts.length]);
 
-  // Dynamic category hero banner from CMS HeroConfig, Settings, or default theme asset
-  const bannerImg = useMemo(() => {
-    const cmsBanner = categoryHeroConfig?.banners?.items?.find((b) => b?.imageUrl && b?.status !== 'inactive')?.imageUrl;
-    if (cmsBanner) return cmsBanner;
+  // Dynamic category hero banners from CMS HeroConfig, Settings, or default category banner pairs
+  const categoryBanners = useMemo(() => {
+    // 1. From CMS HeroConfig
+    const cmsBanners = (categoryHeroConfig?.banners?.items || []).filter(
+      (b) => b && b.imageUrl && b.status !== 'inactive'
+    );
+    if (cmsBanners.length > 0) return cmsBanners;
 
-    const settingsBanner = settings?.categoriesBanner?.banners?.find(
+    // 2. From Settings
+    const settingsBanners = (settings?.categoriesBanner?.banners || []).filter(
       (b) => String(b.headerCategoryId) === headerId && b.image
-    )?.image;
-    if (settingsBanner) return settingsBanner;
+    );
+    if (settingsBanners.length > 0) {
+      return settingsBanners.map((b) => ({
+        imageUrl: b.image,
+        title: b.title || headerCategory?.name || '',
+      }));
+    }
 
-    return getCategoryBanner(headerCategory?.name, headerCategory?.slug);
+    // 3. Fallbacks matching category pairs
+    const text = `${headerCategory?.name || ''} ${headerCategory?.slug || ''}`.toLowerCase();
+    if (/grocer/i.test(text)) {
+      return [
+        { imageUrl: groceryBannerImg, title: 'Fresh Groceries' },
+        { imageUrl: freshGroceryAllBanner, title: 'Super Saver Deals' },
+      ];
+    }
+    if (/electr/i.test(text)) {
+      return [
+        { imageUrl: electronicsBannerImg, title: 'Electronics Fest' },
+        { imageUrl: electronicsAllBanner, title: 'Mega Savings' },
+      ];
+    }
+    if (/mobil|phone|smartphon/i.test(text)) {
+      return [
+        { imageUrl: mobilesBannerImg, title: 'Mobiles & Tablets' },
+        { imageUrl: mobilesAllBanner, title: 'Top Mobile Deals' },
+      ];
+    }
+    if (/beaut|cosmetic|skin/i.test(text)) {
+      return [
+        { imageUrl: beautyBannerImg, title: 'Beauty & Skincare' },
+        { imageUrl: beautyAllBanner, title: 'Glow Deals' },
+      ];
+    }
+    if (/fashion|cloth|apparel|kid/i.test(text)) {
+      return [
+        { imageUrl: fashionBannerImg, title: 'Fashion & Apparel' },
+        { imageUrl: fashionAllBanner, title: 'Trending Fashion' },
+      ];
+    }
+    if (/home|appliance|kitchen/i.test(text)) {
+      return [
+        { imageUrl: homeAppliancesBannerImg, title: 'Home & Kitchen' },
+        { imageUrl: homeAllBanner, title: 'Appliance Mega Sale' },
+      ];
+    }
+
+    const singleFallback = getCategoryBanner(headerCategory?.name, headerCategory?.slug);
+    return singleFallback ? [{ imageUrl: singleFallback, title: headerCategory?.name || '' }] : [];
   }, [categoryHeroConfig, settings?.categoriesBanner?.banners, headerId, headerCategory]);
 
   const isTwoRows = displayCategoriesList.length >= 8;
 
   return (
     <div className="w-full flex flex-col pb-20 select-none animate-in fade-in duration-300">
-      {/* ── 1. HEADER CATEGORY BANNER (ATTACHED DIRECTLY TO HEADER LIKE REFERENCE IMAGE) ── */}
-      {bannerImg && (
-        <div className="w-full relative overflow-hidden select-none">
-          <img
-            src={bannerImg}
-            alt={headerCategory?.name || 'Category Offer Banner'}
-            className="w-full h-auto object-cover max-h-[480px] sm:max-h-[560px] md:max-h-[640px] shadow-2xs"
-            loading="eager"
-            fetchPriority="high"
+      {/* ── 1. HEADER CATEGORY BANNER (FLIPKART STYLE COMPACT CAROUSEL) ── */}
+      {categoryBanners.length > 0 && (
+        <div className="w-full relative overflow-hidden select-none mt-2 sm:mt-2.5 md:mt-3 mb-1">
+          <ExperienceBannerCarousel
+            section={{ title: "" }}
+            items={categoryBanners}
+            fullWidth
+            edgeToEdge
+            peekNext={true}
+            autoPlayInterval={2800}
+            showDots={categoryBanners.length > 1}
+            showContentOverlay={false}
           />
         </div>
       )}
@@ -503,7 +563,7 @@ const HeaderCategoryPageView = ({
       {displayCategoriesList.length > 0 && (
         <section className="mt-3.5 mb-2">
           {/* Section Header */}
-          <div className="px-4 pb-2.5 flex items-center justify-between">
+          <div className="px-4 md:px-0 pb-2.5 flex items-center justify-between">
             <h2 className="text-[17px] sm:text-[18px] font-bold text-slate-900 tracking-tight leading-none">
               Top categories
             </h2>
@@ -513,11 +573,11 @@ const HeaderCategoryPageView = ({
           <div
             ref={scrollRef}
             onScroll={handleScroll}
-            className="w-full overflow-x-auto no-scrollbar scroll-smooth px-4"
+            className="w-full overflow-x-auto no-scrollbar scroll-smooth px-4 md:px-0"
           >
             <div
               className={cn(
-                "grid grid-flow-col auto-cols-[calc((100vw-72px)/4.5)] sm:auto-cols-[88px] gap-x-2.5 sm:gap-x-3 pb-0.5",
+                "grid grid-flow-col auto-cols-[calc((100vw-72px)/4.5)] sm:auto-cols-[88px] md:auto-cols-[96px] gap-x-2.5 sm:gap-x-3 pb-0.5",
                 isTwoRows ? "grid-rows-2 gap-y-3 sm:gap-y-3.5" : "grid-rows-1"
               )}
             >
@@ -594,10 +654,10 @@ const HeaderCategoryPageView = ({
       {subCategoryGridItems.length > 0 && (
         <section className="mt-1 mb-2">
           {/* Thin straight line (barely visible for separation as requested) */}
-          <div className="mx-4 mb-3.5 h-[1px] bg-slate-200/60" />
+          <div className="mx-4 md:mx-0 mb-3.5 h-[1px] bg-slate-200/60" />
 
           {/* Horizontal Scrollable Subcategories Grid (2 rows, 5 per page with side scrolling) */}
-          <div className="w-full overflow-x-auto no-scrollbar scroll-smooth px-4 pb-1">
+          <div className="w-full overflow-x-auto no-scrollbar scroll-smooth px-4 md:px-0 pb-1">
             <div className="grid grid-rows-2 grid-flow-col auto-cols-[calc((100vw-64px)/5)] sm:auto-cols-[72px] gap-x-2.5 sm:gap-x-3.5 gap-y-2.5">
               {subCategoryGridItems.map((sub) => {
                 // If it is the special Top Deals promo card (placed in Row 2, Col 1 matching reference image)
@@ -664,7 +724,7 @@ const HeaderCategoryPageView = ({
 
       {/* ── 2.5 TOP DEALS (FLIPKART STYLE CURVED CARD WITH DYNAMIC CATEGORY HEADER BACKGROUND & HORIZONTAL RIGHT SCROLL) ── */}
       {topDealsProducts.length > 0 && (
-        <section id="top-deals-section" className="my-3.5 px-3 sm:px-4">
+        <section id="top-deals-section" className="my-3.5 px-3 sm:px-4 md:px-0">
           <div
             className="w-full rounded-[24px] sm:rounded-[28px] p-3.5 sm:p-4 pt-3.5 pb-4 shadow-[0_8px_24px_rgba(0,0,0,0.12)] relative overflow-hidden transition-all duration-300 select-none"
             style={{
@@ -778,7 +838,7 @@ const HeaderCategoryPageView = ({
       )}
 
       {/* ── 3. RECOMMENDED ITEMS TEXT (EXACT LIKE GIVEN IMAGE) ── */}
-      <div id="recommended-items-section" className="px-4 pt-4 pb-2">
+      <div id="recommended-items-section" className="px-4 md:px-0 pt-4 pb-2">
         <h2 className="text-[20px] font-black text-slate-900 tracking-tight leading-none">
           Recommended Items
         </h2>
@@ -787,10 +847,10 @@ const HeaderCategoryPageView = ({
         </p>
       </div>
 
-      {/* ── 5. ALL PRODUCTS OF CATEGORY (2 IN ONE ROW) ── */}
+      {/* ── 5. ALL PRODUCTS OF CATEGORY (2 on mobile, 4-5 on desktop matching Flipkart) ── */}
       {isLoading ? (
-        <div className="grid grid-cols-2 gap-3 px-3 pb-16">
-          {[...Array(6)].map((_, i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 px-3 sm:px-4 md:px-0 pb-16">
+          {[...Array(10)].map((_, i) => (
             <div key={i} className="flex flex-col space-y-2">
               <div className="aspect-[4/4.5] bg-slate-200 animate-pulse rounded-2xl" />
               <div className="h-3.5 bg-slate-200 animate-pulse rounded-md w-3/4" />
@@ -820,7 +880,7 @@ const HeaderCategoryPageView = ({
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-4 pb-24">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-4 md:gap-x-5 gap-y-4 sm:gap-y-6 px-3.5 sm:px-4 md:px-0 pb-24">
           {filteredProducts.map((product) => (
             <ProductCard
               key={product.id || product._id}

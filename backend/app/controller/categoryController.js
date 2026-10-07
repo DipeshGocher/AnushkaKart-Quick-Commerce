@@ -243,7 +243,7 @@ export const getCategories = async (req, res) => {
 export const createCategory = async (req, res) => {
   try {
     const categoryData = {};
-    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isKitCategory", "isFeatured", "sortOrder", "catalogType"];
+    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isKitCategory", "isFeatured", "sortOrder", "catalogType", "mappedAttributes"];
     
     // Strict Whitelisting and Sanitization
     for (const key of allowedKeys) {
@@ -254,6 +254,14 @@ export const createCategory = async (req, res) => {
            continue;
         }
         categoryData[key] = val;
+      }
+    }
+
+    if (typeof categoryData.mappedAttributes === "string") {
+      try {
+        categoryData.mappedAttributes = JSON.parse(categoryData.mappedAttributes);
+      } catch (e) {
+        categoryData.mappedAttributes = [];
       }
     }
 
@@ -336,7 +344,7 @@ export const updateCategory = async (req, res) => {
     }
 
     const categoryData = {};
-    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isFeatured", "sortOrder", "catalogType"];
+    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isFeatured", "sortOrder", "catalogType", "mappedAttributes"];
     
     for (const key of allowedKeys) {
       if (Object.prototype.hasOwnProperty.call(req.body, key)) {
@@ -345,6 +353,14 @@ export const updateCategory = async (req, res) => {
            continue;
         }
         categoryData[key] = val;
+      }
+    }
+
+    if (typeof categoryData.mappedAttributes === "string") {
+      try {
+        categoryData.mappedAttributes = JSON.parse(categoryData.mappedAttributes);
+      } catch (e) {
+        categoryData.mappedAttributes = [];
       }
     }
 

@@ -83,6 +83,7 @@ const ProductManagement = () => {
         fssaiLicense: '',
         mainImage: null,
         galleryImages: [],
+        dynamicAttributes: [],
         variants: [
             { id: Date.now(), name: 'Default', price: '', salePrice: '', stock: '', sku: '' }
         ]
@@ -91,6 +92,53 @@ const ProductManagement = () => {
     const [viewingVariants, setViewingVariants] = useState(null);
     const [isVariantsViewModalOpen, setIsVariantsViewModalOpen] = useState(false);
     const [variantImageFiles, setVariantImageFiles] = useState({});
+    const [categoryAttributes, setCategoryAttributes] = useState([]);
+    const [isLoadingAttributes, setIsLoadingAttributes] = useState(false);
+
+    useEffect(() => {
+        const activeCatId = formData.subcategoryId || formData.categoryId || formData.header;
+        if (!activeCatId) {
+            setCategoryAttributes([]);
+            return;
+        }
+
+        let isMounted = true;
+        setIsLoadingAttributes(true);
+        adminApi.getCategoryAttributes(activeCatId)
+            .then((res) => {
+                if (isMounted && res.data?.success) {
+                    const attrs = res.data.results || res.data.result || [];
+                    setCategoryAttributes(attrs);
+
+                    setFormData((prev) => {
+                        const existingList = prev.dynamicAttributes || [];
+                        const merged = attrs.map((attr) => {
+                            const found = existingList.find(
+                                (e) => String(e.attributeId) === String(attr._id) || (e.name && e.name.toLowerCase() === attr.name.toLowerCase())
+                            );
+                            return {
+                                attributeId: attr._id,
+                                name: attr.name,
+                                value: found ? found.value : '',
+                                isRequired: attr.isRequired,
+                                inputType: attr.inputType,
+                                options: attr.options || [],
+                                inheritedFrom: attr.inheritedFrom,
+                            };
+                        });
+                        return { ...prev, dynamicAttributes: merged };
+                    });
+                }
+            })
+            .catch((err) => {
+                console.error("Failed to load category attributes", err);
+            })
+            .finally(() => {
+                if (isMounted) setIsLoadingAttributes(false);
+            });
+
+        return () => { isMounted = false; };
+    }, [formData.subcategoryId, formData.categoryId, formData.header]);
 
     const fetchCategories = async () => {
         try {
@@ -215,6 +263,26 @@ const ProductManagement = () => {
                     value: String(s.value || "").trim(),
                 }));
             data.append("specifications", JSON.stringify(cleanedSpecs));
+
+            // Dynamic Attributes
+            if (Array.isArray(formData.dynamicAttributes)) {
+                for (const attr of formData.dynamicAttributes) {
+                    if (attr.isRequired && (!attr.value || !String(attr.value).trim())) {
+                        toast.error(`Attribute "${attr.name}" is required for this category!`);
+                        setModalTab('specifications');
+                        setIsSaving(false);
+                        return;
+                    }
+                }
+                const cleanedDynamicAttrs = formData.dynamicAttributes
+                    .filter((a) => a && a.value && String(a.value).trim())
+                    .map((a) => ({
+                        attributeId: a.attributeId || null,
+                        name: String(a.name || '').trim(),
+                        value: String(a.value || '').trim(),
+                    }));
+                data.append("dynamicAttributes", JSON.stringify(cleanedDynamicAttrs));
+            }
 
             if (formData.mainImage) {
                 if (formData.mainImage instanceof File) {
@@ -355,6 +423,7 @@ const ProductManagement = () => {
                 galleryImages: item.galleryImages || item.images || [],
                 highlights: freshHighlights,
                 specifications: Array.isArray(item.specifications) ? item.specifications.map(s => ({ key: s?.key || '', value: s?.value || '' })) : [],
+                dynamicAttributes: Array.isArray(item.dynamicAttributes) ? item.dynamicAttributes.map(a => ({ attributeId: a.attributeId?._id || a.attributeId || null, name: a.name || '', value: a.value || '' })) : [],
                 variants: (item.variants && item.variants.length > 0) ? item.variants.map(v => ({ ...v, id: v._id || Date.now() })) : [
                     {
                         id: Date.now(),
@@ -377,6 +446,7 @@ const ProductManagement = () => {
                 mainImage: null, galleryImages: [],
                 highlights: [0, 1, 2, 3].map(() => ({ icon: "", label: "" })),
                 specifications: [],
+                dynamicAttributes: [],
                 variants: [
                     { id: Date.now(), name: 'Default', price: '', salePrice: '', stock: '', sku: '' }
                 ]
@@ -1254,6 +1324,83 @@ const ProductManagement = () => {
                                                     <HiOutlinePlus className="w-4 h-4" />
                                                     <span>Add Field</span>
                                                 </button>
+                                            </div>
+
+                                            {/* Category Mapped Attributes */}
+                                            <div className="bg-amber-50/60 border border-amber-200/70 rounded-2xl p-5 space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs font-bold text-amber-900 uppercase tracking-wider">
+                                                                Category Mapped Attributes
+                                                            </span>
+                                                            <span className="px-2 py-0.5 bg-amber-200/80 text-amber-900 text-[10px] font-extrabold rounded-full">
+                                                                Dynamic (EAV)
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-[11px] text-amber-700/90 mt-0.5">
+                                                            Fields auto-suggested based on the selected Category / Sub-Category.
+                                                        </p>
+                                                    </div>
+                                                    {isLoadingAttributes && (
+                                                        <div className="flex items-center gap-1.5 text-xs text-amber-700 font-semibold">
+                                                            <div className="w-3.5 h-3.5 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
+                                                            <span>Loading...</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {categoryAttributes.length === 0 && !isLoadingAttributes ? (
+                                                    <div className="py-3 px-4 bg-white/80 rounded-xl border border-amber-100 text-xs text-amber-800">
+                                                        No specific mandatory attributes mapped for this category yet. You can add custom fields below.
+                                                    </div>
+                                                ) : (
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        {(formData.dynamicAttributes || []).map((attr, idx) => (
+                                                            <div key={attr.attributeId || idx} className="bg-white p-3.5 rounded-xl border border-amber-200/60 shadow-sm space-y-1.5">
+                                                                <div className="flex items-center justify-between">
+                                                                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                                                                        {attr.name}
+                                                                        {attr.isRequired && <span className="text-rose-500 font-black">*</span>}
+                                                                    </label>
+                                                                    <span className="text-[10px] font-medium text-slate-400">
+                                                                        {attr.inheritedFrom ? `(${attr.inheritedFrom})` : ''}
+                                                                        {attr.isRequired ? ' (Required)' : ' (Optional)'}
+                                                                    </span>
+                                                                </div>
+
+                                                                {attr.inputType === 'dropdown' && attr.options?.length > 0 ? (
+                                                                    <select
+                                                                        value={attr.value || ''}
+                                                                        onChange={(e) => {
+                                                                            const updated = [...formData.dynamicAttributes];
+                                                                            updated[idx] = { ...updated[idx], value: e.target.value };
+                                                                            setFormData({ ...formData, dynamicAttributes: updated });
+                                                                        }}
+                                                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-amber-500 focus:bg-white"
+                                                                    >
+                                                                        <option value="">Select {attr.name}...</option>
+                                                                        {attr.options.map((opt) => (
+                                                                            <option key={opt} value={opt}>{opt}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                ) : (
+                                                                    <input
+                                                                        type={attr.inputType === 'number' ? 'number' : 'text'}
+                                                                        value={attr.value || ''}
+                                                                        placeholder={`Enter ${attr.name}...`}
+                                                                        onChange={(e) => {
+                                                                            const updated = [...formData.dynamicAttributes];
+                                                                            updated[idx] = { ...updated[idx], value: e.target.value };
+                                                                            setFormData({ ...formData, dynamicAttributes: updated });
+                                                                        }}
+                                                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-amber-500 focus:bg-white"
+                                                                    />
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* Quick suggestion tags */}

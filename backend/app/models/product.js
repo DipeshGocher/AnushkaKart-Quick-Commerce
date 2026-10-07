@@ -74,6 +74,14 @@ const productSchema = new mongoose.Schema(
             key: { type: String, trim: true },
             value: { type: String, trim: true },
         }],
+        dynamicAttributes: [{
+            attributeId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Attribute",
+            },
+            name: { type: String, trim: true },
+            value: { type: String, trim: true },
+        }],
         shelfLife: {
             type: String,
             trim: true,
