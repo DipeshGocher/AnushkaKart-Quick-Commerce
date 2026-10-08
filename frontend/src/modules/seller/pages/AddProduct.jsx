@@ -14,7 +14,6 @@ import {
   HiOutlineTrash,
   HiOutlinePlus,
   HiOutlineSquaresPlus,
-  HiOutlineSparkles,
   HiOutlineXMark,
 } from "react-icons/hi2";
 import { HiOutlinePhotograph } from "react-icons/hi";
@@ -181,7 +180,9 @@ const AddProduct = () => {
       try {
         const res = await sellerApi.getCategoryTree();
         if (res.data.success) {
-          setDbCategories(res.data.results || res.data.result || []);
+          const list = (res.data.results || res.data.result || [])
+            .filter((h) => h.slug !== "all" && String(h.name || "").trim().toLowerCase() !== "all");
+          setDbCategories(list);
         }
       } catch (error) {
         toast.error("Failed to load categories");
@@ -329,12 +330,7 @@ const AddProduct = () => {
       data.append("conditionType", formData.conditionType || "new");
 
       const response = await sellerApi.createProduct(data);
-      const approvalStatus = response?.data?.result?.approvalStatus;
-      if (approvalStatus === "pending") {
-        toast.success("Product submitted for admin approval");
-      } else {
-        toast.success(response?.data?.message || "Product saved successfully!");
-      }
+      toast.success(response?.data?.message || "Product published successfully!");
       navigate("/seller/products");
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to save product");
@@ -405,8 +401,7 @@ const AddProduct = () => {
             { id: "media", label: "Images & Media", icon: HiOutlinePhoto },
             { id: "variants", label: "Item Variants", icon: HiOutlineSwatch },
             { id: "category", label: "Groups", icon: HiOutlineFolderOpen },
-            { id: "highlights", label: "Highlights", icon: HiOutlineSparkles },
-            { id: "specifications", label: "Specifications", icon: HiOutlineCube },
+            { id: "specifications", label: "More Details", icon: HiOutlineCube },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -437,14 +432,6 @@ const AddProduct = () => {
                 <option value="inactive">DRAFT</option>
               </select>
             </div>
-            <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-slate-800">
-              <input type="checkbox" checked={formData.isFeatured} onChange={(event) => setFormData({ ...formData, isFeatured: event.target.checked })} className="h-4 w-4 accent-amber-500 cursor-pointer" />
-              Featured Product
-            </label>
-            <label className="mt-2 flex cursor-pointer items-center gap-2 rounded-md border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-900">
-              <input type="checkbox" checked={formData.isTopDeal} onChange={(event) => setFormData({ ...formData, isTopDeal: event.target.checked })} className="h-4 w-4 accent-rose-500 cursor-pointer" />
-              Top Deals Product
-            </label>
           </div>
         </div>
 
@@ -924,29 +911,67 @@ const AddProduct = () => {
                     <div className="col-span-12 mt-2 pt-3 border-t border-slate-200">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block ml-1">Variant Images (Max 5)</label>
                         <div className="flex gap-3 w-full overflow-x-auto pb-2 custom-scrollbar">
-                           {[0, 1, 2, 3, 4].map(imgIdx => (
-                              <div key={imgIdx} className="relative h-16 w-16 shrink-0 rounded-xl border-2 border-dashed border-slate-200 bg-white hover:border-primary/50 overflow-hidden cursor-pointer flex items-center justify-center transition-colors">
-                                 {variantImageFiles[index]?.[imgIdx] ? (
-                                     <img src={URL.createObjectURL(variantImageFiles[index][imgIdx])} alt="" className="h-full w-full object-cover" />
-                                 ) : variant.images?.[imgIdx] ? (
-                                     <img src={variant.images[imgIdx]} alt="" className="h-full w-full object-cover" />
-                                 ) : (
-                                     <HiOutlinePhotograph className="h-5 w-5 text-slate-300" />
-                                 )}
-                                 <input
-                                     type="file"
-                                     accept="image/*"
-                                     className="absolute inset-0 opacity-0 cursor-pointer"
-                                     onChange={e => {
-                                         if (e.target.files?.[0]) {
-                                             const newFiles = [...(variantImageFiles[index] || [])];
-                                             newFiles[imgIdx] = e.target.files[0];
-                                             setVariantImageFiles({ ...variantImageFiles, [index]: newFiles });
+                           {[0, 1, 2, 3, 4].map(imgIdx => {
+                              const hasFile = Boolean(variantImageFiles[index]?.[imgIdx]);
+                              const hasUrl = Boolean(variant.images?.[imgIdx]);
+                              const hasImage = hasFile || hasUrl;
+                              return (
+                                <div key={imgIdx} className="relative h-16 w-16 shrink-0 rounded-xl border-2 border-dashed border-slate-200 bg-white hover:border-primary/50 overflow-hidden flex items-center justify-center transition-colors group">
+                                   {hasFile ? (
+                                       <img src={URL.createObjectURL(variantImageFiles[index][imgIdx])} alt="" className="h-full w-full object-cover" />
+                                   ) : hasUrl ? (
+                                       <img src={variant.images[imgIdx]} alt="" className="h-full w-full object-cover" />
+                                   ) : (
+                                       <HiOutlinePhotograph className="h-5 w-5 text-slate-300" />
+                                   )}
+
+                                   {hasImage && (
+                                     <button
+                                       type="button"
+                                       onClick={(e) => {
+                                         e.stopPropagation();
+                                         e.preventDefault();
+                                         if (hasFile) {
+                                           const newFiles = [...(variantImageFiles[index] || [])];
+                                           delete newFiles[imgIdx];
+                                           setVariantImageFiles({ ...variantImageFiles, [index]: newFiles });
                                          }
-                                     }}
-                                 />
-                              </div>
-                           ))}
+                                         if (hasUrl) {
+                                           setFormData((prev) => {
+                                             const updatedVariants = [...(prev.variants || [])];
+                                             if (updatedVariants[index] && Array.isArray(updatedVariants[index].images)) {
+                                               const updatedImages = [...updatedVariants[index].images];
+                                               updatedImages.splice(imgIdx, 1);
+                                               updatedVariants[index] = { ...updatedVariants[index], images: updatedImages };
+                                             }
+                                             return { ...prev, variants: updatedVariants };
+                                           });
+                                         }
+                                       }}
+                                       className="absolute top-1 right-1 z-20 p-1 bg-rose-500 hover:bg-rose-600 text-white rounded-full shadow-md transition-all cursor-pointer"
+                                       title="Remove image"
+                                     >
+                                       <HiOutlineXMark className="w-3 h-3" />
+                                     </button>
+                                   )}
+
+                                   {!hasImage && (
+                                     <input
+                                         type="file"
+                                         accept="image/*"
+                                         className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                                         onChange={e => {
+                                             if (e.target.files?.[0]) {
+                                                 const newFiles = [...(variantImageFiles[index] || [])];
+                                                 newFiles[imgIdx] = e.target.files[0];
+                                                 setVariantImageFiles({ ...variantImageFiles, [index]: newFiles });
+                                             }
+                                         }}
+                                     />
+                                   )}
+                                </div>
+                              );
+                           })}
                         </div>
                     </div>
                   </div>
@@ -1034,113 +1059,11 @@ const AddProduct = () => {
 
 
 
-          {modalTab === "highlights" && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
-              <div>
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-1">
-                  Product Highlight Badges (4 Slots)
-                </h3>
-                <p className="text-xs text-slate-500 font-medium">
-                  Select icons and enter custom text labels to display product highlights on the product page.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[0, 1, 2, 3].map((slotIdx) => {
-                  const currentHighlight = formData.highlights?.[slotIdx] || { icon: "", label: "" };
-                  const selectedPreset = PRESET_HIGHLIGHT_ICONS.find((i) => i.id === currentHighlight.icon);
-                  return (
-                    <div key={slotIdx} className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                          Highlight #{slotIdx + 1}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          {(currentHighlight.icon || currentHighlight.label) && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const nextHL = [...(formData.highlights || [])];
-                                nextHL[slotIdx] = { icon: "", label: "" };
-                                setFormData({ ...formData, highlights: nextHL });
-                              }}
-                              className="text-[11px] font-bold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded-md transition-colors"
-                            >
-                              Remove
-                            </button>
-                          )}
-                          <span className="text-xl">
-                            {selectedPreset?.emoji || "✨"}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Icon Selector Grid */}
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
-                          Select Icon (Clicking sets icon & title)
-                        </label>
-                        <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1.5 bg-white rounded-xl border border-slate-200">
-                          {PRESET_HIGHLIGHT_ICONS.map((ic) => {
-                            const isSelected = currentHighlight.icon === ic.id;
-                            return (
-                              <button
-                                key={ic.id}
-                                type="button"
-                                onClick={() => {
-                                  const nextHL = [...(formData.highlights || [])];
-                                  if (isSelected) {
-                                    nextHL[slotIdx] = { icon: "", label: "" };
-                                  } else {
-                                    nextHL[slotIdx] = { icon: ic.id, label: ic.name };
-                                  }
-                                  setFormData({ ...formData, highlights: nextHL });
-                                }}
-                                className={cn(
-                                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border",
-                                  isSelected
-                                    ? "bg-amber-500 border-amber-600 text-white shadow-xs ring-2 ring-amber-300"
-                                    : "bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100"
-                                )}
-                              >
-                                <span>{ic.emoji}</span>
-                                <span className="text-[10px]">{ic.name}</span>
-                                {isSelected && <span className="text-[10px] ml-0.5 font-black">✓</span>}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Title Input */}
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                          Heading / Title Text
-                        </label>
-                        <input
-                          type="text"
-                          value={currentHighlight.label}
-                          onChange={(e) => {
-                            const nextHL = [...(formData.highlights || [])];
-                            nextHL[slotIdx] = { ...currentHighlight, label: e.target.value };
-                            setFormData({ ...formData, highlights: nextHL });
-                          }}
-                          placeholder="e.g. Dermatologically Tested"
-                          className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-primary/10"
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {modalTab === "specifications" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800">Product Specifications</h3>
+                  <h3 className="text-sm font-bold text-slate-800">More Details</h3>
                   <p className="text-xs text-slate-400 mt-0.5">
                     Add custom fields according to your product (e.g., Brand, Model Name, Tea Form, Shelf Life, etc.)
                   </p>
@@ -1223,9 +1146,9 @@ const AddProduct = () => {
                       <HiOutlineCube className="w-5 h-5" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-slate-700">No specifications added yet</p>
+                      <p className="text-xs font-bold text-slate-700">No details added yet</p>
                       <p className="text-[11px] text-slate-400 mt-0.5">
-                        Click 'Add Field' above or select any quick suggestion to add specification attributes.
+                        Click 'Add Field' above or select any quick suggestion to add attributes.
                       </p>
                     </div>
                     <button
@@ -1238,7 +1161,7 @@ const AddProduct = () => {
                       }}
                       className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-all"
                     >
-                      Add First Specification
+                      Add First Detail
                     </button>
                   </div>
                 ) : (

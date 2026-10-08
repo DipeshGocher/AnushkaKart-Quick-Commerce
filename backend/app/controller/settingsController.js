@@ -192,7 +192,7 @@ const updateSettingsSchema = Joi.object({
   }).unknown(false),
   deliveryBadgeText: Joi.string().allow("").max(100),
   deliveryBadgeImage: Joi.string().allow("").max(2000),
-  deliveryBadgeBg: Joi.string().allow("").max(50),
+  deliveryBadgeBg: Joi.string().allow("").max(500),
   deliveryBadgeEnabled: Joi.boolean(),
   bestSellingTitle: Joi.string().allow("").max(200),
   bestSellingCategoryIds: Joi.array().items(Joi.string().max(100)),

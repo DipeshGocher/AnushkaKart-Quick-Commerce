@@ -28,9 +28,22 @@ const CategoryShowcase = ({ categoryMap, subcategoryMap, activeHeaderId }) => {
     return null;
   }
 
-  const handleSubcategoryClick = (categoryId, subcategoryId) => {
+  const handleSubcategoryClick = (category, sub) => {
     window.scrollTo(0, 0);
-    navigate(`/category/${categoryId}`, { state: { activeSubcategoryId: subcategoryId } });
+    const catId = category?._id || category?.id;
+    const subId = sub?._id || sub?.id;
+    const catSlug = category?.slug || category?.name;
+    const subSlug = sub?.slug || sub?.name;
+    navigate(`/category/${catSlug || catId}`, {
+      state: {
+        activeSubcategoryId: subId,
+        subCategorySlug: subSlug,
+        subCategoryName: sub?.name,
+        activeMainCategoryId: catId,
+        mainCategorySlug: catSlug,
+        mainCategoryName: category?.name,
+      },
+    });
   };
 
   return (
@@ -47,7 +60,7 @@ const CategoryShowcase = ({ categoryMap, subcategoryMap, activeHeaderId }) => {
             {category.children.map((sub) => (
               <div 
                 key={sub._id} 
-                onClick={() => handleSubcategoryClick(category._id, sub._id)}
+                onClick={() => handleSubcategoryClick(category, sub)}
                 className="flex flex-col items-center gap-1.5 cursor-pointer group"
               >
                 <div className="w-full aspect-[4/5] rounded-[14px] bg-[#f4f4f4] border border-[#e5e7eb] flex items-center justify-center p-0 transition-all relative overflow-hidden group-hover:bg-[#eaeaea]">

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Card from '@shared/components/ui/Card';
 import { useToast } from '@shared/components/ui/Toast';
 import { cn } from '@/lib/utils';
+import { useSettings } from '@core/context/SettingsContext';
 import { adminApi } from '../services/adminApi';
 import {
     Palette,
@@ -76,6 +77,7 @@ const BADGE_BG_PRESETS = [
 
 export default function LayoutBranding() {
     const { showToast } = useToast();
+    const { refetch: refetchSettings } = useSettings() || {};
     const [activeTab, setActiveTab] = useState('branding');
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -400,6 +402,9 @@ export default function LayoutBranding() {
             };
 
             await adminApi.updateSettings(payload);
+            if (refetchSettings) {
+                await refetchSettings({ forceRefresh: true });
+            }
             showToast('Layout & branding settings saved successfully!', 'success');
         } catch (err) {
             console.error(err);
@@ -843,31 +848,42 @@ export default function LayoutBranding() {
                                     <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider">
                                         Custom Badge Icon / Logo (Optional)
                                     </label>
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex flex-wrap items-center gap-3">
                                         <button
                                             type="button"
                                             onClick={() => !deliveryBadgeUploading && deliveryBadgeInputRef.current?.click()}
                                             className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
                                         >
                                             {deliveryBadgeUploading ? <Loader2 className="h-4 w-4 animate-spin text-indigo-600" /> : <Upload className="h-4 w-4" />}
-                                            {settings.deliveryBadgeImage ? 'Replace Icon' : 'Upload Icon / Logo'}
+                                            {settings.deliveryBadgeImage ? 'Replace Icon / Logo' : 'Upload Icon / Logo'}
                                         </button>
                                         {settings.deliveryBadgeImage && (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleInputChange('deliveryBadgeImage', '')}
-                                                className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                                                title="Remove Icon"
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </button>
+                                            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+                                                <img
+                                                    src={settings.deliveryBadgeImage}
+                                                    alt="Current Badge Icon"
+                                                    className="h-6 w-6 object-contain bg-white rounded p-0.5 border border-slate-200"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        handleInputChange('deliveryBadgeImage', '');
+                                                        if (deliveryBadgeInputRef.current) deliveryBadgeInputRef.current.value = '';
+                                                    }}
+                                                    className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer transition-colors"
+                                                    title="Remove Custom Badge Icon"
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                    Remove Icon
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
                                     <input
                                         type="url"
                                         value={settings.deliveryBadgeImage}
                                         onChange={(e) => handleInputChange('deliveryBadgeImage', e.target.value)}
-                                        placeholder="Or paste direct icon image URL"
+                                        placeholder="Or paste direct icon image URL (leave empty to use default lightning icon)"
                                         className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none"
                                     />
                                 </div>

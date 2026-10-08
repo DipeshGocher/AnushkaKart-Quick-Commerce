@@ -401,56 +401,7 @@ const AdminSettings = () => {
                                         />
                                     </button>
                                 </div>
-                                <div className="md:col-span-2 rounded-2xl bg-slate-50 border border-slate-200 px-5 py-4 flex items-center justify-between gap-4">
-                                    <div>
-                                        <p className="text-sm font-black text-slate-900">Require approval for new seller products</p>
-                                        <p className="text-xs font-bold text-slate-500 mt-1">
-                                            When enabled, newly added seller products remain hidden until approved by admin.
-                                        </p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        role="switch"
-                                        aria-checked={Boolean(settings.productApproval?.sellerCreateRequiresApproval)}
-                                        onClick={() => handleProductApprovalToggle('sellerCreateRequiresApproval')}
-                                        className={cn(
-                                            "relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-200",
-                                            settings.productApproval?.sellerCreateRequiresApproval ? "bg-emerald-500" : "bg-slate-300"
-                                        )}
-                                    >
-                                        <span
-                                            className={cn(
-                                                "inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform duration-200",
-                                                settings.productApproval?.sellerCreateRequiresApproval ? "translate-x-7" : "translate-x-1"
-                                            )}
-                                        />
-                                    </button>
-                                </div>
-                                <div className="md:col-span-2 rounded-2xl bg-slate-50 border border-slate-200 px-5 py-4 flex items-center justify-between gap-4">
-                                    <div>
-                                        <p className="text-sm font-black text-slate-900">Require approval for seller product edits</p>
-                                        <p className="text-xs font-bold text-slate-500 mt-1">
-                                            When enabled, seller changes to existing products remain hidden until approved by admin.
-                                        </p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        role="switch"
-                                        aria-checked={Boolean(settings.productApproval?.sellerEditRequiresApproval)}
-                                        onClick={() => handleProductApprovalToggle('sellerEditRequiresApproval')}
-                                        className={cn(
-                                            "relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-200",
-                                            settings.productApproval?.sellerEditRequiresApproval ? "bg-emerald-500" : "bg-slate-300"
-                                        )}
-                                    >
-                                        <span
-                                            className={cn(
-                                                "inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform duration-200",
-                                                settings.productApproval?.sellerEditRequiresApproval ? "translate-x-7" : "translate-x-1"
-                                            )}
-                                        />
-                                    </button>
-                                </div>
+
                             </div>
                         </Card>
                     )}

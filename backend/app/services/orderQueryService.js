@@ -95,6 +95,7 @@ export async function fetchSellerOrdersPage({
   statusParam,
   startDate,
   endDate,
+  sort,
   skip,
   limit,
 }) {
@@ -106,9 +107,17 @@ export async function fetchSellerOrdersPage({
     endDate,
   });
 
+  const sortMap = {
+    newest: { createdAt: -1, _id: -1 },
+    oldest: { createdAt: 1, _id: 1 },
+    "amount-desc": { "pricing.total": -1, createdAt: -1 },
+    "amount-asc": { "pricing.total": 1, createdAt: -1 },
+  };
+  const sortQuery = sortMap[String(sort || "newest").toLowerCase()] || sortMap.newest;
+
   const [orders, total, summaryRows] = await Promise.all([
     Order.find(query)
-      .sort({ createdAt: -1, _id: -1 })
+      .sort(sortQuery)
       .skip(skip)
       .limit(limit)
       .populate("customer", "name phone")

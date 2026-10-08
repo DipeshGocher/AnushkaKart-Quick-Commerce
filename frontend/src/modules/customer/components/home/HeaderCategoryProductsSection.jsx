@@ -122,20 +122,43 @@ const formatPrice = (value) =>
     maximumFractionDigits: 0,
   }).format(value);
 
+const HEADER_PRODUCTS_CACHE_KEY = "anushkakart:header_products_cache:v2";
+
+const readHeaderProductsCache = () => {
+  try {
+    const raw = sessionStorage.getItem(HEADER_PRODUCTS_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeHeaderProductsCache = (data) => {
+  try {
+    if (!data) return;
+    sessionStorage.setItem(HEADER_PRODUCTS_CACHE_KEY, JSON.stringify(data));
+  } catch {}
+};
+
+let memoryHeaderProductsCache = null;
+
 const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
   const { openProduct } = useProductDetail();
-  const [sections, setSections] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const cachedInitial = memoryHeaderProductsCache || readHeaderProductsCache() || [];
+  const [sections, setSections] = useState(cachedInitial);
+  const [isLoading, setIsLoading] = useState(() => !cachedInitial || cachedInitial.length === 0);
   const navigate = useNavigate();
   const { language } = useTranslation();
   const { translateObject } = useDynamicTranslation();
-  const [displaySections, setDisplaySections] = useState([]);
+  const [displaySections, setDisplaySections] = useState(cachedInitial);
 
   useEffect(() => {
     let cancelled = false;
 
     const fetchHeaderProducts = async () => {
-      setIsLoading(true);
+      if (!cachedInitial || cachedInitial.length === 0) {
+        setIsLoading(true);
+      }
       try {
         const params = { limit: 16 };
         if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
@@ -161,6 +184,10 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
               ...s,
               products: Array.isArray(s.products) ? s.products.slice(0, 16) : [],
             }));
+          if (valid.length > 0) {
+            memoryHeaderProductsCache = valid;
+            writeHeaderProductsCache(valid);
+          }
           setSections(valid);
           setDisplaySections(valid);
         }

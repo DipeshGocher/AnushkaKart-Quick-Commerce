@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { useCart } from "../../context/CartContext";
 import { customerApi } from "../../services/customerApi";
 import CategoryIcon from "@shared/components/CategoryIcon";
-import { MapPin, Home, ChevronRight, LayoutGrid, ShoppingBag } from 'lucide-react';
+import { MapPin, Home, ChevronRight, LayoutGrid, ShoppingBag, Zap } from 'lucide-react';
 import { getCustomerHeaderColor, buildMiniCartColor, isBrightColor, getCategoryHeaderColor } from "../../utils/headerTheme";
 
 
@@ -43,54 +43,28 @@ function DeliveryBadge({ settings, className }) {
   const rawText = settings?.deliveryBadgeText;
   const text = (typeof rawText === 'string' && rawText.trim() !== '') ? rawText.trim() : '30 min';
 
-  if (img) {
-    return (
-      <div
-        className={cn("customer-header-delivery-time shrink-0 h-[40px] px-2 rounded-xl flex items-center justify-center select-none shadow-[0_3px_10px_rgba(255,122,0,0.25)]", className)}
-        style={{ background: bg }}
-      >
-        <img src={img} alt={text || "Fast Delivery"} className="h-[26px] max-w-[85px] object-contain" />
-      </div>
-    );
-  }
-
-  const match = text.match(/^(\d+)\s*(.*)$/);
-  const numberPart = match ? match[1] : null;
-  const unitPart = match ? match[2] : null;
-
   return (
     <div 
-      className={cn("customer-header-delivery-time shrink-0 h-[40px] px-3.5 rounded-xl flex items-center justify-center gap-1 shadow-[0_3px_10px_rgba(255,122,0,0.25)] select-none", className)}
+      className={cn(
+        "customer-header-delivery-time shrink-0 h-[38px] px-3 rounded-xl flex items-center justify-center gap-1.5 shadow-sm text-white font-black text-xs select-none transition-all",
+        className
+      )}
       style={{
         background: bg,
         color: '#ffffff'
       }}
     >
-      {numberPart ? (
-        <>
-          <span 
-            className="text-[20px] font-black leading-none tracking-tight"
-            style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
-          >
-            {numberPart}
-          </span>
-          {unitPart && (
-            <span 
-              className="text-[12px] font-bold leading-none lowercase"
-              style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
-            >
-              {unitPart}
-            </span>
-          )}
-        </>
+      {img ? (
+        <img src={img} alt={text || "Fast Delivery"} className="h-4 w-4 object-contain shrink-0" />
       ) : (
-        <span 
-          className="text-[13px] font-black leading-none tracking-tight whitespace-nowrap px-1"
-          style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
-        >
-          {text}
-        </span>
+        <Zap className="h-3.5 w-3.5 fill-current shrink-0" />
       )}
+      <span 
+        className="text-[12px] font-black leading-none tracking-tight whitespace-nowrap"
+        style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
+      >
+        {text}
+      </span>
     </div>
   );
 }
@@ -535,18 +509,18 @@ const MainLocationHeader = ({
           <div className={cn("absolute inset-x-0 bottom-0 h-px pointer-events-none", isAllCategory ? "bg-blue-200/80" : "hidden")} />
 
           {/* Desktop/Tablet Header Layout (md and above) */}
-          <div className={cn("hidden md:flex items-center justify-between relative z-20 w-full max-w-7xl mx-auto px-4 lg:px-8 transition-all duration-300 mt-1", (isAllCategory && isScrolled) ? "mb-2" : "mb-8")}>
+          <div className={cn("hidden md:flex items-center justify-between relative z-20 w-full max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 transition-all duration-300 mt-1", (isAllCategory && isScrolled) ? "mb-2" : "mb-8")}>
             {/* Left Section: Logo + Location row */}
-            <div className="flex items-center gap-4 lg:gap-8">
+            <div className="flex items-center gap-2.5 lg:gap-3.5 shrink-0">
               <div
                 onClick={() => navigate("/")}
-                className="flex items-center gap-3 cursor-pointer group shrink-0">
-                <div className="group-hover:scale-110 transition-all duration-300 drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)]">
+                className="flex items-center gap-2 cursor-pointer group shrink-0">
+                <div className="group-hover:scale-105 transition-all duration-300 drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)]">
                   <img
                     src={logoUrl || "/logo.png"}
                     alt={`${appName || 'AnushkaStore'} Logo`}
                     loading="lazy"
-                    className="h-14 max-w-[132px] w-auto object-contain drop-shadow-[0_2px_5px_rgba(16,24,40,0.12)]"
+                    className="h-11 lg:h-12 max-w-[110px] lg:max-w-[125px] w-auto object-contain drop-shadow-[0_2px_5px_rgba(16,24,40,0.12)]"
                   />
                 </div>
               </div>
@@ -556,14 +530,14 @@ const MainLocationHeader = ({
                 data-lenis-prevent
                 data-lenis-prevent-touch
                 onClick={() => setIsLocationOpen(true)}
-                className="customer-delivery-card flex min-w-0 max-w-[320px] h-[40px] items-center gap-2 rounded-xl border border-blue-100/90 bg-blue-50/65 px-3 text-left shadow-[0_2px_8px_rgba(40,117,232,0.06)] backdrop-blur-xl transition-transform active:scale-[0.99]"
+                className="customer-delivery-card flex min-w-0 max-w-[190px] lg:max-w-[230px] xl:max-w-[270px] h-[38px] items-center gap-1.5 rounded-xl border border-blue-100/90 bg-blue-50/70 px-2.5 text-left shadow-[0_2px_8px_rgba(40,117,232,0.06)] backdrop-blur-xl transition-transform active:scale-[0.99] cursor-pointer"
               >
-                <MapPin className="customer-delivery-icon h-4 w-4 shrink-0 text-[#2875E8]" style={{ color: '#2875E8' }} />
-                <span className="customer-delivery-label shrink-0 text-[11.5px] font-black text-[#2875E8] tracking-tight uppercase" style={{ color: '#2875E8' }}>HOME</span>
-                <span className="customer-delivery-address min-w-0 flex-1 truncate text-[11px] font-medium text-slate-500" style={{ color: '#64748b' }}>
-                  {isFetchingLocation ? "Detecting location..." : (currentLocation.name || currentLocation.city || "Select address")}
+                <MapPin className="customer-delivery-icon h-3.5 w-3.5 shrink-0 text-[#2875E8]" style={{ color: '#2875E8' }} />
+                <span className="customer-delivery-label shrink-0 text-[11px] font-black text-[#2875E8] tracking-tight uppercase" style={{ color: '#2875E8' }}>HOME</span>
+                <span className="customer-delivery-address min-w-0 flex-1 truncate text-[10.5px] font-medium text-slate-500" style={{ color: '#64748b' }}>
+                  {isFetchingLocation ? "Detecting..." : (currentLocation.name || currentLocation.city || "Select address")}
                 </span>
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-400" style={{ color: '#94a3b8' }} />
+                <ChevronRight className="h-3 w-3 shrink-0 text-slate-400" style={{ color: '#94a3b8' }} />
               </button>
 
               {/* Delivery Time Badge / Logo */}
@@ -571,95 +545,106 @@ const MainLocationHeader = ({
             </div>
 
             {/* Center Section: Highly Visible Search Bar */}
-            <div className="flex-1 max-w-[450px] lg:max-w-2xl px-6">
+            <div className="flex-1 min-w-[180px] max-w-[340px] lg:max-w-[400px] xl:max-w-[460px] px-2 lg:px-3">
               <motion.div
                 onClick={handleSearchClick}
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
                 tabIndex={-1}
-                className="bg-white rounded-full px-4 h-11 border border-slate-200/90 shadow-[0_4px_18px_rgba(0,0,0,0.08)] flex items-center transition-all duration-200 cursor-pointer hover:shadow-md hover:border-slate-300 select-none focus:outline-none focus:ring-0 focus-within:ring-0"
+                className="bg-white rounded-full px-3.5 h-10 border border-slate-200/90 shadow-[0_4px_14px_rgba(0,0,0,0.06)] flex items-center transition-all duration-200 cursor-pointer hover:shadow-md hover:border-slate-300 select-none focus:outline-none focus:ring-0 focus-within:ring-0"
                 style={{ WebkitTapHighlightColor: "transparent" }}
               >
-                <SearchIcon sx={{ color: "#0f172a", fontSize: 20 }} />
+                <SearchIcon sx={{ color: "#0f172a", fontSize: 19 }} />
                 <input
                   type="text"
                   placeholder={searchPlaceholder || "Search Products..."}
                   readOnly
                   tabIndex={-1}
-                  className="flex-1 bg-transparent border-0 ring-0 outline-none focus:outline-none focus:ring-0 focus:border-0 focus-visible:outline-none focus-visible:ring-0 pl-2 text-slate-900 font-bold placeholder:text-slate-600 text-[15px] cursor-pointer pointer-events-none select-none shadow-none"
+                  className="flex-1 bg-transparent border-0 ring-0 outline-none focus:outline-none focus:ring-0 focus:border-0 focus-visible:outline-none focus-visible:ring-0 pl-2 text-slate-900 font-bold placeholder:text-slate-500 text-[13px] cursor-pointer pointer-events-none select-none shadow-none truncate"
                   style={{ outline: "none", border: "none", boxShadow: "none", WebkitTapHighlightColor: "transparent" }}
                 />
-                <div className="flex items-center gap-2 border-l border-slate-200 pl-3">
-                  <MicIcon sx={{ color: "#0f172a", fontSize: 20 }} />
+                <div className="flex items-center gap-1.5 border-l border-slate-200 pl-2">
+                  <MicIcon sx={{ color: "#0f172a", fontSize: 18 }} />
                 </div>
               </motion.div>
             </div>
 
-            {/* Right Section: clean icons over the glossy header */}
-            <div className="flex items-center gap-2.5 lg:gap-3.5 shrink-0">
+            {/* Right Section: clean icons and buttons over the glossy header */}
+            <div className="flex items-center gap-1.5 lg:gap-2 shrink-0">
               {/* Categories Button (Website / Desktop only) */}
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
                 onClick={() => navigate("/categories")}
-                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 hover:bg-white text-slate-700 hover:text-primary transition-all cursor-pointer font-bold text-xs shadow-xs border border-slate-200/80"
+                className="hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/95 hover:bg-white text-slate-700 hover:text-primary transition-all cursor-pointer font-bold text-[11px] shadow-xs border border-slate-200/80 shrink-0 whitespace-nowrap"
                 title="All Categories"
               >
-                <LayoutGrid size={15} className="text-primary shrink-0" />
+                <LayoutGrid size={13} className="text-primary shrink-0" />
                 <span>Categories</span>
               </motion.button>
 
               {/* Products Button (Website / Desktop only) */}
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
                 onClick={() => navigate("/products")}
-                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 hover:bg-white text-slate-700 hover:text-emerald-700 transition-all cursor-pointer font-bold text-xs shadow-xs border border-slate-200/80"
+                className="hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/95 hover:bg-white text-slate-700 hover:text-emerald-700 transition-all cursor-pointer font-bold text-[11px] shadow-xs border border-slate-200/80 shrink-0 whitespace-nowrap"
                 title="All Products"
               >
-                <ShoppingBag size={15} className="text-emerald-600 shrink-0" />
+                <ShoppingBag size={13} className="text-emerald-600 shrink-0" />
                 <span>Products</span>
               </motion.button>
 
               {/* Cart Button */}
               <motion.button
-                whileHover={{ scale: 1.08, rotate: 5 }}
-                whileTap={{ scale: 0.9 }}
+                whileHover={{ scale: 1.06, rotate: 4 }}
+                whileTap={{ scale: 0.92 }}
                 onClick={() => navigate("/cart")}
-                className="w-10 h-10 flex items-center justify-center relative cursor-pointer text-white drop-shadow-sm"
+                className={cn(
+                  "w-9 h-9 flex items-center justify-center relative cursor-pointer rounded-full transition-colors shrink-0",
+                  isBright ? "hover:bg-black/5" : "hover:bg-white/10"
+                )}
                 title="My Cart"
               >
-                <ShoppingCartOutlinedIcon sx={{ fontSize: 24, color: "#344054" }} />
+                <ShoppingCartOutlinedIcon sx={{ fontSize: 22, color: isBright ? "#0f172a" : "#ffffff" }} />
                 {cartCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-[#2875E8] text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:-translate-y-0.5 animate-in zoom-in duration-300">
+                  <span className="absolute -top-1 -right-1 bg-[#2875E8] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:-translate-y-0.5 animate-in zoom-in duration-300">
                     {cartCount}
                   </span>
                 )}
               </motion.button>
 
+              {/* Notification Bell Button */}
               <motion.button
-                whileHover={{ scale: 1.08, rotate: 5 }}
-                whileTap={{ scale: 0.9 }}
+                whileHover={{ scale: 1.06, rotate: 4 }}
+                whileTap={{ scale: 0.92 }}
                 onClick={() => navigate("/notifications")}
-                className="w-10 h-10 flex items-center justify-center relative cursor-pointer text-white drop-shadow-sm"
+                className={cn(
+                  "w-9 h-9 flex items-center justify-center relative cursor-pointer rounded-full transition-colors shrink-0",
+                  isBright ? "hover:bg-black/5" : "hover:bg-white/10"
+                )}
                 title="Notifications"
               >
-                <NotificationsNoneOutlinedIcon sx={{ fontSize: 24, color: "#344054" }} />
+                <NotificationsNoneOutlinedIcon sx={{ fontSize: 22, color: isBright ? "#0f172a" : "#ffffff" }} />
                 {unreadNotificationsCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-[#2875E8] text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:-translate-y-0.5 animate-in zoom-in duration-300">
+                  <span className="absolute -top-1 -right-1 bg-[#2875E8] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:-translate-y-0.5 animate-in zoom-in duration-300">
                     {unreadNotificationsCount > 9 ? "9+" : unreadNotificationsCount}
                   </span>
                 )}
               </motion.button>
 
+              {/* Profile / Account Button */}
               <motion.button
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.9 }}
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.92 }}
                 onClick={() => navigate("/profile")}
-                className="w-10 h-10 flex items-center justify-center cursor-pointer text-white drop-shadow-sm"
+                className={cn(
+                  "w-9 h-9 flex items-center justify-center cursor-pointer rounded-full transition-colors shrink-0",
+                  isBright ? "hover:bg-black/5" : "hover:bg-white/10"
+                )}
                 title="Profile"
               >
-                <AccountCircleOutlinedIcon sx={{ fontSize: 26, color: "#344054" }} />
+                <AccountCircleOutlinedIcon sx={{ fontSize: 24, color: isBright ? "#0f172a" : "#ffffff" }} />
               </motion.button>
             </div>
           </div>

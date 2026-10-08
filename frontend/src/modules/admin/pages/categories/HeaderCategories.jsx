@@ -24,6 +24,7 @@ import IconSelector from "@shared/components/IconSelector";
 import CategoryIcon from "@shared/components/CategoryIcon";
 import Pagination from "@shared/components/ui/Pagination";
 import { getFontAwesomeIconId } from "@shared/constants/fontAwesomeCategoryIcons";
+import TrustBadgesManager from "../../components/categories/TrustBadgesManager";
 
 const makeSlug = (value) =>
   String(value || "")
@@ -58,7 +59,6 @@ const HeaderCategories = () => {
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCatalogType, setSelectedCatalogType] = useState("grocery");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isIconSelectorOpen, setIsIconSelectorOpen] = useState(false);
@@ -71,6 +71,7 @@ const HeaderCategories = () => {
   // Sort state
   const [sortField, setSortField] = useState("sortOrder");
   const [sortDir, setSortDir] = useState("asc");
+  const [statusFilter, setStatusFilter] = useState("");
 
   // Image state
   const [imageFile, setImageFile] = useState(null);
@@ -91,19 +92,20 @@ const HeaderCategories = () => {
     headerColor: "#FF1E1E",
     headerFontColor: "#FFFFFF",
     headerIconColor: "#000000",
+    trustBadges: [],
   });
 
   useEffect(() => {
     const timer = setTimeout(() => fetchCategories(1), 400);
     return () => clearTimeout(timer);
-  }, [searchTerm, pageSize, selectedCatalogType, sortField, sortDir]);
+  }, [searchTerm, pageSize, sortField, sortDir, statusFilter]);
 
   const fetchCategories = async (requestedPage = 1) => {
     setIsLoading(true);
     try {
       const params = {
         type: "header",
-        catalogType: selectedCatalogType,
+        catalogType: "all",
         page: requestedPage,
         limit: pageSize,
       };
@@ -115,10 +117,10 @@ const HeaderCategories = () => {
         const allCats = res.data.results || [];
         let headers =
           list.length > 0 ? list : allCats.filter((c) => c.type === "header");
-        headers =
-          selectedCatalogType === "refurbished"
-            ? headers.filter((c) => c.catalogType === "refurbished")
-            : headers.filter((c) => c.catalogType !== "refurbished");
+
+        if (statusFilter) {
+          headers = headers.filter((c) => c.status === statusFilter);
+        }
 
         // Client-side sort
         headers = applySortLocally(headers);
@@ -254,7 +256,9 @@ const HeaderCategories = () => {
         payload.sortOrder = 0;
       }
       Object.keys(payload).forEach((key) => {
-        if (payload[key] !== null && payload[key] !== undefined) {
+        if (key === "trustBadges") {
+          dataToSend.append("trustBadges", JSON.stringify(payload.trustBadges || []));
+        } else if (payload[key] !== null && payload[key] !== undefined) {
           dataToSend.append(key, payload[key]);
         }
       });
@@ -310,7 +314,7 @@ const HeaderCategories = () => {
       description: "",
       status: "active",
       type: "header",
-      catalogType: selectedCatalogType,
+      catalogType: "grocery",
       parentId: null,
       iconId: "",
       adminCommission: "",
@@ -319,6 +323,7 @@ const HeaderCategories = () => {
       headerColor: "#FF1E1E",
       headerFontColor: "#FFFFFF",
       headerIconColor: "#000000",
+      trustBadges: [],
     });
     setIsAddModalOpen(true);
   };
@@ -346,6 +351,7 @@ const HeaderCategories = () => {
       headerColor: item.headerColor || "#FF1E1E",
       headerFontColor: item.headerFontColor || "#FFFFFF",
       headerIconColor: "#000000",
+      trustBadges: Array.isArray(item.trustBadges) ? item.trustBadges : [],
     });
     setIsAddModalOpen(true);
   };
@@ -372,32 +378,6 @@ const HeaderCategories = () => {
           <Plus className="w-5 h-5" />
           Add Header Category
         </button>
-      </div>
-
-      {/* Catalog Type Toggle */}
-      <div className="flex w-fit gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1">
-        {[
-          ["grocery", "Quick Commerce"],
-          ["refurbished", "E-commerce"],
-        ].map(([catalogType, label]) => (
-          <button
-            key={catalogType}
-            type="button"
-            onClick={() => {
-              setSelectedCatalogType(catalogType);
-              setPage(1);
-              setSelectedItems([]);
-            }}
-            className={
-              "rounded-lg px-4 py-2 text-sm font-semibold transition-colors " +
-              (selectedCatalogType === catalogType
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-900")
-            }
-          >
-            {label}
-          </button>
-        ))}
       </div>
 
       <Card className="border-none shadow-sm">
@@ -429,34 +409,42 @@ const HeaderCategories = () => {
             />
           </div>
 
-          {/* Quick Sort Shortcuts */}
-          <div className="flex items-center gap-2 ml-auto">
-            <span className="text-xs text-gray-400 font-medium flex items-center gap-1">
-              <Filter className="w-3 h-3" /> Sort:
-            </span>
-            <button
-              onClick={() => handleSort("name")}
-              className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${sortField === "name" ? "border-brand-500 bg-brand-50 text-brand-600" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}
-            >
-              {sortField === "name" && sortDir === "asc" ? (
-                <ArrowUpAZ className="w-3.5 h-3.5" />
-              ) : (
-                <ArrowDownAZ className="w-3.5 h-3.5" />
-              )}
-              A–Z
-            </button>
-            <button
-              onClick={() => handleSort("status")}
-              className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${sortField === "status" ? "border-brand-500 bg-brand-50 text-brand-600" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}
-            >
-              Active/Inactive
-            </button>
-            <button
-              onClick={() => handleSort("sortOrder")}
-              className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${sortField === "sortOrder" ? "border-brand-500 bg-brand-50 text-brand-600" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}
-            >
-              Sort Order
-            </button>
+          {/* Filters & Sorting Dropdowns */}
+          <div className="flex items-center gap-2.5 ml-auto flex-wrap">
+            {/* Status Filter */}
+            <div className="relative min-w-[130px]">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full pl-3 pr-8 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 cursor-pointer appearance-none shadow-sm"
+              >
+                <option value="">Select Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+
+            {/* Sort Dropdown */}
+            <div className="relative min-w-[170px]">
+              <select
+                value={`${sortField}-${sortDir}`}
+                onChange={(e) => {
+                  const [f, d] = e.target.value.split("-");
+                  setSortField(f);
+                  setSortDir(d);
+                }}
+                className="w-full pl-3 pr-8 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 cursor-pointer appearance-none shadow-sm"
+              >
+                <option value="sortOrder-asc">Sort Order (Default)</option>
+                <option value="sortOrder-desc">Sort Order (High to Low)</option>
+                <option value="name-asc">Name (A–Z)</option>
+                <option value="name-desc">Name (Z–A)</option>
+                <option value="status-asc">Status (Active first)</option>
+                <option value="status-desc">Status (Inactive first)</option>
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
           </div>
         </div>
 
@@ -955,6 +943,17 @@ const HeaderCategories = () => {
                       />
                     </div>
                   </div>
+                )}
+
+                {/* Category Trust Badges / Policies (Max 3) */}
+                {!isAllCategory(editingItem) && (
+                  <TrustBadgesManager
+                    value={formData.trustBadges || []}
+                    onChange={(newBadges) =>
+                      setFormData({ ...formData, trustBadges: newBadges })
+                    }
+                    maxBadges={3}
+                  />
                 )}
               </div>
 

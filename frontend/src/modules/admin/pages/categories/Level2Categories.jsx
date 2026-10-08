@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { adminApi } from "../../services/adminApi";
 import { toast } from "sonner";
+import TrustBadgesManager from "../../components/categories/TrustBadgesManager";
 
 const makeSlug = (value) =>
   String(value || "")
@@ -32,6 +33,7 @@ const Level2Categories = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterHeader, setFilterHeader] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("");
   const [sortBy, setSortBy] = useState("sort-order");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -50,6 +52,7 @@ const Level2Categories = () => {
     type: "category",
     parentId: "",
     sortOrder: 0,
+    trustBadges: [],
   });
 
   const [imageFile, setImageFile] = useState(null);
@@ -76,7 +79,14 @@ const Level2Categories = () => {
               : [];
         const groceryCats = allCats.filter((c) => c.catalogType !== "refurbished");
         setCategories(groceryCats.filter((c) => c.type === "category"));
-        setHeaderCategories(groceryCats.filter((c) => c.type === "header"));
+        setHeaderCategories(
+          groceryCats.filter(
+            (c) =>
+              c.type === "header" &&
+              c.slug !== "all" &&
+              String(c.name || "").trim().toLowerCase() !== "all"
+          )
+        );
       }
     } catch (error) {
       toast.error("Failed to fetch categories");
@@ -94,7 +104,8 @@ const Level2Categories = () => {
         filterHeader === "all" ||
         (cat.parentId && cat.parentId._id === filterHeader) ||
         cat.parentId === filterHeader;
-      return matchesSearch && matchesHeader;
+      const matchesStatus = !filterStatus || cat.status === filterStatus;
+      return matchesSearch && matchesHeader && matchesStatus;
     });
 
     return [...filtered].sort((a, b) => {
@@ -117,7 +128,7 @@ const Level2Categories = () => {
           return bTime - aTime;
       }
     });
-  }, [categories, searchTerm, filterHeader, sortBy]);
+  }, [categories, searchTerm, filterHeader, filterStatus, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCategories.length / pageSize));
 
@@ -158,7 +169,9 @@ const Level2Categories = () => {
       // Only append fields that have actual values to avoid sending empty objects/junk
       Object.keys(formData).forEach((key) => {
         const val = formData[key];
-        if (key !== "type" && val !== undefined && val !== null && val !== "") {
+        if (key === "trustBadges") {
+          data.append("trustBadges", JSON.stringify(formData.trustBadges || []));
+        } else if (key !== "type" && val !== undefined && val !== null && val !== "") {
           data.append(key, val);
         }
       });
@@ -214,6 +227,7 @@ const Level2Categories = () => {
       type: "category",
       parentId: "",
       sortOrder: 0,
+      trustBadges: [],
     });
     setImageFile(null);
     setPreviewUrl(null);
@@ -335,11 +349,21 @@ const Level2Categories = () => {
               ))}
             </select>
           </div>
+          <div className="flex items-center gap-2 min-w-[140px]">
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 cursor-pointer">
+              <option value="">Select Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
           <div className="flex items-center gap-2 min-w-[180px]">
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 text-xs font-semibold text-gray-700 bg-white cursor-pointer">
               <option value="sort-order">Sort Order (Ascending)</option>
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
@@ -489,30 +513,37 @@ const Level2Categories = () => {
       {/* Add/Edit Modal */}
       <AnimatePresence>
         {isAddModalOpen && (
-          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
-              <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-                <h2 className="text-lg font-bold text-gray-900">
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden my-auto">
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center shrink-0">
+                <h2 className="text-base font-bold text-gray-900">
                   {editingItem ? "Edit Category" : "Add Category"}
                 </h2>
                 <button
                   onClick={() => setIsAddModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-600">
-                  <X className="w-6 h-6" />
+                  className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="p-6 space-y-4">
+              {/* Modal Body */}
+              <div
+                className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0"
+                tabIndex={0}
+                onWheel={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+              >
                 {/* Image Upload */}
                 <div className="flex flex-col items-center justify-center gap-1">
                   <div className="relative">
                     <div
                       onClick={() => fileInputRef.current?.click()}
-                      className="w-24 h-24 rounded-full bg-gray-50 border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-brand-500 overflow-hidden transition-colors">
+                      className="w-20 h-20 rounded-full bg-gray-50 border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-brand-500 overflow-hidden transition-colors">
                       {previewUrl ? (
                         <img
                           src={previewUrl}
@@ -521,8 +552,8 @@ const Level2Categories = () => {
                         />
                       ) : (
                         <div className="text-center">
-                          <Image className="w-8 h-8 text-gray-400 mx-auto" />
-                          <span className="text-xs text-gray-500 mt-1 block">
+                          <Image className="w-6 h-6 text-gray-400 mx-auto" />
+                          <span className="text-[11px] text-gray-500 mt-0.5 block">
                             Upload
                           </span>
                         </div>
@@ -557,24 +588,24 @@ const Level2Categories = () => {
                     )}
                   </div>
                   <input
-                    type="file"
                     ref={fileInputRef}
-                    className="hidden"
-                    onChange={handleImageChange}
+                    type="file"
                     accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Parent Header Category
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-700">
+                    Parent Header Category <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={formData.parentId}
                     onChange={(e) =>
                       setFormData({ ...formData, parentId: e.target.value })
                     }
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
                     <option value="">Select Header Category</option>
                     {headerCategories.map((h) => (
                       <option key={h._id || h.id} value={h._id || h.id}>
@@ -584,79 +615,82 @@ const Level2Categories = () => {
                   </select>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Name
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-700">
+                    Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.name}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        name: e.target.value,
-                        slug: makeSlug(e.target.value),
-                      })
-                    }
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                    onChange={handleNameChange}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
                     placeholder="e.g., Laptops"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-700">
                     Slug
                   </label>
                   <input
                     type="text"
                     value={formData.slug}
                     readOnly
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-gray-50 text-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-gray-50 text-gray-500 text-sm focus:outline-none"
                     placeholder="e.g., laptops"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Sort Order
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.sortOrder}
-                    onChange={(e) =>
-                      setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })
-                    }
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-                    placeholder="e.g., 0, 1, 2"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-gray-700">
+                      Sort Order
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.sortOrder}
+                      onChange={(e) =>
+                        setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })
+                      }
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-gray-700">
+                      Status
+                    </label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) =>
+                        setFormData({ ...formData, status: e.target.value })
+                      }
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Status
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) =>
-                      setFormData({ ...formData, status: e.target.value })
-                    }
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                </div>
+                <TrustBadgesManager
+                  value={formData.trustBadges || []}
+                  onChange={(newBadges) => setFormData({ ...formData, trustBadges: newBadges })}
+                  maxBadges={3}
+                />
               </div>
 
-              <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
+              {/* Modal Footer */}
+              <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 shrink-0">
                 <button
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium">
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 font-medium transition-colors">
                   Cancel
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={isSaving}
-                  className="px-4 py-2 bg-black  text-primary-foreground rounded-lg hover:bg-brand-700 font-medium disabled:opacity-50 flex items-center gap-2">
+                  className="px-4 py-2 text-sm bg-black text-white rounded-lg hover:bg-gray-800 font-medium disabled:opacity-50 flex items-center gap-2 transition-colors">
                   {isSaving && (
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   )}

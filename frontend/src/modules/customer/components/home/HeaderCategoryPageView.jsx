@@ -18,6 +18,7 @@ import {
 } from '../../utils/headerTheme';
 
 import ExperienceBannerCarousel from '../experience/ExperienceBannerCarousel';
+import CuratedCategoryDealsSection from './CuratedCategoryDealsSection';
 
 // Banner assets for header categories
 import groceryBannerImg from '@/assets/banners/groceries_header_banner.jpg';
@@ -291,13 +292,40 @@ const HeaderCategoryPageView = ({
     const hSlug = headerCategory?.slug || slugify(headerCategory?.name || '');
     const mSlug = cat.slug || slugify(cat.name || '');
     if (hSlug && mSlug) {
-      navigate(`/category/${hSlug}/${mSlug}`);
+      navigate(`/category/${hSlug}/${mSlug}`, {
+        state: {
+          activeMainCategoryId: cat._id || cat.id,
+          mainCategorySlug: mSlug,
+          mainCategoryName: cat.name,
+          headerSlug: hSlug,
+          headerName: headerCategory?.name,
+        },
+      });
     }
   };
 
   const handleSubCategoryClick = (sub) => {
+    const pId = String(sub.parentId?._id || sub.parentId || '');
+    const parentMain = categoryMap[pId] || mainCategories.find((m) => String(m._id || m.id) === pId);
+
+    const hSlug = headerCategory?.slug || slugify(headerCategory?.name || '');
+    const mSlug = parentMain ? (parentMain.slug || slugify(parentMain.name || '')) : '';
     const sSlug = sub.slug || slugify(sub.name || '');
-    if (sSlug) {
+
+    if (hSlug && mSlug && sSlug) {
+      navigate(`/category/${hSlug}/${mSlug}?sub=${sSlug}`, {
+        state: {
+          activeSubcategoryId: sub._id || sub.id,
+          subCategorySlug: sSlug,
+          subCategoryName: sub.name,
+          activeMainCategoryId: parentMain._id || parentMain.id,
+          mainCategorySlug: mSlug,
+          mainCategoryName: parentMain.name,
+          headerSlug: hSlug,
+          headerName: headerCategory?.name,
+        },
+      });
+    } else if (sSlug) {
       navigate(`/category/sub/${sSlug}`, {
         state: {
           subcategoryId: sub._id || sub.id,
@@ -714,6 +742,15 @@ const HeaderCategoryPageView = ({
           </div>
         </section>
       )}
+
+      {/* ── 2.3 CURATED CATEGORY DEALS (MATCHING REFERENCE IMAGE LAYOUT) ── */}
+      <CuratedCategoryDealsSection
+        pageType="header"
+        headerId={headerId}
+        headerCategory={headerCategory}
+        heroConfig={categoryHeroConfig}
+        subCategories={subCategories}
+      />
 
       {/* ── 2.5 TOP DEALS (FULL-WIDTH SECTION WITHOUT SIDE BOX GAPS) ── */}
       {topDealsProducts.length > 0 && (

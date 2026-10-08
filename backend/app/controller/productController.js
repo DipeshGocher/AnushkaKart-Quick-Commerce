@@ -462,17 +462,46 @@ export const getProducts = async (req, res) => {
 
     if (finalHeaderId && finalHeaderId !== "all") {
       try {
-        const childCats = await Category.find({ parentId: finalHeaderId, type: "category" }).select("_id").lean();
+        const headerIdList = [String(finalHeaderId)];
+        if (mongoose.Types.ObjectId.isValid(String(finalHeaderId))) {
+          headerIdList.push(new mongoose.Types.ObjectId(String(finalHeaderId)));
+        } else {
+          const hDoc = await Category.findOne({
+            type: "header",
+            $or: [{ slug: String(finalHeaderId) }, { name: String(finalHeaderId) }]
+          }).select("_id").lean();
+          if (hDoc?._id) {
+            headerIdList.push(hDoc._id, String(hDoc._id));
+          }
+        }
+
+        const childCats = await Category.find({
+          parentId: { $in: headerIdList },
+          type: "category"
+        }).select("_id").lean();
         const childCatIds = childCats.map((c) => c._id);
-        const subCats = childCatIds.length > 0
-          ? await Category.find({ parentId: { $in: childCatIds }, type: "subcategory" }).select("_id").lean()
-          : [];
+        const mixedChildCatIds = [
+          ...childCatIds,
+          ...childCatIds.map(String)
+        ];
+
+        const subCats = await Category.find({
+          $or: [
+            ...(mixedChildCatIds.length > 0 ? [{ parentId: { $in: mixedChildCatIds } }] : []),
+            { headerId: { $in: headerIdList } }
+          ],
+          type: "subcategory"
+        }).select("_id").lean();
         const subCatIds = subCats.map((s) => s._id);
+        const mixedSubCatIds = [
+          ...subCatIds,
+          ...subCatIds.map(String)
+        ];
 
         const headerOrClauses = [
-          { headerId: finalHeaderId },
-          ...(childCatIds.length > 0 ? [{ categoryId: { $in: childCatIds } }] : []),
-          ...(subCatIds.length > 0 ? [{ subcategoryId: { $in: subCatIds } }] : []),
+          { headerId: { $in: headerIdList } },
+          ...(mixedChildCatIds.length > 0 ? [{ categoryId: { $in: mixedChildCatIds } }] : []),
+          ...(mixedSubCatIds.length > 0 ? [{ subcategoryId: { $in: mixedSubCatIds } }] : []),
         ];
 
         if (query.$or) {
@@ -484,23 +513,55 @@ export const getProducts = async (req, res) => {
           query.$or = headerOrClauses;
         }
       } catch (err) {
-        query.headerId = finalHeaderId;
+        logger.error("Error filtering by headerId in getProducts: " + err.message);
+        const headerIdList = [String(finalHeaderId)];
+        if (mongoose.Types.ObjectId.isValid(String(finalHeaderId))) {
+          headerIdList.push(new mongoose.Types.ObjectId(String(finalHeaderId)));
+        }
+        query.headerId = { $in: headerIdList };
       }
     }
+
     if (finalCategoryId && finalCategoryId !== "all") {
       try {
-        const catDoc = await Category.findById(finalCategoryId).select("type parentId").lean();
+        const catIdList = [String(finalCategoryId)];
+        if (mongoose.Types.ObjectId.isValid(String(finalCategoryId))) {
+          catIdList.push(new mongoose.Types.ObjectId(String(finalCategoryId)));
+        } else {
+          const cDoc = await Category.findOne({
+            $or: [{ slug: String(finalCategoryId) }, { name: String(finalCategoryId) }]
+          }).select("_id type parentId").lean();
+          if (cDoc?._id) {
+            catIdList.push(cDoc._id, String(cDoc._id));
+          }
+        }
+
+        const catDoc = await Category.findOne({
+          _id: { $in: catIdList }
+        }).select("type parentId").lean();
+
         if (catDoc?.type === "header") {
-          const childCats = await Category.find({ parentId: finalCategoryId, type: "category" }).select("_id").lean();
+          const childCats = await Category.find({
+            parentId: { $in: catIdList },
+            type: "category"
+          }).select("_id").lean();
           const childCatIds = childCats.map((c) => c._id);
-          const subCats = childCatIds.length > 0
-            ? await Category.find({ parentId: { $in: childCatIds }, type: "subcategory" }).select("_id").lean()
-            : [];
+          const mixedChildCatIds = [...childCatIds, ...childCatIds.map(String)];
+
+          const subCats = await Category.find({
+            $or: [
+              ...(mixedChildCatIds.length > 0 ? [{ parentId: { $in: mixedChildCatIds } }] : []),
+              { headerId: { $in: catIdList } }
+            ],
+            type: "subcategory"
+          }).select("_id").lean();
           const subCatIds = subCats.map((s) => s._id);
+          const mixedSubCatIds = [...subCatIds, ...subCatIds.map(String)];
+
           const catOrClauses = [
-            { headerId: finalCategoryId },
-            ...(childCatIds.length > 0 ? [{ categoryId: { $in: childCatIds } }] : []),
-            ...(subCatIds.length > 0 ? [{ subcategoryId: { $in: subCatIds } }] : []),
+            { headerId: { $in: catIdList } },
+            ...(mixedChildCatIds.length > 0 ? [{ categoryId: { $in: mixedChildCatIds } }] : []),
+            ...(mixedSubCatIds.length > 0 ? [{ subcategoryId: { $in: mixedSubCatIds } }] : []),
           ];
           if (query.$or) {
             query.$and = query.$and || [];
@@ -512,8 +573,8 @@ export const getProducts = async (req, res) => {
           }
         } else if (catDoc?.type === "subcategory") {
           const catOr = [
-            { subcategoryId: finalCategoryId },
-            { categoryId: finalCategoryId }
+            { subcategoryId: { $in: catIdList } },
+            { categoryId: { $in: catIdList } }
           ];
           if (query.$or) {
             query.$and = query.$and || [];
@@ -524,11 +585,15 @@ export const getProducts = async (req, res) => {
             query.$or = catOr;
           }
         } else {
-          const subCats = await Category.find({ parentId: finalCategoryId }).select("_id").lean();
+          // main category
+          const subCats = await Category.find({
+            parentId: { $in: catIdList }
+          }).select("_id").lean();
           const subCatIds = subCats.map((s) => s._id);
+          const mixedSubCatIds = [...subCatIds, ...subCatIds.map(String)];
           const catOrClauses = [
-            { categoryId: finalCategoryId },
-            ...(subCatIds.length > 0 ? [{ subcategoryId: { $in: subCatIds } }] : []),
+            { categoryId: { $in: catIdList } },
+            ...(mixedSubCatIds.length > 0 ? [{ subcategoryId: { $in: mixedSubCatIds } }] : []),
           ];
           if (query.$or) {
             query.$and = query.$and || [];
@@ -540,13 +605,23 @@ export const getProducts = async (req, res) => {
           }
         }
       } catch (err) {
-        query.categoryId = finalCategoryId;
+        logger.error("Error filtering by categoryId in getProducts: " + err.message);
+        const catIdList = [String(finalCategoryId)];
+        if (mongoose.Types.ObjectId.isValid(String(finalCategoryId))) {
+          catIdList.push(new mongoose.Types.ObjectId(String(finalCategoryId)));
+        }
+        query.categoryId = { $in: catIdList };
       }
     }
+
     if (finalSubcategoryId && finalSubcategoryId !== "all") {
+      const subIdList = [String(finalSubcategoryId)];
+      if (mongoose.Types.ObjectId.isValid(String(finalSubcategoryId))) {
+        subIdList.push(new mongoose.Types.ObjectId(String(finalSubcategoryId)));
+      }
       const subOr = [
-        { subcategoryId: finalSubcategoryId },
-        { categoryId: finalSubcategoryId }
+        { subcategoryId: { $in: subIdList } },
+        { categoryId: { $in: subIdList } }
       ];
       if (query.$or) {
         query.$and = query.$and || [];
@@ -566,9 +641,15 @@ export const getProducts = async (req, res) => {
     const effectiveLat = coords.valid ? coords.lat : 22.7196;
     const effectiveLng = coords.valid ? coords.lng : 75.8577;
 
-    // Featured products are curated for the home page and should not disappear
-    // from Top Deals solely because their seller is outside the local radius.
-    const isCuratedHomeFeed = featured === "true" || newArrivals === "true" || Boolean(search) || req.query.allProducts === "true" || req.query.random === "true";
+    // Curated home feeds and category views should show products reliably
+    const isCuratedHomeFeed =
+      featured === "true" ||
+      newArrivals === "true" ||
+      Boolean(search) ||
+      req.query.allProducts === "true" ||
+      req.query.random === "true" ||
+      Boolean(headerId) ||
+      Boolean(header);
     const shouldApplyLocationFilter =
       enforceRadius && conditionType !== "refurbished" && !isCuratedHomeFeed;
     if (shouldApplyLocationFilter) {
@@ -832,9 +913,9 @@ export const getSellerProducts = async (req, res) => {
         .select(
           "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights conditionType refurbishedDetails createdAt",
         )
-        .populate("headerId", "name slug")
-        .populate("categoryId", "name slug")
-        .populate("subcategoryId", "name slug")
+        .populate("headerId", "name slug trustBadges")
+        .populate("categoryId", "name slug trustBadges")
+        .populate("subcategoryId", "name slug trustBadges")
         .populate("sellerId", "shopName")
         .populate("warehouseId", "name")
         .sort(sortQuery)
@@ -1183,13 +1264,7 @@ export const createProduct = async (req, res) => {
     if (role === "admin") {
       moderationUpdate = buildAdminApprovedModerationUpdate(req.user?.id || null);
     } else {
-      const approvalConfig = await getProductApprovalConfig();
-      if (approvalConfig.sellerCreateRequiresApproval) {
-        moderationUpdate = buildSellerPendingModerationUpdate();
-        successMessage = "Product submitted for admin approval";
-      } else {
-        moderationUpdate = buildSellerApprovedModerationUpdate();
-      }
+      moderationUpdate = buildSellerApprovedModerationUpdate();
     }
     Object.assign(productData, moderationUpdate);
 
@@ -1489,13 +1564,7 @@ export const updateProduct = async (req, res) => {
     if (role === "admin") {
       moderationUpdate = buildAdminApprovedModerationUpdate(req.user?.id || null);
     } else {
-      const approvalConfig = await getProductApprovalConfig();
-      if (approvalConfig.sellerEditRequiresApproval) {
-        moderationUpdate = buildSellerPendingModerationUpdate();
-        successMessage = "Product changes submitted for admin approval";
-      } else {
-        moderationUpdate = buildSellerApprovedModerationUpdate();
-      }
+      moderationUpdate = buildSellerApprovedModerationUpdate();
     }
     Object.assign(productData, moderationUpdate);
 
@@ -1611,11 +1680,11 @@ export const getProductById = async (req, res) => {
         const query = isObjectId ? { _id: id } : { slug: id };
         return Product.findOne(query)
           .select(
-            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId isMonthlyKit status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights specifications dynamicAttributes createdAt",
+            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId isMonthlyKit status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights specifications dynamicAttributes trustBadges createdAt",
           )
-          .populate("headerId", "name slug")
-          .populate("categoryId", "name slug")
-          .populate("subcategoryId", "name slug")
+          .populate("headerId", "name slug trustBadges")
+          .populate("categoryId", "name slug trustBadges")
+          .populate("subcategoryId", "name slug trustBadges")
           .populate("sellerId", "shopName")
           .populate("warehouseId", "name")
           .lean();
@@ -1718,46 +1787,72 @@ export const getModerationProducts = async (req, res) => {
       maxLimit: 500,
     });
 
-    const baseQuery = {};
+    const andClauses = [];
     if (status && status !== "all") {
-      baseQuery.status = status;
+      andClauses.push({ status });
     }
     if (sellerId && sellerId !== "all") {
-      baseQuery.sellerId = sellerId;
+      andClauses.push({ sellerId });
     }
 
     const finalHeaderId = header || headerId;
     const finalCategoryId = category || categoryId;
     const finalSubcategoryId = subcategory || subcategoryId;
+
     if (finalHeaderId && finalHeaderId !== "all") {
-      baseQuery.headerId = finalHeaderId;
+      andClauses.push({ headerId: finalHeaderId });
     }
+
     if (finalCategoryId && finalCategoryId !== "all") {
-      baseQuery.categoryId = finalCategoryId;
+      if (mongoose.Types.ObjectId.isValid(String(finalCategoryId))) {
+        try {
+          const catDoc = await Category.findById(finalCategoryId).select("type").lean();
+          if (catDoc?.type === "header") {
+            andClauses.push({ headerId: finalCategoryId });
+          } else {
+            andClauses.push({
+              $or: [
+                { categoryId: finalCategoryId },
+                { subcategoryId: finalCategoryId },
+                { headerId: finalCategoryId },
+              ],
+            });
+          }
+        } catch {
+          andClauses.push({ categoryId: finalCategoryId });
+        }
+      } else {
+        andClauses.push({ categoryId: finalCategoryId });
+      }
     }
+
     if (finalSubcategoryId && finalSubcategoryId !== "all") {
-      baseQuery.subcategoryId = finalSubcategoryId;
+      andClauses.push({ subcategoryId: finalSubcategoryId });
     }
 
     if (search && String(search).trim()) {
       const term = String(search).trim();
       if (isProductTextSearchEnabled() && term.length >= 3) {
-        baseQuery.$text = { $search: term };
+        andClauses.push({ $text: { $search: term } });
       } else {
         // P3-5: same substring semantics, now safely escaped.
         const safe = buildSearchRegex(term, { anchored: false });
-        baseQuery.$or = [
-          { name: safe },
-          { slug: safe },
-          { sku: safe },
-        ];
+        andClauses.push({
+          $or: [
+            { name: safe },
+            { slug: safe },
+            { sku: safe },
+          ],
+        });
       }
     }
+
+    const baseQuery = andClauses.length > 0 ? { $and: andClauses } : {};
 
     let moderatedQuery = { ...baseQuery };
     const approvalFilter = buildApprovalStatusFilter(approvalStatus);
     if (Object.keys(approvalFilter).length > 0) {
-      moderatedQuery = { $and: [moderatedQuery, approvalFilter] };
+      moderatedQuery = { $and: andClauses.length > 0 ? [...andClauses, approvalFilter] : [approvalFilter] };
     }
 
     const sortMap = {
@@ -1767,6 +1862,8 @@ export const getModerationProducts = async (req, res) => {
       "name-desc": { name: -1, createdAt: -1 },
       "price-asc": { price: 1, createdAt: -1 },
       "price-desc": { price: -1, createdAt: -1 },
+      "stock-asc": { stock: 1, createdAt: -1 },
+      "stock-desc": { stock: -1, createdAt: -1 },
     };
     const sortQuery = sortMap[String(sort || "newest").toLowerCase()] || sortMap.newest;
 
@@ -1788,20 +1885,21 @@ export const getModerationProducts = async (req, res) => {
           .lean(),
         Product.countDocuments(moderatedQuery),
         Product.countDocuments(baseQuery),
-        Product.countDocuments({
-          ...baseQuery,
-          approvalStatus: PRODUCT_APPROVAL_STATUS.PENDING,
-        }),
-        Product.countDocuments({
-          $and: [
-            { ...baseQuery },
-            buildApprovalStatusFilter(PRODUCT_APPROVAL_STATUS.APPROVED),
-          ],
-        }),
-        Product.countDocuments({
-          ...baseQuery,
-          approvalStatus: PRODUCT_APPROVAL_STATUS.REJECTED,
-        }),
+        Product.countDocuments(
+          andClauses.length > 0
+            ? { $and: [...andClauses, { approvalStatus: PRODUCT_APPROVAL_STATUS.PENDING }] }
+            : { approvalStatus: PRODUCT_APPROVAL_STATUS.PENDING },
+        ),
+        Product.countDocuments(
+          andClauses.length > 0
+            ? { $and: [...andClauses, buildApprovalStatusFilter(PRODUCT_APPROVAL_STATUS.APPROVED)] }
+            : buildApprovalStatusFilter(PRODUCT_APPROVAL_STATUS.APPROVED),
+        ),
+        Product.countDocuments(
+          andClauses.length > 0
+            ? { $and: [...andClauses, { approvalStatus: PRODUCT_APPROVAL_STATUS.REJECTED }] }
+            : { approvalStatus: PRODUCT_APPROVAL_STATUS.REJECTED },
+        ),
       ]);
 
     return handleResponse(res, 200, "Moderation products fetched", {
@@ -1983,14 +2081,27 @@ export const getHeaderProducts = async (req, res) => {
       };
     }
 
+    // Optimization: Pre-fetch all active descendant categories in one query to prevent N+1 DB round-trips
+    const allDescendantCats = await Category.find({
+      type: { $in: ["category", "subcategory"] },
+      status: "active",
+    }).select("_id parentId type").lean();
+
+    const childrenByParent = new Map();
+    allDescendantCats.forEach((c) => {
+      const pId = c.parentId ? c.parentId.toString() : null;
+      if (pId) {
+        if (!childrenByParent.has(pId)) childrenByParent.set(pId, []);
+        childrenByParent.get(pId).push(c);
+      }
+    });
+
     const results = await Promise.all(
       filteredHeaders.map(async (header) => {
         try {
-          const childCats = await Category.find({ parentId: header._id, type: "category" }).select("_id").lean();
+          const childCats = childrenByParent.get(header._id.toString()) || [];
           const childCatIds = childCats.map((c) => c._id);
-          const subCats = childCatIds.length > 0
-            ? await Category.find({ parentId: { $in: childCatIds }, type: "subcategory" }).select("_id").lean()
-            : [];
+          const subCats = childCatIds.flatMap((cId) => childrenByParent.get(cId.toString()) || []);
           const subCatIds = subCats.map((s) => s._id);
 
           const categoryOrClauses = [

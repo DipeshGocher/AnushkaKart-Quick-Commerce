@@ -6,11 +6,13 @@ import { useSettings } from '@core/context/SettingsContext';
 import { applyCloudinaryTransform, isPngImage } from '@/core/utils/imageUtils';
 import { cn } from '@/lib/utils';
 
+let cachedTopDealsSubs = null;
+
 const TopDealsOnProducts = () => {
   const { settings } = useSettings();
   const sectionTitle = settings?.bestSellingTitle?.trim() || 'Best Selling Categories';
-  const [subcategories, setSubcategories] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [subcategories, setSubcategories] = useState(() => cachedTopDealsSubs || []);
+  const [isLoading, setIsLoading] = useState(() => !cachedTopDealsSubs || cachedTopDealsSubs.length === 0);
   const scrollRef = useRef(null);
   const [canScroll, setCanScroll] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -18,7 +20,9 @@ const TopDealsOnProducts = () => {
   useEffect(() => {
     let cancelled = false;
     const fetchSubcategories = async () => {
-      setIsLoading(true);
+      if (!cachedTopDealsSubs || cachedTopDealsSubs.length === 0) {
+        setIsLoading(true);
+      }
       try {
         const response = await customerApi.getCategories({ catalogType: 'grocery' });
         const data = response?.data || response;
@@ -44,6 +48,7 @@ const TopDealsOnProducts = () => {
             const itemMap = new Map(allItems.map((c) => [String(c._id || c.id), c]));
             const explicitItems = explicitIds.map((id) => itemMap.get(id)).filter(Boolean);
             if (explicitItems.length > 0) {
+              cachedTopDealsSubs = explicitItems;
               setSubcategories(explicitItems);
               return;
             }
@@ -54,12 +59,15 @@ const TopDealsOnProducts = () => {
 
           // 3. Fallback to active subcategories
           if (featured.length > 0) {
+            cachedTopDealsSubs = featured;
             setSubcategories(featured);
           } else {
             const withImages = subs.filter((s) => s.image && typeof s.image === 'string' && s.image.trim() !== '');
             const others = subs.filter((s) => !s.image || typeof s.image !== 'string' || s.image.trim() === '');
             const combined = [...withImages, ...others];
-            setSubcategories(combined.slice(0, 24));
+            const finalSubs = combined.slice(0, 24);
+            cachedTopDealsSubs = finalSubs;
+            setSubcategories(finalSubs);
           }
         }
       } catch (error) {

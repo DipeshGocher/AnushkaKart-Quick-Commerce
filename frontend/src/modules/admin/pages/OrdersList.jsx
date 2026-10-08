@@ -49,6 +49,7 @@ const OrdersList = () => {
     });
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
+    const [sortBy, setSortBy] = useState('newest');
     const [total, setTotal] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
     const [isExporting, setIsExporting] = useState(false);
@@ -91,6 +92,7 @@ const OrdersList = () => {
             const params = { page: requestedPage, limit: pageSize };
             if (status !== 'all') params.status = status;
             if (searchTerm.trim()) params.search = searchTerm.trim();
+            if (sortBy) params.sort = sortBy;
             if (dateRange !== 'All Time') {
                 params.dateFilter = dateRange.toLowerCase().replace(/ /g, '_');
             }
@@ -160,7 +162,7 @@ const OrdersList = () => {
             fetchOrders(1);
         }, 500);
         return () => clearTimeout(timer);
-    }, [pageSize, status, searchTerm, dateRange]);
+    }, [pageSize, status, searchTerm, dateRange, sortBy]);
 
     const safeOrders = useMemo(
         () => (Array.isArray(orders) ? orders : []),
@@ -342,7 +344,20 @@ const OrdersList = () => {
                             className="w-full pl-11 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-xs font-semibold outline-none focus:ring-2 focus:ring-fuchsia-500/10 transition-all"
                         />
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className="relative">
+                            <select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value)}
+                                className="pl-4 pr-9 py-2.5 bg-slate-50 border-none rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-fuchsia-500/10 transition-all appearance-none cursor-pointer"
+                            >
+                                <option value="newest">Newest first</option>
+                                <option value="oldest">Oldest first</option>
+                                <option value="amount-desc">Amount: High-Low</option>
+                                <option value="amount-asc">Amount: Low-High</option>
+                            </select>
+                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                        </div>
                         {status === 'processed' && (
                             <button
                                 onClick={handleCSVExport}
@@ -353,9 +368,6 @@ const OrdersList = () => {
                                 {isExporting ? 'Exporting...' : 'Export CSV'}
                             </button>
                         )}
-                        <button className="p-3 bg-slate-50 rounded-xl text-slate-400 hover:text-slate-600 transition-all">
-                            <Filter className="h-4 w-4" />
-                        </button>
                     </div>
                 </div>
 

@@ -18,6 +18,7 @@ import {
     HiOutlineClipboardDocumentList,
     HiOutlineXMark,
     HiOutlineCheck,
+    HiOutlineChevronDown,
     HiOutlineCalendarDays
 } from 'react-icons/hi2';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -32,6 +33,7 @@ const StockManagement = () => {
     const [activeView, setActiveView] = useState('inventory'); // 'inventory' or 'history'
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('All');
+    const [sortBy, setSortBy] = useState('stock-asc');
     const [inventory, setInventory] = useState([]);
     const [history, setHistory] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -137,8 +139,14 @@ const StockManagement = () => {
                 (item.sku || '').toString().toLowerCase().includes(term);
             const matchesStatus = filterStatus === 'All' || item.status === filterStatus;
             return matchesSearch && matchesStatus;
+        }).sort((a, b) => {
+            if (sortBy === 'stock-asc') return (a.stock ?? 0) - (b.stock ?? 0);
+            if (sortBy === 'stock-desc') return (b.stock ?? 0) - (a.stock ?? 0);
+            if (sortBy === 'name-asc') return (a.name || '').localeCompare(b.name || '');
+            if (sortBy === 'name-desc') return (b.name || '').localeCompare(a.name || '');
+            return 0;
         });
-    }, [inventory, searchTerm, filterStatus]);
+    }, [inventory, searchTerm, filterStatus, sortBy]);
 
     const handleFullAdjustment = async () => {
         const value = parseInt(adjustValue);
@@ -253,6 +261,22 @@ const StockManagement = () => {
                                                 {status}
                                             </button>
                                         ))}
+                                    </div>
+                                    <div className="relative shrink-0">
+                                        <select
+                                            value={sortBy}
+                                            onChange={(e) => {
+                                                setSortBy(e.target.value);
+                                                setPage(1);
+                                            }}
+                                            className="pl-3.5 pr-8 py-2 bg-white ring-1 ring-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer"
+                                        >
+                                            <option value="stock-asc">Stock: Low to High</option>
+                                            <option value="stock-desc">Stock: High to Low</option>
+                                            <option value="name-asc">Name: A to Z</option>
+                                            <option value="name-desc">Name: Z to A</option>
+                                        </select>
+                                        <HiOutlineChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">

@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { adminApi } from '../services/adminApi';
 import { toast } from 'sonner';
+import TrustBadgesManager from "../components/categories/TrustBadgesManager";
 
 const CategoryManagement = () => {
     const [categories, setCategories] = useState([]);
@@ -43,7 +44,8 @@ const CategoryManagement = () => {
         status: 'active',
         type: 'header',
         parentId: '',
-        mappedAttributes: []
+        mappedAttributes: [],
+        trustBadges: []
     });
 
     const [allAttributes, setAllAttributes] = useState([]);
@@ -195,6 +197,8 @@ const CategoryManagement = () => {
             Object.keys(formData).forEach(key => {
                 if (key === 'mappedAttributes') {
                     data.append('mappedAttributes', JSON.stringify(formData.mappedAttributes || []));
+                } else if (key === 'trustBadges') {
+                    data.append('trustBadges', JSON.stringify(formData.trustBadges || []));
                 } else {
                     data.append(key, formData[key]);
                 }
@@ -286,7 +290,8 @@ const CategoryManagement = () => {
                         attributeId: m.attributeId?._id || m.attributeId,
                         isRequired: !!m.isRequired
                     }))
-                    : []
+                    : [],
+                trustBadges: Array.isArray(item.trustBadges) ? item.trustBadges : []
             });
             setEditingItem(item);
             setPreviewUrl(item.image || null);
@@ -299,7 +304,8 @@ const CategoryManagement = () => {
                 status: 'active',
                 type: type,
                 parentId: parentId || '',
-                mappedAttributes: []
+                mappedAttributes: [],
+                trustBadges: []
             });
             setEditingItem(null);
             setPreviewUrl(null);
@@ -925,7 +931,13 @@ const CategoryManagement = () => {
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <TrustBadgesManager
+                                            value={formData.trustBadges || []}
+                                            onChange={(newBadges) => setFormData({ ...formData, trustBadges: newBadges })}
+                                            maxBadges={3}
+                                        />
+
+                                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
                                         <div>
                                             <p className="text-xs font-bold text-slate-900">Visibility Status</p>
                                             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tight">Show to store visitors</p>

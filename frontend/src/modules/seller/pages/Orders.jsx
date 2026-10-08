@@ -58,6 +58,7 @@ const Orders = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [sortBy, setSortBy] = useState('newest');
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [isQuickViewModalOpen, setIsQuickViewModalOpen] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
@@ -75,12 +76,12 @@ const Orders = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Subsequent changes (page, date filters): update data without full page "refresh"
+    // Subsequent changes (page, date filters, sorting): update data without full page "refresh"
     useEffect(() => {
         if (!hasMountedRef.current) return;
         fetchOrders(page, false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, startDate, endDate]);
+    }, [page, startDate, endDate, sortBy]);
 
     // Real-time updates: when global context detects new orders, refresh current page silently
     useEffect(() => {
@@ -97,6 +98,7 @@ const Orders = () => {
             const params = { page: requestedPage };
             if (startDate) params.startDate = startDate;
             if (endDate) params.endDate = endDate;
+            if (sortBy) params.sort = sortBy;
 
             const response = await sellerApi.getOrders(params);
 
@@ -182,8 +184,14 @@ const Orders = () => {
             const statusToMatch = activeTab === 'Out for Delivery' ? 'out_for_delivery' : activeTab.toLowerCase();
             const matchesTab = activeTab === 'All' || order.status.toLowerCase() === statusToMatch;
             return matchesSearch && matchesTab;
+        }).sort((a, b) => {
+            if (sortBy === 'newest') return new Date(b.date || 0) - new Date(a.date || 0);
+            if (sortBy === 'oldest') return new Date(a.date || 0) - new Date(b.date || 0);
+            if (sortBy === 'amount-desc') return Number(b.total || 0) - Number(a.total || 0);
+            if (sortBy === 'amount-asc') return Number(a.total || 0) - Number(b.total || 0);
+            return 0;
         });
-    }, [safeOrders, searchTerm, activeTab]);
+    }, [safeOrders, searchTerm, activeTab, sortBy]);
 
     const stats = useMemo(() => [
         {
@@ -376,6 +384,22 @@ const Orders = () => {
                                     />
                                 </div>
                                 <div className="flex gap-3 shrink-0 w-full lg:w-auto items-center justify-end flex-wrap">
+                                    <div className="relative shrink-0">
+                                        <select
+                                            value={sortBy}
+                                            onChange={(e) => {
+                                                setSortBy(e.target.value);
+                                                setPage(1);
+                                            }}
+                                            className="pl-3.5 pr-8 py-2 bg-slate-100/70 hover:bg-slate-100 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/10 transition-all appearance-none cursor-pointer"
+                                        >
+                                            <option value="newest">Newest first</option>
+                                            <option value="oldest">Oldest first</option>
+                                            <option value="amount-desc">Amount: High-Low</option>
+                                            <option value="amount-asc">Amount: Low-High</option>
+                                        </select>
+                                        <HiOutlineChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                                    </div>
                                     <div className="flex items-center gap-2 w-full sm:w-auto justify-end sm:justify-start">
                                         <div className="w-full sm:w-32">
                                             <DatePicker

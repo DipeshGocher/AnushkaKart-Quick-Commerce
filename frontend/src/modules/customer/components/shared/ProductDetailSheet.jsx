@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence, useAnimation, useDragControls } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { X, ChevronDown, ChevronUp, FileText, Share2, Heart, Search, Clock, Minus, Plus, ShoppingBag, ShoppingCart, Star, MessageSquare, ArrowLeft, ChevronRight, ChevronLeft, Store, Building2, Package, RotateCcw, Banknote, ShieldCheck, Zap } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, FileText, Share2, Heart, Search, Clock, Minus, Plus, ShoppingBag, ShoppingCart, Star, MessageSquare, ArrowLeft, ChevronRight, ChevronLeft, Store, Building2, Package, RotateCcw, Banknote, ShieldCheck, Zap, Award, Truck, Ban, CheckCircle2 } from 'lucide-react';
 import { useProductDetail } from '../../context/ProductDetailContext';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { useCart } from '../../context/CartContext';
@@ -19,59 +19,7 @@ import ParticleBurst from './ParticleBurst';
 import ProductCard from './ProductCard';
 
 
-const HIGHLIGHT_ICON_MAP = {
-    // Grocery & Food
-    leaf: { emoji: "🌿", bg: "bg-[#EFF6FF] border-[#FFD0B5] text-[#D9480F]" },
-    avocado: { emoji: "🥑", bg: "bg-[#EEF2FF] border-[#C7D2FE] text-[#1E3A8A]" },
-    zap: { emoji: "⚡", bg: "bg-[#FFF4EC] border-[#FFE4D6] text-[#E65100]" },
-    sprout: { emoji: "🌱", bg: "bg-[#E0F2FE] border-[#BAE6FD] text-[#0369A1]" },
-    wheat: { emoji: "🌾", bg: "bg-[#EFF6FF] border-[#FFD0B5] text-[#D9480F]" },
-    sugarfree: { emoji: "🍬", bg: "bg-[#F3E8FF] border-[#E9D5FF] text-[#6B21A8]" },
-    sun: { emoji: "☀️", bg: "bg-[#FFF4EC] border-[#FFE4D6] text-[#E65100]" },
-    smile: { emoji: "🚫", bg: "bg-[#E0F2FE] border-[#BAE6FD] text-[#0369A1]" },
-    apple: { emoji: "🍎", bg: "bg-[#FFE4E6] border-[#FECDD3] text-[#E11D48]" },
-    milk: { emoji: "🥛", bg: "bg-[#F0F9FF] border-[#BAE6FD] text-[#0284C7]" },
 
-    // Beauty & Personal Care
-    sparkles: { emoji: "✨", bg: "bg-[#FDF2F8] border-[#FBCFE8] text-[#DB2777]" },
-    droplet: { emoji: "💧", bg: "bg-[#E0F2FE] border-[#BAE6FD] text-[#0284C7]" },
-    flower: { emoji: "🌸", bg: "bg-[#FCE7F3] border-[#FBCFE8] text-[#BE185D]" },
-    lotion: { emoji: "🧴", bg: "bg-[#FFF1F2] border-[#FECDD3] text-[#E11D48]" },
-    mirror: { emoji: "🪞", bg: "bg-[#FAF5FF] border-[#E9D5FF] text-[#7E22CE]" },
-    leaf2: { emoji: "🍃", bg: "bg-[#ECFDF5] border-[#A7F3D0] text-[#047857]" },
-
-    // Electronics & Tech
-    battery: { emoji: "🔋", bg: "bg-[#ECFDF5] border-[#A7F3D0] text-[#059669]" },
-    wireless: { emoji: "📶", bg: "bg-[#EFF6FF] border-[#BFDBFE] text-[#1D4ED8]" },
-    cpu: { emoji: "💻", bg: "bg-[#F3E8FF] border-[#E9D5FF] text-[#7E22CE]" },
-    plug: { emoji: "🔌", bg: "bg-[#FEF3C7] border-[#FDE68A] text-[#D97706]" },
-    snowflake: { emoji: "❄️", bg: "bg-[#E0F2FE] border-[#BAE6FD] text-[#0284C7]" },
-    volume: { emoji: "🔊", bg: "bg-[#EEF2FF] border-[#C7D2FE] text-[#4338CA]" },
-
-    // Fashion & Apparel
-    cotton: { emoji: "🧵", bg: "bg-[#F5F5F4] border-[#E7E5E4] text-[#44403C]" },
-    shirt: { emoji: "👕", bg: "bg-[#EFF6FF] border-[#BFDBFE] text-[#2563EB]" },
-    scissors: { emoji: "✂️", bg: "bg-[#FAF5FF] border-[#E9D5FF] text-[#6B21A8]" },
-    wash: { emoji: "🧼", bg: "bg-[#E0F2FE] border-[#BAE6FD] text-[#0369A1]" },
-
-    // Sports & Fitness
-    fitness: { emoji: "🏋️", bg: "bg-[#FEF2F2] border-[#FECACA] text-[#DC2626]" },
-    fire: { emoji: "🔥", bg: "bg-[#FFF7ED] border-[#FFEDD5] text-[#EA580C]" },
-    trophy: { emoji: "🏆", bg: "bg-[#FEF3C7] border-[#FDE68A] text-[#B45309]" },
-    water: { emoji: "💧", bg: "bg-[#E0F2FE] border-[#BAE6FD] text-[#0284C7]" },
-
-    // Trust, Service & Kits
-    shield: { emoji: "🛡️", bg: "bg-[#EEF2FF] border-[#C7D2FE] text-[#1E3A8A]" },
-    heart: { emoji: "❤️", bg: "bg-[#EFF6FF] border-[#FFD0B5] text-[#D9480F]" },
-    star: { emoji: "⭐", bg: "bg-[#FEF3C7] border-[#FDE68A] text-[#B45309]" },
-    truck: { emoji: "🚚", bg: "bg-[#EEF2FF] border-[#C7D2FE] text-[#1E3A8A]" },
-    repeat: { emoji: "🔄", bg: "bg-[#F0FDF4] border-[#BBF7D0] text-[#15803D]" },
-    gift: { emoji: "🎁", bg: "bg-[#FDF2F8] border-[#FBCFE8] text-[#BE185D]" },
-    badge: { emoji: "🏅", bg: "bg-[#FEF3C7] border-[#FDE68A] text-[#B45309]" },
-    box: { emoji: "📦", bg: "bg-[#FFF7ED] border-[#FFEDD5] text-[#C2410C]" },
-    family: { emoji: "👨‍👩‍👧‍👦", bg: "bg-[#FAF5FF] border-[#E9D5FF] text-[#7E22CE]" },
-    value: { emoji: "💰", bg: "bg-[#ECFDF5] border-[#A7F3D0] text-[#047857]" },
-};
 
 const ProductDetailSheet = () => {
     const { selectedProduct, isOpen, closeProduct } = useProductDetail();
@@ -205,13 +153,7 @@ const ProductDetailSheet = () => {
         }
     };
 
-    const displayHighlights = useMemo(() => {
-        const targetProduct = extendedProduct || selectedProduct;
-        const raw = Array.isArray(targetProduct?.highlights) ? targetProduct.highlights : [];
-        return raw.filter(
-            (h) => h && typeof h.label === "string" && h.label.trim().length > 0
-        );
-    }, [selectedProduct, extendedProduct]);
+
 
     const fetchSimilarProducts = async (catId, currentProdId) => {
         if (!catId) return;
@@ -585,9 +527,8 @@ const ProductDetailSheet = () => {
         }
     };
 
-    const cleanDesc = cleanDescription(selectedProduct?.description);
-
     const activeProduct = extendedProduct || selectedProduct;
+    const cleanDesc = cleanDescription(activeProduct?.description || selectedProduct?.description);
 
     const specificationsList = useMemo(() => {
         if (!activeProduct && !selectedProduct) return [];
@@ -636,7 +577,6 @@ const ProductDetailSheet = () => {
             { key: 'FSSAI Number', value: activeProduct?.fssaiLicense },
             { key: 'Country of Origin', value: activeProduct?.countryOfOrigin },
             { key: 'Weight', value: activeProduct?.weight },
-            { key: 'Customer Care', value: supportEmail },
         ];
 
         standardFields.forEach((field) => {
@@ -647,7 +587,7 @@ const ProductDetailSheet = () => {
         });
 
         return list;
-    }, [activeProduct, selectedProduct, selectedVariant, supportEmail]);
+    }, [activeProduct, selectedProduct, selectedVariant]);
 
     const specificationPairs = useMemo(() => {
         const pairs = [];
@@ -747,159 +687,216 @@ const ProductDetailSheet = () => {
         ) : null
     );
 
-    const highlightItems = useMemo(() => {
-        if (displayHighlights && displayHighlights.length > 0) {
-            return displayHighlights.map(h => h.label);
+
+
+    const getTrustBadgeIcon = (iconName) => {
+        switch (String(iconName || "").toLowerCase()) {
+            case "return":
+            case "rotateccw":
+            case "replacement":
+            case "refresh":
+                return RotateCcw;
+            case "cod":
+            case "cash":
+            case "banknote":
+                return Banknote;
+            case "warranty":
+            case "shield":
+            case "shieldcheck":
+                return ShieldCheck;
+            case "quality":
+            case "award":
+                return Award;
+            case "check":
+            case "checkcircle":
+                return CheckCircle2;
+            case "delivery":
+            case "zap":
+            case "express":
+                return Zap;
+            case "truck":
+                return Truck;
+            case "ban":
+            case "no-return":
+                return Ban;
+            case "clock":
+                return Clock;
+            default:
+                return ShieldCheck;
         }
-        if (specificationsList && specificationsList.length > 0) {
-            return specificationsList.slice(0, 5).map(s => `${s.value ? `${s.value} ${s.label}` : s.label}`);
+    };
+
+    const resolvedTrustBadges = useMemo(() => {
+        // 1. Direct product override
+        if (Array.isArray(activeProduct?.trustBadges) && activeProduct.trustBadges.length > 0) {
+            return activeProduct.trustBadges.slice(0, 3);
         }
+        // 2. Subcategory badges
+        if (Array.isArray(activeProduct?.subcategoryId?.trustBadges) && activeProduct.subcategoryId.trustBadges.length > 0) {
+            return activeProduct.subcategoryId.trustBadges.slice(0, 3);
+        }
+        // 3. Level 2 category badges
+        if (Array.isArray(activeProduct?.categoryId?.trustBadges) && activeProduct.categoryId.trustBadges.length > 0) {
+            return activeProduct.categoryId.trustBadges.slice(0, 3);
+        }
+        // 4. Level 1 header category badges
+        if (Array.isArray(activeProduct?.headerId?.trustBadges) && activeProduct.headerId.trustBadges.length > 0) {
+            return activeProduct.headerId.trustBadges.slice(0, 3);
+        }
+
+        // 5. Category-Based Intelligent Fallbacks if nothing configured yet
+        const categoryName = (
+            activeProduct?.subcategoryId?.name ||
+            activeProduct?.categoryId?.name ||
+            activeProduct?.headerId?.name ||
+            activeProduct?.category ||
+            ""
+        ).toLowerCase();
+
+        const catalogType = (
+            activeProduct?.catalogType ||
+            activeProduct?.headerId?.catalogType ||
+            ""
+        ).toLowerCase();
+
+        if (
+            categoryName.includes("grocery") ||
+            categoryName.includes("fruit") ||
+            categoryName.includes("vegetable") ||
+            categoryName.includes("food") ||
+            catalogType === "grocery"
+        ) {
+            return [
+                { icon: "quality", title: "Quality Assured", subtitle: "CHECK AT DOORSTEP" },
+                { icon: "cod", title: "Cash on Delivery", subtitle: "PAY AT DOORSTEP" },
+                { icon: "return", title: "Doorstep Return", subtitle: "NO QUESTIONS ASKED" },
+            ];
+        }
+
+        if (
+            categoryName.includes("medicine") ||
+            categoryName.includes("pharma") ||
+            categoryName.includes("health")
+        ) {
+            return [
+                { icon: "warranty", title: "100% Genuine", subtitle: "VERIFIED PHARMACY" },
+                { icon: "cod", title: "Cash on Delivery", subtitle: "PAY AT DOORSTEP" },
+                { icon: "delivery", title: "Express Delivery", subtitle: "TEMPERATURE SAFE" },
+            ];
+        }
+
+        if (
+            categoryName.includes("electronic") ||
+            categoryName.includes("mobile") ||
+            categoryName.includes("appliance")
+        ) {
+            return [
+                { icon: "return", title: "7-Day Replacement", subtitle: "BRAND REPLACEMENT" },
+                { icon: "cod", title: "Cash on Delivery", subtitle: "PAY AT DOORSTEP" },
+                { icon: "warranty", title: "1 Year Warranty", subtitle: "BRAND WARRANTY" },
+            ];
+        }
+
+        // Default 3 standard badges
         return [
-            "100% Genuine and Brand Assured",
-            "Superfast Doorstep Delivery",
-            "Best Price Guaranteed"
+            { icon: "return", title: "7-Day Return", subtitle: "EASY RETURN" },
+            { icon: "cod", title: "Cash on Delivery", subtitle: "PAY AT DOORSTEP" },
+            { icon: "warranty", title: "1 Year Warranty details", subtitle: "" },
         ];
-    }, [displayHighlights, specificationsList]);
+    }, [activeProduct]);
 
-    const groupedSpecifications = useMemo(() => {
-        if (!specificationsList || specificationsList.length === 0) return {};
-        const groups = {};
+    const renderTrustBadges = () => {
+        if (!resolvedTrustBadges || resolvedTrustBadges.length === 0) return null;
+        const gridCols =
+            resolvedTrustBadges.length === 1
+                ? "grid-cols-1 max-w-[200px] mx-auto"
+                : resolvedTrustBadges.length === 2
+                ? "grid-cols-2"
+                : "grid-cols-3";
 
-        specificationsList.forEach(item => {
-            const key = item.label.toLowerCase();
-            let groupName = "GENERAL";
+        return (
+            <div className={cn("grid gap-2.5 my-3.5", gridCols)}>
+                {resolvedTrustBadges.map((badge, idx) => {
+                    const IconComp = getTrustBadgeIcon(badge.icon);
+                    const isWarrantyOrDetail =
+                        badge.title?.toLowerCase().includes("detail") ||
+                        badge.subtitle?.toLowerCase().includes("detail") ||
+                        badge.title?.toLowerCase().includes("return");
 
-            if (key.includes("battery") || key.includes("power") || key.includes("charging") || key.includes("mah")) {
-                groupName = "BATTERY & POWER FEATURES";
-            } else if (key.includes("os") || key.includes("operating system") || key.includes("processor") || key.includes("cpu") || key.includes("chip") || key.includes("ram") || key.includes("rom") || key.includes("storage")) {
-                groupName = "OS & PROCESSOR FEATURES";
-            } else if (key.includes("camera") || key.includes("lens") || key.includes("mp") || key.includes("video") || key.includes("photo")) {
-                groupName = "CAMERA FEATURES";
-            } else if (key.includes("display") || key.includes("screen") || key.includes("resolution") || key.includes("inch") || key.includes("refresh rate") || key.includes("pixel")) {
-                groupName = "DISPLAY FEATURES";
-            } else if (key.includes("box") || key.includes("pack") || key.includes("package") || key.includes("included") || key.includes("in the box")) {
-                groupName = "IN THE BOX";
-            } else if (key.includes("weight") || key.includes("shelf") || key.includes("fssai") || key.includes("country") || key.includes("origin") || key.includes("brand") || key.includes("container") || key.includes("model")) {
-                groupName = "GENERAL";
-            } else {
-                groupName = "MORE DETAILS";
-            }
-
-            if (!groups[groupName]) groups[groupName] = [];
-            groups[groupName].push(item);
-        });
-
-        return groups;
-    }, [specificationsList]);
-
-    const renderTrustBadges = () => (
-        <div className="grid grid-cols-3 gap-2.5 my-3.5">
-            {/* 7-Day Return */}
-            <div className="flex flex-col items-center justify-center p-3 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs hover:border-slate-300 transition-all">
-                <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-800 mb-2">
-                    <RotateCcw size={18} strokeWidth={2.3} />
-                </div>
-                <div className="flex items-center justify-center gap-0.5 text-[11px] sm:text-xs font-bold text-slate-900 leading-tight">
-                    <span>7-Day Return</span>
-                    <ChevronRight size={12} className="text-slate-400 shrink-0" />
-                </div>
-            </div>
-
-            {/* Cash on Delivery */}
-            <div className="flex flex-col items-center justify-center p-3 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs hover:border-slate-300 transition-all">
-                <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-800 mb-2">
-                    <Banknote size={18} strokeWidth={2.3} />
-                </div>
-                <span className="text-[11px] sm:text-xs font-bold text-slate-900 leading-tight">Cash on Delivery</span>
-                <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider mt-0.5">PAY AT DOORSTEP</span>
-            </div>
-
-            {/* 1 Year Warranty */}
-            <div className="flex flex-col items-center justify-center p-3 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs hover:border-slate-300 transition-all">
-                <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-800 mb-2">
-                    <ShieldCheck size={18} strokeWidth={2.3} />
-                </div>
-                <div className="flex items-center justify-center gap-0.5 text-[11px] sm:text-xs font-bold text-slate-900 leading-tight">
-                    <span>1 Year Warranty details</span>
-                    <ChevronRight size={12} className="text-slate-400 shrink-0" />
-                </div>
-            </div>
-        </div>
-    );
-
-    const renderHighlightsCard = () => (
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs my-3">
-            <h3 className="text-base font-bold text-slate-900 mb-1">Highlights</h3>
-            <h4 className="text-[13px] font-semibold text-slate-800 mb-2.5">Product Highlights</h4>
-            <ul className="space-y-2">
-                {highlightItems.map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-2.5 text-[13px] text-slate-800 leading-snug">
-                        <span className="text-slate-400 font-bold select-none text-sm leading-4">•</span>
-                        <span className="font-medium text-slate-800">{item}</span>
-                    </li>
-                ))}
-            </ul>
-        </div>
-    );
-
-    const renderDescriptionCard = () => (
-        <div className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden my-3">
-            <button
-                type="button"
-                onClick={() => setIsDescriptionOpen(!isDescriptionOpen)}
-                className="w-full flex items-center justify-between p-4 bg-white text-left transition-colors hover:bg-slate-50/50"
-            >
-                <span className="text-base font-bold text-slate-900">Product Description</span>
-                {isDescriptionOpen ? (
-                    <ChevronUp size={20} className="text-slate-600 shrink-0" />
-                ) : (
-                    <ChevronDown size={20} className="text-slate-600 shrink-0" />
-                )}
-            </button>
-
-            {isDescriptionOpen && (
-                <div className="p-4 pt-1 space-y-4 border-t border-slate-100">
-                    {/* Grouped Features / Specifications */}
-                    {Object.keys(groupedSpecifications).length > 0 ? (
-                        Object.entries(groupedSpecifications).map(([groupName, items]) => (
-                            <div key={groupName} className="space-y-2">
-                                <h5 className="text-xs font-bold text-slate-900 tracking-wider uppercase">
-                                    {groupName}
-                                </h5>
-                                <div className="space-y-1.5 pl-0.5">
-                                    {items.map((item, idx) => (
-                                        <div key={idx} className="flex items-start gap-2 text-[13px] leading-snug">
-                                            <span className="text-blue-500 font-bold select-none text-xs leading-4 shrink-0">.</span>
-                                            <span className="font-medium text-slate-800">
-                                                <span className="text-slate-600">{item.label}</span> {item.value}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
+                    return (
+                        <div
+                            key={idx}
+                            className="flex flex-col items-center justify-center p-3 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs hover:border-slate-300 transition-all"
+                        >
+                            <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-800 mb-2">
+                                <IconComp size={18} strokeWidth={2.3} />
                             </div>
-                        ))
-                    ) : null}
-
-                    {/* Clean Description Text */}
-                    {cleanDesc && (
-                        <div className="pt-2 border-t border-slate-100">
-                            <h5 className="text-xs font-bold text-slate-900 tracking-wider uppercase mb-2">
-                                PRODUCT DETAILS
-                            </h5>
-                            <div
-                                className="text-[13px] text-slate-600 font-normal leading-relaxed whitespace-pre-line"
-                                dangerouslySetInnerHTML={{ __html: cleanDesc }}
-                            />
+                            <div className="flex items-center justify-center gap-0.5 text-[11px] sm:text-xs font-bold text-slate-900 leading-tight">
+                                <span>{badge.title}</span>
+                                {isWarrantyOrDetail && (
+                                    <ChevronRight size={12} className="text-slate-400 shrink-0" />
+                                )}
+                            </div>
+                            {badge.subtitle && !badge.subtitle.toLowerCase().includes("detail") && (
+                                <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider mt-0.5 line-clamp-1">
+                                    {badge.subtitle}
+                                </span>
+                            )}
                         </div>
-                    )}
+                    );
+                })}
+            </div>
+        );
+    };
 
-                    {!cleanDesc && Object.keys(groupedSpecifications).length === 0 && (
-                        <p className="text-xs text-slate-400 italic py-1">No additional details available</p>
+    const renderMoreDetailsCard = () => {
+        if (!specificationsList || specificationsList.length === 0) return null;
+        return (
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs my-3">
+                <h3 className="text-base font-bold text-slate-900 mb-2.5">More Details</h3>
+                <ul className="space-y-2">
+                    {specificationsList.map((item, idx) => (
+                        <li key={idx} className="flex items-start gap-2.5 text-[13px] text-slate-800 leading-snug">
+                            <span className="text-slate-400 font-bold select-none text-sm leading-4">•</span>
+                            <span className="font-medium text-slate-800">
+                                <span className="text-slate-500 font-normal">{item.label}: </span>
+                                <span className="text-slate-900 font-semibold">{item.value}</span>
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        );
+    };
+
+    const renderDescriptionCard = () => {
+        if (!cleanDesc) return null;
+        return (
+            <div className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden my-3">
+                <button
+                    type="button"
+                    onClick={() => setIsDescriptionOpen(!isDescriptionOpen)}
+                    className="w-full flex items-center justify-between p-4 bg-white text-left transition-colors hover:bg-slate-50/50"
+                >
+                    <span className="text-base font-bold text-slate-900">Product Description</span>
+                    {isDescriptionOpen ? (
+                        <ChevronUp size={20} className="text-slate-600 shrink-0" />
+                    ) : (
+                        <ChevronDown size={20} className="text-slate-600 shrink-0" />
                     )}
-                </div>
-            )}
-        </div>
-    );
+                </button>
+
+                {isDescriptionOpen && (
+                    <div className="p-4 pt-1 space-y-3 border-t border-slate-100">
+                        <div
+                            className="text-[13px] text-slate-600 font-normal leading-relaxed whitespace-pre-line pt-2"
+                            dangerouslySetInnerHTML={{ __html: cleanDesc }}
+                        />
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     const renderSimilarProducts = () => (
         similarProducts && similarProducts.length > 0 && (
@@ -1302,8 +1299,8 @@ const ProductDetailSheet = () => {
                                     {/* 1. 7-Day Return, Cash on Delivery, 1 Year Warranty */}
                                     {renderTrustBadges()}
 
-                                    {/* 2. Highlights / Specification Card */}
-                                    {renderHighlightsCard()}
+                                    {/* 2. More Details Card */}
+                                    {renderMoreDetailsCard()}
 
                                     {/* 3. Product Description / Details Card (Default Open) */}
                                     {renderDescriptionCard()}
@@ -1551,8 +1548,8 @@ const ProductDetailSheet = () => {
                                 {/* 1. 7-Day Return, Cash on Delivery, 1 Year Warranty */}
                                 {renderTrustBadges()}
 
-                                {/* 2. Highlights / Specification Card */}
-                                {renderHighlightsCard()}
+                                {/* 2. More Details Card */}
+                                {renderMoreDetailsCard()}
 
                                 {/* 3. Product Description / Details Card (Default Open) */}
                                 {renderDescriptionCard()}

@@ -25,20 +25,9 @@ function toBooleanOrDefault(value, fallback = false) {
 }
 
 export function normalizeProductApprovalConfig(rawSettings = {}) {
-  const rawConfig =
-    rawSettings?.productApproval && typeof rawSettings.productApproval === "object"
-      ? rawSettings.productApproval
-      : rawSettings;
-
   return {
-    sellerCreateRequiresApproval: toBooleanOrDefault(
-      rawConfig?.sellerCreateRequiresApproval,
-      DEFAULT_PRODUCT_APPROVAL_CONFIG.sellerCreateRequiresApproval,
-    ),
-    sellerEditRequiresApproval: toBooleanOrDefault(
-      rawConfig?.sellerEditRequiresApproval,
-      DEFAULT_PRODUCT_APPROVAL_CONFIG.sellerEditRequiresApproval,
-    ),
+    sellerCreateRequiresApproval: false,
+    sellerEditRequiresApproval: false,
   };
 }
 

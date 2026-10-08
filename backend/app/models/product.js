@@ -221,6 +221,13 @@ const productSchema = new mongoose.Schema(
                 trim: true,
                 default: undefined,
             },
+        trustBadges: [
+            {
+                icon: { type: String, trim: true },
+                title: { type: String, trim: true },
+                subtitle: { type: String, trim: true },
+            }
+        ],
             qcPassed: {
                 type: Boolean,
                 default: undefined,
@@ -241,6 +248,7 @@ const productSchema = new mongoose.Schema(
 productSchema.index({ status: 1, isFeatured: 1, createdAt: -1 });
 productSchema.index({ status: 1, createdAt: -1, _id: -1 });
 productSchema.index({ approvalStatus: 1, status: 1, createdAt: -1 });
+productSchema.index({ status: 1, approvalStatus: 1, categoryId: 1 });
 productSchema.index({ status: 1, conditionType: 1, createdAt: -1 });
 productSchema.index({ headerId: 1, status: 1 });
 productSchema.index({ categoryId: 1, status: 1 });

@@ -111,6 +111,23 @@ const categorySchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    trustBadges: [
+      {
+        icon: {
+          type: String,
+          default: "return",
+          trim: true,
+        },
+        title: {
+          type: String,
+          trim: true,
+        },
+        subtitle: {
+          type: String,
+          trim: true,
+        },
+      },
+    ],
     mappedAttributes: [
       {
         attributeId: {

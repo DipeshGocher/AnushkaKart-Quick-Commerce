@@ -6,6 +6,10 @@ import {
   HiOutlineXMark,
   HiOutlineMagnifyingGlass,
   HiOutlineCheck,
+  HiOutlineArrowUp,
+  HiOutlineArrowDown,
+  HiOutlineSparkles,
+  HiOutlineTrash,
 } from "react-icons/hi2";
 import { adminApi } from "../services/adminApi";
 import Card from "@shared/components/ui/Card";
@@ -93,6 +97,26 @@ export default function HeroCategoriesPerPage() {
   const [productSearchQuery, setProductSearchQuery] = useState("");
   const [subcatSearchQuery, setSubcatSearchQuery] = useState("");
 
+  // Curated Category Deals states (Men's grooming deals layout)
+  const [formCuratedDealsEnabled, setFormCuratedDealsEnabled] = useState(true);
+  const [formCuratedDealsTitle, setFormCuratedDealsTitle] = useState("");
+  const [formCuratedTopBgColor, setFormCuratedTopBgColor] = useState("#FAF8F5");
+  const [formCuratedBottomBgColor, setFormCuratedBottomBgColor] = useState("");
+  const [formCuratedTextColor, setFormCuratedTextColor] = useState("#FFFFFF");
+  const [formCuratedItems, setFormCuratedItems] = useState([]);
+  const [curatedSearchQuery, setCuratedSearchQuery] = useState("");
+
+  // Greeting Section states ("Good afternoon..." on "All" page)
+  const [formGreetingEnabled, setFormGreetingEnabled] = useState(true);
+  const [formGreetingTitle, setFormGreetingTitle] = useState("Good Afternoon, {name}! ☀️");
+  const [formGreetingTitleColor, setFormGreetingTitleColor] = useState("#242424");
+  const [formGreetingBgColor, setFormGreetingBgColor] = useState("linear-gradient(135deg, #ffe078 0%, #ffeb9c 50%, #fff2bc 100%)");
+  const [formGreetingCardBgColor, setFormGreetingCardBgColor] = useState("#ffffff");
+  const [formGreetingCardNameBgColor, setFormGreetingCardNameBgColor] = useState("#2563eb");
+  const [formGreetingCardNameTextColor, setFormGreetingCardNameTextColor] = useState("#FFFFFF");
+  const [formGreetingCategoryIds, setFormGreetingCategoryIds] = useState([]);
+  const [greetingCatSearchQuery, setGreetingCatSearchQuery] = useState("");
+
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -117,7 +141,13 @@ export default function HeroCategoriesPerPage() {
 
         const flatSubs = headerList.flatMap((h) =>
           (h.children || []).flatMap((c) =>
-            (c.children || []).map((s) => ({ ...s, parentName: c.name, headerName: h.name }))
+            (c.children || []).map((s) => ({
+              ...s,
+              parentName: c.name,
+              parentId: c._id,
+              headerName: h.name,
+              headerId: h._id,
+            }))
           )
         );
         setAllSubcategories(flatSubs);
@@ -136,6 +166,12 @@ export default function HeroCategoriesPerPage() {
             bannerCount: homeBanners.length > 0 ? homeBanners.length : getDefaultHomeHeroBanners().length,
             categoryCount: homeCatIds.length,
             customTitle: homeResult.bestSellingTitle || "Best Selling Categories",
+            curatedTitle: homeResult.curatedDeals?.title || "Top Category Deals",
+            curatedCount: (homeResult.curatedDeals?.items || []).length,
+            curatedEnabled: homeResult.curatedDeals?.enabled !== false,
+            greetingTitle: homeResult.greetingSection?.title || "Good Afternoon, {name}! ☀️",
+            greetingCount: (homeResult.greetingSection?.categoryIds || []).length,
+            greetingEnabled: homeResult.greetingSection?.enabled !== false,
           },
         ];
 
@@ -160,6 +196,9 @@ export default function HeroCategoriesPerPage() {
               categoryCount: catIds.length,
               customTitle: result.topDealsTitle || `Top deals on ${h.name || 'category'}`,
               dealProductCount: (result.topDealsProductIds || []).length,
+              curatedTitle: result.curatedDeals?.title || (/beaut/i.test(h.name) ? "Men's grooming deals" : `Deals on ${h.name}`),
+              curatedCount: (result.curatedDeals?.items || []).length,
+              curatedEnabled: result.curatedDeals?.enabled !== false,
             });
           })
         );
@@ -192,6 +231,22 @@ export default function HeroCategoriesPerPage() {
     setCategoryProducts([]);
     setProductSearchQuery("");
     setSubcatSearchQuery("");
+    setFormCuratedDealsEnabled(true);
+    setFormCuratedDealsTitle("");
+    setFormCuratedTopBgColor("#FAF8F5");
+    setFormCuratedBottomBgColor("");
+    setFormCuratedTextColor("#FFFFFF");
+    setFormCuratedItems([]);
+    setCuratedSearchQuery("");
+    setFormGreetingEnabled(true);
+    setFormGreetingTitle("Good Afternoon, {name}! ☀️");
+    setFormGreetingTitleColor("#242424");
+    setFormGreetingBgColor("linear-gradient(135deg, #ffe078 0%, #ffeb9c 50%, #fff2bc 100%)");
+    setFormGreetingCardBgColor("#ffffff");
+    setFormGreetingCardNameBgColor("#2563eb");
+    setFormGreetingCardNameTextColor("#FFFFFF");
+    setFormGreetingCategoryIds([]);
+    setGreetingCatSearchQuery("");
 
     try {
       const res = await adminApi.getHeroConfig({
@@ -224,6 +279,20 @@ export default function HeroCategoriesPerPage() {
       setFormCategoryIds(Array.isArray(catIds) ? catIds : []);
 
       if (row.pageType === "home") {
+        const greeting = result.greetingSection || {};
+        setFormGreetingEnabled(greeting.enabled !== false);
+        setFormGreetingTitle(greeting.title || "Good Afternoon, {name}! ☀️");
+        setFormGreetingTitleColor(greeting.titleColor || "#242424");
+        setFormGreetingBgColor(greeting.bgColor || "linear-gradient(135deg, #ffe078 0%, #ffeb9c 50%, #fff2bc 100%)");
+        setFormGreetingCardBgColor(greeting.cardBgColor || "#ffffff");
+        setFormGreetingCardNameBgColor(greeting.cardNameBgColor || "#2563eb");
+        setFormGreetingCardNameTextColor(greeting.cardNameTextColor || "#FFFFFF");
+        setFormGreetingCategoryIds(
+          Array.isArray(greeting.categoryIds)
+            ? greeting.categoryIds.map((c) => String(c?._id || c))
+            : []
+        );
+
         setFormBestSellingTitle(result.bestSellingTitle || "Best Selling Categories");
         setFormBestSellingCategoryIds(
           Array.isArray(result.bestSellingCategoryIds)
@@ -298,6 +367,64 @@ export default function HeroCategoriesPerPage() {
           setProductsLoading(false);
         }
       }
+
+      // Populate Curated Category Deals (Men's grooming deals style)
+      const curated = result.curatedDeals || {};
+      setFormCuratedDealsEnabled(curated.enabled !== false);
+      setFormCuratedDealsTitle(
+        curated.title ||
+        (row.pageType === "home"
+          ? "Top Category Deals"
+          : /beaut/i.test(row.label)
+          ? "Men's grooming deals"
+          : /grocer/i.test(row.label)
+          ? "Daily Grocery Deals"
+          : /electr/i.test(row.label)
+          ? "Electronics Mega Deals"
+          : /mobil/i.test(row.label)
+          ? "Smartphones & Deals"
+          : /fashion/i.test(row.label)
+          ? "Fashion & Lifestyle Deals"
+          : /home/i.test(row.label)
+          ? "Home & Kitchen Deals"
+          : /med/i.test(row.label)
+          ? "Health & Wellness Deals"
+          : `Deals on ${row.label}`)
+      );
+      setFormCuratedTopBgColor(curated.cardTopBgColor || "#FAF8F5");
+      setFormCuratedBottomBgColor(
+        curated.cardBottomBgColor ||
+        (row.pageType === "home"
+          ? "#2563eb"
+          : /grocer/i.test(row.label)
+          ? "#059669"
+          : /electr/i.test(row.label)
+          ? "#1e3a8a"
+          : /beaut/i.test(row.label)
+          ? "#2563eb"
+          : /fashion/i.test(row.label)
+          ? "#7c3aed"
+          : /home/i.test(row.label)
+          ? "#0f766e"
+          : /med/i.test(row.label)
+          ? "#0d9488"
+          : "#2563eb")
+      );
+      setFormCuratedTextColor(curated.cardTextColor || "#FFFFFF");
+
+      const initialCuratedItems = Array.isArray(curated.items)
+        ? curated.items.map((it) => {
+            const cat = it.categoryId;
+            return {
+              categoryId: String(cat?._id || cat || ""),
+              title: it.title || cat?.name || "",
+              offerText: it.offerText || "Min. 50% Off",
+              imageUrl: it.imageUrl || cat?.image || cat?.icon || "",
+              slug: cat?.slug || "",
+            };
+          })
+        : [];
+      setFormCuratedItems(initialCuratedItems);
     } catch (e) {
       console.error(e);
       showToast("Failed to fetch page configuration", "error");
@@ -389,6 +516,72 @@ export default function HeroCategoriesPerPage() {
     );
   };
 
+  const toggleGreetingCategory = (catId) => {
+    const idStr = String(catId);
+    setFormGreetingCategoryIds((prev) =>
+      prev.includes(idStr) ? prev.filter((id) => id !== idStr) : [...prev, idStr]
+    );
+  };
+
+  const moveGreetingCategory = (idx, direction) => {
+    setFormGreetingCategoryIds((prev) => {
+      const targetIdx = idx + direction;
+      if (targetIdx < 0 || targetIdx >= prev.length) return prev;
+      const copy = [...prev];
+      const temp = copy[idx];
+      copy[idx] = copy[targetIdx];
+      copy[targetIdx] = temp;
+      return copy;
+    });
+  };
+
+  const addCuratedItem = (sub) => {
+    const subId = String(sub._id || sub.id);
+    if (formCuratedItems.some((it) => String(it.categoryId) === subId)) return;
+    setFormCuratedItems((prev) => [
+      ...prev,
+      {
+        categoryId: subId,
+        title: sub.name,
+        offerText: "Min. 50% Off",
+        imageUrl: sub.image || sub.icon || "",
+        slug: sub.slug || "",
+      },
+    ]);
+  };
+
+  const removeCuratedItem = (idx) => {
+    setFormCuratedItems((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const moveCuratedItem = (idx, direction) => {
+    setFormCuratedItems((prev) => {
+      const targetIdx = idx + direction;
+      if (targetIdx < 0 || targetIdx >= prev.length) return prev;
+      const copy = [...prev];
+      const temp = copy[idx];
+      copy[idx] = copy[targetIdx];
+      copy[targetIdx] = temp;
+      return copy;
+    });
+  };
+
+  const updateCuratedItemOffer = (idx, offerText) => {
+    setFormCuratedItems((prev) => {
+      const copy = [...prev];
+      copy[idx] = { ...copy[idx], offerText };
+      return copy;
+    });
+  };
+
+  const updateCuratedItemTitle = (idx, title) => {
+    setFormCuratedItems((prev) => {
+      const copy = [...prev];
+      copy[idx] = { ...copy[idx], title };
+      return copy;
+    });
+  };
+
   const handleSave = async () => {
     if (!editingRow) return;
 
@@ -433,6 +626,16 @@ export default function HeroCategoriesPerPage() {
         headerId: editingRow.headerId || undefined,
         banners: { items },
         categoryIds: formCategoryIds,
+        greetingSection: editingRow.pageType === "home" ? {
+          enabled: formGreetingEnabled,
+          title: formGreetingTitle.trim(),
+          titleColor: formGreetingTitleColor.trim() || "#242424",
+          bgColor: formGreetingBgColor.trim() || "linear-gradient(135deg, #ffe078 0%, #ffeb9c 50%, #fff2bc 100%)",
+          cardBgColor: formGreetingCardBgColor.trim() || "#ffffff",
+          cardNameBgColor: formGreetingCardNameBgColor.trim() || "#2563eb",
+          cardNameTextColor: formGreetingCardNameTextColor.trim() || "#FFFFFF",
+          categoryIds: formGreetingCategoryIds,
+        } : undefined,
         topDealsTitle: formTopDealsTitle,
         topDealsProductIds: formTopDealsProductIds,
         topDealsBgColor: formTopDealsBgColor,
@@ -442,6 +645,20 @@ export default function HeroCategoriesPerPage() {
         bestSellingTitle: formBestSellingTitle,
         bestSellingCategoryIds: formBestSellingCategoryIds,
         categorySectionBanners: cleanedSectionBanners,
+        curatedDeals: {
+          enabled: formCuratedDealsEnabled,
+          title: formCuratedDealsTitle.trim(),
+          cardTopBgColor: formCuratedTopBgColor.trim() || "#FAF8F5",
+          cardBottomBgColor: formCuratedBottomBgColor.trim(),
+          cardTextColor: formCuratedTextColor.trim() || "#FFFFFF",
+          items: formCuratedItems.map((it, idx) => ({
+            categoryId: it.categoryId || null,
+            title: it.title?.trim() || "",
+            offerText: it.offerText?.trim() || "Min. 50% Off",
+            imageUrl: it.imageUrl?.trim() || "",
+            sortOrder: idx,
+          })),
+        },
       });
 
       // Synchronize with platform settings for full dual compatibility
@@ -479,6 +696,12 @@ export default function HeroCategoriesPerPage() {
                 categoryCount: formCategoryIds.length,
                 customTitle: editingRow.pageType === "home" ? formBestSellingTitle : formTopDealsTitle,
                 dealProductCount: formTopDealsProductIds.length,
+                curatedTitle: formCuratedDealsTitle.trim() || (editingRow.pageType === "home" ? "Top Category Deals" : `Deals on ${editingRow.label}`),
+                curatedCount: formCuratedItems.length,
+                curatedEnabled: formCuratedDealsEnabled,
+                greetingTitle: formGreetingTitle.trim() || "Good Afternoon, {name}! ☀️",
+                greetingCount: formGreetingCategoryIds.length,
+                greetingEnabled: formGreetingEnabled,
               }
             : p
         )
@@ -513,6 +736,38 @@ export default function HeroCategoriesPerPage() {
     );
   });
 
+  // Scoped subcategories for curated deals:
+  // On "home" (All page), allow selecting any subcategory in the whole catalog.
+  // On category pages (e.g. Grocery, Electronics, etc.), strictly allow ONLY subcategories of that category!
+  const scopedAvailableSubcategories = (allSubcategories || []).filter((s) => {
+    if (!editingRow) return false;
+    if (editingRow.pageType === "home") {
+      return true;
+    }
+    const matchesHeaderId = s.headerId && String(s.headerId) === String(editingRow.headerId);
+    const matchesHeaderName = (s.headerName || "").toLowerCase().trim() === (editingRow.label || "").toLowerCase().trim();
+    return matchesHeaderId || matchesHeaderName;
+  });
+
+  const filteredScopedSubcategories = scopedAvailableSubcategories.filter((s) => {
+    if (!curatedSearchQuery.trim()) return true;
+    const q = curatedSearchQuery.toLowerCase();
+    return (
+      (s.name || "").toLowerCase().includes(q) ||
+      (s.parentName || "").toLowerCase().includes(q) ||
+      (s.headerName || "").toLowerCase().includes(q)
+    );
+  });
+
+  const filteredGreetingCategories = (allCategories || []).filter((c) => {
+    if (!greetingCatSearchQuery.trim()) return true;
+    const q = greetingCatSearchQuery.toLowerCase();
+    return (
+      (c.name || "").toLowerCase().includes(q) ||
+      (c.headerName || "").toLowerCase().includes(q)
+    );
+  });
+
   return (
     <div className="p-4 md:p-6 max-w-5xl">
       <div className="mb-6">
@@ -520,7 +775,7 @@ export default function HeroCategoriesPerPage() {
           Page CMS: Banners, Top Deals & Categories
         </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Manage and customize all customer-facing banners, Top Deals titles & products, and Best Selling categories for the Home page and each category page (Grocery, Electronics, Mobiles, Fashion, etc.).
+          Manage and customize all customer-facing banners, Top Deals titles & products, Best Selling categories, and Curated Deal Cards (wave layout) for the Home page and each category page.
         </p>
       </div>
 
@@ -539,7 +794,10 @@ export default function HeroCategoriesPerPage() {
                     Banners
                   </th>
                   <th className="pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    Top Deals / Best Selling Section
+                    Curated Deals (Cards)
+                  </th>
+                  <th className="pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    Top Deals / Best Selling
                   </th>
                   <th className="pb-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                     Action
@@ -568,13 +826,30 @@ export default function HeroCategoriesPerPage() {
                     </td>
                     <td className="py-4 text-xs text-slate-600">
                       <div>
-                        <span className="font-bold text-slate-900">{row.customTitle || "Default"}</span>
-                        {row.pageType === "header" && (
+                        <span className="font-bold text-slate-900 block">{row.curatedTitle || "Deals Showcase"}</span>
+                        <span className="text-[11px] text-slate-500">
+                          {row.curatedCount > 0 ? `${row.curatedCount} cards configured` : "Default category deals"}
+                          {!row.curatedEnabled && " (Disabled)"}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-4 text-xs text-slate-600">
+                      {row.pageType === "home" ? (
+                        <div>
+                          <span className="font-bold text-slate-900 block">{row.customTitle || "Best Selling"}</span>
+                          <span className="text-[11px] text-amber-700 font-semibold block mt-0.5">
+                            Greeting: {row.greetingTitle || "Good Afternoon, {name}! ☀️"} ({row.greetingCount > 0 ? `${row.greetingCount} cats` : "All"})
+                            {!row.greetingEnabled && " (Disabled)"}
+                          </span>
+                        </div>
+                      ) : (
+                        <div>
+                          <span className="font-bold text-slate-900">{row.customTitle || "Default"}</span>
                           <span className="ml-2 text-[11px] text-slate-500">
                             ({row.dealProductCount || 0} products selected)
                           </span>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </td>
                     <td className="py-4">
                       <button
@@ -725,12 +1000,398 @@ export default function HeroCategoriesPerPage() {
               </div>
             </div>
 
-            {/* 2. HOME PAGE: BEST SELLING CATEGORIES SECTION */}
+            {/* 2. HOME PAGE: GREETING & CATEGORIES SECTION ("GOOD AFTERNOON") */}
+            {editingRow.pageType === "home" && (
+              <div className="p-4 rounded-2xl bg-amber-50/40 border border-amber-200/60 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-[11px] font-black text-amber-900 uppercase tracking-wider block">
+                        2. Greeting & Categories Section ("Good Afternoon")
+                      </label>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-200/70 text-amber-900">
+                        Furnishing Deals Card Layout
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-amber-700/80 mt-0.5">
+                      Configure heading, background color/gradient, Furnishing Deals style cards (image on top, solid colored label on bottom), text colors, and which main categories are displayed.
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={formGreetingEnabled}
+                      onChange={(e) => setFormGreetingEnabled(e.target.checked)}
+                      className="w-4 h-4 rounded text-primary focus:ring-primary border-slate-300"
+                    />
+                    <span className="text-xs font-bold text-slate-700">Section Active</span>
+                  </label>
+                </div>
+
+                {formGreetingEnabled && (
+                  <div className="space-y-4">
+                    {/* 1. Heading & Heading Text Color */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="sm:col-span-2 space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center justify-between">
+                          <span>Section Heading / Greeting Title</span>
+                          <span className="text-[9.5px] font-semibold text-primary lowercase">
+                            tip: {"{name}"} inserts user's first name
+                          </span>
+                        </label>
+                        <input
+                          type="text"
+                          value={formGreetingTitle}
+                          onChange={(e) => setFormGreetingTitle(e.target.value)}
+                          placeholder="E.g. Good Afternoon, {name}! ☀️"
+                          className="w-full px-3.5 py-2 bg-white rounded-xl text-xs font-bold text-slate-900 border border-slate-200 outline-none focus:border-primary shadow-2xs"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">
+                          Heading Text Color
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={formGreetingTitleColor?.startsWith("#") ? formGreetingTitleColor : "#242424"}
+                            onChange={(e) => setFormGreetingTitleColor(e.target.value)}
+                            className="w-8 h-8 rounded-lg border border-slate-200 p-0.5 cursor-pointer shrink-0"
+                          />
+                          <input
+                            type="text"
+                            value={formGreetingTitleColor}
+                            onChange={(e) => setFormGreetingTitleColor(e.target.value)}
+                            placeholder="#242424"
+                            className="w-full px-2.5 py-2 bg-white rounded-xl text-xs font-bold border border-slate-200 outline-none focus:border-primary shadow-2xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2. Container Background Color / Presets */}
+                    <div className="p-3.5 bg-white rounded-xl border border-slate-200/90 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider block">
+                            Section Container Background
+                          </label>
+                          <p className="text-[10px] text-slate-500">
+                            Solid hex color or modern CSS gradient for the greeting container.
+                          </p>
+                        </div>
+                        {/* Presets */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-bold text-slate-400 mr-1">Presets:</span>
+                          {[
+                            { name: "Sunshine Yellow", value: "linear-gradient(135deg, #ffe078 0%, #ffeb9c 50%, #fff2bc 100%)", bg: "#ffe078" },
+                            { name: "Soft Cream", value: "#FEF9C3", bg: "#FEF9C3" },
+                            { name: "Sky Blue", value: "linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%)", bg: "#dbeafe" },
+                            { name: "Mint Fresh", value: "linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%)", bg: "#d1fae5" },
+                            { name: "Lavender", value: "linear-gradient(135deg, #ede9fe 0%, #f5f3ff 100%)", bg: "#ede9fe" },
+                            { name: "Sunset Peach", value: "linear-gradient(135deg, #ffe4e6 0%, #fff1f2 100%)", bg: "#ffe4e6" },
+                            { name: "Minimal White", value: "#ffffff", bg: "#ffffff" },
+                          ].map((preset) => (
+                            <button
+                              key={preset.name}
+                              type="button"
+                              onClick={() => setFormGreetingBgColor(preset.value)}
+                              className="w-5 h-5 rounded-full border border-black/15 shadow-2xs transition-transform hover:scale-110 active:scale-95 cursor-pointer"
+                              style={{ background: preset.bg }}
+                              title={preset.name}
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={formGreetingBgColor?.startsWith("#") ? formGreetingBgColor : "#ffeb9c"}
+                          onChange={(e) => setFormGreetingBgColor(e.target.value)}
+                          className="w-8 h-8 rounded-lg border border-slate-200 p-0.5 cursor-pointer shrink-0"
+                        />
+                        <input
+                          type="text"
+                          value={formGreetingBgColor}
+                          onChange={(e) => setFormGreetingBgColor(e.target.value)}
+                          placeholder="linear-gradient(...) or #ffeb9c"
+                          className="flex-1 px-3 py-1.5 bg-slate-50 rounded-xl text-xs font-semibold border border-slate-200 outline-none focus:border-primary shadow-2xs"
+                        />
+                      </div>
+                    </div>
+
+                    {/* 3. Card Styling (Furnishing Deals style) & Miniature Live Preview */}
+                    <div className="p-3.5 bg-white rounded-xl border border-slate-200/90 space-y-3">
+                      <div>
+                        <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider block">
+                          Card Styling (Image + Solid Name Strip)
+                        </label>
+                        <p className="text-[10px] text-slate-500">
+                          Furnishing deals layout: image on top, colored solid bar with category name below.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {/* Card Image Box BG */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                            Card Top Image BG
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={formGreetingCardBgColor?.startsWith("#") ? formGreetingCardBgColor : "#ffffff"}
+                              onChange={(e) => setFormGreetingCardBgColor(e.target.value)}
+                              className="w-8 h-8 rounded-lg border border-slate-200 p-0.5 cursor-pointer shrink-0"
+                            />
+                            <input
+                              type="text"
+                              value={formGreetingCardBgColor}
+                              onChange={(e) => setFormGreetingCardBgColor(e.target.value)}
+                              placeholder="#ffffff"
+                              className="flex-1 px-2.5 py-1.5 bg-slate-50 rounded-lg text-xs font-semibold border border-slate-200 outline-none focus:border-primary"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Card Name Bar BG */}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider">
+                              Name Bar BG Color
+                            </label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={formGreetingCardNameBgColor?.startsWith("#") ? formGreetingCardNameBgColor : "#2563eb"}
+                              onChange={(e) => setFormGreetingCardNameBgColor(e.target.value)}
+                              className="w-8 h-8 rounded-lg border border-slate-200 p-0.5 cursor-pointer shrink-0"
+                            />
+                            <input
+                              type="text"
+                              value={formGreetingCardNameBgColor}
+                              onChange={(e) => setFormGreetingCardNameBgColor(e.target.value)}
+                              placeholder="#2563eb"
+                              className="flex-1 px-2.5 py-1.5 bg-slate-50 rounded-lg text-xs font-semibold border border-slate-200 outline-none focus:border-primary"
+                            />
+                          </div>
+                          {/* Quick Color swatches */}
+                          <div className="flex items-center gap-1 pt-1">
+                            {[
+                              { name: "Royal Blue", hex: "#2563eb" },
+                              { name: "Indigo", hex: "#4338ca" },
+                              { name: "Emerald", hex: "#059669" },
+                              { name: "Crimson", hex: "#dc2626" },
+                              { name: "Purple", hex: "#7c3aed" },
+                              { name: "Slate", hex: "#1e293b" },
+                            ].map((c) => (
+                              <button
+                                key={c.hex}
+                                type="button"
+                                onClick={() => setFormGreetingCardNameBgColor(c.hex)}
+                                className="w-4 h-4 rounded-full border border-black/10 cursor-pointer hover:scale-110 transition-transform"
+                                style={{ backgroundColor: c.hex }}
+                                title={c.name}
+                              />
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Card Name Text Color */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                            Name Bar Text Color
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={formGreetingCardNameTextColor?.startsWith("#") ? formGreetingCardNameTextColor : "#FFFFFF"}
+                              onChange={(e) => setFormGreetingCardNameTextColor(e.target.value)}
+                              className="w-8 h-8 rounded-lg border border-slate-200 p-0.5 cursor-pointer shrink-0"
+                            />
+                            <input
+                              type="text"
+                              value={formGreetingCardNameTextColor}
+                              onChange={(e) => setFormGreetingCardNameTextColor(e.target.value)}
+                              placeholder="#FFFFFF"
+                              className="flex-1 px-2.5 py-1.5 bg-slate-50 rounded-lg text-xs font-semibold border border-slate-200 outline-none focus:border-primary"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Mini Live Preview */}
+                      <div
+                        className="mt-3 p-4 rounded-2xl border border-slate-200/80 flex items-center justify-between overflow-hidden shadow-2xs"
+                        style={{ background: formGreetingBgColor || "linear-gradient(135deg, #ffe078 0%, #ffeb9c 50%, #fff2bc 100%)" }}
+                      >
+                        <div className="space-y-1 max-w-[60%]">
+                          <span
+                            className="text-sm font-bold block truncate"
+                            style={{ color: formGreetingTitleColor || "#242424" }}
+                          >
+                            {(formGreetingTitle || "Good Afternoon, {name}! ☀️").replace(/\{name\}/gi, "Rahul")}
+                          </span>
+                          <span className="text-[10px] text-slate-600 font-semibold block">
+                            Mini Live Preview (Exact customer look)
+                          </span>
+                        </div>
+
+                        {/* Preview Card */}
+                        <div
+                          className="w-24 rounded-xl overflow-hidden shadow-sm border border-black/5"
+                          style={{ backgroundColor: formGreetingCardBgColor || "#ffffff" }}
+                        >
+                          <div
+                            className="h-16 w-full flex items-center justify-center p-1.5"
+                            style={{ backgroundColor: formGreetingCardBgColor || "#ffffff" }}
+                          >
+                            <img
+                              src="https://cdn-icons-png.flaticon.com/128/3082/3082060.png"
+                              alt="Sample"
+                              className="h-12 w-12 object-contain"
+                            />
+                          </div>
+                          <div
+                            className="w-full py-1 px-1 flex items-center justify-center text-center"
+                            style={{ backgroundColor: formGreetingCardNameBgColor || "#2563eb" }}
+                          >
+                            <span
+                              className="text-[11px] font-bold truncate block w-full"
+                              style={{ color: formGreetingCardNameTextColor || "#FFFFFF" }}
+                            >
+                              Blankets
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 4. Main Categories Selection */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider block">
+                            Main Categories to Display ({formGreetingCategoryIds.length} selected)
+                          </label>
+                          <span className="text-[10px] text-slate-400">
+                            Pick specifically which main categories appear in this greeting carousel.
+                          </span>
+                        </div>
+                        {formGreetingCategoryIds.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setFormGreetingCategoryIds([])}
+                            className="text-[10px] font-bold text-rose-500 hover:underline cursor-pointer"
+                          >
+                            Clear selection (show all default)
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Selected Categories Re-ordering / removal */}
+                      {formGreetingCategoryIds.length > 0 && (
+                        <div className="space-y-1.5 p-2 bg-slate-50/80 rounded-xl border border-slate-200">
+                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider px-1 block">
+                            Selected Order (Drag / Reorder with arrows):
+                          </span>
+                          <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto p-1">
+                            {formGreetingCategoryIds.map((cid, idx) => {
+                              const foundCat = allCategories.find((c) => String(c._id) === String(cid));
+                              const name = foundCat?.name || "Category";
+                              return (
+                                <div
+                                  key={cid}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white border border-slate-200 shadow-2xs text-xs font-bold text-slate-800"
+                                >
+                                  <span>{name}</span>
+                                  <div className="flex items-center gap-0.5 ml-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => moveGreetingCategory(idx, -1)}
+                                      disabled={idx === 0}
+                                      className="p-0.5 text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer"
+                                      title="Move earlier"
+                                    >
+                                      <HiOutlineArrowUp className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => moveGreetingCategory(idx, 1)}
+                                      disabled={idx === formGreetingCategoryIds.length - 1}
+                                      className="p-0.5 text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer"
+                                      title="Move later"
+                                    >
+                                      <HiOutlineArrowDown className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleGreetingCategory(cid)}
+                                      className="p-0.5 text-rose-400 hover:text-rose-600 cursor-pointer"
+                                      title="Remove"
+                                    >
+                                      <HiOutlineXMark className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Search and Picker for All Categories */}
+                      <div className="relative">
+                        <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                        <input
+                          type="text"
+                          value={greetingCatSearchQuery}
+                          onChange={(e) => setGreetingCatSearchQuery(e.target.value)}
+                          placeholder="Search categories (e.g. Aata, Dairy, Furnishing, Men's)..."
+                          className="w-full pl-8 pr-3 py-1.5 bg-white rounded-xl text-xs border border-slate-200 outline-none focus:border-primary shadow-2xs"
+                        />
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto p-2 bg-white rounded-xl border border-slate-200">
+                        {filteredGreetingCategories.map((c) => {
+                          const isSelected = formGreetingCategoryIds.includes(String(c._id));
+                          return (
+                            <button
+                              key={c._id}
+                              type="button"
+                              onClick={() => toggleGreetingCategory(c._id)}
+                              className={cn(
+                                "px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all flex items-center gap-1 cursor-pointer",
+                                isSelected
+                                  ? "bg-amber-500 text-white border-amber-600 shadow-xs"
+                                  : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300"
+                              )}
+                            >
+                              {isSelected && <HiOutlineCheck className="w-3 h-3" />}
+                              {c.name}
+                              <span className="text-[9px] opacity-70">({c.headerName})</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        If no categories are selected here, the section automatically shows all active main categories.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 3. HOME PAGE: BEST SELLING CATEGORIES SECTION */}
             {editingRow.pageType === "home" && (
               <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/80 space-y-4">
                 <div>
                   <label className="text-[11px] font-black text-slate-700 uppercase tracking-wider block">
-                    2. Best Selling Categories Section
+                    3. Best Selling Categories Section
                   </label>
                   <p className="text-[11px] text-slate-500">
                     Configure the title and choose which categories or subcategories appear in this horizontal strip on the Home page.
@@ -809,7 +1470,7 @@ export default function HeroCategoriesPerPage() {
               <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/80 space-y-4">
                 <div>
                   <label className="text-[11px] font-black text-slate-700 uppercase tracking-wider block">
-                    3. Category Sections Banners on "All" Page
+                    4. Category Sections Banners on "All" Page
                   </label>
                   <p className="text-[11px] text-slate-500">
                     Customize the single banner displayed inside each category section (Grocery, Home Appliances, Fashion, etc.) on the Home ("All") page.
@@ -1150,6 +1811,367 @@ export default function HeroCategoriesPerPage() {
                 </div>
               </div>
             )}
+
+            {/* 5. CURATED CATEGORY DEALS (IMAGE & WAVE LAYOUT CARDS MATCHING REFERENCE SCREENSHOT) */}
+            <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/80 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-[11px] font-black text-slate-700 uppercase tracking-wider block">
+                      {editingRow.pageType === "home" ? "5. Curated Deals Section (All Page)" : `3. Curated Deals Section (${editingRow.label})`}
+                    </label>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800">
+                      <HiOutlineSparkles className="w-3 h-3 text-amber-600" />
+                      Wave Layout
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Off-white top with large transparent PNG, curved wave with sparkles, and custom bottom color with subcategory and % Off text.
+                  </p>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={formCuratedDealsEnabled}
+                    onChange={(e) => setFormCuratedDealsEnabled(e.target.checked)}
+                    className="w-4 h-4 rounded text-primary focus:ring-primary border-slate-300"
+                  />
+                  <span className="text-xs font-bold text-slate-700">Section Active</span>
+                </label>
+              </div>
+
+              {formCuratedDealsEnabled && (
+                <div className="space-y-4">
+                  {/* 1. Section Title */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                      Section Heading / Title
+                    </label>
+                    <input
+                      type="text"
+                      value={formCuratedDealsTitle}
+                      onChange={(e) => setFormCuratedDealsTitle(e.target.value)}
+                      placeholder="E.g. Men's grooming deals, Daily Grocery Deals, Electronics Mega Deals..."
+                      className="w-full px-3.5 py-2 bg-white rounded-xl text-xs font-bold text-slate-900 border border-slate-200 outline-none focus:border-primary shadow-2xs"
+                    />
+                  </div>
+
+                  {/* 2. Color Customization & Live Preview */}
+                  <div className="p-3.5 bg-white rounded-xl border border-slate-200/90 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider block">
+                          Card Colors & Wave Styling
+                        </label>
+                        <p className="text-[10px] text-slate-500">
+                          Adjust card top off-white color and bottom wave color according to page (e.g. green for grocery, dark blue for electronics).
+                        </p>
+                      </div>
+                      {/* Presets */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] font-bold text-slate-400 mr-1">Presets:</span>
+                        {[
+                          { name: "Green (Grocery)", hex: "#059669" },
+                          { name: "Dark Blue (Electronics)", hex: "#1e3a8a" },
+                          { name: "Royal Blue (Beauty/Deals)", hex: "#2563eb" },
+                          { name: "Purple (Fashion)", hex: "#7c3aed" },
+                          { name: "Teal (Home)", hex: "#0f766e" },
+                          { name: "Medical (Pharma)", hex: "#0d9488" },
+                        ].map((preset) => (
+                          <button
+                            key={preset.hex}
+                            type="button"
+                            onClick={() => setFormCuratedBottomBgColor(preset.hex)}
+                            className="w-5 h-5 rounded-full border border-black/10 shadow-2xs transition-transform hover:scale-110 active:scale-95 cursor-pointer"
+                            style={{ backgroundColor: preset.hex }}
+                            title={preset.name}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {/* Card Top Color (Off-white) */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                          Card Top Color (Off-white)
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={formCuratedTopBgColor?.startsWith("#") ? formCuratedTopBgColor : "#FAF8F5"}
+                            onChange={(e) => setFormCuratedTopBgColor(e.target.value)}
+                            className="w-8 h-8 rounded-lg border border-slate-200 p-0.5 cursor-pointer shrink-0"
+                          />
+                          <input
+                            type="text"
+                            value={formCuratedTopBgColor}
+                            onChange={(e) => setFormCuratedTopBgColor(e.target.value)}
+                            placeholder="#FAF8F5"
+                            className="flex-1 px-2.5 py-1.5 bg-slate-50 rounded-lg text-xs font-semibold border border-slate-200 outline-none focus:border-primary"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Card Bottom Wave Color */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                          Card Bottom Color (Below Wave)
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={formCuratedBottomBgColor?.startsWith("#") ? formCuratedBottomBgColor : "#2563eb"}
+                            onChange={(e) => setFormCuratedBottomBgColor(e.target.value)}
+                            className="w-8 h-8 rounded-lg border border-slate-200 p-0.5 cursor-pointer shrink-0"
+                          />
+                          <input
+                            type="text"
+                            value={formCuratedBottomBgColor}
+                            onChange={(e) => setFormCuratedBottomBgColor(e.target.value)}
+                            placeholder="#2563eb or #059669..."
+                            className="flex-1 px-2.5 py-1.5 bg-slate-50 rounded-lg text-xs font-semibold border border-slate-200 outline-none focus:border-primary"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Text Color */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                          Text Color
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={formCuratedTextColor?.startsWith("#") ? formCuratedTextColor : "#FFFFFF"}
+                            onChange={(e) => setFormCuratedTextColor(e.target.value)}
+                            className="w-8 h-8 rounded-lg border border-slate-200 p-0.5 cursor-pointer shrink-0"
+                          />
+                          <input
+                            type="text"
+                            value={formCuratedTextColor}
+                            onChange={(e) => setFormCuratedTextColor(e.target.value)}
+                            placeholder="#FFFFFF"
+                            className="flex-1 px-2.5 py-1.5 bg-slate-50 rounded-lg text-xs font-semibold border border-slate-200 outline-none focus:border-primary"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Live Miniature Card Preview matching prompt image */}
+                    <div className="mt-2 pt-2 border-t border-slate-100 flex items-center gap-4">
+                      <div className="text-[10px] font-bold text-slate-400">Live Preview:</div>
+                      <div className="w-[124px] rounded-2xl overflow-hidden shadow-sm border border-slate-200 bg-white flex flex-col shrink-0">
+                        <div
+                          className="h-[84px] flex items-center justify-center p-2 relative"
+                          style={{ backgroundColor: formCuratedTopBgColor || "#FAF8F5" }}
+                        >
+                          <span className="text-[10px] font-black text-slate-400">Large PNG</span>
+                        </div>
+                        <div className="relative -mt-4 w-full pointer-events-none overflow-hidden">
+                          <svg viewBox="0 0 160 28" preserveAspectRatio="none" className="w-full h-5 block">
+                            <path d="M0 16 C35 22 75 24 110 12 C130 5 145 2 160 1 L160 28 L0 28 Z" fill={formCuratedBottomBgColor || "#2563eb"} />
+                          </svg>
+                          <div className="absolute right-2 top-0.5 flex items-center gap-0.5">
+                            <span className="text-[9px] text-white">✨</span>
+                          </div>
+                        </div>
+                        <div
+                          className="px-1.5 pb-2 pt-0.5 text-center flex flex-col items-center -mt-[1px]"
+                          style={{ backgroundColor: formCuratedBottomBgColor || "#2563eb" }}
+                        >
+                          <span className="text-[9.5px] font-medium leading-tight truncate w-full" style={{ color: formCuratedTextColor || "#FFFFFF" }}>
+                            Grooming kits
+                          </span>
+                          <span className="text-[10.5px] font-black leading-tight mt-0.5" style={{ color: formCuratedTextColor || "#FFFFFF" }}>
+                            Min. 50% Off
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-medium">
+                        Live preview of the layout matching reference screenshot: offwhite container with large PNG, wave with sparkles, and customizable background color below with discount.
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. Selected Curated Deal Cards */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider">
+                        Selected Cards ({formCuratedItems.length} items configured)
+                      </label>
+                      {formCuratedItems.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setFormCuratedItems([])}
+                          className="text-[10px] font-bold text-rose-500 hover:underline cursor-pointer"
+                        >
+                          Clear all (use defaults)
+                        </button>
+                      )}
+                    </div>
+
+                    {formCuratedItems.length === 0 ? (
+                      <div className="p-4 rounded-xl bg-white border border-dashed border-slate-200 text-center">
+                        <p className="text-xs font-semibold text-slate-500">
+                          No custom cards added yet.
+                        </p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Pick subcategories below to customize which cards show here, or leave empty to automatically display popular category deals.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-60 overflow-y-auto p-1 bg-white rounded-xl border border-slate-200">
+                        {formCuratedItems.map((item, idx) => (
+                          <div
+                            key={item.categoryId || idx}
+                            className="flex items-center gap-3 p-2 rounded-lg bg-slate-50/80 border border-slate-200/80"
+                          >
+                            {/* Thumbnail */}
+                            <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                              {item.imageUrl ? (
+                                <img src={item.imageUrl} alt={item.title} className="w-full h-full object-contain p-1" />
+                              ) : (
+                                <HiOutlinePhoto className="w-5 h-5 text-slate-300" />
+                              )}
+                            </div>
+
+                            {/* Subcategory Name & Title Input */}
+                            <div className="flex-1 min-w-0">
+                              <input
+                                type="text"
+                                value={item.title}
+                                onChange={(e) => updateCuratedItemTitle(idx, e.target.value)}
+                                placeholder="Card Title..."
+                                className="w-full px-2 py-1 bg-white rounded-md text-xs font-bold text-slate-900 border border-slate-200 outline-none focus:border-primary"
+                              />
+                            </div>
+
+                            {/* Offer Text Input (e.g. Min. 50% Off) */}
+                            <div className="w-32 shrink-0">
+                              <input
+                                type="text"
+                                value={item.offerText}
+                                onChange={(e) => updateCuratedItemOffer(idx, e.target.value)}
+                                placeholder="Min. 50% Off"
+                                className="w-full px-2 py-1 bg-white rounded-md text-xs font-extrabold text-blue-600 border border-slate-200 outline-none focus:border-primary text-center"
+                              />
+                            </div>
+
+                            {/* Reorder & Remove Actions */}
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => moveCuratedItem(idx, -1)}
+                                disabled={idx === 0}
+                                className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer"
+                                title="Move up"
+                              >
+                                <HiOutlineArrowUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveCuratedItem(idx, 1)}
+                                disabled={idx === formCuratedItems.length - 1}
+                                className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-20 cursor-pointer"
+                                title="Move down"
+                              >
+                                <HiOutlineArrowDown className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeCuratedItem(idx)}
+                                className="p-1 rounded text-rose-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer ml-1"
+                                title="Remove card"
+                              >
+                                <HiOutlineTrash className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 4. Add Subcategories Selector (Properly Scoped!) */}
+                  <div className="space-y-2 pt-2 border-t border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider block">
+                          Add Subcategories to Deals
+                        </label>
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          {editingRow.pageType === "home"
+                            ? "✨ Any subcategory across the entire catalog can be selected for 'All' page."
+                            : `🔒 Scoped to ${editingRow.label} subcategories only.`}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-400">
+                        {filteredScopedSubcategories.length} available
+                      </span>
+                    </div>
+
+                    {/* Search Input */}
+                    <div className="relative">
+                      <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        value={curatedSearchQuery}
+                        onChange={(e) => setCuratedSearchQuery(e.target.value)}
+                        placeholder="Search subcategory by name..."
+                        className="w-full pl-8 pr-3 py-1.5 bg-white rounded-xl text-xs border border-slate-200 outline-none focus:border-primary shadow-2xs"
+                      />
+                    </div>
+
+                    {/* Available Subcategories List */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-52 overflow-y-auto p-2 bg-white rounded-xl border border-slate-200">
+                      {filteredScopedSubcategories.map((sub) => {
+                        const subId = String(sub._id || sub.id);
+                        const isAdded = formCuratedItems.some((it) => String(it.categoryId) === subId);
+                        const img = sub.image || sub.icon;
+
+                        return (
+                          <div
+                            key={subId}
+                            onClick={() => !isAdded && addCuratedItem(sub)}
+                            className={cn(
+                              "flex items-center gap-2 p-2 rounded-xl border text-left transition-all",
+                              isAdded
+                                ? "border-emerald-200 bg-emerald-50/50 opacity-60 cursor-default"
+                                : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 hover:border-primary/50 cursor-pointer"
+                            )}
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                              {img ? (
+                                <img src={img} alt={sub.name} className="w-full h-full object-contain p-0.5" />
+                              ) : (
+                                <HiOutlinePhoto className="w-4 h-4 text-slate-300" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-slate-900 truncate">{sub.name}</p>
+                              <p className="text-[9.5px] text-slate-400 truncate">{sub.headerName || editingRow.label}</p>
+                            </div>
+                            {isAdded ? (
+                              <span className="text-[10px] font-black text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded">
+                                Added
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                className="p-1 rounded-md text-primary hover:bg-primary/10 transition-colors"
+                              >
+                                <HiOutlinePlus className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </Modal>

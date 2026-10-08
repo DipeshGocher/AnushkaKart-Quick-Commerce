@@ -16,15 +16,14 @@ import {
   HiOutlineArrowPath,
   HiOutlineXMark,
   HiOutlineChevronRight,
+  HiChevronDown,
   HiOutlineCheckCircle,
   HiOutlineExclamationCircle,
   HiOutlineFolderOpen,
   HiOutlineSwatch,
   HiOutlineSquaresPlus,
-  HiOutlineSparkles,
 } from "react-icons/hi2";
 import { HiOutlinePhotograph } from "react-icons/hi";
-import { PRESET_HIGHLIGHT_ICONS } from "./AddProduct";
 import Modal from "@shared/components/ui/Modal";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -53,7 +52,6 @@ const ProductManagement = () => {
         page: requestedPage,
         limit: pageSize,
         sort: sortBy,
-        approvalStatus: filterApproval,
       });
       if (res.data.success) {
         // Backend returns handleResponse(..., { items, page, limit, total, totalPages })
@@ -95,7 +93,9 @@ const ProductManagement = () => {
     try {
       const res = await sellerApi.getCategoryTree();
       if (res.data.success) {
-        setDbCategories(res.data.results || res.data.result || []);
+        const list = (res.data.results || res.data.result || [])
+          .filter((h) => h.slug !== "all" && String(h.name || "").trim().toLowerCase() !== "all");
+        setDbCategories(list);
       }
     } catch (error) {
       // fail silently
@@ -116,7 +116,6 @@ const ProductManagement = () => {
 
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterStatus, setFilterStatus] = useState("All");
-  const [filterApproval, setFilterApproval] = useState("all"); // all | approved | pending | rejected
   const [sortBy, setSortBy] = useState("newest");
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
@@ -189,7 +188,7 @@ const ProductManagement = () => {
 
   React.useEffect(() => {
     fetchProducts(1);
-  }, [searchTerm, filterCategory, filterStatus, filterApproval, sortBy, pageSize]);
+  }, [searchTerm, filterCategory, filterStatus, sortBy, pageSize]);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -263,27 +262,29 @@ const ProductManagement = () => {
         matchesPrice = matchesPrice && effectivePrice <= max;
       }
 
-      const rawApproval = String(p.approvalStatus || "").trim().toLowerCase();
-      const normalizedApproval = rawApproval || "approved"; // legacy products without moderation fields are treated as approved
-      let matchesApproval = true;
-      if (filterApproval !== "all") {
-        matchesApproval = normalizedApproval === filterApproval;
-      }
-
       return (
         matchesSearch &&
         matchesCategory &&
         matchesStatus &&
-        matchesApproval &&
         matchesPrice
       );
+    }).sort((a, b) => {
+      if (sortBy === "newest") return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+      if (sortBy === "oldest") return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+      if (sortBy === "name-asc") return (a.name || "").localeCompare(b.name || "");
+      if (sortBy === "name-desc") return (b.name || "").localeCompare(a.name || "");
+      if (sortBy === "price-asc") return Number(a.salePrice ?? a.price ?? 0) - Number(b.salePrice ?? b.price ?? 0);
+      if (sortBy === "price-desc") return Number(b.salePrice ?? b.price ?? 0) - Number(a.salePrice ?? a.price ?? 0);
+      if (sortBy === "stock-asc") return Number(a.stock ?? 0) - Number(b.stock ?? 0);
+      if (sortBy === "stock-desc") return Number(b.stock ?? 0) - Number(a.stock ?? 0);
+      return 0;
     });
   }, [
     safeProducts,
     searchTerm,
     filterCategory,
     filterStatus,
-    filterApproval,
+    sortBy,
     priceMin,
     priceMax,
   ]);
@@ -306,15 +307,10 @@ const ProductManagement = () => {
     [safeProducts, summaryStats, total],
   );
 
-  const ApprovalBadge = ({ approvalStatus }) => {
-    const normalized = String(approvalStatus || "approved").toLowerCase();
-    if (normalized === "pending") {
-      return <Badge variant="warning" className="text-[10px] px-2 py-0.5">Pending Approval</Badge>;
-    }
-    if (normalized === "rejected") {
-      return <Badge variant="error" className="text-[10px] px-2 py-0.5">Rejected</Badge>;
-    }
-    return <Badge variant="success" className="text-[10px] px-2 py-0.5">Approved</Badge>;
+  const StatusBadge = ({ status, stock }) => {
+    if (stock === 0) return <Badge variant="rose" className="text-[10px] px-2 py-0.5">Out of Stock</Badge>;
+    if (status === "active") return <Badge variant="success" className="text-[10px] px-2 py-0.5">Active</Badge>;
+    return <Badge variant="gray" className="text-[10px] px-2 py-0.5">Inactive</Badge>;
   };
 
   const handleSave = async () => {
@@ -439,8 +435,7 @@ const ProductManagement = () => {
         }
       }
 
-      setIsProductModalOpen(false);
-      setEditingItem(null);
+      closeProductModal();
       fetchProducts();
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to save product");
@@ -549,7 +544,10 @@ const ProductManagement = () => {
         countryOfOrigin: freshItem.countryOfOrigin || "",
         fssaiLicense: freshItem.fssaiLicense || "",
         mainImage: freshItem.mainImage || null,
+        mainImageFile: null,
+        mainImagePreview: null,
         galleryImages: freshItem.galleryImages || [],
+        galleryFiles: [],
         highlights: freshHighlights,
         specifications: freshSpecs,
         variants: (freshItem.variants && freshItem.variants.length > 0) ? freshItem.variants.map(v => ({ ...v, id: v._id || Date.now() })) : [
@@ -583,7 +581,10 @@ const ProductManagement = () => {
         weight: "",
         brand: "",
         mainImage: null,
+        mainImageFile: null,
+        mainImagePreview: null,
         galleryImages: [],
+        galleryFiles: [],
         highlights: [0, 1, 2, 3].map(() => ({ icon: "", label: "" })),
         specifications: [],
         variants: [
@@ -599,8 +600,15 @@ const ProductManagement = () => {
       });
       setEditingItem(null);
     }
+    setVariantImageFiles({});
     setModalTab("general");
     setIsProductModalOpen(true);
+  };
+
+  const closeProductModal = () => {
+    setIsProductModalOpen(false);
+    setVariantImageFiles({});
+    setEditingItem(null);
   };
 
   return (
@@ -707,57 +715,55 @@ const ProductManagement = () => {
               className="w-full pl-10 pr-4 py-2.5 bg-slate-100/50 border-none rounded-xl text-xs font-semibold text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary/5 transition-all outline-none"
             />
           </div>
-          <div className="flex gap-2 shrink-0 w-full lg:w-auto">
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="flex-1 lg:flex-none px-4 py-2.5 bg-white ring-1 ring-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-primary/5 outline-none appearance-none cursor-pointer"
-            >
-              <option value="all">All Categories</option>
-              {categories.map((h) => (
-                <optgroup key={h._id || h.id} label={h.name}>
-                  <option value={h._id || h.id}>All {h.name}</option>
-                  {(h.children || []).map((c) => (
-                    <option key={c._id || c.id} value={c._id || c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            <select
-              value={filterApproval}
-              onChange={(e) => setFilterApproval(e.target.value)}
-              className="flex-1 lg:flex-none px-4 py-2.5 bg-white ring-1 ring-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-primary/5 outline-none appearance-none cursor-pointer"
-              aria-label="Filter by approval status"
-              title="Approval"
-            >
-              <option value="all">All Approvals</option>
-              <option value="approved">Approved</option>
-              <option value="pending">Pending</option>
-              <option value="rejected">Rejected</option>
-            </select>
+          <div className="flex flex-wrap sm:flex-nowrap gap-2 shrink-0 w-full lg:w-auto">
+            <div className="relative flex-1 sm:flex-none">
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="w-full sm:w-auto pl-3.5 pr-9 py-2.5 bg-white ring-1 ring-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-primary/20 outline-none appearance-none cursor-pointer"
+              >
+                <option value="all">All Categories</option>
+                {categories.map((h) => (
+                  <optgroup key={h._id || h.id} label={h.name}>
+                    <option value={h._id || h.id}>All {h.name}</option>
+                    {(h.children || []).map((c) => (
+                      <option key={c._id || c.id} value={c._id || c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <HiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            </div>
+
+
+
             <button
               onClick={() => setIsFilterOpen((prev) => !prev)}
-              className="flex items-center space-x-2 px-4 py-2.5 bg-white ring-1 ring-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all"
+              className="flex items-center space-x-2 px-4 py-2.5 bg-white ring-1 ring-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer"
             >
               <HiOutlineFunnel className="h-4 w-4" />
               <span>Filters</span>
             </button>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="flex-1 lg:flex-none px-4 py-2.5 bg-white ring-1 ring-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-primary/5 outline-none appearance-none cursor-pointer"
-            >
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-              <option value="name-asc">Name A-Z</option>
-              <option value="name-desc">Name Z-A</option>
-              <option value="price-asc">Price Low-High</option>
-              <option value="price-desc">Price High-Low</option>
-              <option value="stock-asc">Stock Low-High</option>
-              <option value="stock-desc">Stock High-Low</option>
-            </select>
+
+            <div className="relative flex-1 sm:flex-none">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="w-full sm:w-auto pl-3.5 pr-9 py-2.5 bg-white ring-1 ring-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-primary/20 outline-none appearance-none cursor-pointer"
+              >
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="name-asc">Name A-Z</option>
+                <option value="name-desc">Name Z-A</option>
+                <option value="price-asc">Price Low-High</option>
+                <option value="price-desc">Price High-Low</option>
+                <option value="stock-asc">Stock Low-High</option>
+                <option value="stock-desc">Stock High-Low</option>
+              </select>
+              <HiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            </div>
           </div>
         </div>
       </Card>
@@ -789,7 +795,7 @@ const ProductManagement = () => {
                   Variant
                 </th>
                 <th className="px-6 py-3 text-center text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
-                  Approval
+                  Status
                 </th>
                 <th className="px-6 py-3 text-right text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
                   Actions
@@ -825,16 +831,6 @@ const ProductManagement = () => {
                             {p.name}
                           </p>
                         </div>
-                        {String(p.approvalStatus || "").toLowerCase() === "pending" ? (
-                          <p className="text-[10px] font-medium text-amber-600">
-                            Hidden from customers until admin approval.
-                          </p>
-                        ) : null}
-                        {String(p.approvalStatus || "").toLowerCase() === "rejected" ? (
-                          <p className="text-[10px] font-medium text-rose-600">
-                            {p.approvalNote ? `Rejected: ${p.approvalNote}` : "Rejected by admin. Update and resubmit."}
-                          </p>
-                        ) : null}
                       </div>
                     </div>
                   </td>
@@ -883,17 +879,8 @@ const ProductManagement = () => {
                     )}
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <div className="flex flex-col items-center gap-1">
-                      <ApprovalBadge approvalStatus={p.approvalStatus} />
-                      {p.approvalReviewedAt ? (
-                        <span className="text-[10px] text-slate-400">
-                          Reviewed
-                        </span>
-                      ) : p.approvalRequestedAt ? (
-                        <span className="text-[10px] text-slate-400">
-                          Submitted
-                        </span>
-                      ) : null}
+                    <div className="flex flex-col items-center justify-center">
+                      <StatusBadge status={p.status} stock={p.stock} />
                     </div>
                   </td>
                   <td className="px-6 py-4 text-right">
@@ -970,7 +957,6 @@ const ProductManagement = () => {
               onClick={() => {
                 setFilterCategory("all");
                 setFilterStatus("All");
-                setFilterApproval("all");
                 setPriceMin("");
                 setPriceMax("");
                 setSearchTerm("");
@@ -1016,7 +1002,7 @@ const ProductManagement = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 bg-slate-900/40 backdrop-blur-md"
-              onClick={() => setIsProductModalOpen(false)}
+              onClick={closeProductModal}
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -1047,7 +1033,7 @@ const ProductManagement = () => {
                   </div>
                 </div>
                 <button
-                  onClick={() => setIsProductModalOpen(false)}
+                  onClick={closeProductModal}
                   className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600">
                   <HiOutlineXMark className="h-5 w-5" />
                 </button>
@@ -1080,13 +1066,8 @@ const ProductManagement = () => {
                       icon: HiOutlineFolderOpen,
                     },
                     {
-                      id: "highlights",
-                      label: "Highlights",
-                      icon: HiOutlineSparkles,
-                    },
-                    {
                       id: "specifications",
-                      label: "Specifications",
+                      label: "More Details",
                       icon: HiOutlineCube,
                     },
                   ].map((tab) => (
@@ -1119,14 +1100,6 @@ const ProductManagement = () => {
                         <option value="inactive">DRAFT</option>
                       </select>
                     </div>
-                    <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-slate-800">
-                      <input type="checkbox" checked={formData.isFeatured} onChange={(event) => setFormData({ ...formData, isFeatured: event.target.checked })} className="h-4 w-4 accent-amber-500 cursor-pointer" />
-                      Featured Product
-                    </label>
-                    <label className="mt-2 flex cursor-pointer items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-900">
-                      <input type="checkbox" checked={formData.isTopDeal} onChange={(event) => setFormData({ ...formData, isTopDeal: event.target.checked })} className="h-4 w-4 accent-rose-500 cursor-pointer" />
-                      Top Deals Product
-                    </label>
                   </div>
                 </div>
 
@@ -1646,29 +1619,67 @@ const ProductManagement = () => {
                             <div className="col-span-12 mt-2 pt-3 border-t border-slate-200">
                                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block ml-1">Variant Images (Max 5)</label>
                                 <div className="flex gap-3 w-full overflow-x-auto pb-2 custom-scrollbar">
-                                   {[0, 1, 2, 3, 4].map(imgIdx => (
-                                      <div key={imgIdx} className="relative h-16 w-16 shrink-0 rounded-xl border-2 border-dashed border-slate-200 bg-white hover:border-primary/50 overflow-hidden cursor-pointer flex items-center justify-center transition-colors">
-                                         {variantImageFiles[i]?.[imgIdx] ? (
-                                             <img src={URL.createObjectURL(variantImageFiles[i][imgIdx])} alt="" className="h-full w-full object-cover" />
-                                         ) : v.images?.[imgIdx] ? (
-                                             <img src={v.images[imgIdx]} alt="" className="h-full w-full object-cover" />
-                                         ) : (
-                                             <HiOutlinePhotograph className="h-5 w-5 text-slate-300" />
-                                         )}
-                                         <input
-                                             type="file"
-                                             accept="image/*"
-                                             className="absolute inset-0 opacity-0 cursor-pointer"
-                                             onChange={e => {
-                                                 if (e.target.files?.[0]) {
-                                                     const newFiles = [...(variantImageFiles[i] || [])];
-                                                     newFiles[imgIdx] = e.target.files[0];
-                                                     setVariantImageFiles({ ...variantImageFiles, [i]: newFiles });
+                                   {[0, 1, 2, 3, 4].map(imgIdx => {
+                                      const hasFile = Boolean(variantImageFiles[i]?.[imgIdx]);
+                                      const hasUrl = Boolean(v.images?.[imgIdx]);
+                                      const hasImage = hasFile || hasUrl;
+                                      return (
+                                        <div key={imgIdx} className="relative h-16 w-16 shrink-0 rounded-xl border-2 border-dashed border-slate-200 bg-white hover:border-primary/50 overflow-hidden flex items-center justify-center transition-colors group">
+                                           {hasFile ? (
+                                               <img src={URL.createObjectURL(variantImageFiles[i][imgIdx])} alt="" className="h-full w-full object-cover" />
+                                           ) : hasUrl ? (
+                                               <img src={v.images[imgIdx]} alt="" className="h-full w-full object-cover" />
+                                           ) : (
+                                               <HiOutlinePhotograph className="h-5 w-5 text-slate-300" />
+                                           )}
+
+                                           {hasImage && (
+                                             <button
+                                               type="button"
+                                               onClick={(e) => {
+                                                 e.stopPropagation();
+                                                 e.preventDefault();
+                                                 if (hasFile) {
+                                                   const newFiles = [...(variantImageFiles[i] || [])];
+                                                   delete newFiles[imgIdx];
+                                                   setVariantImageFiles({ ...variantImageFiles, [i]: newFiles });
                                                  }
-                                             }}
-                                         />
-                                      </div>
-                                   ))}
+                                                 if (hasUrl) {
+                                                   setFormData((prev) => {
+                                                     const updatedVariants = [...(prev.variants || [])];
+                                                     if (updatedVariants[i] && Array.isArray(updatedVariants[i].images)) {
+                                                       const updatedImages = [...updatedVariants[i].images];
+                                                       updatedImages.splice(imgIdx, 1);
+                                                       updatedVariants[i] = { ...updatedVariants[i], images: updatedImages };
+                                                     }
+                                                     return { ...prev, variants: updatedVariants };
+                                                   });
+                                                 }
+                                               }}
+                                               className="absolute top-1 right-1 z-20 p-1 bg-rose-500 hover:bg-rose-600 text-white rounded-full shadow-md transition-all cursor-pointer"
+                                               title="Remove image"
+                                             >
+                                               <HiOutlineXMark className="w-3 h-3" />
+                                             </button>
+                                           )}
+
+                                           {!hasImage && (
+                                             <input
+                                                 type="file"
+                                                 accept="image/*"
+                                                 className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                                                 onChange={e => {
+                                                     if (e.target.files?.[0]) {
+                                                         const newFiles = [...(variantImageFiles[i] || [])];
+                                                         newFiles[imgIdx] = e.target.files[0];
+                                                         setVariantImageFiles({ ...variantImageFiles, [i]: newFiles });
+                                                     }
+                                                 }}
+                                             />
+                                           )}
+                                        </div>
+                                      );
+                                   })}
                                 </div>
                             </div>
                           </div>
@@ -1677,113 +1688,11 @@ const ProductManagement = () => {
                     </div>
                   )}
 
-                  {modalTab === "highlights" && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
-                      <div>
-                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-1">
-                          Product Highlight Badges (4 Slots)
-                        </h3>
-                        <p className="text-xs text-slate-500 font-medium">
-                          Select icons and enter custom text labels to display product highlights on the product page.
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {[0, 1, 2, 3].map((slotIdx) => {
-                          const currentHighlight = formData.highlights?.[slotIdx] || { icon: "", label: "" };
-                          const selectedPreset = PRESET_HIGHLIGHT_ICONS.find((i) => i.id === currentHighlight.icon);
-                          return (
-                            <div key={slotIdx} className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100 space-y-3">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                                  Highlight #{slotIdx + 1}
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  {(currentHighlight.icon || currentHighlight.label) && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const nextHL = [...(formData.highlights || [])];
-                                        nextHL[slotIdx] = { icon: "", label: "" };
-                                        setFormData({ ...formData, highlights: nextHL });
-                                      }}
-                                      className="text-[11px] font-bold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded-md transition-colors"
-                                    >
-                                      Remove
-                                    </button>
-                                  )}
-                                  <span className="text-xl">
-                                    {selectedPreset?.emoji || "✨"}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Icon Selector Grid */}
-                              <div>
-                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
-                                  Select Icon (Clicking sets icon & title)
-                                </label>
-                                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1.5 bg-white rounded-xl border border-slate-200">
-                                  {PRESET_HIGHLIGHT_ICONS.map((ic) => {
-                                    const isSelected = currentHighlight.icon === ic.id;
-                                    return (
-                                      <button
-                                        key={ic.id}
-                                        type="button"
-                                        onClick={() => {
-                                          const nextHL = [...(formData.highlights || [])];
-                                          if (isSelected) {
-                                            nextHL[slotIdx] = { icon: "", label: "" };
-                                          } else {
-                                            nextHL[slotIdx] = { icon: ic.id, label: ic.name };
-                                          }
-                                          setFormData({ ...formData, highlights: nextHL });
-                                        }}
-                                        className={cn(
-                                          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border",
-                                          isSelected
-                                            ? "bg-amber-500 border-amber-600 text-white shadow-xs ring-2 ring-amber-300"
-                                            : "bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100"
-                                        )}
-                                      >
-                                        <span>{ic.emoji}</span>
-                                        <span className="text-[10px]">{ic.name}</span>
-                                        {isSelected && <span className="text-[10px] ml-0.5 font-black">✓</span>}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-
-                              {/* Title Input */}
-                              <div>
-                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                                  Heading / Title Text
-                                </label>
-                                <input
-                                  type="text"
-                                  value={currentHighlight.label}
-                                  onChange={(e) => {
-                                    const nextHL = [...(formData.highlights || [])];
-                                    nextHL[slotIdx] = { ...currentHighlight, label: e.target.value };
-                                    setFormData({ ...formData, highlights: nextHL });
-                                  }}
-                                  placeholder="e.g. Dermatologically Tested"
-                                  className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-primary/10"
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
                   {modalTab === "specifications" && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
                         <div>
-                          <h3 className="text-sm font-bold text-slate-800">Product Specifications</h3>
+                          <h3 className="text-sm font-bold text-slate-800">More Details</h3>
                           <p className="text-xs text-slate-400 mt-0.5">
                             Add custom fields according to your product (e.g., Brand, Model Name, Tea Form, Shelf Life, etc.)
                           </p>
@@ -1866,9 +1775,9 @@ const ProductManagement = () => {
                               <HiOutlineCube className="w-5 h-5" />
                             </div>
                             <div>
-                              <p className="text-xs font-bold text-slate-700">No specifications added yet</p>
+                              <p className="text-xs font-bold text-slate-700">No details added yet</p>
                               <p className="text-[11px] text-slate-400 mt-0.5">
-                                Click 'Add Field' above or select any quick suggestion to add specification attributes.
+                                Click 'Add Field' above or select any quick suggestion to add attributes.
                               </p>
                             </div>
                             <button
@@ -1881,7 +1790,7 @@ const ProductManagement = () => {
                               }}
                               className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-all"
                             >
-                              Add First Specification
+                              Add First Detail
                             </button>
                           </div>
                         ) : (
@@ -1949,7 +1858,7 @@ const ProductManagement = () => {
               {/* Modal Footer */}
               <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-3">
                 <button
-                  onClick={() => setIsProductModalOpen(false)}
+                  onClick={closeProductModal}
                   className="px-6 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100">
                   CLOSE
                 </button>

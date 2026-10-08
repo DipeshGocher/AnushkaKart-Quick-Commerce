@@ -14,7 +14,6 @@ import {
   HiOutlineTrash,
   HiOutlinePlus,
   HiOutlineSquaresPlus,
-  HiOutlineSparkles,
 } from "react-icons/hi2";
 import { HiOutlinePhotograph } from "react-icons/hi";
 import { useNavigate } from "react-router-dom";
@@ -172,7 +171,9 @@ const AddProduct = () => {
       try {
         const res = await warehouseApi.getCategoryTree();
         if (res.data.success) {
-          setDbCategories(res.data.results || res.data.result || []);
+          const list = (res.data.results || res.data.result || [])
+            .filter((h) => h.slug !== "all" && String(h.name || "").trim().toLowerCase() !== "all");
+          setDbCategories(list);
         }
       } catch (error) {
         toast.error("Failed to load categories");
@@ -350,7 +351,6 @@ const AddProduct = () => {
             { id: "general", label: "General Info", icon: HiOutlineTag },
             { id: "variants", label: "Item Variants", icon: HiOutlineSwatch },
             { id: "category", label: "Groups", icon: HiOutlineFolderOpen },
-            { id: "highlights", label: "Highlights", icon: HiOutlineSparkles },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -820,107 +820,7 @@ const AddProduct = () => {
             </div>
           )}
 
-          {modalTab === "highlights" && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
-              <div>
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-1">
-                  Product Highlight Badges (4 Slots)
-                </h3>
-                <p className="text-xs text-slate-500 font-medium">
-                  Select icons and enter custom text labels to display product highlights on the product page.
-                </p>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[0, 1, 2, 3].map((slotIdx) => {
-                  const currentHighlight = formData.highlights?.[slotIdx] || { icon: "", label: "" };
-                  const selectedPreset = PRESET_HIGHLIGHT_ICONS.find((i) => i.id === currentHighlight.icon);
-                  return (
-                    <div key={slotIdx} className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                          Highlight #{slotIdx + 1}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          {(currentHighlight.icon || currentHighlight.label) && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const nextHL = [...(formData.highlights || [])];
-                                nextHL[slotIdx] = { icon: "", label: "" };
-                                setFormData({ ...formData, highlights: nextHL });
-                              }}
-                              className="text-[11px] font-bold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded-md transition-colors"
-                            >
-                              Remove
-                            </button>
-                          )}
-                          <span className="text-xl">
-                            {selectedPreset?.emoji || "✨"}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Icon Selector Grid */}
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
-                          Select Icon (Clicking sets icon & title)
-                        </label>
-                        <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1.5 bg-white rounded-xl border border-slate-200">
-                          {PRESET_HIGHLIGHT_ICONS.map((ic) => {
-                            const isSelected = currentHighlight.icon === ic.id;
-                            return (
-                              <button
-                                key={ic.id}
-                                type="button"
-                                onClick={() => {
-                                  const nextHL = [...(formData.highlights || [])];
-                                  if (isSelected) {
-                                    nextHL[slotIdx] = { icon: "", label: "" };
-                                  } else {
-                                    nextHL[slotIdx] = { icon: ic.id, label: ic.name };
-                                  }
-                                  setFormData({ ...formData, highlights: nextHL });
-                                }}
-                                className={cn(
-                                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border",
-                                  isSelected
-                                    ? "bg-amber-500 border-amber-600 text-white shadow-xs ring-2 ring-amber-300"
-                                    : "bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100"
-                                )}
-                              >
-                                <span>{ic.emoji}</span>
-                                <span className="text-[10px]">{ic.name}</span>
-                                {isSelected && <span className="text-[10px] ml-0.5 font-black">✓</span>}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Title Input */}
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                          Heading / Title Text
-                        </label>
-                        <input
-                          type="text"
-                          value={currentHighlight.label}
-                          onChange={(e) => {
-                            const nextHL = [...(formData.highlights || [])];
-                            nextHL[slotIdx] = { ...currentHighlight, label: e.target.value };
-                            setFormData({ ...formData, highlights: nextHL });
-                          }}
-                          placeholder="e.g. Dermatologically Tested"
-                          className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-primary/10"
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

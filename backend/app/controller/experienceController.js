@@ -411,6 +411,33 @@ export const uploadBannerImage = async (req, res) => {
    Admin: get one / list, upsert
 ================================ */
 
+const HERO_CATEGORY_POPULATE = [
+  {
+    path: "curatedDeals.items.categoryId",
+    select: "name image icon slug type parentId",
+    populate: {
+      path: "parentId",
+      select: "name slug type parentId",
+      populate: {
+        path: "parentId",
+        select: "name slug type",
+      },
+    },
+  },
+  {
+    path: "greetingSection.categoryIds",
+    select: "name image icon slug type parentId",
+    populate: {
+      path: "parentId",
+      select: "name slug type parentId",
+      populate: {
+        path: "parentId",
+        select: "name slug type",
+      },
+    },
+  },
+];
+
 export const getPublicHeroConfig = async (req, res) => {
   try {
     const { pageType, headerId } = req.query;
@@ -436,12 +463,16 @@ export const getPublicHeroConfig = async (req, res) => {
           resolved = await HeroConfig.findOne({
             pageType: "header",
             headerId,
-          }).lean();
+          })
+            .populate(HERO_CATEGORY_POPULATE)
+            .lean();
         } else if (pageType === "home") {
           resolved = await HeroConfig.findOne({
             pageType: "home",
             headerId: null,
-          }).lean();
+          })
+            .populate(HERO_CATEGORY_POPULATE)
+            .lean();
         }
         return resolved || null;
       },
@@ -461,6 +492,24 @@ export const getPublicHeroConfig = async (req, res) => {
           bestSellingTitle: config.bestSellingTitle || "",
           bestSellingCategoryIds: config.bestSellingCategoryIds || [],
           categorySectionBanners: config.categorySectionBanners || [],
+          curatedDeals: config.curatedDeals || {
+            enabled: true,
+            title: "",
+            cardTopBgColor: "#FAF8F5",
+            cardBottomBgColor: "",
+            cardTextColor: "#FFFFFF",
+            items: [],
+          },
+          greetingSection: config.greetingSection || {
+            enabled: true,
+            title: "Good Afternoon, {name}! ☀️",
+            titleColor: "#242424",
+            bgColor: "linear-gradient(135deg, #ffe078 0%, #ffeb9c 50%, #fff2bc 100%)",
+            cardBgColor: "#ffffff",
+            cardNameBgColor: "#2563eb",
+            cardNameTextColor: "#FFFFFF",
+            categoryIds: [],
+          },
         }
       : {
           banners: { items: [] },
@@ -474,6 +523,24 @@ export const getPublicHeroConfig = async (req, res) => {
           bestSellingTitle: "",
           bestSellingCategoryIds: [],
           categorySectionBanners: [],
+          curatedDeals: {
+            enabled: true,
+            title: "",
+            cardTopBgColor: "#FAF8F5",
+            cardBottomBgColor: "",
+            cardTextColor: "#FFFFFF",
+            items: [],
+          },
+          greetingSection: {
+            enabled: true,
+            title: "Good Afternoon, {name}! ☀️",
+            titleColor: "#242424",
+            bgColor: "linear-gradient(135deg, #ffe078 0%, #ffeb9c 50%, #fff2bc 100%)",
+            cardBgColor: "#ffffff",
+            cardNameBgColor: "#2563eb",
+            cardNameTextColor: "#FFFFFF",
+            categoryIds: [],
+          },
         };
 
     return handleResponse(res, 200, "Hero config fetched", payload);
@@ -497,7 +564,9 @@ export const getAdminHeroConfig = async (req, res) => {
     const config = await HeroConfig.findOne({
       pageType,
       headerId: pageType === "header" ? headerId : null,
-    }).lean();
+    })
+      .populate(HERO_CATEGORY_POPULATE)
+      .lean();
 
     return handleResponse(
       res,
@@ -515,6 +584,24 @@ export const getAdminHeroConfig = async (req, res) => {
         bestSellingTitle: "",
         bestSellingCategoryIds: [],
         categorySectionBanners: [],
+        curatedDeals: {
+          enabled: true,
+          title: "",
+          cardTopBgColor: "#FAF8F5",
+          cardBottomBgColor: "",
+          cardTextColor: "#FFFFFF",
+          items: [],
+        },
+        greetingSection: {
+          enabled: true,
+          title: "Good Afternoon, {name}! ☀️",
+          titleColor: "#242424",
+          bgColor: "linear-gradient(135deg, #ffe078 0%, #ffeb9c 50%, #fff2bc 100%)",
+          cardBgColor: "#ffffff",
+          cardNameBgColor: "#2563eb",
+          cardNameTextColor: "#FFFFFF",
+          categoryIds: [],
+        },
       }
     );
   } catch (error) {
@@ -538,6 +625,8 @@ export const upsertHeroConfig = async (req, res) => {
       bestSellingTitle,
       bestSellingCategoryIds,
       categorySectionBanners,
+      curatedDeals,
+      greetingSection,
     } = req.body;
 
     if (!["home", "header", "monthly_basket"].includes(pageType)) {
@@ -630,6 +719,41 @@ export const upsertHeroConfig = async (req, res) => {
       }));
     }
 
+    if (curatedDeals && typeof curatedDeals === "object") {
+      update.curatedDeals = {
+        enabled: typeof curatedDeals.enabled === "boolean" ? curatedDeals.enabled : true,
+        title: typeof curatedDeals.title === "string" ? curatedDeals.title.trim() : "",
+        cardTopBgColor: typeof curatedDeals.cardTopBgColor === "string" && curatedDeals.cardTopBgColor.trim() ? curatedDeals.cardTopBgColor.trim() : "#FAF8F5",
+        cardBottomBgColor: typeof curatedDeals.cardBottomBgColor === "string" ? curatedDeals.cardBottomBgColor.trim() : "",
+        cardTextColor: typeof curatedDeals.cardTextColor === "string" && curatedDeals.cardTextColor.trim() ? curatedDeals.cardTextColor.trim() : "#FFFFFF",
+        items: Array.isArray(curatedDeals.items)
+          ? curatedDeals.items
+              .filter((it) => it && (it.categoryId || it.title))
+              .map((it, idx) => ({
+                categoryId: it.categoryId?._id || it.categoryId || null,
+                title: typeof it.title === "string" ? it.title.trim() : "",
+                offerText: typeof it.offerText === "string" && it.offerText.trim() ? it.offerText.trim() : "Min. 50% Off",
+                imageUrl: typeof it.imageUrl === "string" ? it.imageUrl.trim() : "",
+                linkValue: typeof it.linkValue === "string" ? it.linkValue.trim() : "",
+                sortOrder: typeof it.sortOrder === "number" ? it.sortOrder : idx,
+              }))
+          : [],
+      };
+    }
+
+    if (greetingSection && typeof greetingSection === "object") {
+      update.greetingSection = {
+        enabled: typeof greetingSection.enabled === "boolean" ? greetingSection.enabled : true,
+        title: typeof greetingSection.title === "string" ? greetingSection.title.trim() : "Good Afternoon, {name}! ☀️",
+        titleColor: typeof greetingSection.titleColor === "string" && greetingSection.titleColor.trim() ? greetingSection.titleColor.trim() : "#242424",
+        bgColor: typeof greetingSection.bgColor === "string" && greetingSection.bgColor.trim() ? greetingSection.bgColor.trim() : "linear-gradient(135deg, #ffe078 0%, #ffeb9c 50%, #fff2bc 100%)",
+        cardBgColor: typeof greetingSection.cardBgColor === "string" && greetingSection.cardBgColor.trim() ? greetingSection.cardBgColor.trim() : "#ffffff",
+        cardNameBgColor: typeof greetingSection.cardNameBgColor === "string" && greetingSection.cardNameBgColor.trim() ? greetingSection.cardNameBgColor.trim() : "#2563eb",
+        cardNameTextColor: typeof greetingSection.cardNameTextColor === "string" && greetingSection.cardNameTextColor.trim() ? greetingSection.cardNameTextColor.trim() : "#FFFFFF",
+        categoryIds: Array.isArray(greetingSection.categoryIds) ? greetingSection.categoryIds.filter(Boolean) : [],
+      };
+    }
+
     if (typeof bestSellingTitle === "string" || Array.isArray(bestSellingCategoryIds)) {
       const sUpdate = {};
       if (typeof bestSellingTitle === "string") sUpdate.bestSellingTitle = bestSellingTitle.trim();
@@ -656,7 +780,9 @@ export const upsertHeroConfig = async (req, res) => {
       filter,
       { $set: update },
       { new: true, upsert: true, runValidators: true }
-    ).lean();
+    )
+      .populate(HERO_CATEGORY_POPULATE)
+      .lean();
     await invalidate("cache:experience:hero:*");
 
     return handleResponse(res, 200, "Hero config saved", config);

@@ -165,9 +165,8 @@ const ForYouProductsSection = ({ categories: propCategories, latitude, longitude
           params.lng = longitude;
         }
 
-        if (tabId === "for_you") {
-          params.allProducts = "true";
-        } else {
+        params.allProducts = "true";
+        if (tabId !== "for_you") {
           params.headerId = tabId;
         }
 
@@ -319,8 +318,13 @@ const ForYouProductsSection = ({ categories: propCategories, latitude, longitude
                     {/* Category Icon / Image - enlarged & sharp on offwhite background */}
                     {cat.iconImage || (cat.image && !cat.image.includes("placeholder")) ? (
                       <img
-                        src={cat.iconImage || cat.image}
+                        src={applyCloudinaryTransform(cat.iconImage || cat.image, "f_auto,q_auto,w_120")}
                         alt={cat.name}
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
                         className="w-[34px] h-[34px] sm:w-[38px] sm:h-[38px] object-contain relative z-10 transition-transform duration-200 group-hover:scale-105"
                       />
                     ) : (

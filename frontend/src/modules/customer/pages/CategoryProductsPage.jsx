@@ -107,9 +107,12 @@ const CategoryProductsPage = () => {
 
         setAllCategoriesTree(tree);
 
-        // Header categories are top-level or items with type === 'header'
+        // Header categories are top-level or items with type === 'header' (never 'all')
         const headers = tree.filter(
-          (c) => c.type === 'header' || (!c.parentId && c.slug !== 'all' && c.name?.toLowerCase() !== 'all')
+          (c) =>
+            (c.type === 'header' || !c.parentId) &&
+            c.slug !== 'all' &&
+            c.name?.toLowerCase() !== 'all'
         );
         setHeaderCategories(headers);
       } catch (err) {
@@ -129,45 +132,136 @@ const CategoryProductsPage = () => {
     if (!allCategoriesTree.length) return;
 
     let matchedHeader = null;
-    let preselectedMain = 'all';
-    let preselectedSub = 'all';
+    let matchedMain = null;
+    let matchedSub = null;
 
-    const headerTarget = routeHeaderParam || (!routeMainParam ? routeLegacyParam : null);
+    const subTarget =
+      routeSubParam ||
+      searchParams.get('sub') ||
+      location.state?.subCategorySlug ||
+      location.state?.activeSubcategoryId ||
+      null;
 
-    if (headerTarget) {
-      matchedHeader = allCategoriesTree.find((h) => matchesCategory(h, headerTarget));
-    }
+    const mainTarget =
+      routeMainParam ||
+      location.state?.mainCategorySlug ||
+      location.state?.activeMainCategoryId ||
+      null;
 
-    // If not found yet and legacyParam exists, check if legacyParam matches a category or subcategory
-    if (!matchedHeader && routeLegacyParam) {
+    const headerTarget =
+      routeHeaderParam ||
+      location.state?.headerSlug ||
+      null;
+
+    const legacyTarget = routeLegacyParam;
+
+    // 1. If a subcategory target is present, search across all headers and main categories
+    if (subTarget) {
       for (const header of allCategoriesTree) {
-        if (matchesCategory(header, routeLegacyParam)) {
-          matchedHeader = header;
-          break;
-        }
-        for (const cat of header.children || []) {
-          if (matchesCategory(cat, routeLegacyParam)) {
-            matchedHeader = header;
-            preselectedMain = cat._id || cat.id;
-            break;
-          }
-          for (const sub of cat.children || []) {
-            if (matchesCategory(sub, routeLegacyParam)) {
+        if (header.slug === 'all' || header.name?.toLowerCase() === 'all') continue;
+        for (const main of header.children || []) {
+          for (const sub of main.children || []) {
+            if (
+              matchesCategory(sub, subTarget) ||
+              String(sub._id || sub.id).toLowerCase() === String(subTarget).toLowerCase()
+            ) {
               matchedHeader = header;
-              preselectedMain = cat._id || cat.id;
-              preselectedSub = sub._id || sub.id;
+              matchedMain = main;
+              matchedSub = sub;
               break;
             }
           }
-          if (matchedHeader) break;
+          if (matchedSub) break;
         }
-        if (matchedHeader) break;
+        if (matchedSub) break;
       }
     }
 
-    // Default to first header if not found
+    // 2. If no matched subcategory/header yet, check if legacyTarget matches sub -> main -> header
+    if (!matchedHeader && legacyTarget) {
+      // 2a. Check if legacy target matches a subcategory
+      for (const header of allCategoriesTree) {
+        if (header.slug === 'all' || header.name?.toLowerCase() === 'all') continue;
+        for (const main of header.children || []) {
+          for (const sub of main.children || []) {
+            if (
+              matchesCategory(sub, legacyTarget) ||
+              String(sub._id || sub.id).toLowerCase() === String(legacyTarget).toLowerCase()
+            ) {
+              matchedHeader = header;
+              matchedMain = main;
+              matchedSub = sub;
+              break;
+            }
+          }
+          if (matchedSub) break;
+        }
+        if (matchedSub) break;
+      }
+
+      // 2b. Check if legacy target matches a main category
+      if (!matchedMain) {
+        for (const header of allCategoriesTree) {
+          if (header.slug === 'all' || header.name?.toLowerCase() === 'all') continue;
+          for (const main of header.children || []) {
+            if (
+              matchesCategory(main, legacyTarget) ||
+              String(main._id || main.id).toLowerCase() === String(legacyTarget).toLowerCase()
+            ) {
+              matchedHeader = header;
+              matchedMain = main;
+              break;
+            }
+          }
+          if (matchedMain) break;
+        }
+      }
+
+      // 2c. Check if legacy target matches a header
+      if (!matchedHeader) {
+        matchedHeader = allCategoriesTree.find(
+          (h) =>
+            h.slug !== 'all' &&
+            h.name?.toLowerCase() !== 'all' &&
+            matchesCategory(h, legacyTarget)
+        );
+      }
+    }
+
+    // 3. If mainTarget is specified and not matched yet
+    if (!matchedMain && mainTarget) {
+      for (const header of allCategoriesTree) {
+        if (header.slug === 'all' || header.name?.toLowerCase() === 'all') continue;
+        for (const main of header.children || []) {
+          if (
+            matchesCategory(main, mainTarget) ||
+            String(main._id || main.id).toLowerCase() === String(mainTarget).toLowerCase()
+          ) {
+            if (!matchedHeader) matchedHeader = header;
+            matchedMain = main;
+            break;
+          }
+        }
+        if (matchedMain) break;
+      }
+    }
+
+    // 4. If headerTarget is specified and not matched yet
+    if (!matchedHeader && headerTarget) {
+      matchedHeader = allCategoriesTree.find(
+        (h) =>
+          h.slug !== 'all' &&
+          h.name?.toLowerCase() !== 'all' &&
+          matchesCategory(h, headerTarget)
+      );
+    }
+
+    // 5. Fallback: first valid header in headerCategories
     if (!matchedHeader && headerCategories.length > 0) {
-      matchedHeader = headerCategories[0];
+      matchedHeader =
+        headerCategories.find(
+          (h) => h.slug !== 'all' && h.name?.toLowerCase() !== 'all'
+        ) || headerCategories[0];
     }
 
     if (matchedHeader) {
@@ -177,35 +271,36 @@ const CategoryProductsPage = () => {
 
       // Resolve Main Category ID
       let activeMainId = 'all';
-      if (routeMainParam) {
+      if (matchedMain) {
+        activeMainId = matchedMain._id || matchedMain.id;
+      } else if (routeMainParam) {
         const foundMain = children.find((mc) => matchesCategory(mc, routeMainParam));
         if (foundMain) {
           activeMainId = foundMain._id || foundMain.id;
         }
       } else if (location.state?.activeMainCategoryId) {
         activeMainId = location.state.activeMainCategoryId;
-      } else if (preselectedMain !== 'all') {
-        activeMainId = preselectedMain;
       } else if (children.length > 0) {
         activeMainId = children[0]._id || children[0].id;
       }
       setSelectedMainCatId(activeMainId);
 
       // Resolve Subcategory ID
-      const querySub = searchParams.get('sub') || routeSubParam || location.state?.subCategorySlug || null;
       let activeSubId = 'all';
-
-      if (querySub || location.state?.activeSubcategoryId || preselectedSub !== 'all') {
-        const candidate = querySub || location.state?.activeSubcategoryId || preselectedSub;
-        const activeMain = children.find((mc) => String(mc._id || mc.id) === String(activeMainId));
+      if (matchedSub) {
+        activeSubId = matchedSub._id || matchedSub.id;
+      } else if (subTarget) {
+        const activeMain = children.find(
+          (mc) => String(mc._id || mc.id) === String(activeMainId)
+        );
         const subList = activeMain?.children?.length
           ? activeMain.children
           : children.flatMap((mc) => mc.children || []);
 
         const foundSub = subList.find(
           (s) =>
-            matchesCategory(s, candidate) ||
-            String(s._id || s.id).toLowerCase() === String(candidate).toLowerCase()
+            matchesCategory(s, subTarget) ||
+            String(s._id || s.id).toLowerCase() === String(subTarget).toLowerCase()
         );
         if (foundSub) {
           activeSubId = foundSub._id || foundSub.id;
@@ -214,6 +309,31 @@ const CategoryProductsPage = () => {
         }
       }
       setSelectedSubCatId(activeSubId);
+
+      // Sync URL canonically if user arrived via /category/sub/:subCategory or /category/:categoryName
+      if (
+        (routeSubParam || (routeLegacyParam && !routeMainParam)) &&
+        matchedHeader &&
+        activeMainId !== 'all'
+      ) {
+        const hSlug = matchedHeader.slug || slugify(matchedHeader.name || '');
+        const activeMainObj = children.find(
+          (mc) => String(mc._id || mc.id) === String(activeMainId)
+        );
+        const mSlug = activeMainObj?.slug || slugify(activeMainObj?.name || '');
+        const activeSubObj = activeMainObj?.children?.find(
+          (s) => String(s._id || s.id) === String(activeSubId)
+        );
+        const sSlug = activeSubObj?.slug || slugify(activeSubObj?.name || '');
+
+        if (hSlug && mSlug) {
+          const canonicalUrl =
+            activeSubId !== 'all' && sSlug
+              ? `/category/${hSlug}/${mSlug}?sub=${sSlug}`
+              : `/category/${hSlug}/${mSlug}`;
+          navigate(canonicalUrl, { replace: true, state: location.state });
+        }
+      }
     }
   }, [
     routeHeaderParam,
@@ -224,6 +344,7 @@ const CategoryProductsPage = () => {
     headerCategories,
     searchParams,
     location.state,
+    navigate,
   ]);
 
   // 3. Fetch Products for Active Header / Category
@@ -237,7 +358,7 @@ const CategoryProductsPage = () => {
       try {
         setIsProductsLoading(true);
         const params = {
-          limit: 100,
+          limit: 200,
           allProducts: 'true',
         };
         if (selectedMainCatId && selectedMainCatId !== 'all') {
@@ -380,6 +501,60 @@ const CategoryProductsPage = () => {
 
     return list;
   }, [products, selectedSubCatId, availableSubCategories, searchQuery, sortBy]);
+
+  // Safety net: If a specific subcategory is selected and has 0 products in memory, fetch targeted by subcategoryId
+  useEffect(() => {
+    if (!selectedSubCatId || selectedSubCatId === 'all' || isProductsLoading) return;
+    if (filteredProducts.length > 0) return;
+
+    let isMounted = true;
+    const fetchDirectSubProducts = async () => {
+      try {
+        const params = {
+          subcategoryId: selectedSubCatId,
+          limit: 100,
+          allProducts: 'true',
+        };
+        if (Number.isFinite(currentLocation?.latitude) && Number.isFinite(currentLocation?.longitude)) {
+          params.lat = currentLocation.latitude;
+          params.lng = currentLocation.longitude;
+        }
+        const res = await customerApi.getProducts(params);
+        if (!isMounted) return;
+        const data = res?.data || res;
+        const rawResult = data?.result;
+        const items = Array.isArray(data?.results)
+          ? data.results
+          : Array.isArray(rawResult?.items)
+          ? rawResult.items
+          : Array.isArray(rawResult?.products)
+          ? rawResult.products
+          : Array.isArray(rawResult)
+          ? rawResult
+          : Array.isArray(data?.products)
+          ? data.products
+          : Array.isArray(data?.items)
+          ? data.items
+          : Array.isArray(data)
+          ? data
+          : [];
+        if (items.length > 0) {
+          setProducts((prev) => {
+            const map = new Map(prev.map((p) => [String(p._id || p.id), p]));
+            items.forEach((p) => map.set(String(p._id || p.id), p));
+            return Array.from(map.values());
+          });
+        }
+      } catch (err) {
+        console.error('Targeted subcategory products fetch error:', err);
+      }
+    };
+
+    fetchDirectSubProducts();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedSubCatId, filteredProducts.length, isProductsLoading, currentLocation?.latitude, currentLocation?.longitude]);
 
   // Backend search fallback on Enter to fetch all matching category products
   const handleSearchKeyDown = async (e) => {

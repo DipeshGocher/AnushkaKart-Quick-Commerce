@@ -60,7 +60,7 @@ export const getCategories = async (req, res) => {
       const categories = await getOrSet(
         cacheKey,
         async () => {
-          const selectFields = "name slug image iconId type parentId headerColor headerFontColor headerIconColor sortOrder catalogType isFeatured";
+          const selectFields = "name slug image iconId type parentId headerColor headerFontColor headerIconColor sortOrder catalogType isFeatured trustBadges";
           const matchQuery = { type: "header" };
           if (catalogType === "refurbished") {
             matchQuery.catalogType = "refurbished";
@@ -243,7 +243,7 @@ export const getCategories = async (req, res) => {
 export const createCategory = async (req, res) => {
   try {
     const categoryData = {};
-    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isKitCategory", "isFeatured", "sortOrder", "catalogType", "mappedAttributes"];
+    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isKitCategory", "isFeatured", "sortOrder", "catalogType", "mappedAttributes", "trustBadges"];
     
     // Strict Whitelisting and Sanitization
     for (const key of allowedKeys) {
@@ -264,6 +264,24 @@ export const createCategory = async (req, res) => {
         categoryData.mappedAttributes = [];
       }
     }
+    if (typeof categoryData.trustBadges === "string") {
+      try {
+        categoryData.trustBadges = JSON.parse(categoryData.trustBadges);
+      } catch (e) {
+        categoryData.trustBadges = [];
+      }
+    }
+    if (Array.isArray(categoryData.trustBadges)) {
+      categoryData.trustBadges = categoryData.trustBadges
+        .slice(0, 3)
+        .map((b) => ({
+          icon: String(b?.icon || "return").trim().slice(0, 30),
+          title: String(b?.title || "").trim().slice(0, 60),
+          subtitle: String(b?.subtitle || "").trim().slice(0, 60),
+        }))
+        .filter((b) => b.title);
+    }
+
 
     if (categoryData.isFeatured !== undefined) {
       categoryData.isFeatured = categoryData.isFeatured === true || categoryData.isFeatured === "true" || categoryData.isFeatured === 1 || categoryData.isFeatured === "1";
@@ -344,7 +362,7 @@ export const updateCategory = async (req, res) => {
     }
 
     const categoryData = {};
-    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isFeatured", "sortOrder", "catalogType", "mappedAttributes"];
+    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isFeatured", "sortOrder", "catalogType", "mappedAttributes", "trustBadges"];
     
     for (const key of allowedKeys) {
       if (Object.prototype.hasOwnProperty.call(req.body, key)) {
@@ -363,6 +381,24 @@ export const updateCategory = async (req, res) => {
         categoryData.mappedAttributes = [];
       }
     }
+    if (typeof categoryData.trustBadges === "string") {
+      try {
+        categoryData.trustBadges = JSON.parse(categoryData.trustBadges);
+      } catch (e) {
+        categoryData.trustBadges = [];
+      }
+    }
+    if (Array.isArray(categoryData.trustBadges)) {
+      categoryData.trustBadges = categoryData.trustBadges
+        .slice(0, 3)
+        .map((b) => ({
+          icon: String(b?.icon || "return").trim().slice(0, 30),
+          title: String(b?.title || "").trim().slice(0, 60),
+          subtitle: String(b?.subtitle || "").trim().slice(0, 60),
+        }))
+        .filter((b) => b.title);
+    }
+
 
     if (categoryData.isFeatured !== undefined) {
       categoryData.isFeatured = categoryData.isFeatured === true || categoryData.isFeatured === "true" || categoryData.isFeatured === 1 || categoryData.isFeatured === "1";

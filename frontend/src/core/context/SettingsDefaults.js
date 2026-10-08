@@ -68,6 +68,10 @@ export const DEFAULT_SETTINGS = {
   footerTermsUrl: "/support",
   footerBgColor: "",
   footerEnabled: true,
+  deliveryBadgeText: "30 min",
+  deliveryBadgeImage: "",
+  deliveryBadgeBg: "linear-gradient(135deg, #ff9f43 0%, #ff793f 100%)",
+  deliveryBadgeEnabled: true,
 
 };
 

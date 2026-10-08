@@ -49,6 +49,7 @@ import MonthlyBasketSection from "../components/home/MonthlyBasketSection";
 import CategoryShowcase from "../components/home/CategoryShowcase";
 import FestivalDealsSection from "../components/home/FestivalDealsSection";
 import AllCategoriesGreeting from "../components/home/AllCategoriesGreeting";
+import CuratedCategoryDealsSection from "../components/home/CuratedCategoryDealsSection";
 import TopDealsOnProducts from "../components/home/TopDealsOnProducts";
 import HeaderCategoryProductsSection from "../components/home/HeaderCategoryProductsSection";
 import NewArrivalsSection from "../components/home/NewArrivalsSection";
@@ -199,6 +200,47 @@ const homePageDataCache = new Map();
 const headerSectionsMemoryCache = {};
 const heroConfigMemoryCache = {};
 
+const HOME_PAGE_PERSISTENT_CACHE_KEY = "anushkakart:home_cache:v5";
+
+const readPersistentHomeCache = (key) => {
+  try {
+    const raw = localStorage.getItem(HOME_PAGE_PERSISTENT_CACHE_KEY);
+    if (!raw) return null;
+    const store = JSON.parse(raw);
+    if (!store || typeof store !== "object") return null;
+    const entry = store[key] || store["home:no-location"] || Object.values(store)[0] || null;
+    if (entry && (!entry.categories || entry.categories.length <= 1) && (!entry.products || entry.products.length === 0)) {
+      return null;
+    }
+    return entry;
+  } catch {
+    return null;
+  }
+};
+
+const writePersistentHomeCache = (key, data) => {
+  try {
+    if (!data) return;
+    if ((!data.categories || data.categories.length <= 1) && (!data.products || data.products.length === 0)) {
+      return;
+    }
+    const raw = localStorage.getItem(HOME_PAGE_PERSISTENT_CACHE_KEY);
+    const store = raw ? JSON.parse(raw) : {};
+    const lightweightData = {
+      ...data,
+      products: Array.isArray(data.products) ? data.products.slice(0, 24) : [],
+    };
+    store[key] = lightweightData;
+    const keys = Object.keys(store);
+    if (keys.length > 3) {
+      delete store[keys[0]];
+    }
+    localStorage.setItem(HOME_PAGE_PERSISTENT_CACHE_KEY, JSON.stringify(store));
+  } catch {
+    // Ignore storage quota errors
+  }
+};
+
 const getHomePageDataCacheKey = (location) => {
   const lat = Number(location?.latitude);
   const lng = Number(location?.longitude);
@@ -214,8 +256,17 @@ const homeStaticTexts = [
   "Search"
 ];
 
-const getCachedHomePageData = (location) =>
-  homePageDataCache.get(getHomePageDataCacheKey(location)) || null;
+const getCachedHomePageData = (location) => {
+  const key = getHomePageDataCacheKey(location);
+  const inMemory = homePageDataCache.get(key);
+  if (inMemory) return inMemory;
+  const persisted = readPersistentHomeCache(key);
+  if (persisted) {
+    homePageDataCache.set(key, persisted);
+    return persisted;
+  }
+  return null;
+};
 
 const Home = () => {
   const { headerSlug } = useParams();
@@ -461,57 +512,64 @@ const Home = () => {
       if (!prev || prev._id === "all") return data.activeCategory || data.categories?.[0] || ALL_CATEGORY;
       return (data.categories || []).find((cat) => cat._id === prev._id) || data.activeCategory || prev;
     });
-    if (persist && cacheKey) homePageDataCache.set(cacheKey, data);
+    if (persist && cacheKey) {
+      homePageDataCache.set(cacheKey, data);
+      writePersistentHomeCache(cacheKey, data);
+    }
   };
 
   const fetchData = async ({ forceRefresh = false } = {}) => {
     const cacheKey = getHomePageDataCacheKey(currentLocation);
-    if (!forceRefresh) {
-      const cached = homePageDataCache.get(cacheKey);
-      if (cached) {
-        applyHomePageData(cached, { cacheKey, persist: false });
-        setIsLoading(false);
-        return;
-      }
+    const cached = getCachedHomePageData(currentLocation);
+
+    // Instant SWR: Render cached UI immediately (<100ms) on reload/return visit
+    if (cached && !forceRefresh) {
+      applyHomePageData(cached, { cacheKey, persist: false });
+      setIsLoading(false);
+    } else if (!cached) {
+      setIsLoading(true);
     }
-    setIsLoading(true);
+
     try {
       const hasValidLocation = Number.isFinite(currentLocation?.latitude) && Number.isFinite(currentLocation?.longitude);
-      const productParams = { limit: 20 };
+      const productParams = { limit: 20, allProducts: "true" };
       if (hasValidLocation) {
         productParams.lat = currentLocation.latitude;
         productParams.lng = currentLocation.longitude;
       }
-      const [catRes, prodRes, expRes, sectionsRes, heroRes] = await Promise.all([
-        customerApi.getCategories(),
-        hasValidLocation ? customerApi.getProducts(productParams) : Promise.resolve({ data: { success: true, result: { items: [] } } }),
-        customerApi.getExperienceSections({ pageType: "home" }).catch(() => null),
-        hasValidLocation ? customerApi.getOfferSections({ lat: currentLocation.latitude, lng: currentLocation.longitude }).catch(() => ({ data: {} })) : Promise.resolve({ data: { results: [] } }),
+
+      // Priority 1: Fast endpoints for Hero config & Categories (instant unblock of banners & categories)
+      const [heroRes, catRes] = await Promise.all([
         customerApi.getHeroConfig({ pageType: "home" }).catch(() => null),
+        customerApi.getCategories().catch(() => null),
       ]);
-      const nextHomeData = {
+
+      const partialHomeData = {
         categories: [ALL_CATEGORY],
         activeCategory: ALL_CATEGORY,
-        products: [],
-        quickCategories: [],
-        experienceSections: [],
-        offerSections: [],
-        categoryMap: {},
-        subcategoryMap: {},
-        formattedHeaders: [],
+        products: cached?.products || [],
+        quickCategories: cached?.quickCategories || [],
+        experienceSections: cached?.experienceSections || [],
+        offerSections: cached?.offerSections || [],
+        categoryMap: cached?.categoryMap || {},
+        subcategoryMap: cached?.subcategoryMap || {},
+        formattedHeaders: cached?.formattedHeaders || [],
         heroConfig: heroConfigMemoryCache.__home__ || EMPTY_HERO_CONFIG,
       };
+
       if (heroRes?.data?.success && heroRes.data?.result) {
-        nextHomeData.heroConfig = heroRes.data.result;
+        partialHomeData.heroConfig = heroRes.data.result;
         heroConfigMemoryCache.__home__ = heroRes.data.result;
+        setHeroConfig(heroRes.data.result);
       }
-      if (catRes.data.success) {
+
+      if (catRes?.data?.success) {
         const dbCats = catRes.data.results || catRes.data.result || [];
         const catMap = {};
         const subMap = {};
         dbCats.forEach((c) => { if (c.type === "category") catMap[c._id] = c; else if (c.type === "subcategory") subMap[c._id] = c; });
-        nextHomeData.categoryMap = catMap;
-        nextHomeData.subcategoryMap = subMap;
+        partialHomeData.categoryMap = catMap;
+        partialHomeData.subcategoryMap = subMap;
         const formattedHeaders = dbCats.filter((cat) => cat.type === "header").map((cat) => {
           const catName = cat.name;
           const meta = CATEGORY_METADATA[catName] || CATEGORY_METADATA[catName.toUpperCase()] || { icon: "✨", theme: DEFAULT_CATEGORY_THEME, banner: { title: catName.toUpperCase(), subtitle: "TOP PICKS", floatingElements: "sparkles" } };
@@ -519,7 +577,7 @@ const Home = () => {
           const imageIcon = cat.iconImage || cat.iconUrl || null;
           return { ...cat, id: cat._id, icon: imageIcon || IconComp, theme: meta.theme, banner: { ...meta.banner, textColor: "text-white" } };
         });
-        nextHomeData.formattedHeaders = formattedHeaders;
+        partialHomeData.formattedHeaders = formattedHeaders;
         const allHeaderFromAdmin = formattedHeaders.find((h) => (h.slug?.toLowerCase() === "all") || (h.name?.toLowerCase() === "all"));
         const mergedAllCategory = allHeaderFromAdmin ? { 
           ...ALL_CATEGORY, 
@@ -531,11 +589,34 @@ const Home = () => {
           icon: allHeaderFromAdmin.icon || ALL_CATEGORY.icon,
           iconId: allHeaderFromAdmin.iconId || null,
         } : ALL_CATEGORY;
-        nextHomeData.categories = [mergedAllCategory, ...formattedHeaders.filter((h) => !((h.slug?.toLowerCase() === "all") || (h.name?.toLowerCase() === "all")))];
-        nextHomeData.activeCategory = mergedAllCategory;
-        nextHomeData.quickCategories = dbCats.filter((cat) => cat.type === "category").map((cat) => ({ id: cat._id, name: cat.name, image: cat.image || "https://cdn-icons-png.flaticon.com/128/2321/2321831.png" }));
+        partialHomeData.categories = [mergedAllCategory, ...formattedHeaders.filter((h) => !((h.slug?.toLowerCase() === "all") || (h.name?.toLowerCase() === "all")))];
+        partialHomeData.activeCategory = mergedAllCategory;
+        partialHomeData.quickCategories = dbCats.filter((cat) => cat.type === "category").map((cat) => ({ id: cat._id, name: cat.name, image: cat.image || "https://cdn-icons-png.flaticon.com/128/2321/2321831.png" }));
+
+        setCategories(partialHomeData.categories);
+        setQuickCategories(partialHomeData.quickCategories);
+        setCategoryMap(catMap);
+        setSubcategoryMap(subMap);
       }
-      if (prodRes.data.success) {
+
+      // Priority 1 complete: Unblock UI skeleton immediately so banners and categories display!
+      setIsLoading(false);
+
+      // Priority 2: Products & experience sections stream in progressively
+      const [prodRes, expRes, sectionsRes] = await Promise.all([
+        customerApi.getProducts(productParams).catch(() => null),
+        customerApi.getExperienceSections({ pageType: "home" }).catch(() => null),
+        hasValidLocation ? customerApi.getOfferSections({ lat: currentLocation.latitude, lng: currentLocation.longitude }).catch(() => ({ data: {} })) : Promise.resolve({ data: { results: [] } }),
+      ]);
+
+      const nextHomeData = {
+        ...partialHomeData,
+        products: [],
+        experienceSections: [],
+        offerSections: [],
+      };
+
+      if (prodRes?.data?.success) {
         const rawResult = prodRes.data.result;
         const dbProds = Array.isArray(prodRes.data.results) ? prodRes.data.results : Array.isArray(rawResult?.items) ? rawResult.items : Array.isArray(rawResult) ? rawResult : [];
         nextHomeData.products = dbProds.map((p) => ({ ...p, id: p._id, image: p.mainImage || (p.variants?.[0]?.images?.[0]) || p.image || "", price: p.salePrice || p.price, originalPrice: p.price, weight: p.weight || "1 unit", deliveryTime: "8-15 mins" }));
@@ -543,8 +624,13 @@ const Home = () => {
       if (expRes?.data?.success) nextHomeData.experienceSections = Array.isArray(expRes.data.result || expRes.data.results) ? (expRes.data.result || expRes.data.results) : [];
       const sectionsList = sectionsRes?.data?.results || sectionsRes?.data?.result || sectionsRes?.data;
       nextHomeData.offerSections = Array.isArray(sectionsList) ? sectionsList : [];
-      applyHomePageData(nextHomeData, { cacheKey });
-    } catch (error) { console.error("Error:", error); } finally { setIsLoading(false); }
+
+      applyHomePageData(nextHomeData, { cacheKey, persist: true });
+    } catch (error) {
+      console.error("Error fetching home data:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const hydrateSelectedSectionProducts = async (sections = []) => {
@@ -585,14 +671,30 @@ const Home = () => {
         const isHeader = activeCategory && activeCategory._id !== "all";
         const cacheKey = isHeader ? activeCategory._id : "__home__";
         if (heroConfigCache.current[cacheKey]) { setHeroConfig(heroConfigCache.current[cacheKey]); return; }
+        if (!isHeader && (heroConfigMemoryCache.__home__ || heroConfig?.banners?.items?.length > 0)) {
+          if (heroConfigMemoryCache.__home__) setHeroConfig(heroConfigMemoryCache.__home__);
+          return;
+        }
         let payload = null;
         if (isHeader) { const res = await customerApi.getHeroConfig({ pageType: "header", headerId: activeCategory._id }); if (res.data?.success && res.data?.result) payload = res.data.result; }
         if (!payload || (payload.banners?.items?.length === 0 && !payload.categoryIds?.length)) { const homeRes = await customerApi.getHeroConfig({ pageType: "home" }); if (homeRes.data?.success && homeRes.data?.result) payload = homeRes.data.result; }
-        const resolved = payload && (payload.banners?.items?.length > 0 || payload.categoryIds?.length > 0) ? { banners: payload.banners || { items: [] }, categoryIds: payload.categoryIds || [] } : { banners: { items: [] }, categoryIds: [] };
+        const resolved = payload
+          ? {
+              ...payload,
+              banners: payload.banners || { items: [] },
+              categoryIds: payload.categoryIds || [],
+            }
+          : { banners: { items: [] }, categoryIds: [] };
         heroConfigCache.current[cacheKey] = resolved;
-        if (cacheKey === "__home__") { const homeCacheKey = getHomePageDataCacheKey(currentLocation); const cachedHomeData = homePageDataCache.get(homeCacheKey); if (cachedHomeData) homePageDataCache.set(homeCacheKey, { ...cachedHomeData, heroConfig: resolved }); }
+        if (cacheKey === "__home__") {
+          const homeCacheKey = getHomePageDataCacheKey(currentLocation);
+          const cachedHomeData = homePageDataCache.get(homeCacheKey);
+          if (cachedHomeData) homePageDataCache.set(homeCacheKey, { ...cachedHomeData, heroConfig: resolved });
+        }
         setHeroConfig(resolved);
-      } catch (e) { setHeroConfig(EMPTY_HERO_CONFIG); }
+      } catch (e) {
+        setHeroConfig(EMPTY_HERO_CONFIG);
+      }
     };
 
     const fetchBestsellerConfig = async () => {
@@ -771,7 +873,7 @@ const Home = () => {
         isScrolled={isScrolled}
       />
 
-      {isLoading ? <PageSkeleton variant="home-content" /> : <motion.div
+      {isLoading && !cachedHomePageData && categories.length <= 1 ? <PageSkeleton variant="home-content" /> : <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
@@ -804,9 +906,14 @@ const Home = () => {
         })()}
 
         {isAllCategorySelected && (
-          <div className="w-full max-w-7xl mx-auto px-0 md:px-4 lg:px-6">
-            <AllCategoriesGreeting categories={allMainCategories} firstName={firstName} />
-          </div>
+          <AllCategoriesGreeting
+            categories={allMainCategories}
+            firstName={firstName}
+            greetingConfig={heroConfig?.greetingSection}
+          />
+        )}
+        {isAllCategorySelected && (
+          <CuratedCategoryDealsSection pageType="home" heroConfig={heroConfig} />
         )}
         {isAllCategorySelected && <TopDealsOnProducts latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} />}
         {isAllCategorySelected && <HeaderCategoryProductsSection latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} />}

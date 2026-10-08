@@ -46,31 +46,32 @@ export default function SeoHead() {
         }
         metaKw.setAttribute('content', keywordsContent);
 
-        // Update or create dynamic favicon
-        const faviconUrl = settings.faviconUrl || '';
-        let linkFavicon = metaRefs.current.favicon;
-        if (!linkFavicon) {
-            linkFavicon = document.querySelector('link[rel="icon"]');
-            if (!linkFavicon) {
-                linkFavicon = document.createElement('link');
-                linkFavicon.rel = 'icon';
-                document.head.appendChild(linkFavicon);
+        // Update or create dynamic favicon across all icon link tags
+        const activeFavicon = (settings?.faviconUrl && settings.faviconUrl.trim() !== '')
+            ? settings.faviconUrl.trim()
+            : '/logo.png';
+
+        const updateOrCreateLink = (rel, href, type) => {
+            let el = document.querySelector(`link[rel="${rel}"]`);
+            if (!el) {
+                el = document.createElement('link');
+                el.rel = rel;
+                document.head.appendChild(el);
             }
-            metaRefs.current.favicon = linkFavicon;
-        }
-        
-        if (linkFavicon) {
-            linkFavicon.href = faviconUrl || '/vite.svg';
-            // Adjust type if it's an SVG vs PNG/ICO to help browser pick it up
-            if (linkFavicon.href.endsWith('.svg')) {
-                linkFavicon.type = 'image/svg+xml';
-            } else if (linkFavicon.href.endsWith('.ico')) {
-                linkFavicon.type = 'image/x-icon';
-            } else {
-                // Remove type or set to generic image type for cloudinary/pngs
-                linkFavicon.type = 'image/png';
-            }
-        }
+            el.href = href;
+            if (type) el.type = type;
+            return el;
+        };
+
+        const iconType = activeFavicon.endsWith('.svg')
+            ? 'image/svg+xml'
+            : activeFavicon.endsWith('.ico')
+                ? 'image/x-icon'
+                : 'image/png';
+
+        updateOrCreateLink('icon', activeFavicon, iconType);
+        updateOrCreateLink('shortcut icon', activeFavicon, iconType);
+        updateOrCreateLink('apple-touch-icon', activeFavicon, iconType);
     }, [settings]);
 
     return null;
