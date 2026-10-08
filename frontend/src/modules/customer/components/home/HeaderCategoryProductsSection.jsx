@@ -151,6 +151,7 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
   const { language } = useTranslation();
   const { translateObject } = useDynamicTranslation();
   const [displaySections, setDisplaySections] = useState(cachedInitial);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -187,6 +188,10 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
           if (valid.length > 0) {
             memoryHeaderProductsCache = valid;
             writeHeaderProductsCache(valid);
+          } else if (retryCount < 2) {
+            setTimeout(() => {
+              if (!cancelled) setRetryCount((prev) => prev + 1);
+            }, 3000);
           }
           setSections(valid);
           setDisplaySections(valid);
@@ -196,6 +201,11 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
         if (!cancelled) {
           setSections([]);
           setDisplaySections([]);
+          if (retryCount < 2) {
+            setTimeout(() => {
+              if (!cancelled) setRetryCount((prev) => prev + 1);
+            }, 3000);
+          }
         }
       } finally {
         if (!cancelled) {
@@ -209,7 +219,7 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
     return () => {
       cancelled = true;
     };
-  }, [latitude, longitude]);
+  }, [latitude, longitude, retryCount]);
 
   // Handle translation if language changes
   useEffect(() => {

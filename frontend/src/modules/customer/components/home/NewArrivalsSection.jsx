@@ -218,6 +218,7 @@ const NewArrivalsSection = ({ latitude, longitude }) => {
   const [products, setProducts] = useState([]);
   const [displayProducts, setDisplayProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
   const { language } = useTranslation();
   const { translateObject } = useDynamicTranslation();
 
@@ -254,12 +255,22 @@ const NewArrivalsSection = ({ latitude, longitude }) => {
           }));
           setProducts(formatted);
           setDisplayProducts(formatted);
+          if (formatted.length === 0 && retryCount < 2) {
+            setTimeout(() => {
+              if (!cancelled) setRetryCount((prev) => prev + 1);
+            }, 3000);
+          }
         }
       } catch (error) {
         console.error("Failed to load new arrivals:", error);
         if (!cancelled) {
           setProducts([]);
           setDisplayProducts([]);
+          if (retryCount < 2) {
+            setTimeout(() => {
+              if (!cancelled) setRetryCount((prev) => prev + 1);
+            }, 3000);
+          }
         }
       } finally {
         if (!cancelled) {
@@ -273,7 +284,7 @@ const NewArrivalsSection = ({ latitude, longitude }) => {
     return () => {
       cancelled = true;
     };
-  }, [latitude, longitude]);
+  }, [latitude, longitude, retryCount]);
 
   useEffect(() => {
     if (language === "en" || products.length === 0) {

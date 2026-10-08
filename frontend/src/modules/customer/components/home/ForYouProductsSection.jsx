@@ -71,9 +71,11 @@ const ForYouProductsSection = ({ categories: propCategories, latitude, longitude
         )
         .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
-      setHeaderCategories(headers);
-      setDisplayHeaders(headers);
-      return;
+      if (headers.length > 0) {
+        setHeaderCategories(headers);
+        setDisplayHeaders(headers);
+        return;
+      }
     }
 
     const fetchHeaders = async () => {

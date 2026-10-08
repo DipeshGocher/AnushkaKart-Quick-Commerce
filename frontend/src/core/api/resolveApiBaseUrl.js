@@ -1,4 +1,4 @@
-const DEFAULT_API_PORT = "7000";
+const DEFAULT_API_PORT = "5000";
 const DEFAULT_API_PATH = "/api";
 
 function normalizeOrigin(origin) {

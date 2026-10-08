@@ -200,7 +200,7 @@ const homePageDataCache = new Map();
 const headerSectionsMemoryCache = {};
 const heroConfigMemoryCache = {};
 
-const HOME_PAGE_PERSISTENT_CACHE_KEY = "anushkakart:home_cache:v5";
+const HOME_PAGE_PERSISTENT_CACHE_KEY = "anushkakart:home_cache:v6";
 
 const readPersistentHomeCache = (key) => {
   try {
@@ -209,7 +209,7 @@ const readPersistentHomeCache = (key) => {
     const store = JSON.parse(raw);
     if (!store || typeof store !== "object") return null;
     const entry = store[key] || store["home:no-location"] || Object.values(store)[0] || null;
-    if (entry && (!entry.categories || entry.categories.length <= 1) && (!entry.products || entry.products.length === 0)) {
+    if (entry && ((!entry.categories || entry.categories.length <= 1) || (!entry.products || entry.products.length === 0))) {
       return null;
     }
     return entry;
@@ -221,7 +221,7 @@ const readPersistentHomeCache = (key) => {
 const writePersistentHomeCache = (key, data) => {
   try {
     if (!data) return;
-    if ((!data.categories || data.categories.length <= 1) && (!data.products || data.products.length === 0)) {
+    if ((!data.categories || data.categories.length <= 1) || (!data.products || data.products.length === 0)) {
       return;
     }
     const raw = localStorage.getItem(HOME_PAGE_PERSISTENT_CACHE_KEY);
@@ -648,6 +648,16 @@ const Home = () => {
   };
 
   useEffect(() => { fetchData(); }, [currentLocation?.latitude, currentLocation?.longitude]);
+
+  // Auto-retry if initial fetch happened while backend was still starting up (only "All" category present)
+  useEffect(() => {
+    if (categories.length <= 1 && !isLoading) {
+      const timer = setTimeout(() => {
+        fetchData({ forceRefresh: true });
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [categories.length, isLoading]);
   const headerSectionsCache = useRef(headerSectionsMemoryCache);
   const heroConfigCache = useRef(heroConfigMemoryCache);
 

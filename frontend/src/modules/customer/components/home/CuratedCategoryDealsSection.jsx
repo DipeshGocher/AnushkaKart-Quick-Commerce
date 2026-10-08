@@ -111,6 +111,8 @@ export default function CuratedCategoryDealsSection({
     };
   }, [heroConfig, pageType, headerId]);
 
+  const [fallbackRetry, setFallbackRetry] = useState(0);
+
   // If on "home" (All) page and no curated items set, fetch subcategories across all categories for rich initial experience
   useEffect(() => {
     if (pageType !== "home") return;
@@ -122,14 +124,26 @@ export default function CuratedCategoryDealsSection({
       .then((res) => {
         if (!isMounted) return;
         const list = res.data?.results || res.data?.result || res.data || [];
-        setAllFallbackSubcategories(Array.isArray(list) ? list : []);
+        const items = Array.isArray(list) ? list : [];
+        setAllFallbackSubcategories(items);
+        if (items.length === 0 && fallbackRetry < 2) {
+          setTimeout(() => {
+            if (isMounted) setFallbackRetry((prev) => prev + 1);
+          }, 3000);
+        }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (isMounted && fallbackRetry < 2) {
+          setTimeout(() => {
+            if (isMounted) setFallbackRetry((prev) => prev + 1);
+          }, 3000);
+        }
+      });
 
     return () => {
       isMounted = false;
     };
-  }, [pageType, loadedConfig?.curatedDeals?.items?.length]);
+  }, [pageType, loadedConfig?.curatedDeals?.items?.length, fallbackRetry]);
 
   const defaultTheme = useMemo(() => {
     if (pageType === "home") return DEFAULT_CATEGORY_THEMES.all;

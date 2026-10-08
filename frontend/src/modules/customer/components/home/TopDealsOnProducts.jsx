@@ -13,6 +13,7 @@ const TopDealsOnProducts = () => {
   const sectionTitle = settings?.bestSellingTitle?.trim() || 'Best Selling Categories';
   const [subcategories, setSubcategories] = useState(() => cachedTopDealsSubs || []);
   const [isLoading, setIsLoading] = useState(() => !cachedTopDealsSubs || cachedTopDealsSubs.length === 0);
+  const [retryCount, setRetryCount] = useState(0);
   const scrollRef = useRef(null);
   const [canScroll, setCanScroll] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -74,6 +75,11 @@ const TopDealsOnProducts = () => {
         if (!cancelled) {
           console.error('Failed to load subcategories for Best Selling Categories:', error);
           setSubcategories([]);
+          if (retryCount < 2) {
+            setTimeout(() => {
+              if (!cancelled) setRetryCount((prev) => prev + 1);
+            }, 3000);
+          }
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -84,7 +90,7 @@ const TopDealsOnProducts = () => {
     return () => {
       cancelled = true;
     };
-  }, [settings?.bestSellingCategoryIds]);
+  }, [settings?.bestSellingCategoryIds, retryCount]);
 
   // Organize subcategories into columns of 2 rows (3 columns visible per swipe screen)
   const columns = useMemo(() => {
