@@ -14,9 +14,9 @@ export const WORKFLOW_STATUS = {
   CANCELLED: "CANCELLED",
 };
 
-/** Milliseconds — override via env in services */
+/** Milliseconds — override via env in services (Default: 5 minutes / 300000ms) */
 export const DEFAULT_SELLER_TIMEOUT_MS = () =>
-  parseInt(process.env.SELLER_TIMEOUT_MS || "60000", 10);
+  parseInt(process.env.SELLER_TIMEOUT_MS || "300000", 10);
 export const DEFAULT_DELIVERY_TIMEOUT_MS = () =>
   parseInt(process.env.DELIVERY_TIMEOUT_MS || "60000", 10);
 

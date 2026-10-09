@@ -157,7 +157,7 @@ const autoCancelExpiredOrders = async () => {
     for (const order of legacyExpired) {
       order.status = "cancelled";
       order.cancelledBy = "system";
-      order.cancelReason = "Seller timeout (60s)";
+      order.cancelReason = "Seller timeout";
       await order.save();
 
       try {

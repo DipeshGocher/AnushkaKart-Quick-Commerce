@@ -14,20 +14,30 @@ import { cn } from '@/lib/utils';
 import SellerOrdersContext from '@/modules/seller/context/SellerOrdersContext';
 import WarehouseOrdersContext from '@/modules/warehouse/context/WarehouseOrdersContext';
 import SellerEarningsContext, { defaultEarnings } from '@/modules/seller/context/SellerEarningsContext';
-import { getOrderSocket, onSellerOrderNew, onReturnDropOtp, onSOSAlert } from '@/core/services/orderSocket';
+import { getOrderSocket, onSellerOrderNew, onOrderStatusUpdate, onReturnDropOtp, onSOSAlert } from '@/core/services/orderSocket';
 import { createSocketTokenReader } from '@core/utils/authStorage';
 import { STORAGE_KEYS } from '@core/utils/storage';
 import orderAlertSound from '@/assets/sounds/order_alert.mp3';
 
 const POLL_INTERVAL_MS = 15000;
 
-/** Match server `sellerPendingExpiresAt` — never reset to a full 60s when the modal opens late. */
+/** Match server `sellerPendingExpiresAt` — never reset to a full window when the modal opens late. (Default 300s = 5m) */
 function secondsLeftUntilSellerExpiry(order) {
     if (!order) return 0;
     const raw = order.sellerPendingExpiresAt ?? order.expiresAt;
     if (!raw) return 300;
     const ms = new Date(raw).getTime() - Date.now();
     return Math.max(0, Math.ceil(ms / 1000));
+}
+
+function formatTimeLeft(sec) {
+    if (sec <= 0) return "0s";
+    const mins = Math.floor(sec / 60);
+    const remainingSec = sec % 60;
+    if (mins > 0) {
+        return `${mins}m ${remainingSec.toString().padStart(2, '0')}s`;
+    }
+    return `${remainingSec}s`;
 }
 
 function isSellerAlertEligible(order) {
@@ -52,8 +62,8 @@ const DashboardLayout = ({ children, navItems, title }) => {
     const [shownOrderIds, setShownOrderIds] = useState(() => new Set());
     const [shownReturnOrderIds, setShownReturnOrderIds] = useState(() => new Set());
     const [timeLeft, setTimeLeft] = useState(0);
-    /** Total seconds in this acceptance window (for progress bar), set when modal opens */
-    const acceptWindowTotalRef = useRef(60);
+    /** Total seconds in this acceptance window (for progress bar), set when modal opens (5 min default) */
+    const acceptWindowTotalRef = useRef(300);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [returnDropOtpAlert, setReturnDropOtpAlert] = useState(null); // { orderId, otp, expiresAt }
     const [sosAlert, setSOSAlert] = useState(null);
@@ -76,15 +86,59 @@ const DashboardLayout = ({ children, navItems, title }) => {
     const fetchOrdersRef = useRef(null);
     const isOrdersFetchInFlightRef = useRef(false);
     const earningsFetchedRef = useRef(false);
+
+    // Audio & Continuous Ringtone Refs
     const orderRingtoneRef = useRef(null);
     const ringtoneRetryTimerRef = useRef(null);
     const ringtoneUnlockHandlerRef = useRef(null);
+    const audioContextRef = useRef(null);
+    const synthIntervalRef = useRef(null);
+    const vibrationIntervalRef = useRef(null);
+    const [audioBlocked, setAudioBlocked] = useState(false);
+
+    const playSynthBeep = () => {
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            if (!audioContextRef.current) {
+                audioContextRef.current = new AudioCtx();
+            }
+            const ctx = audioContextRef.current;
+            if (ctx.state === 'suspended') {
+                ctx.resume().catch(() => {});
+            }
+            if (ctx.state !== 'running') return;
+
+            // Two-tone attention chime (880Hz -> 1174Hz)
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(880, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1174, ctx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.4, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.45);
+        } catch {
+            /* ignore audio context errors */
+        }
+    };
 
     const getOrderRingtone = () => {
         if (!orderRingtoneRef.current) {
             const audio = new Audio(orderAlertSound);
             audio.loop = true;
             audio.preload = 'auto';
+            audio.muted = false;
+            audio.volume = 1.0;
+            // Additional safety: onended re-triggers play
+            audio.onended = () => {
+                if (newOrderAlertRef.current) {
+                    audio.play().catch(() => {});
+                }
+            };
             orderRingtoneRef.current = audio;
         }
         return orderRingtoneRef.current;
@@ -95,30 +149,68 @@ const DashboardLayout = ({ children, navItems, title }) => {
         audio.loop = true;
         audio.preload = 'auto';
         audio.muted = false;
-        audio.volume = 1;
-        audio.play().catch(() => { });
+        audio.volume = 1.0;
 
+        // On mobile devices, vibrate continuously
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate([600, 300, 600, 300, 1000]);
+            if (!vibrationIntervalRef.current) {
+                vibrationIntervalRef.current = setInterval(() => {
+                    if (!newOrderAlertRef.current) return;
+                    navigator.vibrate([600, 300, 600, 300, 1000]);
+                }, 3000);
+            }
+        }
+
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                setAudioBlocked(false);
+            }).catch((err) => {
+                console.warn("[DashboardLayout] Ringtone autoplay blocked by browser policy:", err);
+                setAudioBlocked(true);
+                // Attempt synth chime backup
+                playSynthBeep();
+                if (!synthIntervalRef.current) {
+                    synthIntervalRef.current = setInterval(() => {
+                        if (!newOrderAlertRef.current) return;
+                        playSynthBeep();
+                    }, 1200);
+                }
+            });
+        }
+
+        // Keep ringtone playing continuously until explicitly stopped
         if (!ringtoneRetryTimerRef.current) {
             ringtoneRetryTimerRef.current = setInterval(() => {
                 if (!newOrderAlertRef.current) return;
                 const currentAudio = getOrderRingtone();
-                if (!currentAudio.paused) return;
-                currentAudio.play().catch(() => { });
-            }, 1200);
+                if (currentAudio.paused) {
+                    currentAudio.play().then(() => setAudioBlocked(false)).catch(() => {
+                        playSynthBeep();
+                    });
+                }
+            }, 1500);
         }
 
+        // Global unlock on ANY user interaction with the document
         if (!ringtoneUnlockHandlerRef.current && typeof window !== 'undefined' && typeof document !== 'undefined') {
             const unlockPlayback = () => {
                 if (!newOrderAlertRef.current) return;
+                if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+                    audioContextRef.current.resume().catch(() => {});
+                }
                 const currentAudio = getOrderRingtone();
-                if (!currentAudio.paused) return;
-                currentAudio.play().catch(() => { });
+                currentAudio.play().then(() => {
+                    setAudioBlocked(false);
+                }).catch(() => {});
             };
             ringtoneUnlockHandlerRef.current = unlockPlayback;
             window.addEventListener('focus', unlockPlayback);
             document.addEventListener('visibilitychange', unlockPlayback);
             document.addEventListener('pointerdown', unlockPlayback);
             document.addEventListener('touchstart', unlockPlayback);
+            document.addEventListener('click', unlockPlayback);
             document.addEventListener('keydown', unlockPlayback);
         }
     };
@@ -129,14 +221,27 @@ const DashboardLayout = ({ children, navItems, title }) => {
             clearInterval(ringtoneRetryTimerRef.current);
             ringtoneRetryTimerRef.current = null;
         }
+        if (synthIntervalRef.current) {
+            clearInterval(synthIntervalRef.current);
+            synthIntervalRef.current = null;
+        }
+        if (vibrationIntervalRef.current) {
+            clearInterval(vibrationIntervalRef.current);
+            vibrationIntervalRef.current = null;
+            if (typeof navigator !== 'undefined' && navigator.vibrate) {
+                navigator.vibrate(0);
+            }
+        }
         if (ringtoneUnlockHandlerRef.current && typeof window !== 'undefined' && typeof document !== 'undefined') {
             window.removeEventListener('focus', ringtoneUnlockHandlerRef.current);
             document.removeEventListener('visibilitychange', ringtoneUnlockHandlerRef.current);
             document.removeEventListener('pointerdown', ringtoneUnlockHandlerRef.current);
             document.removeEventListener('touchstart', ringtoneUnlockHandlerRef.current);
+            document.removeEventListener('click', ringtoneUnlockHandlerRef.current);
             document.removeEventListener('keydown', ringtoneUnlockHandlerRef.current);
             ringtoneUnlockHandlerRef.current = null;
         }
+        setAudioBlocked(false);
         if (!audio) return;
         audio.pause();
         audio.currentTime = 0;
@@ -185,10 +290,17 @@ const DashboardLayout = ({ children, navItems, title }) => {
                     shownOrderIdsRef.current = existingIds;
                     isFirstLoadRef.current = false;
                     setShownOrderIds(existingIds);
+
+                    // If an unexpired pending order exists right now, alert the seller immediately!
+                    const activePending = pendingOrders.find((o) => secondsLeftUntilSellerExpiry(o) > 0);
+                    if (activePending && !newOrderAlertRef.current) {
+                        setNewOrderAlert(activePending);
+                        newOrderAlertRef.current = activePending;
+                    }
                     return;
                 }
 
-                const newOrder = pendingOrders.find((o) => !shownOrderIdsRef.current.has(o.orderId));
+                const newOrder = pendingOrders.find((o) => !shownOrderIdsRef.current.has(o.orderId) && secondsLeftUntilSellerExpiry(o) > 0);
                 if (!newOrder || newOrderAlertRef.current) return;
 
                 setNewOrderAlert(newOrder);
@@ -262,6 +374,10 @@ const DashboardLayout = ({ children, navItems, title }) => {
             if (fetchOrdersRef.current) fetchOrdersRef.current();
         });
 
+        const unsubscribeStatusUpdate = onOrderStatusUpdate(getToken, () => {
+            if (fetchOrdersRef.current) fetchOrdersRef.current();
+        });
+
         const unsubscribeDrop = onReturnDropOtp(getToken, (payload) => {
             console.log("[DashboardLayout] Received return drop OTP:", payload);
             setReturnDropOtpAlert(payload);
@@ -271,6 +387,7 @@ const DashboardLayout = ({ children, navItems, title }) => {
 
         return () => {
             unsubscribeSellerNew();
+            unsubscribeStatusUpdate();
             unsubscribeDrop();
         };
     }, [role]);
@@ -497,12 +614,27 @@ const DashboardLayout = ({ children, navItems, title }) => {
                                     You have a new order <span className="text-primary font-bold">#{newOrderAlert.orderId}</span> for <span className="text-slate-900 font-bold">₹{newOrderAlert.pricing?.total || newOrderAlert.total}</span>
                                 </p>
 
+                                {/* Audio Unblock Banner (if browser blocked autoplay before user click) */}
+                                {audioBlocked && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const audio = getOrderRingtone();
+                                            audio.play().then(() => setAudioBlocked(false)).catch(() => {});
+                                            playSynthBeep();
+                                        }}
+                                        className="mb-4 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-xs font-black animate-bounce shadow-lg flex items-center gap-2 cursor-pointer transition-all"
+                                    >
+                                        <span>🔊 Ringtone Muted by Browser — Tap to Play Siren!</span>
+                                    </button>
+                                )}
+
                                 {/* Timer Bar — width from real server deadline */}
-                                <div className="w-full bg-slate-100 h-2 rounded-full mb-8 overflow-hidden">
+                                <div className="w-full bg-slate-100 h-2.5 rounded-full mb-6 overflow-hidden">
                                     <div
                                         className={cn(
                                             "h-full transition-[width] duration-1000 ease-linear",
-                                            timeLeft < 15 ? "bg-rose-500" : "bg-primary",
+                                            timeLeft < 30 ? "bg-rose-500" : "bg-primary",
                                         )}
                                         style={{
                                             width: `${acceptWindowTotalRef.current > 0 ? (timeLeft / acceptWindowTotalRef.current) * 100 : 0}%`,
@@ -510,10 +642,10 @@ const DashboardLayout = ({ children, navItems, title }) => {
                                     />
                                 </div>
 
-                                <div className="flex items-center gap-4 text-sm font-bold mb-8">
-                                    <Clock className={cn("h-4 w-4", timeLeft < 15 ? "text-rose-500 animate-pulse" : "text-slate-600")} />
-                                    <span className={timeLeft < 15 ? "text-rose-500" : "text-slate-600"}>
-                                        Accept within {timeLeft} {timeLeft === 1 ? "second" : "seconds"}
+                                <div className="flex items-center gap-3 text-sm font-bold mb-8">
+                                    <Clock className={cn("h-5 w-5", timeLeft < 30 ? "text-rose-500 animate-pulse" : "text-slate-600")} />
+                                    <span className={cn("text-base tracking-wide", timeLeft < 30 ? "text-rose-600 font-black animate-pulse" : "text-slate-700")}>
+                                        Accept within <strong className="font-black text-slate-900">{formatTimeLeft(timeLeft)}</strong>
                                     </span>
                                 </div>
 
