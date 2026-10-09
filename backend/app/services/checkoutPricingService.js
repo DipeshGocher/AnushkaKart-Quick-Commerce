@@ -14,6 +14,7 @@ import {
   hydrateOrderItems,
 } from "./finance/pricingService.js";
 import { computeOrderDiscount } from "./finance/couponService.js";
+import { isPincodeLocal, getLocalPincodeDetails } from "./shipping/localPincodeService.js";
 
 function normalizeLocation(location = null) {
   const lat = Number(location?.lat);
@@ -41,7 +42,7 @@ export function groupHydratedItemsBySeller(hydratedItems = []) {
   return grouped;
 }
 
-async function computeDistanceKmForSeller({ sellerId, addressLocation, session = null }) {
+async function computeDistanceKmForSeller({ sellerId, addressLocation, session = null, isLocal = true }) {
   const normalizedLocation = normalizeLocation(addressLocation);
   if (!normalizedLocation) {
     return {
@@ -70,6 +71,13 @@ async function computeDistanceKmForSeller({ sellerId, addressLocation, session =
   }
   const coords = seller?.location?.coordinates;
   if (!Array.isArray(coords) || coords.length < 2) {
+    if (!isLocal) {
+      return {
+        distanceKm: 0,
+        route: { distanceMeters: 0, duration: 0, polyline: '' },
+        sellerLocation: { lat: 0, lng: 0 },
+      };
+    }
     const err = new Error("Store location is not configured for delivery distance");
     err.statusCode = 400;
     throw err;
@@ -92,14 +100,19 @@ async function computeDistanceKmForSeller({ sellerId, addressLocation, session =
       throw new Error("Route calculation degraded/failed");
     }
   } catch (error) {
-    if (error.statusCode) throw error;
-    const err = new Error("Could not calculate actual route distance for delivery: " + error.message);
-    err.statusCode = 400;
-    throw err;
+    if (isLocal) {
+      if (error.statusCode) throw error;
+      const err = new Error("Could not calculate actual route distance for delivery: " + error.message);
+      err.statusCode = 400;
+      throw err;
+    } else {
+      distanceKm = 0;
+      finalRoute = { distanceMeters: 0, duration: 0, polyline: '' };
+    }
   }
   
   const radius = Number(seller.serviceRadius || 5);
-  if (distanceKm > radius) {
+  if (isLocal && distanceKm > radius) {
     const storeName = seller.shopName || seller.name || "Store";
     const err = new Error(`${storeName} does not deliver to your current location (Distance: ${distanceKm}km, Service Radius: ${radius}km)`);
     err.statusCode = 400;
@@ -459,6 +472,27 @@ export async function buildCheckoutPricingSnapshot({
     }
   }
 
+  const rawPincode = address?.pincode || address?.postalCode || address?.pinCode || "";
+  let pincode = String(rawPincode).trim();
+  if (!pincode) {
+    const match = (address?.address || "").match(/\b\d{6}\b/) || (address?.city || "").match(/\b\d{6}\b/);
+    if (match) pincode = match[0];
+  }
+
+  let isLocal = true;
+  let localPincodeRecord = null;
+  if (pincode) {
+    isLocal = await isPincodeLocal(pincode);
+    if (isLocal) {
+      localPincodeRecord = await getLocalPincodeDetails(pincode);
+    }
+  }
+
+  const fulfillmentType = isLocal ? "LOCAL" : "SHIPROCKET";
+  const deliveryEstimate = isLocal
+    ? (localPincodeRecord?.deliveryTimeEstimate || "12-15 mins")
+    : "3-5 business days";
+
   const itemsBySeller = groupHydratedItemsBySeller(hydratedItems);
   const sellerIds = Array.from(itemsBySeller.keys()).sort((a, b) => a.localeCompare(b));
   const sellerBreakdownEntries = [];
@@ -479,6 +513,7 @@ export async function buildCheckoutPricingSnapshot({
       sellerId,
       addressLocation: address?.location,
       session,
+      isLocal,
     });
     // Distribute discount proportionally by seller subtotal
     const sellerRatio = totalSubtotal > 0 ? (sellerSubtotals.get(sellerId) || 0) / totalSubtotal : 1 / sellerIds.length;
@@ -490,6 +525,7 @@ export async function buildCheckoutPricingSnapshot({
       discountTotal: sellerDiscount,
       taxTotal: 0,
       session,
+      fulfillmentType,
     });
 
     const isWarehouse = !!sellerItems[0]?.warehouseId && !sellerItems[0]?.sellerId;
@@ -502,6 +538,9 @@ export async function buildCheckoutPricingSnapshot({
       actualWarehouseId,
       isWarehouse,
       items: sellerItems,
+      fulfillmentType,
+      deliveryEstimate,
+      isLocal,
       deliveryData: {
         warehouseLocation: distanceData.sellerLocation,
         customerLocation: normalizeLocation(address?.location),
@@ -513,6 +552,9 @@ export async function buildCheckoutPricingSnapshot({
       breakdown: {
         ...breakdown,
         sellerId,
+        fulfillmentType,
+        deliveryEstimate,
+        isLocal,
       },
     });
   }
@@ -546,19 +588,22 @@ export async function buildCheckoutPricingSnapshot({
     sellerBreakdownEntries.map((entry) => entry.breakdown),
   );
 
+  aggregateBreakdown.fulfillmentType = fulfillmentType;
+  aggregateBreakdown.deliveryEstimate = deliveryEstimate;
+  aggregateBreakdown.isLocal = isLocal;
+
   return {
     hydratedItems,
     sellerBreakdownEntries,
     aggregateBreakdown,
     sellerCount: sellerBreakdownEntries.length,
     itemCount: hydratedItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
-    // Audit Phase 5 (C-2 + H-6): `null` when the flag is off OR no
-    // coupon was supplied. When present, callers persist this on every
-    // Order document so per-user usage counts and audits replay
-    // deterministically against the rule that was in effect.
     couponSnapshot: resolvedCouponSnapshot,
     coupon: resolvedCoupon,
     freeDeliveryApplied: applyFreeDelivery,
+    fulfillmentType,
+    deliveryEstimate,
+    isLocal,
   };
 }
 

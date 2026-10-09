@@ -323,13 +323,28 @@ const CheckoutPage = () => {
   const finalAmountToPay = Math.max(0, (pricingPreview?.grandTotal || 0) - walletAmountToUse);
 
   const buildAddressForOrder = () => {
+    let resolvedPincode = "";
+    if (savedRecipient?.pincode) {
+      resolvedPincode = String(savedRecipient.pincode).trim();
+    } else if (currentAddress?.pincode) {
+      resolvedPincode = String(currentAddress.pincode).trim();
+    } else if (currentLocation?.pincode) {
+      resolvedPincode = String(currentLocation.pincode).trim();
+    } else {
+      const match =
+        (currentAddress?.address || "").match(/\b\d{6}\b/) ||
+        (currentAddress?.city || "").match(/\b\d{6}\b/);
+      if (match) resolvedPincode = match[0];
+    }
+
     if (savedRecipient) {
       return {
         type: "Other",
         name: savedRecipient.name,
         address: savedRecipient.completeAddress,
         landmark: savedRecipient.landmark || "",
-        city: savedRecipient.pincode ? `${savedRecipient.pincode}` : "",
+        city: savedRecipient.city || (savedRecipient.pincode ? `${savedRecipient.pincode}` : ""),
+        pincode: resolvedPincode,
         phone: savedRecipient.phone,
         location:
           currentLocation?.latitude && currentLocation?.longitude
@@ -348,6 +363,7 @@ const CheckoutPage = () => {
 
     return {
       ...currentAddress,
+      pincode: resolvedPincode || currentAddress?.pincode || "",
       location: hasAddrLoc ? { lat: addrLoc.lat, lng: addrLoc.lng } : undefined,
     };
   };
@@ -745,7 +761,17 @@ const CheckoutPage = () => {
         setPreviewError(null);
         const res = await customerApi.checkoutPreview(buildPreviewPayload());
         if (res.data?.success) {
-          setPricingPreview(res.data.result?.breakdown ?? null);
+          const rawBreakdown = res.data.result?.breakdown ?? null;
+          if (rawBreakdown) {
+            setPricingPreview({
+              ...rawBreakdown,
+              fulfillmentType: res.data.result?.fulfillmentType || rawBreakdown.fulfillmentType || "LOCAL",
+              deliveryEstimate: res.data.result?.deliveryEstimate || rawBreakdown.deliveryEstimate || "12-15 mins",
+              isLocal: res.data.result?.isLocal ?? rawBreakdown.isLocal ?? true,
+            });
+          } else {
+            setPricingPreview(null);
+          }
           setPreviewError(null);
         } else {
           setPricingPreview(null);
@@ -1096,16 +1122,50 @@ const CheckoutPage = () => {
           {/* Left Column */}
           <div className="lg:col-span-7 xl:col-span-8 space-y-6 pb-8">
             {/* Delivery Time Banner */}
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mt-3">
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-full bg-brand-50 flex items-center justify-center flex-shrink-0">
-                  <Clock size={24} className="text-primary" />
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mt-3 transition-all duration-200">
+              {pricingPreview?.fulfillmentType === "SHIPROCKET" ? (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 text-blue-600">
+                      <Truck size={24} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-black text-slate-800 text-lg">
+                          Delivery in {pricingPreview?.deliveryEstimate || "3-4 days"}
+                        </h3>
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                          Shiprocket Courier
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-500">
+                        Shipment of {cartCount} items • Standard delivery via Shiprocket
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-black text-slate-800 text-lg">Delivery in 12-15 mins</h3>
-                  <p className="text-sm text-slate-500">Shipment of {cartCount} items</p>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-full bg-brand-50 flex items-center justify-center flex-shrink-0">
+                      <Clock size={24} className="text-primary" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-black text-slate-800 text-lg">
+                          Delivery in {pricingPreview?.deliveryEstimate || "12-15 mins"}
+                        </h3>
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                          Quick Commerce
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-500">
+                        Shipment of {cartCount} items • In-house express delivery
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Address Section */}

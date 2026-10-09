@@ -29,6 +29,34 @@ import Pagination from '@shared/components/ui/Pagination';
 import { adminApi } from "../services/adminApi";
 import { toast } from "sonner";
 
+const parseBankDetails = (bank) => {
+    if (!bank) return { summary: 'N/A', details: null };
+    if (typeof bank === 'string') return { summary: bank.trim() || 'N/A', details: null };
+    if (typeof bank === 'object') {
+        const bankName = bank.bankName || '';
+        const accountNumber = bank.accountNumber || bank.accountNo || '';
+        const ifscCode = bank.ifscCode || bank.ifsc || '';
+        const accountHolderName = bank.accountHolderName || bank.accountHolder || '';
+
+        const parts = [];
+        if (bankName) parts.push(bankName);
+        if (accountNumber) parts.push(`A/C: ${accountNumber}`);
+        if (ifscCode) parts.push(`IFSC: ${ifscCode}`);
+        if (accountHolderName) parts.push(`Holder: ${accountHolderName}`);
+
+        return {
+            summary: parts.length > 0 ? parts.join(' • ') : 'N/A',
+            details: {
+                bankName: bankName || null,
+                accountNumber: accountNumber || null,
+                ifscCode: ifscCode || null,
+                accountHolderName: accountHolderName || null,
+            }
+        };
+    }
+    return { summary: String(bank), details: null };
+};
+
 const WithdrawalRequests = () => {
     const [activeTab, setActiveTab] = useState('sellers');
     const [searchTerm, setSearchTerm] = useState('');
@@ -439,6 +467,55 @@ const WithdrawalRequests = () => {
                                 <h4 className="text-2xl font-black text-slate-900">₹{Math.abs(selectedRequest.amount).toLocaleString()}</h4>
                                 <p className="text-[10px] font-semibold text-slate-400 mt-1">Reference: {selectedRequest.reference}</p>
                             </Card>
+
+                            {(() => {
+                                const rawBank = selectedRequest.user?.bankDetails || (selectedRequest.user?.accountNumber ? {
+                                    bankName: selectedRequest.user?.bankName,
+                                    accountNumber: selectedRequest.user?.accountNumber,
+                                    ifscCode: selectedRequest.user?.ifsc,
+                                    accountHolderName: selectedRequest.user?.accountHolder
+                                } : null);
+                                const parsed = parseBankDetails(rawBank);
+                                if (!parsed.details && parsed.summary === 'N/A') return null;
+                                return (
+                                    <Card className="p-5 border-none bg-brand-50/50 ring-1 ring-brand-100 rounded-xl space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <Banknote className="h-4 w-4 text-brand-600" />
+                                            <p className="text-xs font-bold text-brand-800 uppercase tracking-wider">Beneficiary Bank Details</p>
+                                        </div>
+                                        {parsed.details ? (
+                                            <div className="space-y-1.5 text-xs pt-1">
+                                                {parsed.details.bankName && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-slate-500 font-medium">Bank Name</span>
+                                                        <span className="font-bold text-slate-900">{parsed.details.bankName}</span>
+                                                    </div>
+                                                )}
+                                                {parsed.details.accountNumber && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-slate-500 font-medium">Account Number</span>
+                                                        <span className="font-mono font-bold text-slate-900">{parsed.details.accountNumber}</span>
+                                                    </div>
+                                                )}
+                                                {parsed.details.ifscCode && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-slate-500 font-medium">IFSC Code</span>
+                                                        <span className="font-mono font-bold text-slate-900">{parsed.details.ifscCode}</span>
+                                                    </div>
+                                                )}
+                                                {parsed.details.accountHolderName && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-slate-500 font-medium">Account Holder</span>
+                                                        <span className="font-bold text-slate-900">{parsed.details.accountHolderName}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs font-bold text-slate-900">{parsed.summary}</p>
+                                        )}
+                                    </Card>
+                                );
+                            })()}
                         </div>
 
                         <div className="flex gap-3 pt-2">

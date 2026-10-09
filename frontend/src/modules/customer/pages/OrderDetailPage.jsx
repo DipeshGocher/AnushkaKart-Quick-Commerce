@@ -141,12 +141,16 @@ const loadRazorpayScript = () => {
 };
 
 const matchesOrderIdentifier = (payloadOrderId, identifiers = []) => {
-  const normalizedPayloadId = String(payloadOrderId || "").trim();
+  const normalizedPayloadId = String(payloadOrderId || "").trim().toUpperCase();
   if (!normalizedPayloadId) return false;
   return identifiers
-    .map((value) => String(value || "").trim())
+    .map((value) => String(value || "").trim().toUpperCase())
     .filter(Boolean)
-    .includes(normalizedPayloadId);
+    .some((id) => {
+      if (id === normalizedPayloadId) return true;
+      if (normalizedPayloadId.endsWith(id) || id.endsWith(normalizedPayloadId)) return true;
+      return false;
+    });
 };
 
 const OrderDetailPage = () => {
@@ -910,7 +914,7 @@ const OrderDetailPage = () => {
         <DeliveryOtpDisplay
           orderId={order?.orderId || orderId}
           checkoutGroupId={order?.checkoutGroupId || orderId}
-          initialOtp={order?.deliveryOtp}
+          initialOtp={order?.deliveryOtp || order?.handoffOtp || (handoffOtp ? { code: handoffOtp } : null)}
         />
 
         {/* Delivery Partner Card - Redesigned */}

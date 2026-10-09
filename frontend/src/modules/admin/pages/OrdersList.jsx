@@ -113,6 +113,8 @@ const OrdersList = () => {
                     returnStatus: o.returnStatus,
                     date: new Date(o.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }),
                     payment: o.payment?.method === 'cod' ? 'COD' : 'Digital',
+                    fulfillmentType: o.fulfillmentType || 'LOCAL',
+                    shiprocket: o.shiprocket || null,
                 }));
                 setOrders(formatted);
                 setSummary({
@@ -403,6 +405,15 @@ const OrdersList = () => {
                                             <div>
                                                 <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
                                                     #{order.id}
+                                                    {order.fulfillmentType === 'SHIPROCKET' ? (
+                                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                                                            Shiprocket
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                            Local
+                                                        </span>
+                                                    )}
                                                     <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-all text-slate-400" />
                                                 </h4>
                                                 <div className="flex items-center gap-2 mt-1">

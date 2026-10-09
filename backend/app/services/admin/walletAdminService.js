@@ -69,7 +69,7 @@ export async function getSellerWithdrawalsData({ page, limit, skip }) {
 
   const [transactions, total] = await Promise.all([
     Transaction.find(query)
-      .populate("user", "name shopName warehouseName phone")
+      .populate("user", "name shopName warehouseName phone bankDetails")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -91,7 +91,7 @@ export async function getWarehouseWithdrawalsData({ page, limit, skip }) {
 
   const [transactions, total] = await Promise.all([
     Transaction.find(query)
-      .populate("user", "name warehouseName phone")
+      .populate("user", "name warehouseName phone bankDetails")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -141,7 +141,7 @@ export async function getDeliveryWithdrawalsData({ page, limit, skip }) {
 
   const [transactions, total] = await Promise.all([
     Transaction.find(query)
-      .populate("user", "name phone")
+      .populate("user", "name phone bankDetails accountHolder accountNumber ifsc bankName")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)

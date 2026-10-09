@@ -25,17 +25,29 @@ import { STORAGE_KEYS } from "@core/utils/storage";
  * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 7.5, 9.4
  */
 const matchesOrderIdentifier = (payloadOrderId, identifiers = []) => {
-  const normalizedPayloadId = String(payloadOrderId || "").trim();
+  const normalizedPayloadId = String(payloadOrderId || "").trim().toUpperCase();
   if (!normalizedPayloadId) return false;
   return identifiers
-    .map((value) => String(value || "").trim())
+    .map((value) => String(value || "").trim().toUpperCase())
     .filter(Boolean)
-    .includes(normalizedPayloadId);
+    .some((id) => {
+      if (id === normalizedPayloadId) return true;
+      if (normalizedPayloadId.endsWith(id) || id.endsWith(normalizedPayloadId)) return true;
+      return false;
+    });
 };
 
 const DeliveryOtpDisplay = ({ orderId, checkoutGroupId = null, initialOtp = null }) => {
+  const calculateRemainingTime = (expiresAt) => {
+    if (!expiresAt) return 600; // default 10 mins if expiry not specified
+    const now = new Date().getTime();
+    const expiry = new Date(expiresAt).getTime();
+    const diff = Math.floor((expiry - now) / 1000);
+    return Math.max(0, diff);
+  };
+
   const [otpData, setOtpData] = useState(() => {
-    if (initialOtp) {
+    if (initialOtp && (initialOtp.code || initialOtp.otp)) {
       return {
         otp: initialOtp.code || initialOtp.otp,
         expiresAt: initialOtp.expiresAt,
@@ -48,20 +60,25 @@ const DeliveryOtpDisplay = ({ orderId, checkoutGroupId = null, initialOtp = null
   const [isVisible, setIsVisible] = useState(true);
   const timerRef = useRef(null);
 
-  const calculateRemainingTime = (expiresAt) => {
-    if (!expiresAt) return 0;
-    const now = new Date().getTime();
-    const expiry = new Date(expiresAt).getTime();
-    const diff = Math.floor((expiry - now) / 1000);
-    return Math.max(0, diff);
-  };
-
   const [remainingSeconds, setRemainingSeconds] = useState(() => {
     if (initialOtp && initialOtp.expiresAt) {
       return calculateRemainingTime(initialOtp.expiresAt);
     }
-    return 0;
+    return 600;
   });
+
+  // Sync state when parent passes or updates initialOtp (e.g. after async getOrderDetails)
+  useEffect(() => {
+    if (initialOtp && (initialOtp.code || initialOtp.otp)) {
+      setOtpData({
+        otp: initialOtp.code || initialOtp.otp,
+        expiresAt: initialOtp.expiresAt,
+        deliveryPersonNearby: true,
+      });
+      setIsDelivered(false);
+      setRemainingSeconds(calculateRemainingTime(initialOtp.expiresAt));
+    }
+  }, [initialOtp]);
 
   // Format seconds to MM:SS
   const formatTime = (seconds) => {

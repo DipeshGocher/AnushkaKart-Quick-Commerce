@@ -35,6 +35,34 @@ import {
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const parseBankDetails = (bank) => {
+    if (!bank) return { summary: 'N/A', details: null };
+    if (typeof bank === 'string') return { summary: bank.trim() || 'N/A', details: null };
+    if (typeof bank === 'object') {
+        const bankName = bank.bankName || '';
+        const accountNumber = bank.accountNumber || bank.accountNo || '';
+        const ifscCode = bank.ifscCode || bank.ifsc || '';
+        const accountHolderName = bank.accountHolderName || bank.accountHolder || '';
+
+        const parts = [];
+        if (bankName) parts.push(bankName);
+        if (accountNumber) parts.push(`A/C: ${accountNumber}`);
+        if (ifscCode) parts.push(`IFSC: ${ifscCode}`);
+        if (accountHolderName) parts.push(`Holder: ${accountHolderName}`);
+
+        return {
+            summary: parts.length > 0 ? parts.join(' • ') : 'N/A',
+            details: {
+                bankName: bankName || null,
+                accountNumber: accountNumber || null,
+                ifscCode: ifscCode || null,
+                accountHolderName: accountHolderName || null,
+            }
+        };
+    }
+    return { summary: String(bank), details: null };
+};
+
 const SellerTransactions = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
@@ -69,34 +97,40 @@ const SellerTransactions = () => {
             if (res.data.success) {
                 const payload = res.data.result || {};
                 const data = Array.isArray(payload.items) ? payload.items : (res.data.results || []);
-                const mapped = data.map(t => ({
-                    id: t.reference || t._id,
-                    orderId: t.order?.orderId || null,
-                    date: new Date(t.createdAt).toLocaleString('en-IN', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }),
-                    seller: t.user?.shopName || t.user?.name || 'Unknown',
-                    type: t.type === 'Seller Earning' ? 'sale' :
-                        (t.type === 'Withdrawal' || t.type === 'Payout') ? 'payout' :
-                            t.type.toLowerCase(),
-                    amount: t.amount,
-                    commissionRate: t.order?.pricing?.platformFeeRate || 0,
-                    commissionAmount: t.order?.pricing?.platformFee || 0,
-                    taxAmount: t.order?.pricing?.tax || 0,
-                    netPayable: t.amount,
-                    status: t.status.toLowerCase(),
-                    paymentMethod: t.paymentMethod || 'Wallet',
-                    bankDetails: t.bankDetails || t.user?.bankDetails || 'N/A',
-                    items: t.order?.items?.map(item => ({
-                        name: item.product?.name || 'Unknown Item',
-                        qty: item.quantity,
-                        price: item.price
-                    })) || []
-                }));
+                const mapped = data.map(t => {
+                    const rawBank = t.bankDetails || t.user?.bankDetails || null;
+                    const parsedBank = parseBankDetails(rawBank);
+                    return {
+                        id: t.reference || t._id,
+                        referenceId: t.reference || t._id,
+                        orderId: t.order?.orderId || null,
+                        date: new Date(t.createdAt).toLocaleString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        }),
+                        seller: String(t.user?.shopName || t.user?.name || 'Unknown'),
+                        type: t.type === 'Seller Earning' ? 'sale' :
+                            (t.type === 'Withdrawal' || t.type === 'Payout') ? 'payout' :
+                                String(t.type || '').toLowerCase(),
+                        amount: t.amount,
+                        commissionRate: t.order?.pricing?.platformFeeRate || 0,
+                        commissionAmount: t.order?.pricing?.platformFee || 0,
+                        taxAmount: t.order?.pricing?.tax || 0,
+                        netPayable: t.amount,
+                        status: String(t.status || '').toLowerCase(),
+                        paymentMethod: String(t.paymentMethod || 'Wallet'),
+                        bankDetails: parsedBank.summary,
+                        bankDetailsObj: parsedBank.details,
+                        items: t.order?.items?.map(item => ({
+                            name: item.product?.name || 'Unknown Item',
+                            qty: item.quantity,
+                            price: item.price
+                        })) || []
+                    };
+                });
                 setTransactions(mapped);
                 setTotal(typeof payload.total === 'number' ? payload.total : mapped.length);
                 setPage(typeof payload.page === 'number' ? payload.page : requestedPage);
@@ -459,17 +493,46 @@ const SellerTransactions = () => {
                                     <div className="bg-brand-50 ring-1 ring-brand-100 rounded-[24px] p-6 space-y-4">
                                         <div className="flex items-center gap-3">
                                             <Info className="h-5 w-5 text-brand-600" />
-                                            <p className="text-xs font-bold text-brand-800 uppercase tracking-widest">Successful Disbursement</p>
+                                            <p className="text-xs font-bold text-brand-800 uppercase tracking-widest">Disbursement & Bank Info</p>
                                         </div>
                                         <div className="space-y-2">
                                             <div className="flex justify-between">
                                                 <span className="text-[10px] font-bold text-brand-600/60 uppercase">Reference Identifier</span>
-                                                <span className="text-xs font-mono font-black text-brand-900 line-clamp-1">{selectedTxn.referenceId}</span>
+                                                <span className="text-xs font-mono font-black text-brand-900 line-clamp-1">{selectedTxn.referenceId || selectedTxn.id}</span>
                                             </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-[10px] font-bold text-brand-600/60 uppercase">Settlement Target</span>
-                                                <span className="text-xs font-black text-brand-900">{selectedTxn.bankDetails}</span>
-                                            </div>
+                                            {selectedTxn.bankDetailsObj ? (
+                                                <div className="mt-3 pt-3 border-t border-brand-200/50 space-y-2">
+                                                    {selectedTxn.bankDetailsObj.bankName && (
+                                                        <div className="flex justify-between">
+                                                            <span className="text-[10px] font-bold text-brand-600/60 uppercase">Bank Name</span>
+                                                            <span className="text-xs font-black text-brand-900">{selectedTxn.bankDetailsObj.bankName}</span>
+                                                        </div>
+                                                    )}
+                                                    {selectedTxn.bankDetailsObj.accountNumber && (
+                                                        <div className="flex justify-between">
+                                                            <span className="text-[10px] font-bold text-brand-600/60 uppercase">Account Number</span>
+                                                            <span className="text-xs font-mono font-black text-brand-900">{selectedTxn.bankDetailsObj.accountNumber}</span>
+                                                        </div>
+                                                    )}
+                                                    {selectedTxn.bankDetailsObj.ifscCode && (
+                                                        <div className="flex justify-between">
+                                                            <span className="text-[10px] font-bold text-brand-600/60 uppercase">IFSC Code</span>
+                                                            <span className="text-xs font-mono font-black text-brand-900">{selectedTxn.bankDetailsObj.ifscCode}</span>
+                                                        </div>
+                                                    )}
+                                                    {selectedTxn.bankDetailsObj.accountHolderName && (
+                                                        <div className="flex justify-between">
+                                                            <span className="text-[10px] font-bold text-brand-600/60 uppercase">Account Holder</span>
+                                                            <span className="text-xs font-black text-brand-900">{selectedTxn.bankDetailsObj.accountHolderName}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="flex justify-between">
+                                                    <span className="text-[10px] font-bold text-brand-600/60 uppercase">Settlement Target</span>
+                                                    <span className="text-xs font-black text-brand-900">{selectedTxn.bankDetails || 'N/A'}</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

@@ -8,10 +8,12 @@ import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
 import AdminLiveTrackingSection from '../components/orders/AdminLiveTrackingSection';
 import { adminApi } from '../services/adminApi';
+import { adminShippingApi } from '../services/api/shippingApi';
 import {
     ChevronLeft,
     Box,
     Truck,
+    Bike,
     User,
     Calendar,
     Clock,
@@ -37,6 +39,82 @@ const OrderDetail = () => {
     const [order, setOrder] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const invoiceRef = useRef(null);
+
+    // Shiprocket fulfillment action states
+    const [isProcessingShiprocket, setIsProcessingShiprocket] = useState(false);
+    const [isSchedulingPickup, setIsSchedulingPickup] = useState(false);
+    const [isFetchingLabel, setIsFetchingLabel] = useState(false);
+    const [isManualStatusModalOpen, setIsManualStatusModalOpen] = useState(false);
+    const [manualStatusData, setManualStatusData] = useState({
+        status: 'IN_TRANSIT',
+        remarks: '',
+        location: '',
+    });
+    const [isSubmittingManualStatus, setIsSubmittingManualStatus] = useState(false);
+
+    const handleProcessShiprocket = async () => {
+        try {
+            setIsProcessingShiprocket(true);
+            const res = await adminShippingApi.processShiprocketOrder(orderId);
+            if (res.data?.success) {
+                showToast(res.data.message || "Shiprocket shipment created & AWB assigned", "success");
+                fetchDetail();
+            }
+        } catch (error) {
+            showToast(error.response?.data?.message || "Failed to process with Shiprocket", "error");
+        } finally {
+            setIsProcessingShiprocket(false);
+        }
+    };
+
+    const handleSchedulePickup = async () => {
+        try {
+            setIsSchedulingPickup(true);
+            const res = await adminShippingApi.scheduleShiprocketPickup(orderId);
+            if (res.data?.success) {
+                showToast(res.data.message || "Courier pickup scheduled successfully", "success");
+                fetchDetail();
+            }
+        } catch (error) {
+            showToast(error.response?.data?.message || "Failed to schedule pickup", "error");
+        } finally {
+            setIsSchedulingPickup(false);
+        }
+    };
+
+    const handleDownloadLabel = async () => {
+        try {
+            setIsFetchingLabel(true);
+            const res = await adminShippingApi.getShiprocketLabel(orderId);
+            if (res.data?.success && res.data.result?.labelUrl) {
+                window.open(res.data.result.labelUrl, "_blank");
+                showToast("Opening shipping label", "success");
+            } else {
+                showToast("Label URL not available yet", "error");
+            }
+        } catch (error) {
+            showToast(error.response?.data?.message || "Failed to generate label", "error");
+        } finally {
+            setIsFetchingLabel(false);
+        }
+    };
+
+    const handleSubmitManualStatus = async (e) => {
+        e.preventDefault();
+        try {
+            setIsSubmittingManualStatus(true);
+            const res = await adminShippingApi.updateShiprocketManualStatus(orderId, manualStatusData);
+            if (res.data?.success) {
+                showToast(res.data.message || "Shiprocket status updated", "success");
+                setIsManualStatusModalOpen(false);
+                fetchDetail();
+            }
+        } catch (error) {
+            showToast(error.response?.data?.message || "Failed to update status", "error");
+        } finally {
+            setIsSubmittingManualStatus(false);
+        }
+    };
 
     const fetchDetail = async () => {
         setIsLoading(true);
@@ -437,32 +515,177 @@ const OrderDetail = () => {
                         </div>
                     </Card>
 
-                    {/* Rider Section */}
-                    <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-xl p-6 text-left">
-                        <div className="flex flex-col gap-4">
-                            <div className="flex items-center justify-between">
-                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                    <Truck className="h-3.5 w-3.5" /> Logistical Agent
-                                </h4>
-                                <Badge variant={order.deliveryBoy ? "success" : "secondary"} className="text-[8px] font-black uppercase tracking-widest">
-                                    {order.deliveryBoy ? "ASSIGNED" : "UNASSIGNED"}
-                                </Badge>
-                            </div>
-                            <div className="flex items-center gap-3 mt-2">
-                                <div className="h-10 w-10 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center text-slate-300 overflow-hidden">
-                                    {order.deliveryBoy ? (
-                                        <div className="h-full w-full flex items-center justify-center font-black text-slate-400 bg-brand-50 ds-h3">{order.deliveryBoy.name.charAt(0)}</div>
-                                    ) : (
-                                        <User className="h-5 w-5" />
-                                    )}
-                                </div>
+                    {/* Logistical Channel: Local Rider vs Shiprocket */}
+                    {order.fulfillmentType === "SHIPROCKET" ? (
+                        <Card className="border-none shadow-xl ring-1 ring-blue-100 bg-white rounded-xl p-6 text-left space-y-4">
+                            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                                 <div>
-                                    <h5 className="text-sm font-black text-slate-900">{order.deliveryBoy?.name || "Pending Rider Assignment"}</h5>
-                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">CONTACT: {order.deliveryBoy?.phone || "N/A"}</p>
+                                    <div className="flex items-center gap-2">
+                                        <Truck className="h-4 w-4 text-blue-600" />
+                                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                                            Shiprocket Courier Fulfillment
+                                        </h4>
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                                        Out-of-reach Pan-India Courier Order
+                                    </p>
+                                </div>
+                                <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${
+                                    order.shiprocket?.currentStatus === "DELIVERED"
+                                        ? "bg-emerald-100 text-emerald-800"
+                                        : order.shiprocket?.currentStatus === "AWB_ASSIGNED" || order.shiprocket?.currentStatus === "IN_TRANSIT"
+                                        ? "bg-blue-100 text-blue-800"
+                                        : "bg-amber-100 text-amber-800"
+                                }`}>
+                                    {order.shiprocket?.currentStatus || "PENDING SHIPMENT"}
+                                </span>
+                            </div>
+
+                            {/* Details Grid */}
+                            <div className="grid grid-cols-2 gap-3 text-xs">
+                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">AWB Code</span>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className="font-mono font-black text-slate-900 text-sm">
+                                            {order.shiprocket?.awb || "—"}
+                                        </span>
+                                        {order.shiprocket?.awb && (
+                                            <button
+                                                onClick={() => copyToClipboard(order.shiprocket.awb, "AWB Code")}
+                                                className="text-[10px] text-blue-600 hover:underline font-bold"
+                                            >
+                                                Copy
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Courier Partner</span>
+                                    <span className="font-black text-slate-800 text-xs mt-1 block">
+                                        {order.shiprocket?.courierName || "Pending Assignment"}
+                                    </span>
+                                </div>
+
+                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Delivery Estimate</span>
+                                    <span className="font-bold text-slate-700 text-xs mt-1 block">
+                                        {order.shiprocket?.etd || order.deliveryEstimate || "3-4 days"}
+                                    </span>
+                                </div>
+
+                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Shipment ID</span>
+                                    <span className="font-mono font-bold text-slate-700 text-xs mt-1 block truncate">
+                                        {order.shiprocket?.shipmentId || "—"}
+                                    </span>
                                 </div>
                             </div>
-                        </div>
-                    </Card>
+
+                            {/* Action Buttons */}
+                            <div className="pt-2 flex flex-wrap gap-2">
+                                {!order.shiprocket?.awb ? (
+                                    <button
+                                        onClick={handleProcessShiprocket}
+                                        disabled={isProcessingShiprocket}
+                                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition disabled:opacity-50"
+                                    >
+                                        <Package size={14} />
+                                        <span>{isProcessingShiprocket ? "Processing..." : "Process Shipment & AWB"}</span>
+                                    </button>
+                                ) : (
+                                    <>
+                                        <button
+                                            onClick={handleSchedulePickup}
+                                            disabled={isSchedulingPickup}
+                                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition disabled:opacity-50"
+                                        >
+                                            <Clock size={14} />
+                                            <span>{isSchedulingPickup ? "Scheduling..." : "Schedule Pickup"}</span>
+                                        </button>
+
+                                        <button
+                                            onClick={handleDownloadLabel}
+                                            disabled={isFetchingLabel}
+                                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-900 transition disabled:opacity-50"
+                                        >
+                                            <Printer size={14} />
+                                            <span>Print Label</span>
+                                        </button>
+                                    </>
+                                )}
+
+                                <button
+                                    onClick={() => {
+                                        setManualStatusData({
+                                            status: order.shiprocket?.currentStatus || "IN_TRANSIT",
+                                            remarks: "",
+                                            location: order.address?.city || "",
+                                        });
+                                        setIsManualStatusModalOpen(true);
+                                    }}
+                                    className="px-3 py-2 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition"
+                                >
+                                    Manual Status Update
+                                </button>
+                            </div>
+
+                            {/* History Timeline if exists */}
+                            {Array.isArray(order.shiprocket?.history) && order.shiprocket.history.length > 0 && (
+                                <div className="pt-3 border-t border-slate-100">
+                                    <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                                        Shipment Event History
+                                    </h5>
+                                    <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                                        {order.shiprocket.history.slice().reverse().map((ev, idx) => (
+                                            <div key={idx} className="text-xs bg-slate-50 p-2 rounded-lg border border-slate-100/80 flex items-start justify-between gap-2">
+                                                <div>
+                                                    <span className="font-bold text-slate-800">{ev.status}</span>
+                                                    {ev.location && <span className="text-slate-500"> • {ev.location}</span>}
+                                                    {ev.remarks && <p className="text-[11px] text-slate-500 mt-0.5">{ev.remarks}</p>}
+                                                </div>
+                                                <div className="text-right flex-shrink-0">
+                                                    <span className="text-[10px] text-slate-400">
+                                                        {new Date(ev.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                    <span className="block text-[9px] uppercase font-bold text-slate-400">
+                                                        {ev.source || "api"}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </Card>
+                    ) : (
+                        /* Rider Section for In-House Local Orders */
+                        <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-xl p-6 text-left">
+                            <div className="flex flex-col gap-4">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                        <Bike className="h-3.5 w-3.5 text-emerald-600" /> In-House Delivery Boy (Local)
+                                    </h4>
+                                    <Badge variant={order.deliveryBoy ? "success" : "secondary"} className="text-[8px] font-black uppercase tracking-widest">
+                                        {order.deliveryBoy ? "ASSIGNED" : "UNASSIGNED"}
+                                    </Badge>
+                                </div>
+                                <div className="flex items-center gap-3 mt-2">
+                                    <div className="h-10 w-10 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center text-slate-300 overflow-hidden">
+                                        {order.deliveryBoy ? (
+                                            <div className="h-full w-full flex items-center justify-center font-black text-slate-400 bg-brand-50 ds-h3">{order.deliveryBoy.name.charAt(0)}</div>
+                                        ) : (
+                                            <User className="h-5 w-5" />
+                                        )}
+                                    </div>
+                                    <div>
+                                        <h5 className="text-sm font-black text-slate-900">{order.deliveryBoy?.name || "Pending Rider Assignment"}</h5>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">CONTACT: {order.deliveryBoy?.phone || "N/A"}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+                    )}
 
                     {/* Payment Vector */}
                     <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-2xl overflow-hidden text-left">
@@ -633,6 +856,95 @@ const OrderDetail = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Modal: Manual Shiprocket Status Update */}
+            {isManualStatusModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-150">
+                    <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                            <div>
+                                <h3 className="font-bold text-lg text-slate-900">
+                                    Manual Status Update
+                                </h3>
+                                <p className="text-xs text-slate-400">Shiprocket Courier Order #{orderId}</p>
+                            </div>
+                            <button
+                                onClick={() => setIsManualStatusModalOpen(false)}
+                                className="text-slate-400 hover:text-slate-600 transition"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSubmitManualStatus} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                                    Shiprocket Courier Status <span className="text-rose-500">*</span>
+                                </label>
+                                <select
+                                    value={manualStatusData.status}
+                                    onChange={(e) => setManualStatusData({ ...manualStatusData, status: e.target.value })}
+                                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                >
+                                    <option value="NEW">NEW - Order Placed</option>
+                                    <option value="AWB_ASSIGNED">AWB_ASSIGNED - AWB Generated</option>
+                                    <option value="PICKUP_SCHEDULED">PICKUP_SCHEDULED - Pickup Scheduled</option>
+                                    <option value="PICKUP_QUEUED">PICKUP_QUEUED - Driver Dispatched</option>
+                                    <option value="IN_TRANSIT">IN_TRANSIT - In Transit (Hub to Hub)</option>
+                                    <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY - Out for Delivery</option>
+                                    <option value="DELIVERED">DELIVERED - Successfully Delivered</option>
+                                    <option value="CANCELLED">CANCELLED - Cancelled</option>
+                                    <option value="RTO_INITIATED">RTO_INITIATED - Returned to Origin</option>
+                                    <option value="RTO_DELIVERED">RTO_DELIVERED - Return Completed</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                                    Current Location / Hub
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Mauranipur Hub, Delhi Sorting Center"
+                                    value={manualStatusData.location}
+                                    onChange={(e) => setManualStatusData({ ...manualStatusData, location: e.target.value })}
+                                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                                    Status Remarks
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    placeholder="e.g. Courier picked up package from warehouse"
+                                    value={manualStatusData.remarks}
+                                    onChange={(e) => setManualStatusData({ ...manualStatusData, remarks: e.target.value })}
+                                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsManualStatusModalOpen(false)}
+                                    className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold text-sm transition"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSubmittingManualStatus}
+                                    className="px-5 py-2 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/95 transition shadow-sm active:scale-95 disabled:opacity-50"
+                                >
+                                    {isSubmittingManualStatus ? "Updating..." : "Save Status"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

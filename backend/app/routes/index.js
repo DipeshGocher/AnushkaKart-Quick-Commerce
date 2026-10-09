@@ -30,6 +30,7 @@ import translationRoute from "./translationRoutes.js";
 import legalPageRoute from "./legalPageRoutes.js";
 import festivalDealsRoute from "./festivalDealsRoutes.js";
 import attributeRoute from "./attributeRoutes.js";
+import shippingRoute from "./shippingRoutes.js";
 
 import express from "express";
 
@@ -85,6 +86,7 @@ const setupRoutes = (app) => {
     router.use("/legal", legalPageRoute);
     router.use("/festival-deals", festivalDealsRoute);
     router.use("/attributes", attributeRoute);
+    router.use("/shipping", shippingRoute);
 
     app.use("/api", router);
 }

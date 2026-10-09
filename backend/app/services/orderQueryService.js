@@ -592,29 +592,63 @@ export async function getOrderWithAccess(orderId, userId, role) {
   if (isOwnerCustomer) {
     const now = new Date();
     
-    if (order.workflowStatus === WORKFLOW_STATUS.PICKUP_READY || order.workflowStatus === WORKFLOW_STATUS.DELIVERY_STARTED) {
+    // Check if order is out for delivery or packed/ready for pickup
+    const isDeliveryOtpEligible = [
+      WORKFLOW_STATUS.PICKUP_READY,
+      WORKFLOW_STATUS.OUT_FOR_DELIVERY,
+      "OUT_FOR_DELIVERY",
+      "PICKUP_READY",
+      "out_for_delivery",
+      "packed"
+    ].includes(order.workflowStatus) || [
+      "out_for_delivery",
+      "packed"
+    ].includes(String(order.status || "").toLowerCase());
+
+    if (isDeliveryOtpEligible) {
+      const canonicalId = order.orderId;
+      const mongoId = order._id;
       const deliveryOtp = await OrderOtp.findOne({ 
-        orderId, 
+        $or: [
+          ...(canonicalId ? [{ orderId: canonicalId }] : []),
+          ...(mongoId ? [{ orderMongoId: mongoId }] : []),
+          ...(orderId ? [{ orderId }] : [])
+        ],
         type: 'delivery', 
         consumedAt: null, 
         expiresAt: { $gt: now } 
       }).sort({ lastGeneratedAt: -1 }).lean();
       
       if (deliveryOtp) {
-        order.deliveryOtp = { code: deliveryOtp.code, expiresAt: deliveryOtp.expiresAt };
+        order.deliveryOtp = { 
+          code: deliveryOtp.code, 
+          otp: deliveryOtp.code,
+          expiresAt: deliveryOtp.expiresAt 
+        };
+        order.handoffOtp = order.deliveryOtp;
       }
     }
     
     if (order.returnStatus === "return_pickup_assigned") {
+      const canonicalId = order.orderId;
+      const mongoId = order._id;
       const returnOtp = await OrderOtp.findOne({ 
-        orderId, 
+        $or: [
+          ...(canonicalId ? [{ orderId: canonicalId }] : []),
+          ...(mongoId ? [{ orderMongoId: mongoId }] : []),
+          ...(orderId ? [{ orderId }] : [])
+        ],
         type: 'return_pickup', 
         consumedAt: null, 
         expiresAt: { $gt: now } 
       }).sort({ lastGeneratedAt: -1 }).lean();
       
       if (returnOtp) {
-        order.returnPickupOtp = { code: returnOtp.code, expiresAt: returnOtp.expiresAt };
+        order.returnPickupOtp = { 
+          code: returnOtp.code, 
+          otp: returnOtp.code,
+          expiresAt: returnOtp.expiresAt 
+        };
       }
     }
   }

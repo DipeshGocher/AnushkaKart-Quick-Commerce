@@ -202,6 +202,32 @@ export async function sellerAcceptAtomic(sellerId, orderId) {
   }
 
   await removeSellerTimeoutJob(orderId);
+
+  if (updated.fulfillmentType === "SHIPROCKET") {
+    // Shiprocket Order: Keep order confirmed, ready for courier fulfillment. Do not broadcast to local delivery boys.
+    await Order.findByIdAndUpdate(updated._id, {
+      $set: {
+        workflowStatus: WORKFLOW_STATUS.SELLER_ACCEPTED,
+        status: "confirmed",
+        sellerAcceptedAt: now,
+      },
+      $unset: { expiresAt: 1, deliverySearchExpiresAt: 1 },
+    });
+
+    emitOrderStatusUpdate(
+      updated.orderId,
+      {
+        workflowStatus: WORKFLOW_STATUS.SELLER_ACCEPTED,
+        status: "confirmed",
+      },
+      updated.customer?._id || updated.customer,
+    );
+
+    return await Order.findById(updated._id)
+      .populate("customer", "name phone")
+      .populate("seller", "shopName address name location serviceRadius");
+  }
+
   await scheduleDeliveryTimeoutJob(orderId, 1);
 
   await DeliveryAssignment.create({
@@ -1136,6 +1162,7 @@ async function resolveRiderLocation(deliveryId, bodyLat, bodyLng) {
 }
 
 export async function requestHandoffOtpAtomic(deliveryId, orderId, lat, lng) {
+  orderId = await requireCanonicalOrderId(orderId);
   const order = await Order.findOne({
     orderId,
     deliveryBoy: deliveryId,
@@ -1253,6 +1280,28 @@ export async function requestHandoffOtpAtomic(deliveryId, orderId, lat, lng) {
     event: "delivery:otp:generated",
     payload: otpPayload,
   });
+  if (order.orderId && order.orderId !== orderId) {
+    emitToOrder(order.orderId, { event: "order:otp", payload: otpPayload });
+    emitToOrder(order.orderId, {
+      event: "delivery:otp:generated",
+      payload: otpPayload,
+    });
+  }
+  if (order._id) {
+    emitToOrder(order._id.toString(), { event: "order:otp", payload: otpPayload });
+    emitToOrder(order._id.toString(), {
+      event: "delivery:otp:generated",
+      payload: otpPayload,
+    });
+  }
+  const shortSuffix = (order.orderId || orderId).replace(/^ORD-[^-]*/, "").replace(/^[^\w]+/, "");
+  if (shortSuffix && shortSuffix !== orderId) {
+    emitToOrder(shortSuffix, { event: "order:otp", payload: otpPayload });
+    emitToOrder(shortSuffix, {
+      event: "delivery:otp:generated",
+      payload: otpPayload,
+    });
+  }
   emitOrderStatusUpdate(orderId, { otpSent: true }, order.customer);
 
   return { expiresAt, attemptsRemaining: 3, message: "OTP sent to customer" };

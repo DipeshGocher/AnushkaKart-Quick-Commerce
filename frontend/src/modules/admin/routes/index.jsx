@@ -113,6 +113,7 @@ const EmployeeManagement = React.lazy(() => import("../pages/EmployeeManagement"
 const EmployeeDetail = React.lazy(() => import("../pages/EmployeeDetail"));
 const WarehouseQueueDashboard = React.lazy(() => import("../pages/WarehouseQueueDashboard"));
 const LegalPageEditor = React.lazy(() => import("../pages/LegalPageEditor"));
+const DeliveryPincodes = React.lazy(() => import("../pages/DeliveryPincodes"));
 
 const navItems = [
   // ── CORE MANAGEMENT ──
@@ -198,6 +199,7 @@ const navItems = [
       { label: "Track Drivers", path: "/admin/tracking" },
       { label: "Send Money", path: "/admin/delivery-funds" },
       { label: "SOS Alerts", path: "/admin/sos-alerts" },
+      { label: "Delivery Pincodes", path: "/admin/delivery-pincodes" },
     ],
   },
   { label: "Customers", path: "/admin/customers", icon: Users, color: "sky" },
@@ -346,6 +348,7 @@ export const adminRoutes = [
   { path: "billing", element: <BillingCharges /> },
   { path: "layout-branding", element: <LayoutBranding /> },
   { path: "settings", element: <AdminSettings /> },
+  { path: "delivery-pincodes", element: <DeliveryPincodes /> },
   { path: "legal-pages", element: <LegalPageEditor /> },
   { path: "*", element: <Navigate to="/admin" replace /> },
 ];

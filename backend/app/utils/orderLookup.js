@@ -33,7 +33,7 @@ export function orderMatchQueryFromRouteParam(routeParam) {
  * Use for read endpoints (e.g. customer order detail); keep strict matching for mutating flows when needed.
  */
 export function orderMatchQueryFlexible(routeParam) {
-  const raw = normalizeOrderRouteParam(routeParam);
+  const raw = normalizeOrderRouteParam(routeParam).replace(/^#/, "");
   if (!raw) return null;
   if (isStrictObjectIdString(raw)) {
     return { _id: new mongoose.Types.ObjectId(raw) };
@@ -43,14 +43,16 @@ export function orderMatchQueryFlexible(routeParam) {
     $or: [
       { orderId: raw },
       { orderId: new RegExp(`^${esc}$`, "i") },
+      { orderId: new RegExp(`${esc}$`, "i") },
       { checkoutGroupId: raw },
       { checkoutGroupId: new RegExp(`^${esc}$`, "i") },
+      { checkoutGroupId: new RegExp(`${esc}$`, "i") },
     ],
   };
 }
 
 export async function resolveCanonicalOrderId(routeParam) {
-  const q = orderMatchQueryFromRouteParam(routeParam);
+  const q = orderMatchQueryFlexible(routeParam);
   if (!q) return null;
   const doc = await Order.findOne(q).select("orderId").lean();
   return doc?.orderId ?? null;

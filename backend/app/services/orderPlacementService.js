@@ -577,6 +577,23 @@ export async function placeOrderAtomic({
           total: entry.breakdown.grandTotal,
           walletAmount: proportionateWallet,
         },
+        fulfillmentType: entry.fulfillmentType || pricingSnapshot.fulfillmentType || "LOCAL",
+        deliveryEstimate: entry.deliveryEstimate || pricingSnapshot.deliveryEstimate || "12-15 mins",
+        shiprocket: (entry.fulfillmentType || pricingSnapshot.fulfillmentType) === "SHIPROCKET"
+          ? {
+              currentStatus: "NEW",
+              currentStatusCode: 1,
+              history: [
+                {
+                  status: "NEW",
+                  location: normalizedAddress?.city || "",
+                  timestamp: new Date(),
+                  remarks: "Order created for Shiprocket fulfillment",
+                  source: "system",
+                },
+              ],
+            }
+          : undefined,
         coupon: persistedCouponId,
         ...(persistedCouponSnapshot ? { couponSnapshot: persistedCouponSnapshot } : {}),
         status: "pending",

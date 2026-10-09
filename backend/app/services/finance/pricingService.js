@@ -369,6 +369,7 @@ export async function generateOrderPaymentBreakdown({
   deliverySettings,
   handlingFeeStrategy,
   session = null,
+  fulfillmentType = "LOCAL",
 }) {
   const normalizedItems = Array.isArray(preHydratedItems) && preHydratedItems.length > 0
     ? preHydratedItems
@@ -434,8 +435,32 @@ export async function generateOrderPaymentBreakdown({
     handlingFeeStrategy: effectiveHandlingStrategy,
     categoryById,
   });
-  const delivery = calculateCustomerDeliveryFee(distanceKm, effectiveSettings);
-  const rider = calculateRiderPayout(distanceKm, effectiveSettings);
+  const isShiprocket = fulfillmentType === "SHIPROCKET";
+  const standardCourierFee = Number(process.env.SHIPROCKET_DELIVERY_CHARGE || 49);
+  const courierFreeThreshold = Number(process.env.SHIPROCKET_FREE_DELIVERY_THRESHOLD || 499);
+  const courierDeliveryFee = productSubtotal >= courierFreeThreshold ? 0 : standardCourierFee;
+
+  const delivery = isShiprocket
+    ? {
+        deliveryFeeCharged: courierDeliveryFee,
+        distanceKmActual: 0,
+        distanceKmRounded: 0,
+        roundedExtraKm: 0,
+        mode: "shiprocket_courier",
+        baseFee: courierDeliveryFee,
+        extraFee: 0,
+      }
+    : calculateCustomerDeliveryFee(distanceKm, effectiveSettings);
+
+  const rider = isShiprocket
+    ? {
+        riderPayoutBase: 0,
+        riderPayoutDistance: 0,
+        riderPayoutBonus: 0,
+        riderPayoutTotal: 0,
+        mode: "shiprocket_courier",
+      }
+    : calculateRiderPayout(distanceKm, effectiveSettings);
 
   const normalizedDiscount = roundCurrency(discountTotal || 0);
   const normalizedTax = roundCurrency(taxTotal || 0);

@@ -270,6 +270,47 @@ const orderSchema = new mongoose.Schema(
     },
     // -------------------------------------------------------------------------
 
+    // Hybrid Delivery: LOCAL (In-House Riders) vs SHIPROCKET (Courier)
+    fulfillmentType: {
+      type: String,
+      enum: ["LOCAL", "SHIPROCKET"],
+      default: "LOCAL",
+      index: true,
+    },
+    deliveryEstimate: {
+      type: String,
+      default: "12-15 mins",
+    },
+    shiprocket: {
+      shipmentId: { type: String, default: null, index: true },
+      shiprocketOrderId: { type: String, default: null },
+      awb: { type: String, default: null, index: true },
+      courierName: { type: String, default: null },
+      courierId: { type: String, default: null },
+      labelUrl: { type: String, default: null },
+      manifestUrl: { type: String, default: null },
+      currentStatus: {
+        type: String,
+        default: "PENDING_DISPATCH",
+      },
+      currentStatusCode: { type: Number, default: 0 },
+      etd: { type: String, default: null },
+      trackingUrl: { type: String, default: null },
+      pickupScheduledAt: { type: Date, default: null },
+      shippedAt: { type: Date, default: null },
+      deliveredAt: { type: Date, default: null },
+      lastEventAt: { type: Date, default: null },
+      history: [
+        {
+          status: String,
+          location: String,
+          timestamp: { type: Date, default: Date.now },
+          remarks: String,
+          source: { type: String, default: "system" },
+        },
+      ],
+    },
+
     pricingSnapshot: {
       deliverySettings: {
         type: Object,
