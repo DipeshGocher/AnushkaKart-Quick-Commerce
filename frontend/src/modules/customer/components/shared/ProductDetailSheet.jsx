@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence, useAnimation, useDragControls } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { X, ChevronDown, ChevronUp, FileText, Share2, Heart, Search, Clock, Minus, Plus, ShoppingBag, ShoppingCart, Star, MessageSquare, ArrowLeft, ChevronRight, ChevronLeft, Store, Building2, Package, RotateCcw, Banknote, ShieldCheck, Zap, Award, Truck, Ban, CheckCircle2 } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, FileText, Share2, Heart, Search, Clock, Minus, Plus, ShoppingBag, ShoppingCart, Star, MessageSquare, ArrowLeft, ChevronRight, ChevronLeft, Store, Building2, Package, RotateCcw, Banknote, ShieldCheck, Zap, Award, Truck, Ban, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
 import { useProductDetail } from '../../context/ProductDetailContext';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { useCart } from '../../context/CartContext';
@@ -10,6 +10,7 @@ import { useAuth } from '@core/context/AuthContext';
 import { useToast } from '@shared/components/ui/Toast';
 import { useSettings } from '@core/context/SettingsContext';
 import { useLocation as useAppLocation } from '../../context/LocationContext';
+import { useDeliveryEligibility } from '../../hooks/useDeliveryEligibility';
 import { cn } from '@/lib/utils';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 import { customerApi } from '../../services/customerApi';
@@ -42,6 +43,16 @@ const ProductDetailSheet = () => {
     const { settings } = useSettings();
     const { currentLocation } = useAppLocation();
     const supportEmail = settings?.supportEmail || 'support@example.com';
+
+    const {
+        isDeliverable,
+        canAddToCart,
+        badge: deliveryBadge,
+        warning: deliveryWarning,
+        deliveryEstimate,
+        fulfillmentType,
+        customerPincode
+    } = useDeliveryEligibility(selectedProduct);
 
     // Controls for sheet animation
     const controls = useAnimation();
@@ -463,6 +474,11 @@ const ProductDetailSheet = () => {
             return;
         }
 
+        if (!canAddToCart) {
+            showToast(deliveryWarning || `Quick Delivery not available at ${customerPincode || 'your location'}`, 'error');
+            return;
+        }
+
         let customData = {};
         if (selectedProduct.isMonthlyKit) {
             const selectedAddons = addons.filter(a => (addonQuantities[a._id] || 0) > 0);
@@ -849,6 +865,89 @@ const ProductDetailSheet = () => {
         );
     };
 
+    const renderDeliveryFulfillmentCard = () => {
+        if (!selectedProduct) return null;
+
+        if (!canAddToCart) {
+            return (
+                <div className="rounded-2xl border border-red-200/90 bg-red-50/70 p-4 shadow-2xs my-3 text-left">
+                    <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                            <Ban size={20} strokeWidth={2.5} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-black text-red-700 uppercase tracking-wide">
+                                    Quick Delivery Not Available
+                                </span>
+                                {customerPincode && (
+                                    <span className="text-[10px] font-bold text-red-600 bg-white border border-red-200 px-2 py-0.5 rounded-md">
+                                        PIN: {customerPincode}
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-[12px] text-red-600 font-medium mt-1 leading-snug">
+                                {deliveryWarning || "Quick Delivery is not available at your pincode. Fresh perishables (milk, vegetables, dairy) are currently delivered only within local delivery zones (Jhansi: 284204, 284205)."}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        if (fulfillmentType === "LOCAL_RIDERS") {
+            return (
+                <div className="rounded-2xl border border-emerald-200/90 bg-emerald-50/60 p-4 shadow-2xs my-3 text-left">
+                    <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 shadow-2xs">
+                            <Zap size={20} strokeWidth={2.5} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-black text-emerald-800 uppercase tracking-wide flex items-center gap-1">
+                                    <span>⚡ Superfast 12–15 Mins Delivery</span>
+                                </span>
+                                {customerPincode && (
+                                    <span className="text-[10px] font-bold text-emerald-700 bg-white border border-emerald-200 px-2 py-0.5 rounded-md">
+                                        PIN: {customerPincode}
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-[12px] text-emerald-700 font-medium mt-1 leading-snug">
+                                Delivered in <strong className="font-bold text-emerald-900">12–15 mins</strong> by AnushkaKart local express riders right to your doorstep.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div className="rounded-2xl border border-sky-200/90 bg-sky-50/60 p-4 shadow-2xs my-3 text-left">
+                <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center shrink-0 shadow-2xs">
+                        <Truck size={20} strokeWidth={2.2} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-black text-sky-800 uppercase tracking-wide flex items-center gap-1">
+                                <span>📦 Standard Courier Delivery (3–4 Days)</span>
+                            </span>
+                            {customerPincode && (
+                                <span className="text-[10px] font-bold text-sky-700 bg-white border border-sky-200 px-2 py-0.5 rounded-md">
+                                    PIN: {customerPincode}
+                                </span>
+                            )}
+                        </div>
+                        <p className="text-[12px] text-sky-700 font-medium mt-1 leading-snug">
+                            Shipped via Shiprocket courier partners across India with live order tracking.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     const renderMoreDetailsCard = () => {
         if (!specificationsList || specificationsList.length === 0) return null;
         return (
@@ -1021,7 +1120,7 @@ const ProductDetailSheet = () => {
                                                             : 'border-gray-200/60 opacity-50 hover:opacity-90 bg-white/60'
                                                     )}
                                                 >
-                                                    <img src={applyCloudinaryTransform(img, "f_auto,q_auto:best,w_160,dpr_auto")} alt="" loading="lazy" className="w-full h-full object-contain p-1.5" />
+                                                    <img src={applyCloudinaryTransform(img, "c_limit,w_200,f_auto,q_auto:good")} alt="" loading="lazy" className="w-full h-full object-contain p-1" />
                                                 </motion.button>
                                             ))}
                                         </div>
@@ -1032,14 +1131,14 @@ const ProductDetailSheet = () => {
                                         <AnimatePresence mode="wait">
                                             <motion.img
                                                 key={activeImageIndex}
-                                                initial={{ scale: 0.93, opacity: 0 }}
-                                                animate={{ scale: 1, opacity: 1 }}
-                                                exit={{ scale: 0.93, opacity: 0 }}
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                exit={{ opacity: 0 }}
                                                 transition={{ duration: 0.15 }}
-                                                src={applyCloudinaryTransform(allImages[activeImageIndex], "f_auto,q_auto:best,w_1200,dpr_auto")}
+                                                src={applyCloudinaryTransform(allImages[activeImageIndex], "c_limit,w_1200,f_auto,q_auto:good")}
                                                 alt={`${selectedProduct.name} ${activeImageIndex + 1}`}
                                                 onClick={() => setIsLightboxOpen(true)}
-                                                className="w-full h-full object-contain mix-blend-multiply drop-shadow-2xl hover:scale-[1.03] transition-transform duration-500 absolute inset-0 m-auto p-12 cursor-pointer"
+                                                className="w-full h-full max-h-[440px] object-contain transition-transform duration-300 hover:scale-[1.03] cursor-pointer"
                                             />
                                         </AnimatePresence>
                                     </div>
@@ -1063,25 +1162,42 @@ const ProductDetailSheet = () => {
 
                                 {/* Desktop Action Buttons: Add to Cart & Buy Now (Flipkart signature style) */}
                                 <div className="p-4 bg-white/95 backdrop-blur-sm border-t border-slate-100 flex items-center gap-3 z-20 mt-auto">
-                                    <button
-                                        type="button"
-                                        onClick={handleAddToCart}
-                                        className="flex-1 bg-[#ff9f00] hover:bg-[#f39700] active:scale-95 text-white font-bold text-xs lg:text-sm py-3.5 px-3 rounded-xl shadow-md shadow-amber-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer uppercase tracking-wider"
-                                    >
-                                        <ShoppingCart size={16} strokeWidth={2.5} />
-                                        <span>Add to Cart</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            closeProduct();
-                                            navigate('/checkout', { state: { directBuyItem: selectedProduct } });
-                                        }}
-                                        className="flex-1 bg-[#fb641b] hover:bg-[#f45305] active:scale-95 text-white font-bold text-xs lg:text-sm py-3.5 px-3 rounded-xl shadow-md shadow-orange-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer uppercase tracking-wider"
-                                    >
-                                        <Zap size={16} strokeWidth={2.5} />
-                                        <span>Buy Now</span>
-                                    </button>
+                                    {!canAddToCart ? (
+                                        <button
+                                            type="button"
+                                            disabled
+                                            className="w-full bg-slate-100 text-slate-400 font-bold text-xs lg:text-sm py-3.5 px-3 rounded-xl border border-slate-200 flex items-center justify-center gap-2 cursor-not-allowed uppercase tracking-wider"
+                                        >
+                                            <Ban size={16} className="text-red-400" strokeWidth={2.5} />
+                                            <span>Quick Delivery Not Available</span>
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={handleAddToCart}
+                                                className="flex-1 bg-[#ff9f00] hover:bg-[#f39700] active:scale-95 text-white font-bold text-xs lg:text-sm py-3.5 px-3 rounded-xl shadow-md shadow-amber-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer uppercase tracking-wider"
+                                            >
+                                                <ShoppingCart size={16} strokeWidth={2.5} />
+                                                <span>Add to Cart</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (!canAddToCart) {
+                                                        showToast(deliveryWarning || `Quick Delivery not available at ${customerPincode || 'your location'}`, 'error');
+                                                        return;
+                                                    }
+                                                    closeProduct();
+                                                    navigate('/checkout', { state: { directBuyItem: selectedProduct } });
+                                                }}
+                                                className="flex-1 bg-[#fb641b] hover:bg-[#f45305] active:scale-95 text-white font-bold text-xs lg:text-sm py-3.5 px-3 rounded-xl shadow-md shadow-orange-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer uppercase tracking-wider"
+                                            >
+                                                <Zap size={16} strokeWidth={2.5} />
+                                                <span>Buy Now</span>
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
@@ -1139,6 +1255,9 @@ const ProductDetailSheet = () => {
                                         </motion.div>
                                     )}
 
+                                    {/* Delivery Fulfillment Notice Card */}
+                                    {renderDeliveryFulfillmentCard()}
+
                                     {/* Price + Add-to-Cart Card */}
                                     <motion.div
                                         initial={{ opacity: 0, y: 12 }}
@@ -1191,6 +1310,14 @@ const ProductDetailSheet = () => {
                                                             <Plus size={16} strokeWidth={2.5} />
                                                         </motion.button>
                                                     </div>
+                                                ) : !canAddToCart ? (
+                                                    <button
+                                                        disabled
+                                                        className="bg-slate-100 text-slate-400 h-12 px-6 rounded-xl font-bold text-xs flex items-center gap-2 border border-slate-200 cursor-not-allowed uppercase tracking-wider"
+                                                    >
+                                                        <Ban size={15} className="text-red-400" />
+                                                        <span>Unavailable</span>
+                                                    </button>
                                                 ) : (
                                                     <motion.button
                                                         whileHover={{ scale: 1.02, y: -2 }}
@@ -1490,6 +1617,9 @@ const ProductDetailSheet = () => {
                                         )}
                                 </div>
 
+                                {/* Delivery Fulfillment Notice Card (Mobile) */}
+                                {renderDeliveryFulfillmentCard()}
+
                                 {/* Variants Selection (Mobile) */}
                                 {selectedProduct.variants && selectedProduct.variants.filter(v => v.name).length > 0 && (
                                     <div className="pt-1 mb-1">
@@ -1602,6 +1732,13 @@ const ProductDetailSheet = () => {
                                         >
                                             <Plus size={18} strokeWidth={3} />
                                         </motion.button>
+                                    </div>
+                                ) : !canAddToCart ? (
+                                    <div className="flex-1 bg-slate-100 border border-slate-200 text-slate-400 h-12 rounded-xl flex items-center justify-center gap-2 px-3">
+                                        <Ban size={16} className="text-red-400 shrink-0" strokeWidth={2.5} />
+                                        <span className="font-bold text-xs uppercase tracking-wider text-slate-500 truncate">
+                                            Quick Delivery Not Available
+                                        </span>
                                     </div>
                                 ) : (
                                     <motion.button

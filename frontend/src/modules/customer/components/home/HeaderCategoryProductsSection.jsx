@@ -358,9 +358,9 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
               }}
               aria-label={headerName + " products"}
             >
-              <div className="max-w-7xl mx-auto">
+              <div className="w-full max-w-none px-0 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">
                 {/* Header Category Name (Select all / See All button removed as requested) */}
-                <div className="flex items-center gap-2 px-4 mb-3">
+                <div className="flex items-center gap-2 px-4 lg:px-0 mb-3">
                   <div
                     className="w-1.5 h-5 rounded-full transition-colors"
                     style={{ backgroundColor: config.color }}
@@ -370,7 +370,7 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
 
                 {/* Category Banner (Single banner per section on All page) */}
                 {sectionBanners.length > 0 ? (
-                  <div className="px-0 md:px-4 mb-3.5">
+                  <div className="px-0 md:px-4 lg:px-0 mb-3.5">
                     <ExperienceBannerCarousel
                       items={sectionBanners.slice(0, 1)}
                       fullWidth
@@ -385,7 +385,7 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
                   </div>
                 ) : (
                   /* Banner Unavailable Placeholder Div (allows setting banner from Admin CMS) */
-                  <div className="px-4 mb-3.5">
+                  <div className="px-4 lg:px-0 mb-3.5">
                     <div
                       onClick={() => {
                         if (headerId) {
@@ -429,7 +429,7 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
 
                 {/* Products Row or Placeholder for empty products */}
                 {displayProducts.length > 0 ? (
-                  <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory px-4 pb-2">
+                  <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory px-4 lg:px-0 pb-2">
                     {displayProducts.map((product) => {
                       const id = product._id || product.id;
                       const { currentPrice, originalPrice, hasDiscount, discountPercent } =

@@ -2,6 +2,8 @@ import express from "express";
 import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
 import {
   checkPincodeServiceability,
+  validateCartDelivery,
+  getPublicLocalPincodes,
   getPincodes,
   createPincode,
   updatePincode,
@@ -19,6 +21,8 @@ const router = express.Router();
 
 /* Public serviceability check */
 router.get("/check-serviceability", checkPincodeServiceability);
+router.get("/local-pincodes", getPublicLocalPincodes);
+router.post("/validate-cart", validateCartDelivery);
 
 /* Public webhook endpoint for Shiprocket callbacks */
 router.post("/webhook/shiprocket", shiprocketWebhookHandler);

@@ -10,7 +10,7 @@ import { useCart } from "../../context/CartContext";
 import { customerApi } from "../../services/customerApi";
 import CategoryIcon from "@shared/components/CategoryIcon";
 import { MapPin, Home, ChevronRight, LayoutGrid, ShoppingBag, Zap } from 'lucide-react';
-import { getCustomerHeaderColor, buildMiniCartColor, isBrightColor, getCategoryHeaderColor } from "../../utils/headerTheme";
+import { getCustomerHeaderColor, buildMiniCartColor, isBrightColor, getCategoryHeaderColor, getCategoryHeaderTextColor } from "../../utils/headerTheme";
 
 
 // MUI Icons
@@ -77,20 +77,29 @@ function CategoryNavColumn({
   isAllCategory = true,
   onItemClick,
   isScrolled = false,
+  headerTextColor = null,
 }) {
   const isTextOnlyMode = !isAllCategory || isScrolled;
   const displayName = truncateCategoryName(cat.name, 12);
 
-  const activeColor = isTextOnlyMode
-    ? (isAllCategory ? (isBright ? "#1764cf" : "#ffffff") : (isBright ? "#0f172a" : "#ffffff"))
-    : (isBright ? "#1764cf" : "#ffffff");
-  const inactiveColor = isTextOnlyMode
-    ? (isBright ? "rgba(15, 23, 42, 0.72)" : "rgba(255, 255, 255, 0.85)")
-    : (isBright ? "#344054" : "rgba(255, 255, 255, 0.85)");
-  const iconColor = isBright ? "#111827" : "#ffffff";
-  const indicatorColor = isAllCategory
-    ? (isBright ? "#2875E8" : "#ffffff")
-    : (isBright ? "#0f172a" : "#ffffff");
+  const activeColor = headerTextColor || (
+    isTextOnlyMode
+      ? (isAllCategory ? (isBright ? "#1764cf" : "#ffffff") : (isBright ? "#0f172a" : "#ffffff"))
+      : (isBright ? "#1764cf" : "#ffffff")
+  );
+  const inactiveColor = headerTextColor
+    ? (headerTextColor.toLowerCase() === "#ffffff"
+        ? "rgba(255, 255, 255, 0.85)"
+        : "rgba(15, 23, 42, 0.72)")
+    : (isTextOnlyMode
+        ? (isBright ? "rgba(15, 23, 42, 0.72)" : "rgba(255, 255, 255, 0.85)")
+        : (isBright ? "#344054" : "rgba(255, 255, 255, 0.85)"));
+  const iconColor = headerTextColor || (isBright ? "#111827" : "#ffffff");
+  const indicatorColor = headerTextColor || (
+    isAllCategory
+      ? (isBright ? "#2875E8" : "#ffffff")
+      : (isBright ? "#0f172a" : "#ffffff")
+  );
 
   return (
     <div
@@ -100,10 +109,10 @@ function CategoryNavColumn({
         if (onItemClick) onItemClick(e.currentTarget);
       }}
       className={cn(
-        "customer-category-nav-item relative z-[2] flex shrink-0 cursor-pointer items-center justify-center flex-col transition-all duration-200 select-none",
+        "customer-category-nav-item relative z-[2] flex shrink-0 cursor-pointer items-center justify-center flex-col select-none",
         isTextOnlyMode
-          ? "px-3.5 pt-1 pb-2 h-9"
-          : "min-w-[50px] sm:min-w-[56px] flex-col gap-0.5 px-1.5 pb-1 pt-0.5 md:min-w-[62px] h-[46px] sm:h-[48px]",
+          ? "px-3 pt-1 pb-1.5 h-9"
+          : "flex-col gap-0.5 px-0.5 pb-1 pt-0.5 md:min-w-[68px] md:max-w-[80px] h-[46px]",
         isActive && "is-active"
       )}>
       {!isTextOnlyMode && (
@@ -132,7 +141,7 @@ function CategoryNavColumn({
             "customer-category-nav-label relative z-10 block text-center leading-none tracking-tight transition-all duration-200 whitespace-nowrap mt-0.5",
             isTextOnlyMode
               ? "text-[13.5px] md:text-[14px]"
-              : "max-w-[68px] text-[10px] sm:text-[10.5px] md:max-w-[84px] md:text-[11px]",
+              : "w-full max-w-full truncate text-[10px] sm:text-[10.5px] md:text-[11px]",
             isActive ? "font-bold" : "font-medium",
           )}
           style={{
@@ -145,11 +154,11 @@ function CategoryNavColumn({
       {isActive && (
         <motion.span
           layoutId="category-nav-indicator"
-          className="customer-category-nav-indicator absolute bottom-0 inset-x-2 h-[2.5px] rounded-full pointer-events-none"
+          className="customer-category-nav-indicator absolute bottom-0 inset-x-1.5 h-[2.5px] rounded-full pointer-events-none"
           style={{
             backgroundColor: indicatorColor,
           }}
-          transition={{ type: "spring", stiffness: 500, damping: 38 }}
+          transition={{ type: "spring", stiffness: 450, damping: 35 }}
         />
       )}
     </div>
@@ -200,8 +209,8 @@ const MainLocationHeader = ({
         window.requestAnimationFrame(() => {
           const currentY = window.scrollY || document.documentElement.scrollTop || 0;
           setInternalScrolled((prev) => {
-            if (!prev && currentY > 40) return true;
-            if (prev && currentY < 20) return false;
+            if (!prev && currentY > 60) return true;
+            if (prev && currentY < 25) return false;
             return prev;
           });
           ticking = false;
@@ -246,6 +255,33 @@ const MainLocationHeader = ({
   const mobileNavRef = useRef(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
+
+  // Dynamic mobile category width: ensures EXACTLY 6 items visible on 1 screen/page with comfortable gap
+  useEffect(() => {
+    const el = mobileNavRef.current;
+    if (!el) return;
+
+    const calculateItemWidth = () => {
+      const containerWidth = el.clientWidth;
+      if (containerWidth > 0) {
+        // Exactly 6 items visible per screen/page:
+        // gap between items = 8px (0.5rem) -> 5 gaps = 40px
+        // inner left + right padding = 8px (4px each)
+        // total spacing = 48px
+        const GAP = 8;
+        const PADDING = 8;
+        const TOTAL_SPACING = (5 * GAP) + PADDING;
+        const computedWidth = Math.floor((containerWidth - TOTAL_SPACING) / 6);
+        el.style.setProperty('--cat-item-width', `${computedWidth}px`);
+        el.style.setProperty('--cat-gap', `${GAP}px`);
+      }
+    };
+
+    calculateItemWidth();
+    const ro = new ResizeObserver(() => calculateItemWidth());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [categories.length]);
 
   // Auto-scroll category into view, shifting right-side tabs to the left/center
   const scrollCategoryIntoView = (targetEl) => {
@@ -452,7 +488,9 @@ const MainLocationHeader = ({
 
 
   const targetHeaderColor = getCategoryHeaderColor(activeCategory);
-  const isBright = isBrightColor(targetHeaderColor);
+  const targetTextColor = getCategoryHeaderTextColor(activeCategory, targetHeaderColor);
+  const isBright = isBrightColor(targetHeaderColor) || (activeCategory?.headerFontColor && !isBrightColor(activeCategory.headerFontColor));
+  const categoryModeTextColor = !isAllCategory ? targetTextColor : null;
 
   const baseHeaderColor = getCustomerHeaderColor(activeCategory, categories);
 
@@ -468,30 +506,36 @@ const MainLocationHeader = ({
 
   return (
     <>
-      <div className="fixed top-0 left-0 right-0 z-[200] pointer-events-none px-0 md:px-4 lg:px-6">
+      <div className="fixed top-0 left-0 right-0 z-[200] pointer-events-none px-0">
         <motion.div
           initial={false}
           animate={{
             backgroundColor: targetHeaderColor,
-            borderBottomLeftRadius: 24,
-            borderBottomRightRadius: 24,
           }}
           transition={{
-            backgroundColor: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
-            layout: { duration: 0.35, ease: [0.22, 1, 0.36, 1] }
+            backgroundColor: { duration: 0.25, ease: [0.22, 1, 0.36, 1] },
           }}
           style={{
             backgroundColor: targetHeaderColor,
             paddingTop: isScrolled ? 16 : 14,
-            paddingBottom: (!isAllCategory || isScrolled) ? 3 : 4,
+            paddingBottom: !isAllCategory ? 3 : 4,
             borderBottomLeftRadius: 24,
             borderBottomRightRadius: 24,
             opacity: bgOpacity,
+            "--category-header-text-active": targetTextColor,
+            "--category-header-text-color":
+              targetTextColor?.toLowerCase() === "#ffffff"
+                ? "rgba(255, 255, 255, 0.85)"
+                : (isBright || (targetTextColor && !isBrightColor(targetTextColor))
+                    ? "rgba(15, 23, 42, 0.72)"
+                    : targetTextColor),
+            "--category-header-indicator": targetTextColor,
           }}
           className={cn(
-            "customer-location-header pointer-events-auto w-full md:max-w-7xl md:mx-auto px-4 overflow-hidden transform-gpu will-change-transform backdrop-blur-xl transition-all duration-300",
-            "rounded-b-[24px] shadow-[0_8px_24px_rgba(0,0,0,0.12)] border-b md:border-x",
-            (!isAllCategory || isScrolled) && "is-category-mode",
+            "customer-location-header pointer-events-auto w-full max-w-none px-4 lg:px-8 xl:px-12 2xl:px-16 overflow-hidden transform-gpu will-change-[transform,background-color] backdrop-blur-xl transition-[padding,background-color] duration-200 ease-out",
+            "rounded-b-[24px] shadow-[0_8px_24px_rgba(0,0,0,0.12)] border-b",
+            !isAllCategory && "is-category-mode",
+            isAllCategory && isScrolled && "is-scrolled-compact",
             isBright ? "is-bright-header border-black/10" : "is-dark-header border-white/10"
           )}>
           <div className="absolute inset-0 pointer-events-none" style={{ background: isAllCategory ? 'linear-gradient(180deg, rgba(255,255,255,0.34) 0%, rgba(234,244,255,0.22) 100%)' : 'none' }} />
@@ -509,7 +553,7 @@ const MainLocationHeader = ({
           <div className={cn("absolute inset-x-0 bottom-0 h-px pointer-events-none", isAllCategory ? "bg-blue-200/80" : "hidden")} />
 
           {/* Desktop/Tablet Header Layout (md and above) */}
-          <div className={cn("hidden md:flex items-center justify-between relative z-20 w-full max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 transition-all duration-300 mt-1", (isAllCategory && isScrolled) ? "mb-2" : "mb-8")}>
+          <div className={cn("hidden md:flex items-center justify-between relative z-20 w-full max-w-none px-2 sm:px-4 lg:px-6 transition-all duration-300 mt-1", (isAllCategory && isScrolled) ? "mb-2" : "mb-8")}>
             {/* Left Section: Logo + Location row */}
             <div className="flex items-center gap-2.5 lg:gap-3.5 shrink-0">
               <div
@@ -659,8 +703,8 @@ const MainLocationHeader = ({
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: "auto", opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                  className="overflow-hidden flex flex-col gap-1.5 mb-2"
+                  transition={{ duration: 0.24, ease: [0.25, 0.1, 0.25, 1] }}
+                  className="overflow-hidden flex flex-col gap-1.5 mb-1.5 transform-gpu"
                 >
                   <div className="flex items-center justify-between">
                     {/* Brand Logo */}
@@ -730,7 +774,7 @@ const MainLocationHeader = ({
           </div>
 
           {/* Categories Navigation Row (Icons & Names exactly like image) */}
-          <div className="relative w-full max-w-7xl mx-auto overflow-visible">
+          <div className="relative w-full max-w-none px-0 sm:px-4 lg:px-8 xl:px-12 2xl:px-16 overflow-visible">
             {/* Scroll arrows: desktop only */}
             {showLeftArrow && (
               <button
@@ -743,22 +787,34 @@ const MainLocationHeader = ({
             )}
 
             {/* Mobile wrapper with icon tabs */}
-            <div className="md:hidden w-full">
+            <div 
+              className="md:hidden w-full relative"
+              style={{ containerType: "inline-size" }}
+            >
               <div
                 ref={mobileNavRef}
                 className={cn(
-                  "overflow-x-auto no-scrollbar scroll-smooth transition-all duration-300",
+                  "overflow-x-auto no-scrollbar scroll-smooth",
                   (isAllCategory && !isScrolled)
                     ? "h-[48px] overflow-y-hidden pb-0.5"
                     : "h-10 overflow-y-visible pb-0"
                 )}
+                style={{
+                  WebkitOverflowScrolling: "touch",
+                  overscrollBehaviorX: "contain",
+                }}
               >
-                <div className={cn(
-                  "flex shrink-0 px-2 transition-all duration-300", 
-                  (isAllCategory && !isScrolled)
-                    ? "h-[48px] items-center gap-1 pb-0.5"
-                    : "h-10 items-end gap-3 pb-0"
-                )}>
+                <div 
+                  className={cn(
+                    "flex shrink-0 px-1", 
+                    (isAllCategory && !isScrolled)
+                      ? "h-[48px] items-center gap-[var(--cat-gap,8px)] pb-0.5"
+                      : "h-10 items-end gap-2.5 pb-0"
+                  )}
+                  style={{
+                    gap: (isAllCategory && !isScrolled) ? "var(--cat-gap, 8px)" : undefined,
+                  }}
+                >
                   {categories.map((cat) => (
                     <CategoryNavColumn
                       key={cat.id || cat._id}
@@ -769,6 +825,7 @@ const MainLocationHeader = ({
                       isAllCategory={isAllCategory}
                       onItemClick={scrollCategoryIntoView}
                       isScrolled={isScrolled}
+                      headerTextColor={categoryModeTextColor}
                     />
                   ))}
                 </div>
@@ -780,8 +837,8 @@ const MainLocationHeader = ({
               ref={navRef}
               style={{ height: (isAllCategory && !isScrolled) ? "48px" : "40px", opacity: 1, marginTop: 2 }}
               className={cn(
-                "relative z-10 w-full hidden md:flex overflow-x-auto overflow-y-visible px-4 no-scrollbar scroll-smooth justify-center",
-                (isAllCategory && !isScrolled) ? "items-center gap-2 pb-0.5" : "items-end gap-4 pb-0"
+                "relative z-10 w-full hidden md:flex overflow-x-auto overflow-y-visible px-4 lg:px-8 xl:px-12 no-scrollbar scroll-smooth justify-center",
+                (isAllCategory && !isScrolled) ? "items-center gap-3 lg:gap-5 xl:gap-6 pb-0.5" : "items-end gap-4 lg:gap-6 xl:gap-8 pb-0"
               )}
             >
               {categories.map((cat) => (
@@ -793,6 +850,7 @@ const MainLocationHeader = ({
                   isBright={isBright}
                   isAllCategory={isAllCategory}
                   onItemClick={scrollCategoryIntoView}
+                  headerTextColor={categoryModeTextColor}
                 />
               ))}
             </motion.div>

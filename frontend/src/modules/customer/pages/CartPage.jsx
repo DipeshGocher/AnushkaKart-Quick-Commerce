@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   ChevronLeft, MapPin, Plus, Minus,
-  Trash2, Heart, ArrowRight, Sparkles
+  Trash2, Heart, ArrowRight, Sparkles,
+  Ban, AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCart } from '../context/CartContext';
@@ -12,6 +13,7 @@ import LocationDrawer from '../components/shared/LocationDrawer';
 import EmptyCartAnimation from '../components/shared/EmptyCartAnimation';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 import PageSkeleton from '@/shared/components/PageSkeleton';
+import { evaluateProductDelivery } from '../services/deliveryService';
 import { motion, useReducedMotion } from 'framer-motion';
 
 const CartPage = ({ asOverlay = false, onClose }) => {
@@ -59,6 +61,28 @@ const CartPage = ({ asOverlay = false, onClose }) => {
       totalSavings: savings
     };
   }, [activeCart]);
+
+  const destinationPincode = currentLocation?.pincode ? String(currentLocation.pincode).trim() : "";
+
+  const unserviceableCartItems = useMemo(() => {
+    if (!destinationPincode) return [];
+    return activeCart.filter((item) => {
+      const check = evaluateProductDelivery(item, destinationPincode);
+      return !check.canAddToCart;
+    });
+  }, [activeCart, destinationPincode]);
+
+  const handleProceedToCheckout = (e) => {
+    if (unserviceableCartItems.length > 0) {
+      if (e) e.preventDefault();
+      toast.error(
+        `Please remove fresh items not deliverable to pincode ${destinationPincode} before proceeding.`,
+      );
+      return false;
+    }
+    if (asOverlay && onClose) onClose();
+    return true;
+  };
 
   const handleQuantityMinus = (item) => {
     const key = String(item.variantSku || '').trim();
@@ -153,6 +177,19 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                 </span>
               </div>
 
+              {/* Undeliverable Items Banner */}
+              {unserviceableCartItems.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 sm:p-4 flex items-start gap-2.5">
+                  <Ban className="text-red-600 shrink-0 mt-0.5" size={18} />
+                  <div className="text-xs text-red-800">
+                    <p className="font-bold text-red-700">Quick Delivery Not Available for {unserviceableCartItems.length} Item(s)</p>
+                    <p className="mt-0.5 text-slate-600 leading-relaxed">
+                      Fresh groceries cannot be delivered to pincode <strong>{destinationPincode || 'your location'}</strong>. Please remove them to proceed with your order.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Items Card List */}
               <div className="bg-white rounded-2xl lg:border lg:border-[#e5e5e5] lg:p-4 divide-y divide-[#e5e5e5]">
                 {activeCart.map((item) => {
@@ -161,6 +198,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                   const unitPrice = sale > 0 && sale < mrp ? sale : mrp;
                   const hasDiscount = mrp > unitPrice;
                   const discountPercent = hasDiscount ? Math.round(((mrp - unitPrice) / mrp) * 100) : 0;
+                  const deliveryCheck = evaluateProductDelivery(item, destinationPincode);
                   return (
                     <div 
                       key={`${item.id || item._id}-${item.variantSku || ''}`}
@@ -226,6 +264,20 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                               <span className="text-base sm:text-lg font-bold text-[#212121]">
                                 ₹{unitPrice}
                               </span>
+                            </div>
+
+                            {/* Delivery Fulfillment / Restriction Badge */}
+                            <div className="mt-2">
+                              {!deliveryCheck.canAddToCart ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md">
+                                  <Ban size={11} className="shrink-0" />
+                                  <span>{deliveryCheck.warning || `Quick delivery not available at ${destinationPincode}`}</span>
+                                </span>
+                              ) : deliveryCheck.badge ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                                  <span>{deliveryCheck.badge}</span>
+                                </span>
+                              ) : null}
                             </div>
                           </div>
                         </div>
@@ -331,11 +383,11 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                 )}
 
                 <Link
-                  to="/checkout"
-                  onClick={onClose}
-                  className="w-full bg-[#fb641b] hover:bg-[#f45305] active:scale-[0.99] text-white font-bold text-sm py-3.5 px-6 rounded-xl transition-all shadow-md shadow-orange-500/20 flex items-center justify-center gap-2 cursor-pointer"
+                  to={unserviceableCartItems.length > 0 ? "#" : "/checkout"}
+                  onClick={handleProceedToCheckout}
+                  className={`w-full ${unserviceableCartItems.length > 0 ? 'bg-slate-400 cursor-not-allowed opacity-90' : 'bg-[#fb641b] hover:bg-[#f45305] shadow-md shadow-orange-500/20'} active:scale-[0.99] text-white font-bold text-sm py-3.5 px-6 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer`}
                 >
-                  <span>Place Order</span>
+                  <span>{unserviceableCartItems.length > 0 ? 'Remove Undeliverable Items' : 'Place Order'}</span>
                   <ArrowRight size={16} strokeWidth={2.5} />
                 </Link>
 
@@ -383,11 +435,11 @@ const CartPage = ({ asOverlay = false, onClose }) => {
 
             {/* Right: Grocery Proceed to Buy Button */}
             <Link
-              to="/checkout"
-              onClick={onClose}
-              className="bg-[#ffdf00] hover:bg-[#f5d500] active:scale-95 text-[#212121] font-bold text-sm sm:text-base px-7 py-3.5 rounded-xl transition-all flex items-center gap-2 cursor-pointer shrink-0"
+              to={unserviceableCartItems.length > 0 ? "#" : "/checkout"}
+              onClick={handleProceedToCheckout}
+              className={`${unserviceableCartItems.length > 0 ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-[#ffdf00] hover:bg-[#f5d500] text-[#212121]'} active:scale-95 font-bold text-sm sm:text-base px-7 py-3.5 rounded-xl transition-all flex items-center gap-2 cursor-pointer shrink-0`}
             >
-              <span>Proceed to buy</span>
+              <span>{unserviceableCartItems.length > 0 ? 'Fix Cart' : 'Proceed to buy'}</span>
               <ArrowRight size={16} strokeWidth={2.5} />
             </Link>
           </div>

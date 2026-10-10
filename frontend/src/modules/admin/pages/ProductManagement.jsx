@@ -65,6 +65,7 @@ const ProductManagement = () => {
         status: 'active',
         isFeatured: false,
         isTopDeal: false,
+        deliveryMode: 'inherit',
         tags: '',
         weight: '',
         brand: '',
@@ -231,6 +232,7 @@ const ProductManagement = () => {
             data.append('status', formData.status);
             data.append('isFeatured', String(formData.isFeatured));
             data.append('isTopDeal', String(formData.isTopDeal));
+            data.append('deliveryMode', formData.deliveryMode || 'inherit');
             data.append('brand', formData.brand);
             data.append('weight', formData.weight);
             data.append('tags', formData.tags);
@@ -360,6 +362,7 @@ const ProductManagement = () => {
                 status: item.status || 'active',
                 isFeatured: item.isFeatured || false,
                 isTopDeal: item.isTopDeal || false,
+                deliveryMode: item.deliveryMode || 'inherit',
                 tags: Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || ''),
                 weight: item.weight || '',
                 brand: item.brand || '',
@@ -388,7 +391,7 @@ const ProductManagement = () => {
                 name: '', slug: '', sku: '', description: '', price: '',
                 salePrice: '', stock: '', lowStockAlert: 5, unit: 'packet',
                 header: '', categoryId: '', subcategoryId: '', status: 'active',
-                isFeatured: false, isTopDeal: false, tags: '', weight: '', brand: '',
+                isFeatured: false, isTopDeal: false, deliveryMode: 'inherit', tags: '', weight: '', brand: '',
                 shelfLife: '', countryOfOrigin: '', fssaiLicense: '',
                 mainImage: null, galleryImages: [],
                 highlights: [0, 1, 2, 3].map(() => ({ icon: "", label: "" })),
@@ -593,6 +596,12 @@ const ProductManagement = () => {
                                                     )}
                                                     {p.isTopDeal && (
                                                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-50 text-rose-700 ring-1 ring-rose-200">Top Deal</span>
+                                                    )}
+                                                    {p.deliveryMode === 'quick_only' && (
+                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 ring-1 ring-amber-200">⚡ Quick Only</span>
+                                                    )}
+                                                    {p.deliveryMode === 'both' && (
+                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">🔄 Both</span>
                                                     )}
                                                 </div>
                                             </div>
@@ -939,6 +948,26 @@ const ProductManagement = () => {
                                                      })()}
                                                  </select>
                                              </div></div>
+
+                                             {/* Delivery Fulfillment Mode Override */}
+                                             <div className="space-y-1.5 flex flex-col p-4 rounded-xl bg-slate-50 border border-slate-200">
+                                                 <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between">
+                                                     <span>Delivery Mode Override</span>
+                                                     <span className="text-[9px] text-brand-600 font-semibold bg-brand-50 px-2 py-0.5 rounded border border-brand-200 uppercase">Hybrid Rules Engine</span>
+                                                 </label>
+                                                 <select
+                                                     value={formData.deliveryMode || 'inherit'}
+                                                     onChange={(e) => setFormData({ ...formData, deliveryMode: e.target.value })}
+                                                     className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none cursor-pointer"
+                                                 >
+                                                     <option value="inherit">📁 Follow Category Default (Inherit)</option>
+                                                     <option value="quick_only">⚡ Quick Delivery Only (Local Pincodes - 15 Mins)</option>
+                                                     <option value="both">🔄 Both (Local 15 Mins + Shiprocket Pan-India)</option>
+                                                 </select>
+                                                 <p className="text-[11px] text-slate-500">
+                                                     'Follow Category' parent category ki delivery setting use karega. Doodh/Sabzi jaise items ko 'Quick Delivery Only' aur Electronics/Fashion ko 'Both' set kar sakte hain.
+                                                 </p>
+                                             </div>
                                         </div>
                                     )}
 

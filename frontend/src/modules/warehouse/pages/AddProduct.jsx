@@ -110,6 +110,7 @@ const AddProduct = () => {
     subcategory: "",
     header: "",
     status: "active",
+    deliveryMode: "inherit",
     tags: "",
     weight: "",
     brand: "",
@@ -236,6 +237,7 @@ const AddProduct = () => {
       data.append("countryOfOrigin", formData.countryOfOrigin);
       data.append("fssaiLicense", formData.fssaiLicense);
       data.append("status", formData.status);
+      data.append("deliveryMode", formData.deliveryMode || "inherit");
 
       // Map top-level price/stock from first variant for indexing/listing
       data.append("price", firstVariant.price);
@@ -816,6 +818,26 @@ const AddProduct = () => {
                     })()}
                   </select>
                 </div>
+              </div>
+
+              {/* Delivery Mode Override */}
+              <div className="space-y-1.5 flex flex-col p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <label className="text-[10px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between">
+                  <span>Delivery Mode Override</span>
+                  <span className="text-[9px] text-brand-600 font-semibold bg-brand-50 px-2 py-0.5 rounded border border-brand-200 uppercase">Hybrid Rules Engine</span>
+                </label>
+                <select
+                  value={formData.deliveryMode || "inherit"}
+                  onChange={(e) => setFormData({ ...formData, deliveryMode: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-md text-sm font-semibold outline-none cursor-pointer focus:ring-2 focus:ring-primary/5 transition-all"
+                >
+                  <option value="inherit">📁 Follow Category Default (Inherit)</option>
+                  <option value="quick_only">⚡ Quick Delivery Only (Local Pincodes - 15 Mins)</option>
+                  <option value="both">🔄 Both (Local 15 Mins + Shiprocket Pan-India)</option>
+                </select>
+                <p className="text-[11px] text-slate-500">
+                  'Follow Category' category ki default delivery setting use karega. Doodh/Sabzi jaise items ko 'Quick Delivery Only' aur Electronics/Fashion ko 'Both' set karein.
+                </p>
               </div>
             </div>
           )}

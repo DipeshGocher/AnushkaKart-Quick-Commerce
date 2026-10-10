@@ -351,3 +351,5 @@ export const useLocation = () => {
   }
   return context;
 };
+
+export const useLocationContext = useLocation;

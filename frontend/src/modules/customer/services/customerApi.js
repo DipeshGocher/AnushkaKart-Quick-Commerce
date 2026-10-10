@@ -168,4 +168,12 @@ export const customerApi = {
   getKitHomeData: (params) => getWithDedupe("/kits/home-data", params),
   getKitById: (id, params) => getWithDedupe(`/kits/${id}`, params),
   getKitAddons: (params) => getWithDedupe("/kits/addons", params),
+
+  // Shipping & Hyperlocal Pincodes
+  checkShippingServiceability: (params) =>
+    getWithDedupe("/shipping/check-serviceability", params, { ttl: 60 * 1000 }),
+  getLocalPincodes: () =>
+    getWithDedupe("/shipping/local-pincodes", {}, { ttl: 5 * 60 * 1000 }),
+  validateCartDelivery: (data) =>
+    axiosInstance.post("/shipping/validate-cart", data),
 };

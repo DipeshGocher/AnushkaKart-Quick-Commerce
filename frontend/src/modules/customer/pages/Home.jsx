@@ -289,8 +289,8 @@ const Home = () => {
         window.requestAnimationFrame(() => {
           const currentY = window.scrollY || document.documentElement.scrollTop || 0;
           setIsScrolled((prev) => {
-            if (!prev && currentY > 40) return true;
-            if (prev && currentY < 20) return false;
+            if (!prev && currentY > 60) return true;
+            if (prev && currentY < 25) return false;
             return prev;
           });
           ticking = false;
@@ -345,7 +345,11 @@ const Home = () => {
     });
 
     if (matchedCategory) {
-      if (String(activeCategory?._id || activeCategory?.id) !== String(matchedCategory._id || matchedCategory.id)) {
+      if (
+        String(activeCategory?._id || activeCategory?.id) !== String(matchedCategory._id || matchedCategory.id) ||
+        activeCategory?.headerColor !== matchedCategory?.headerColor ||
+        activeCategory?.headerFontColor !== matchedCategory?.headerFontColor
+      ) {
         setActiveCategory(matchedCategory);
       }
     }
@@ -594,6 +598,15 @@ const Home = () => {
         partialHomeData.quickCategories = dbCats.filter((cat) => cat.type === "category").map((cat) => ({ id: cat._id, name: cat.name, image: cat.image || "https://cdn-icons-png.flaticon.com/128/2321/2321831.png" }));
 
         setCategories(partialHomeData.categories);
+        setActiveCategory((currentActive) => {
+          if (!currentActive || currentActive._id === "all" || currentActive.id === "all") {
+            return currentActive;
+          }
+          const fresh = partialHomeData.categories.find(
+            (c) => String(c._id || c.id) === String(currentActive._id || currentActive.id)
+          );
+          return fresh || currentActive;
+        });
         setQuickCategories(partialHomeData.quickCategories);
         setCategoryMap(catMap);
         setSubcategoryMap(subMap);
@@ -864,15 +877,15 @@ const Home = () => {
         navigate(`/${catSlug}`, { replace: false });
       }
     }
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: "instant" });
   };
 
   return (
     <div
       className={cn(
-        "min-h-screen bg-white transition-all duration-300 ease-out",
+        "min-h-screen bg-white",
         isAllCategorySelected
-          ? (isScrolled ? "pt-[118px] md:pt-[136px]" : "pt-[242px] sm:pt-[248px] md:pt-[168px]")
+          ? "pt-[242px] sm:pt-[248px] md:pt-[168px]"
           : "pt-[122px] sm:pt-[126px] md:pt-[160px] lg:pt-[165px]"
       )}
     >
@@ -899,7 +912,7 @@ const Home = () => {
 
           return (
             <motion.div ref={heroRef} className="block will-change-transform pt-0" style={isMobile ? { opacity: 1 } : { opacity, y, scale, pointerEvents }}>
-              <div className="w-full max-w-7xl mx-auto px-0 md:px-4 lg:px-6 mt-3 sm:mt-3.5 md:mt-4 mb-1 relative z-20 overflow-hidden">
+              <div className="w-full max-w-none px-0 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16 mt-3 sm:mt-3.5 md:mt-4 mb-1 relative z-20 overflow-hidden">
                 <ExperienceBannerCarousel
                   section={{ title: "" }}
                   items={homeBanners}
@@ -928,13 +941,13 @@ const Home = () => {
         {isAllCategorySelected && <TopDealsOnProducts latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} />}
         {isAllCategorySelected && <HeaderCategoryProductsSection latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} />}
         {isAllCategorySelected && (
-          <div className="w-full max-w-7xl mx-auto px-0 md:px-4 lg:px-6">
+          <div className="w-full max-w-none px-0 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">
             <NewArrivalsSection latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} />
           </div>
         )}
 
         {isAllCategorySelected && (
-          <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-4 md:px-6 my-4">
+          <div className="w-full max-w-none px-3.5 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16 my-4">
             <div
               className="overflow-hidden rounded-2xl md:rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-slate-100/80 bg-white cursor-pointer hover:opacity-95 transition-all"
               onClick={() => {
@@ -945,7 +958,7 @@ const Home = () => {
               <img
                 src={quickCommerceBanner}
                 alt="Anushka Store Quick Commerce - Daily Essentials Delivered in Minutes"
-                className="w-full h-[135px] sm:h-[155px] md:h-[185px] lg:h-[200px] object-cover block"
+                className="w-full h-auto aspect-[3.54/1] max-h-[380px] object-contain sm:object-cover block"
                 loading="lazy"
               />
             </div>
@@ -953,7 +966,7 @@ const Home = () => {
         )}
 
         {isAllCategorySelected && (
-          <div className="w-full max-w-7xl mx-auto px-0 md:px-4 lg:px-6">
+          <div className="w-full max-w-none px-0 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">
             <ForYouProductsSection
               categories={displayCategories}
               latitude={currentLocation?.latitude}
@@ -963,7 +976,7 @@ const Home = () => {
         )}
 
         {!isAllCategorySelected && (
-          <div className="w-full max-w-7xl mx-auto px-0 md:px-4 lg:px-6">
+          <div className="w-full max-w-none px-0 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">
             <HeaderCategoryPageView
               headerCategory={activeCategory}
               categoryMap={displayCategoryMap}

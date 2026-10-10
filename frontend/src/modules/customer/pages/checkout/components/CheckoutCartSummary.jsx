@@ -1,6 +1,7 @@
 import React from "react";
-import { Plus, Minus } from "lucide-react";
+import { Plus, Minus, Ban } from "lucide-react";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { evaluateProductDelivery } from "../../../services/deliveryService";
 
 /**
  * CheckoutCartSummary
@@ -18,6 +19,7 @@ const CheckoutCartSummary = React.memo(function CheckoutCartSummary({
   onUpdateQuantity,
   onRemoveFromCart,
   onMoveToWishlist,
+  destinationPincode,
 }) {
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-4">
@@ -40,6 +42,25 @@ const CheckoutCartSummary = React.memo(function CheckoutCartSummary({
                 Variant: {item.variantName || item.variantSku}
               </p>
             )}
+            {(() => {
+              const check = destinationPincode ? evaluateProductDelivery(item, destinationPincode) : null;
+              if (check && !check.canAddToCart) {
+                return (
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 mb-1.5 rounded-md bg-red-50 border border-red-200 text-red-600 text-[10px] font-bold">
+                    <Ban size={11} className="shrink-0" />
+                    <span>Quick Delivery not available at {destinationPincode}</span>
+                  </div>
+                );
+              }
+              if (check && check.badge) {
+                return (
+                  <div className="text-[10px] font-extrabold uppercase tracking-wide text-emerald-600 mb-1">
+                    {check.badge.label}
+                  </div>
+                );
+              }
+              return null;
+            })()}
             <button
               onClick={() => onMoveToWishlist(item)}
               className="text-xs text-slate-500 underline hover:text-primary transition-colors">

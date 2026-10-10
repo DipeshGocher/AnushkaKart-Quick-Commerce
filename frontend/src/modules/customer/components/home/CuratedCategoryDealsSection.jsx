@@ -309,17 +309,17 @@ export default function CuratedCategoryDealsSection({
   return (
     <section className="w-full my-3 sm:my-4 select-none">
       {/* ── Section Header ── */}
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 mb-2.5 flex items-center justify-between">
+      <div className="w-full max-w-none px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 mb-2.5 flex items-center justify-between">
         <h2 className="text-[17px] sm:text-[18px] md:text-[19px] font-bold text-slate-900 tracking-tight leading-snug">
           {sectionTitle}
         </h2>
       </div>
 
       {/* ── Horizontal Scrolling Carousel of Cards ── */}
-      <div className="w-full max-w-7xl mx-auto">
+      <div className="w-full max-w-none px-0 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">
         <div
           ref={scrollContainerRef}
-          className="flex overflow-x-auto no-scrollbar gap-3 sm:gap-3.5 px-4 sm:px-6 pb-2 pt-0.5 scroll-smooth snap-x snap-mandatory"
+          className="flex overflow-x-auto no-scrollbar gap-3 sm:gap-3.5 px-4 sm:px-6 lg:px-0 pb-2 pt-0.5 scroll-smooth snap-x snap-mandatory"
         >
           {items.map((item, idx) => {
             const transformedImage = item.image

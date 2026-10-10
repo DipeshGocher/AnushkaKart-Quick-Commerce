@@ -133,6 +133,11 @@ const productSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        deliveryMode: {
+            type: String,
+            enum: ["quick_only", "both", "inherit"],
+            default: "inherit",
+        },
         status: {
             type: String,
             enum: ["active", "inactive"],

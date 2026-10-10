@@ -53,6 +53,21 @@ const formatPrice = (value) =>
   }).format(value);
 
 const getTopDealsSectionTheme = (headerCategory) => {
+  if (headerCategory?.headerColor) {
+    const base = headerCategory.headerColor;
+    const name = headerCategory?.name || 'products';
+    return {
+      gradient: `linear-gradient(135deg, ${shiftHex(base, 25)} 0%, ${base} 50%, ${shiftHex(base, -25)} 100%)`,
+      pillBg: shiftHex(base, -40),
+      pillText: '#ffffff',
+      title: `Top deals on ${name.toLowerCase()}`,
+      badgeTitle: 'THE BIG',
+      badgeRibbon: 'SUPER SAVER',
+      badgeBottom: 'DAYS',
+      accentColor: shiftHex(base, 40),
+    };
+  }
+
   const text = `${headerCategory?.name || ''} ${headerCategory?.slug || ''}`.toLowerCase();
 
   if (/grocer/i.test(text)) {

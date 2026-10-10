@@ -1,4 +1,6 @@
 import handleResponse from "../utils/helper.js";
+import Product from "../models/product.js";
+import LocalPincode from "../models/localPincode.js";
 import {
   listLocalPincodes,
   addLocalPincode,
@@ -7,6 +9,8 @@ import {
   toggleLocalPincodeStatus,
   isPincodeLocal,
   getLocalPincodeDetails,
+  evaluateDeliveryEligibility,
+  resolveProductDeliveryMode,
 } from "../services/shipping/localPincodeService.js";
 import {
   processShiprocketOrder,
@@ -18,7 +22,25 @@ import {
 } from "../services/shipping/shiprocketService.js";
 
 /**
- * Check if a pincode is in the local quick commerce delivery zone or Shiprocket
+ * Public: Get active local quick delivery pincodes list
+ */
+export const getPublicLocalPincodes = async (req, res) => {
+  try {
+    const list = await LocalPincode.find({ isActive: true })
+      .select("pincode areaName city state deliveryTimeEstimate")
+      .lean();
+    return handleResponse(res, 200, "Active local delivery pincodes", {
+      localPincodes: list.map((p) => String(p.pincode).trim()),
+      details: list,
+    });
+  } catch (error) {
+    return handleResponse(res, error.statusCode || 500, error.message);
+  }
+};
+
+/**
+ * Check if a pincode is in the local quick commerce delivery zone or Shiprocket,
+ * with optional product and seller origin validation.
  */
 export const checkPincodeServiceability = async (req, res) => {
   try {
@@ -27,19 +49,123 @@ export const checkPincodeServiceability = async (req, res) => {
       return handleResponse(res, 400, "Pincode is required");
     }
 
-    const isLocal = await isPincodeLocal(pincode);
-    const details = isLocal ? await getLocalPincodeDetails(pincode) : null;
+    const { productId, sellerPincode: querySellerPincode, deliveryMode: queryDeliveryMode } = req.query;
+
+    let sellerPincode = querySellerPincode;
+    let deliveryMode = queryDeliveryMode;
+
+    if (productId) {
+      try {
+        const product = await Product.findById(productId)
+          .select("deliveryMode headerId categoryId sellerId warehouseId")
+          .populate("sellerId", "pincode")
+          .populate("warehouseId", "pincode")
+          .populate("headerId", "deliveryMode catalogType")
+          .lean();
+
+        if (product) {
+          if (!deliveryMode) {
+            deliveryMode = await resolveProductDeliveryMode(product, product.headerId);
+          }
+          if (!sellerPincode) {
+            sellerPincode = product.sellerId?.pincode || product.warehouseId?.pincode || "";
+          }
+        }
+      } catch (prodErr) {
+        // Continue with basic pincode check
+      }
+    }
+
+    const evaluation = await evaluateDeliveryEligibility({
+      customerPincode: pincode,
+      sellerPincode,
+      deliveryMode: deliveryMode || "both",
+    });
+
+    const details = evaluation.isCustomerLocal ? await getLocalPincodeDetails(pincode) : null;
 
     return handleResponse(res, 200, "Serviceability checked", {
       pincode: String(pincode).trim(),
-      isLocal,
-      fulfillmentType: isLocal ? "LOCAL" : "SHIPROCKET",
-      deliveryEstimate: isLocal
-        ? (details?.deliveryTimeEstimate || "12-15 mins")
-        : "3-5 business days",
+      sellerPincode: sellerPincode ? String(sellerPincode).trim() : null,
+      isLocal: evaluation.isCustomerLocal,
+      ...evaluation,
       areaName: details?.areaName || "",
       city: details?.city || "",
       state: details?.state || "",
+    });
+  } catch (error) {
+    return handleResponse(res, error.statusCode || 500, error.message);
+  }
+};
+
+/**
+ * Validates delivery eligibility for an array of cart items against a customer pincode.
+ */
+export const validateCartDelivery = async (req, res) => {
+  try {
+    const { customerPincode, items = [] } = req.body;
+    if (!customerPincode) {
+      return handleResponse(res, 400, "customerPincode is required");
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return handleResponse(res, 200, "Cart is empty", {
+        isValid: true,
+        overallFulfillment: "LOCAL_RIDERS",
+        items: [],
+      });
+    }
+
+    const evaluatedItems = await Promise.all(
+      items.map(async (item) => {
+        let sellerPincode = item.sellerPincode;
+        let deliveryMode = item.deliveryMode;
+
+        if (item.productId && (!sellerPincode || !deliveryMode)) {
+          try {
+            const product = await Product.findById(item.productId)
+              .select("name deliveryMode headerId categoryId sellerId warehouseId")
+              .populate("sellerId", "pincode")
+              .populate("warehouseId", "pincode")
+              .populate("headerId", "deliveryMode catalogType")
+              .lean();
+
+            if (product) {
+              if (!deliveryMode) {
+                deliveryMode = await resolveProductDeliveryMode(product, product.headerId);
+              }
+              if (!sellerPincode) {
+                sellerPincode = product.sellerId?.pincode || product.warehouseId?.pincode || "";
+              }
+            }
+          } catch (e) {}
+        }
+
+        const result = await evaluateDeliveryEligibility({
+          customerPincode,
+          sellerPincode,
+          deliveryMode: deliveryMode || "both",
+        });
+
+        return {
+          productId: item.productId,
+          name: item.name,
+          ...result,
+        };
+      })
+    );
+
+    const hasBlockedItems = evaluatedItems.some((i) => !i.isDeliverable);
+    const hasShiprocketItems = evaluatedItems.some((i) => i.fulfillmentType === "SHIPROCKET");
+    const overallFulfillment = hasShiprocketItems ? "SHIPROCKET" : "LOCAL_RIDERS";
+
+    return handleResponse(res, 200, "Delivery validated", {
+      isValid: !hasBlockedItems,
+      customerPincode: String(customerPincode).trim(),
+      overallFulfillment,
+      hasBlockedItems,
+      hasShiprocketItems,
+      items: evaluatedItems,
     });
   } catch (error) {
     return handleResponse(res, error.statusCode || 500, error.message);

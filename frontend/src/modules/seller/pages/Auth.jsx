@@ -59,6 +59,24 @@ const REQUIRED_DOCUMENT_CONFIG = [
   { id: "idProof", label: "ID Proof" },
 ];
 
+const INITIAL_FORM_DATA = {
+  email: "",
+  password: "",
+  name: "",
+  shopName: "",
+  phone: "",
+  locality: "",
+  pincode: "",
+  city: "",
+  state: "",
+  category: "",
+  description: "",
+  lat: null,
+  lng: null,
+  radius: 5,
+  address: "",
+};
+
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(() => {
     const saved = sessionStorage.getItem("seller_isLogin");
@@ -67,27 +85,18 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState(() => {
-    const saved = sessionStorage.getItem("seller_formData");
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+    const savedIsLogin = sessionStorage.getItem("seller_isLogin");
+    const initialIsLogin = savedIsLogin !== null ? JSON.parse(savedIsLogin) : true;
+    if (!initialIsLogin) {
+      const saved = sessionStorage.getItem("seller_formData");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          return { ...INITIAL_FORM_DATA, ...parsed, password: "" };
+        } catch (e) {}
+      }
     }
-    return {
-      email: "",
-      password: "",
-      name: "",
-      shopName: "",
-      phone: "",
-      locality: "",
-      pincode: "",
-      city: "",
-      state: "",
-      category: "",
-      description: "",
-      lat: null,
-      lng: null,
-      radius: 5,
-      address: "",
-    };
+    return INITIAL_FORM_DATA;
   });
 
   const [touched, setTouched] = useState({
@@ -131,22 +140,51 @@ const Auth = () => {
       phone: createInitialVerificationState(),
     };
   });
-  
+
+  useEffect(() => {
+    if (isLogin) {
+      sessionStorage.removeItem("seller_formData");
+      sessionStorage.removeItem("seller_verifications");
+      setFormData((prev) => ({
+        ...prev,
+        email: "",
+        password: "",
+      }));
+    }
+  }, []);
+
   useEffect(() => {
     sessionStorage.setItem("seller_isLogin", JSON.stringify(isLogin));
+    if (isLogin) {
+      sessionStorage.removeItem("seller_formData");
+      sessionStorage.removeItem("seller_verifications");
+    }
   }, [isLogin]);
 
   useEffect(() => {
-    sessionStorage.setItem("seller_signupStep", JSON.stringify(signupStep));
-  }, [signupStep]);
+    if (!isLogin) {
+      sessionStorage.setItem("seller_signupStep", JSON.stringify(signupStep));
+    } else {
+      sessionStorage.removeItem("seller_signupStep");
+    }
+  }, [signupStep, isLogin]);
 
   useEffect(() => {
-    sessionStorage.setItem("seller_formData", JSON.stringify(formData));
-  }, [formData]);
+    if (!isLogin) {
+      const { password, ...safeDraft } = formData;
+      sessionStorage.setItem("seller_formData", JSON.stringify(safeDraft));
+    } else {
+      sessionStorage.removeItem("seller_formData");
+    }
+  }, [formData, isLogin]);
 
   useEffect(() => {
-    sessionStorage.setItem("seller_verifications", JSON.stringify(verifications));
-  }, [verifications]);
+    if (!isLogin) {
+      sessionStorage.setItem("seller_verifications", JSON.stringify(verifications));
+    } else {
+      sessionStorage.removeItem("seller_verifications");
+    }
+  }, [verifications, isLogin]);
   const [forgotPasswordStep, setForgotPasswordStep] = useState(0);
   const [resetData, setResetData] = useState({
     channel: "email",
@@ -538,6 +576,10 @@ const Auth = () => {
 
       if (isLogin) {
         const { token, seller } = response.data.result;
+        sessionStorage.removeItem("seller_formData");
+        sessionStorage.removeItem("seller_verifications");
+        sessionStorage.removeItem("seller_signupStep");
+        sessionStorage.removeItem("seller_isLogin");
         login({
           ...seller,
           token,
@@ -1297,12 +1339,20 @@ const Auth = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      setIsLogin(!isLogin);
+                      const nextIsLogin = !isLogin;
+                      setIsLogin(nextIsLogin);
                       setSignupStep(1);
                       setVerifications({
                         email: createInitialVerificationState(),
                         phone: createInitialVerificationState(),
                       });
+                      if (nextIsLogin) {
+                        sessionStorage.removeItem("seller_formData");
+                        sessionStorage.removeItem("seller_verifications");
+                        setFormData(INITIAL_FORM_DATA);
+                      } else {
+                        setFormData((prev) => ({ ...prev, password: "" }));
+                      }
                     }}
                     className="text-primary hover:underline font-bold transition-colors">
                     {isLogin ? "Register Store" : "Sign In"}

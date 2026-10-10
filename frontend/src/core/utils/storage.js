@@ -291,7 +291,17 @@ export function clearOnLogout({
     if (clearGuestCart) rawRemove(STORAGE_KEYS.CART, { storage: 'local' });
     if (clearGuestWishlist) rawRemove(STORAGE_KEYS.WISHLIST, { storage: 'local' });
 
-    if (normalizedRole === 'delivery' || clearLastLocation) {
+    if (normalizedRole === 'seller' || !normalizedRole) {
+        clearByPrefix('seller_', { storage: 'session' });
+        clearByPrefix('seller_', { storage: 'local' });
+    }
+
+    if (normalizedRole === 'warehouse' || !normalizedRole) {
+        clearByPrefix('warehouse_', { storage: 'session' });
+        clearByPrefix('warehouse_', { storage: 'local' });
+    }
+
+    if (normalizedRole === 'delivery' || clearLastLocation || !normalizedRole) {
         rawRemove(STORAGE_KEYS.DELIVERY_LAST_LOCATION, { storage: 'local' });
         rawRemove(STORAGE_KEYS.DELIVERY_HANDLED_INCOMING, { storage: 'session' });
         clearByPrefix('delivery_', { storage: 'session' });

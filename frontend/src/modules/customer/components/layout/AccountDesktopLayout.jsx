@@ -11,7 +11,9 @@ import {
   LogOut,
   ChevronRight,
   ShieldCheck,
-  AlertTriangle
+  AlertTriangle,
+  ArrowLeft,
+  Home
 } from 'lucide-react';
 import { useAuth } from '@core/context/AuthContext';
 import { customerApi } from '../../services/customerApi';
@@ -116,6 +118,14 @@ const AccountDesktopLayout = ({
     navigate('/');
   };
 
+  const handleBack = () => {
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
+  };
+
   return (
     <>
       {/* ── MOBILE VIEW (< 1024px / lg): 100% UNTOUCHED ── */}
@@ -126,6 +136,40 @@ const AccountDesktopLayout = ({
       {/* ── DESKTOP VIEW (>= 1024px / lg): Flipkart-inspired 2-Column Split ── */}
       <div className="hidden lg:block min-h-screen bg-[#f1f4f8] py-6 font-['Outfit',_sans-serif]">
         <div className="max-w-7xl mx-auto px-4 md:px-6">
+
+          {/* Top Navigation & Breadcrumbs Bar with Back Button */}
+          <div className="flex items-center justify-between mb-5 bg-white/90 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-slate-200/80 shadow-xs">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleBack}
+                className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-600 border border-slate-200 hover:border-blue-200 text-xs font-bold transition-all cursor-pointer group active:scale-95 shadow-2xs"
+                title="Go Back"
+              >
+                <ArrowLeft size={15} className="group-hover:-translate-x-0.5 transition-transform" />
+                <span>Back</span>
+              </button>
+              
+              <div className="h-4 w-[1px] bg-slate-200" />
+
+              {/* Breadcrumb */}
+              <nav className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                <Link to="/" className="hover:text-blue-600 transition-colors flex items-center gap-1 font-semibold">
+                  <Home size={13} />
+                  <span>Home</span>
+                </Link>
+                <ChevronRight size={12} className="text-slate-400" />
+                <span className="text-slate-600 font-semibold">My Account</span>
+                {pageTitle && (
+                  <>
+                    <ChevronRight size={12} className="text-slate-400" />
+                    <span className="text-blue-600 font-bold">{pageTitle}</span>
+                  </>
+                )}
+              </nav>
+            </div>
+          </div>
+
           <div className="flex items-start gap-6">
             
             {/* LEFT SIDEBAR (~280px) */}
@@ -229,9 +273,20 @@ const AccountDesktopLayout = ({
             <main className="flex-1 min-w-0 bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs">
               {pageTitle && (
                 <div className="border-b border-slate-100 pb-4 mb-6 flex items-center justify-between">
-                  <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-                    {pageTitle}
-                  </h1>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleBack}
+                      className="p-2 -ml-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 transition-all cursor-pointer flex items-center justify-center group active:scale-95 shadow-2xs"
+                      title="Go Back"
+                      aria-label="Go Back"
+                    >
+                      <ArrowLeft size={18} className="group-hover:-translate-x-0.5 transition-transform text-slate-600" />
+                    </button>
+                    <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+                      {pageTitle}
+                    </h1>
+                  </div>
                 </div>
               )}
               {children}

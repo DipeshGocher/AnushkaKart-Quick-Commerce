@@ -8,6 +8,7 @@ import { useWishlist } from "../context/WishlistContext";
 import { customerApi } from "../services/customerApi";
 import { useLocation as useAppLocation } from "../context/LocationContext";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { evaluateProductDelivery } from "../services/deliveryService";
 import {
   MapPin,
   Clock,
@@ -32,6 +33,8 @@ import {
   Check,
   Contact2,
   Wallet,
+  Ban,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -321,6 +324,36 @@ const CheckoutPage = () => {
   }, [useWallet, user?.walletBalance, pricingPreview?.grandTotal]);
 
   const finalAmountToPay = Math.max(0, (pricingPreview?.grandTotal || 0) - walletAmountToUse);
+
+  const activeDestinationPincode = useMemo(() => {
+    if (savedRecipient?.pincode) {
+      return String(savedRecipient.pincode).trim();
+    }
+    if (currentAddress?.pincode) {
+      return String(currentAddress.pincode).trim();
+    }
+    if (currentLocation?.pincode) {
+      return String(currentLocation.pincode).trim();
+    }
+    const match =
+      (currentAddress?.address || "").match(/\b\d{6}\b/) ||
+      (currentAddress?.city || "").match(/\b\d{6}\b/);
+    return match ? match[0] : "";
+  }, [
+    savedRecipient?.pincode,
+    currentAddress?.pincode,
+    currentAddress?.address,
+    currentAddress?.city,
+    currentLocation?.pincode,
+  ]);
+
+  const unserviceableCartItems = useMemo(() => {
+    if (!activeDestinationPincode) return [];
+    return cart.filter((item) => {
+      const check = evaluateProductDelivery(item, activeDestinationPincode);
+      return !check.canAddToCart;
+    });
+  }, [cart, activeDestinationPincode]);
 
   const buildAddressForOrder = () => {
     let resolvedPincode = "";
@@ -837,6 +870,14 @@ const CheckoutPage = () => {
       showToast("Please provide a valid delivery address before placing your order.", "error");
       return;
     }
+
+    if (unserviceableCartItems.length > 0) {
+      showToast(
+        `Please remove fresh items not deliverable to pincode ${activeDestinationPincode || "your location"} before placing your order.`,
+        "error"
+      );
+      return;
+    }
     
     setIsPlacingOrder(true);
     try {
@@ -1188,6 +1229,19 @@ const CheckoutPage = () => {
               displayAddress={displayAddress}
             />
 
+            {/* Undeliverable Items Banner */}
+            {unserviceableCartItems.length > 0 && (
+              <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-4 flex items-start gap-3 shadow-xs">
+                <Ban className="text-red-600 shrink-0 mt-0.5" size={20} />
+                <div className="text-xs text-red-800">
+                  <p className="font-extrabold text-sm text-red-700">Quick Delivery Not Available for Some Items</p>
+                  <p className="mt-1 leading-relaxed">
+                    {unserviceableCartItems.length} item(s) in your cart (fresh grocery/perishables) cannot be delivered to pincode <strong>{activeDestinationPincode || "your address"}</strong>. Please remove them or change your delivery address to proceed.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Cart Summary */}
             <CheckoutCartSummary
               cart={cart}
@@ -1196,6 +1250,7 @@ const CheckoutPage = () => {
               onMoveToWishlist={handleMoveToWishlist}
               showAll={showAllCartItems}
               onToggleShowAll={() => setShowAllCartItems((v) => !v)}
+              destinationPincode={activeDestinationPincode}
             />
 
             {/* Wishlist Section */}
@@ -1259,11 +1314,13 @@ const CheckoutPage = () => {
               <SlideToPay
                 amount={finalAmountToPay}
                 onSuccess={handlePlaceOrder}
-                isLoading={isPlacingOrder || isPreviewLoading || !pricingPreview}
+                isLoading={isPlacingOrder || isPreviewLoading || !pricingPreview || unserviceableCartItems.length > 0}
                 text={
-                  pricingPreview && finalAmountToPay === 0
-                    ? "Place Free Order"
-                    : "Order Now"
+                  unserviceableCartItems.length > 0
+                    ? "Remove Undeliverable Items"
+                    : pricingPreview && finalAmountToPay === 0
+                      ? "Place Free Order"
+                      : "Order Now"
                 }
               />
               <p className="text-center text-[10px] text-slate-400 font-bold mt-2 uppercase tracking-[0.1em]">
@@ -1280,11 +1337,13 @@ const CheckoutPage = () => {
           <SlideToPay
             amount={finalAmountToPay}
             onSuccess={handlePlaceOrder}
-            isLoading={isPlacingOrder || isPreviewLoading || !pricingPreview}
+            isLoading={isPlacingOrder || isPreviewLoading || !pricingPreview || unserviceableCartItems.length > 0}
             text={
-              pricingPreview && finalAmountToPay === 0
-                ? "Place Free Order"
-                : "Slide to Pay"
+              unserviceableCartItems.length > 0
+                ? "Remove Undeliverable Items"
+                : pricingPreview && finalAmountToPay === 0
+                  ? "Place Free Order"
+                  : "Slide to Pay"
             }
           />
         </div>

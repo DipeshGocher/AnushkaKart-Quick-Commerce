@@ -93,6 +93,7 @@ const HeaderCategories = () => {
     headerFontColor: "#FFFFFF",
     headerIconColor: "#000000",
     trustBadges: [],
+    deliveryMode: "both",
   });
 
   useEffect(() => {
@@ -324,6 +325,7 @@ const HeaderCategories = () => {
       headerFontColor: "#FFFFFF",
       headerIconColor: "#000000",
       trustBadges: [],
+      deliveryMode: "both",
     });
     setIsAddModalOpen(true);
   };
@@ -352,6 +354,7 @@ const HeaderCategories = () => {
       headerFontColor: item.headerFontColor || "#FFFFFF",
       headerIconColor: "#000000",
       trustBadges: Array.isArray(item.trustBadges) ? item.trustBadges : [],
+      deliveryMode: item.deliveryMode || "both",
     });
     setIsAddModalOpen(true);
   };
@@ -497,6 +500,9 @@ const HeaderCategories = () => {
                     <SortIndicator field="status" sortField={sortField} sortDir={sortDir} />
                   </div>
                 </th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Delivery Mode
+                </th>
                 <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -532,7 +538,7 @@ const HeaderCategories = () => {
                 ))
               ) : categories.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center py-12 text-gray-400">
+                  <td colSpan="9" className="text-center py-12 text-gray-400">
                     <div className="flex flex-col items-center gap-2">
                       <CheckSquare className="w-10 h-10 opacity-20" />
                       <p>No header categories found</p>
@@ -618,6 +624,17 @@ const HeaderCategories = () => {
                         <Badge variant={cat.status === "active" ? "success" : "warning"}>
                           {cat.status}
                         </Badge>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            cat.deliveryMode === "quick_only"
+                              ? "bg-amber-100 text-amber-800 border border-amber-300"
+                              : "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                          }`}
+                        >
+                          {cat.deliveryMode === "quick_only" ? "⚡ Quick Only" : "🔄 Both (Hybrid)"}
+                        </span>
                       </td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -779,53 +796,140 @@ const HeaderCategories = () => {
 
                 {/* Header Colors */}
                 {!isAllCategory(editingItem) && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">
-                        Header Background Color
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={formData.headerColor || "#FF1E1E"}
-                          onChange={(e) =>
-                            setFormData({ ...formData, headerColor: e.target.value })
-                          }
-                          className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer bg-transparent p-0 overflow-hidden shrink-0"
-                        />
-                        <input
-                          type="text"
-                          value={formData.headerColor || "#FF1E1E"}
-                          onChange={(e) =>
-                            setFormData({ ...formData, headerColor: e.target.value })
-                          }
-                          className="flex-1 px-3 py-2 rounded-lg border border-gray-300 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-                          placeholder="#FF1E1E"
-                        />
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">
+                          Header Background Color
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={formData.headerColor || "#FF1E1E"}
+                            onChange={(e) =>
+                              setFormData({ ...formData, headerColor: e.target.value })
+                            }
+                            className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer bg-transparent p-0 overflow-hidden shrink-0"
+                          />
+                          <input
+                            type="text"
+                            value={formData.headerColor || "#FF1E1E"}
+                            onChange={(e) =>
+                              setFormData({ ...formData, headerColor: e.target.value })
+                            }
+                            className="flex-1 px-3 py-2 rounded-lg border border-gray-300 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                            placeholder="#FF1E1E"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">
+                          Title/Text Color
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={formData.headerFontColor || "#FFFFFF"}
+                            onChange={(e) =>
+                              setFormData({ ...formData, headerFontColor: e.target.value })
+                            }
+                            className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer bg-transparent p-0 overflow-hidden shrink-0"
+                          />
+                          <input
+                            type="text"
+                            value={formData.headerFontColor || "#FFFFFF"}
+                            onChange={(e) =>
+                              setFormData({ ...formData, headerFontColor: e.target.value })
+                            }
+                            className="flex-1 px-3 py-2 rounded-lg border border-gray-300 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                            placeholder="#FFFFFF"
+                          />
+                        </div>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">
-                        Title/Text Color
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={formData.headerFontColor || "#FFFFFF"}
-                          onChange={(e) =>
-                            setFormData({ ...formData, headerFontColor: e.target.value })
-                          }
-                          className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer bg-transparent p-0 overflow-hidden shrink-0"
-                        />
-                        <input
-                          type="text"
-                          value={formData.headerFontColor || "#FFFFFF"}
-                          onChange={(e) =>
-                            setFormData({ ...formData, headerFontColor: e.target.value })
-                          }
-                          className="flex-1 px-3 py-2 rounded-lg border border-gray-300 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-                          placeholder="#FFFFFF"
-                        />
+
+                    {/* ── Live Header Preview ── */}
+                    <div className="rounded-xl border border-slate-200 overflow-hidden">
+                      <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-red-400" />
+                        <span className="w-2 h-2 rounded-full bg-amber-400" />
+                        <span className="w-2 h-2 rounded-full bg-green-400" />
+                        <span className="text-[10px] text-slate-400 font-medium ml-1">Live Preview</span>
+                      </div>
+                      {/* Simulated header strip */}
+                      <div
+                        className="px-3 py-2.5 flex items-center justify-between transition-colors duration-200"
+                        style={{ backgroundColor: formData.headerColor || "#FF1E1E" }}
+                      >
+                        {/* Left: icon + category name */}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className="flex items-center justify-center w-7 h-7 rounded-full shrink-0"
+                            style={{ backgroundColor: "rgba(255,255,255,0.18)" }}
+                          >
+                            <CategoryIcon
+                              iconId={formData.iconId}
+                              alt={formData.name || "Category"}
+                              className="w-4 h-4"
+                              style={{ color: formData.headerFontColor || "#FFFFFF" }}
+                            />
+                          </div>
+                          <span
+                            className="font-semibold text-sm truncate transition-colors duration-200"
+                            style={{ color: formData.headerFontColor || "#FFFFFF" }}
+                          >
+                            {formData.name || "Category Name"}
+                          </span>
+                        </div>
+                        {/* Right: fake cart icon */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div
+                            className="w-6 h-6 rounded-full flex items-center justify-center"
+                            style={{ backgroundColor: "rgba(255,255,255,0.18)" }}
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={formData.headerFontColor || "#ffffff"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+                            </svg>
+                          </div>
+                          <div
+                            className="w-6 h-6 rounded-full flex items-center justify-center"
+                            style={{ backgroundColor: "rgba(255,255,255,0.18)" }}
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={formData.headerFontColor || "#ffffff"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Category nav bar preview */}
+                      <div
+                        className="px-2 py-1.5 flex items-center gap-2 overflow-hidden transition-colors duration-200"
+                        style={{ backgroundColor: formData.headerColor || "#FF1E1E", opacity: 0.88 }}
+                      >
+                        {[formData.name || "Category", "All", "Popular", "Offers"].map((label, i) => (
+                          <div
+                            key={i}
+                            className="flex flex-col items-center gap-0.5 shrink-0"
+                            style={{ minWidth: 44 }}
+                          >
+                            <div
+                              className="w-6 h-6 rounded-full flex items-center justify-center"
+                              style={{ backgroundColor: i === 0 ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.12)" }}
+                            >
+                              <div
+                                className="w-3 h-3 rounded-sm"
+                                style={{ backgroundColor: formData.headerFontColor || "#fff", opacity: i === 0 ? 1 : 0.55 }}
+                              />
+                            </div>
+                            <span
+                              className="text-[8px] font-medium leading-none truncate max-w-[44px] text-center"
+                              style={{ color: formData.headerFontColor || "#ffffff", opacity: i === 0 ? 1 : 0.65 }}
+                            >
+                              {label}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -905,6 +1009,37 @@ const HeaderCategories = () => {
                       />
                       <p className="text-xs text-gray-400">Lower = appears first</p>
                     </div>
+                  </div>
+                )}
+
+                {/* Delivery Mode (Rules Engine) */}
+                {!isAllCategory(editingItem) && (
+                  <div className="space-y-2 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                    <label className="text-sm font-semibold text-gray-800 flex items-center justify-between">
+                      <span>Delivery Fulfillment Mode</span>
+                      <span className="text-[11px] font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full border border-brand-200 uppercase tracking-wider">
+                        Rules Engine
+                      </span>
+                    </label>
+                    <select
+                      value={formData.deliveryMode || "both"}
+                      onChange={(e) =>
+                        setFormData({ ...formData, deliveryMode: e.target.value })
+                      }
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-semibold text-xs text-gray-800 bg-white"
+                    >
+                      <option value="quick_only">
+                        ⚡ Quick Delivery Only (Local Pincodes Only - In-house Riders 15 Mins)
+                      </option>
+                      <option value="both">
+                        🔄 Both (Local 15 Mins Riders + Shiprocket Pan-India Standard Courier)
+                      </option>
+                    </select>
+                    <p className="text-xs text-gray-500">
+                      {formData.deliveryMode === "quick_only"
+                        ? "Perishables like Doodh/Sabzi: Sirf Jhansi local pincodes par allow hoga. Bahar ke customers ko 'Quick Delivery not available' dikhega."
+                        : "Pan-India items like Clothes/Gadgets: Local pincode par 15-min delivery boy, bahar Shiprocket se customer shipping fee ke sath."}
+                    </p>
                   </div>
                 )}
 

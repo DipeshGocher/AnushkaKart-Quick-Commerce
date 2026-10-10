@@ -60,7 +60,7 @@ export const getCategories = async (req, res) => {
       const categories = await getOrSet(
         cacheKey,
         async () => {
-          const selectFields = "name slug image iconId type parentId headerColor headerFontColor headerIconColor sortOrder catalogType isFeatured trustBadges";
+          const selectFields = "name slug image iconId type parentId headerColor headerFontColor headerIconColor sortOrder catalogType isFeatured trustBadges deliveryMode";
           const matchQuery = { type: "header" };
           if (catalogType === "refurbished") {
             matchQuery.catalogType = "refurbished";
@@ -243,7 +243,7 @@ export const getCategories = async (req, res) => {
 export const createCategory = async (req, res) => {
   try {
     const categoryData = {};
-    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isKitCategory", "isFeatured", "sortOrder", "catalogType", "mappedAttributes", "trustBadges"];
+    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isKitCategory", "isFeatured", "sortOrder", "catalogType", "mappedAttributes", "trustBadges", "deliveryMode"];
     
     // Strict Whitelisting and Sanitization
     for (const key of allowedKeys) {
@@ -362,7 +362,7 @@ export const updateCategory = async (req, res) => {
     }
 
     const categoryData = {};
-    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isFeatured", "sortOrder", "catalogType", "mappedAttributes", "trustBadges"];
+    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isFeatured", "sortOrder", "catalogType", "mappedAttributes", "trustBadges", "deliveryMode"];
     
     for (const key of allowedKeys) {
       if (Object.prototype.hasOwnProperty.call(req.body, key)) {

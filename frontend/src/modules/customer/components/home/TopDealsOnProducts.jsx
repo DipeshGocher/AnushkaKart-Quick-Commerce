@@ -152,7 +152,7 @@ const TopDealsOnProducts = () => {
       }}
       aria-label="Best Selling Categories"
     >
-      <div className="max-w-7xl mx-auto">
+      <div className="w-full max-w-none px-0 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">
         {/* Section Heading & Desktop Scroll Controls */}
         <div className="flex items-center justify-between mb-3.5 px-1">
           <h2 className="text-[17px] sm:text-[19px] font-black tracking-tight text-gray-900">

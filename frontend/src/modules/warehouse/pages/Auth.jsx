@@ -49,6 +49,24 @@ const REQUIRED_DOCUMENT_CONFIG = [
   { id: "idProof", label: "ID Proof" },
 ];
 
+const INITIAL_FORM_DATA = {
+  email: "",
+  password: "",
+  name: "",
+  warehouseName: "",
+  phone: "",
+  locality: "",
+  pincode: "",
+  city: "",
+  state: "",
+  category: "",
+  description: "",
+  lat: null,
+  lng: null,
+  radius: 5,
+  address: "",
+};
+
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(() => {
     const saved = sessionStorage.getItem("warehouse_isLogin");
@@ -89,46 +107,65 @@ const Auth = () => {
     isResetting: false,
   });
 
-
   const [formData, setFormData] = useState(() => {
-    const saved = sessionStorage.getItem("warehouse_formData");
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+    const savedIsLogin = sessionStorage.getItem("warehouse_isLogin");
+    const initialIsLogin = savedIsLogin !== null ? JSON.parse(savedIsLogin) : true;
+    if (!initialIsLogin) {
+      const saved = sessionStorage.getItem("warehouse_formData");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          return { ...INITIAL_FORM_DATA, ...parsed, password: "" };
+        } catch (e) {}
+      }
     }
-    return {
-      email: "",
-      password: "",
-      name: "",
-      warehouseName: "",
-      phone: "",
-      locality: "",
-      pincode: "",
-      city: "",
-      state: "",
-      category: "",
-      description: "",
-      lat: null,
-      lng: null,
-      radius: 5,
-      address: "",
-    };
+    return INITIAL_FORM_DATA;
   });
-  
+
+  useEffect(() => {
+    if (isLogin) {
+      sessionStorage.removeItem("warehouse_formData");
+      sessionStorage.removeItem("warehouse_verifications");
+      setFormData((prev) => ({
+        ...prev,
+        email: "",
+        password: "",
+      }));
+    }
+  }, []);
+
   useEffect(() => {
     sessionStorage.setItem("warehouse_isLogin", JSON.stringify(isLogin));
+    if (isLogin) {
+      sessionStorage.removeItem("warehouse_formData");
+      sessionStorage.removeItem("warehouse_verifications");
+    }
   }, [isLogin]);
 
   useEffect(() => {
-    sessionStorage.setItem("warehouse_signupStep", JSON.stringify(signupStep));
-  }, [signupStep]);
+    if (!isLogin) {
+      sessionStorage.setItem("warehouse_signupStep", JSON.stringify(signupStep));
+    } else {
+      sessionStorage.removeItem("warehouse_signupStep");
+    }
+  }, [signupStep, isLogin]);
 
   useEffect(() => {
-    sessionStorage.setItem("warehouse_formData", JSON.stringify(formData));
-  }, [formData]);
+    if (!isLogin) {
+      const { password, ...safeDraft } = formData;
+      sessionStorage.setItem("warehouse_formData", JSON.stringify(safeDraft));
+    } else {
+      sessionStorage.removeItem("warehouse_formData");
+    }
+  }, [formData, isLogin]);
 
   useEffect(() => {
-    sessionStorage.setItem("warehouse_verifications", JSON.stringify(verifications));
-  }, [verifications]);
+    if (!isLogin) {
+      sessionStorage.setItem("warehouse_verifications", JSON.stringify(verifications));
+    } else {
+      sessionStorage.removeItem("warehouse_verifications");
+    }
+  }, [verifications, isLogin]);
 
   const handleLocationSelect = (location) => {
     setFormData((prev) => ({
@@ -493,6 +530,10 @@ const Auth = () => {
 
       if (isLogin) {
         const { token, seller } = response.data.result;
+        sessionStorage.removeItem("warehouse_formData");
+        sessionStorage.removeItem("warehouse_verifications");
+        sessionStorage.removeItem("warehouse_signupStep");
+        sessionStorage.removeItem("warehouse_isLogin");
         login({
           ...(seller || {}),
           token,
@@ -1149,12 +1190,20 @@ const Auth = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      setIsLogin(!isLogin);
+                      const nextIsLogin = !isLogin;
+                      setIsLogin(nextIsLogin);
                       setSignupStep(1);
                       setVerifications({
                         email: createInitialVerificationState(),
                         phone: createInitialVerificationState(),
                       });
+                      if (nextIsLogin) {
+                        sessionStorage.removeItem("warehouse_formData");
+                        sessionStorage.removeItem("warehouse_verifications");
+                        setFormData(INITIAL_FORM_DATA);
+                      } else {
+                        setFormData((prev) => ({ ...prev, password: "" }));
+                      }
                     }}
                     className="text-orange-600 hover:underline font-bold transition-colors">
                     {isLogin ? "Register Store" : "Sign In"}

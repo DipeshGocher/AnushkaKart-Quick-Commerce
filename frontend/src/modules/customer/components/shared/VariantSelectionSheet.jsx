@@ -1,17 +1,19 @@
 import React, { useRef } from 'react';
 import { motion, AnimatePresence, useAnimation, useDragControls } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { X, Minus, Plus, Package } from 'lucide-react';
+import { X, Minus, Plus, Package, Ban } from 'lucide-react';
 import { useVariantSelection } from '../../context/VariantSelectionContext';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '@core/context/AuthContext';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import { useDeliveryEligibility } from '../../hooks/useDeliveryEligibility';
 
 const VariantSelectionSheet = () => {
     const { selectedProduct, isOpen, closeVariantSelection } = useVariantSelection();
     const { cart, updateQuantity, removeFromCart, addToCart } = useCart();
     const { isAuthenticated } = useAuth();
     const navigate = useNavigate();
+    const { canAddToCart, warning: deliveryWarning, customerPincode } = useDeliveryEligibility(selectedProduct);
 
     const dragControls = useDragControls();
     const scrollRef = useRef(null);
@@ -62,6 +64,8 @@ const VariantSelectionSheet = () => {
             navigate('/login', { state: { from: window.location.pathname } });
             return;
         }
+
+        if (!canAddToCart) return;
 
         const productId = selectedProduct.id || selectedProduct._id;
         const variantKey = String(variant?.sku || variant?.name || "").trim();
@@ -157,6 +161,19 @@ const VariantSelectionSheet = () => {
                                 </p>
                             </div>
 
+                            {/* Delivery Warning Banner */}
+                            {!canAddToCart && (
+                                <div className="mx-5 mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-left flex items-start gap-2.5">
+                                    <Ban size={18} className="text-red-500 shrink-0 mt-0.5" />
+                                    <div className="text-xs text-red-700">
+                                        <p className="font-bold">Quick Delivery Not Available</p>
+                                        <p className="text-[11px] text-red-600 mt-0.5 leading-snug">
+                                            {deliveryWarning || `Quick delivery for fresh perishables is not available at ${customerPincode || 'your location'}.`}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Variants List */}
                             <div className="px-5 py-4 pb-24">
                                 <div className="space-y-4">
@@ -209,6 +226,13 @@ const VariantSelectionSheet = () => {
                                                                 <Plus size={16} strokeWidth={3} />
                                                             </button>
                                                         </div>
+                                                    ) : !canAddToCart ? (
+                                                        <button
+                                                            disabled
+                                                            className="px-4 py-2 rounded-full border border-slate-200 bg-slate-100 text-slate-400 flex items-center justify-center font-bold text-xs cursor-not-allowed uppercase"
+                                                        >
+                                                            Unavailable
+                                                        </button>
                                                     ) : (
                                                         <button
                                                             onClick={() => handleIncrement(variant)}

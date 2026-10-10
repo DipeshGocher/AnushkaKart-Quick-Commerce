@@ -14,7 +14,12 @@ import {
   hydrateOrderItems,
 } from "./finance/pricingService.js";
 import { computeOrderDiscount } from "./finance/couponService.js";
-import { isPincodeLocal, getLocalPincodeDetails } from "./shipping/localPincodeService.js";
+import {
+  isPincodeLocal,
+  getLocalPincodeDetails,
+  evaluateDeliveryEligibility,
+  resolveProductDeliveryMode,
+} from "./shipping/localPincodeService.js";
 
 function normalizeLocation(location = null) {
   const lat = Number(location?.lat);
@@ -488,6 +493,43 @@ export async function buildCheckoutPricingSnapshot({
     }
   }
 
+  // Phase 4: Validate delivery eligibility for every item in the cart against destination pincode
+  for (const item of hydratedItems) {
+    const itemDeliveryMode = await resolveProductDeliveryMode(
+      { deliveryMode: item.deliveryMode, headerId: item.headerCategoryId },
+      null
+    );
+
+    const sellerId = String(item?.sellerId || item?.warehouseId || "");
+    let sellerPincode = "";
+    if (sellerId) {
+      let sellerDoc = await Seller.findById(sellerId).select("pincode").lean();
+      if (!sellerDoc) {
+        sellerDoc = await Warehouse.findById(sellerId).select("pincode").lean();
+      }
+      sellerPincode = sellerDoc?.pincode ? String(sellerDoc.pincode).trim() : "";
+    }
+
+    const eligibility = await evaluateDeliveryEligibility({
+      customerPincode: pincode,
+      sellerPincode,
+      deliveryMode: itemDeliveryMode,
+    });
+
+    if (!eligibility.isDeliverable) {
+      const productName = item.productName || item.name || "This item";
+      const err = new Error(
+        eligibility.reason ||
+        `Quick Delivery is not available for "${productName}" at pincode ${pincode || "your location"}. Fresh perishables can only be delivered within local quick commerce zones. Please remove this item from your cart to proceed.`
+      );
+      err.statusCode = 400;
+      throw err;
+    }
+
+    item.itemFulfillmentType = eligibility.fulfillmentType;
+    item.itemDeliveryEstimate = eligibility.deliveryEstimate;
+  }
+
   const fulfillmentType = isLocal ? "LOCAL" : "SHIPROCKET";
   const deliveryEstimate = isLocal
     ? (localPincodeRecord?.deliveryTimeEstimate || "12-15 mins")
@@ -509,11 +551,17 @@ export async function buildCheckoutPricingSnapshot({
 
   for (const sellerId of sellerIds) {
     const sellerItems = itemsBySeller.get(sellerId) || [];
+    const sellerHasShiprocket = sellerItems.some((i) => i.itemFulfillmentType === "SHIPROCKET") || !isLocal;
+    const sellerFulfillmentType = sellerHasShiprocket ? "SHIPROCKET" : "LOCAL";
+    const sellerDeliveryEstimate = sellerHasShiprocket
+      ? "3-4 business days"
+      : (localPincodeRecord?.deliveryTimeEstimate || "12-15 mins");
+
     const distanceData = await computeDistanceKmForSeller({
       sellerId,
       addressLocation: address?.location,
       session,
-      isLocal,
+      isLocal: !sellerHasShiprocket,
     });
     // Distribute discount proportionally by seller subtotal
     const sellerRatio = totalSubtotal > 0 ? (sellerSubtotals.get(sellerId) || 0) / totalSubtotal : 1 / sellerIds.length;
@@ -525,7 +573,7 @@ export async function buildCheckoutPricingSnapshot({
       discountTotal: sellerDiscount,
       taxTotal: 0,
       session,
-      fulfillmentType,
+      fulfillmentType: sellerFulfillmentType,
     });
 
     const isWarehouse = !!sellerItems[0]?.warehouseId && !sellerItems[0]?.sellerId;
@@ -538,9 +586,9 @@ export async function buildCheckoutPricingSnapshot({
       actualWarehouseId,
       isWarehouse,
       items: sellerItems,
-      fulfillmentType,
-      deliveryEstimate,
-      isLocal,
+      fulfillmentType: sellerFulfillmentType,
+      deliveryEstimate: sellerDeliveryEstimate,
+      isLocal: !sellerHasShiprocket,
       deliveryData: {
         warehouseLocation: distanceData.sellerLocation,
         customerLocation: normalizeLocation(address?.location),
@@ -588,9 +636,16 @@ export async function buildCheckoutPricingSnapshot({
     sellerBreakdownEntries.map((entry) => entry.breakdown),
   );
 
-  aggregateBreakdown.fulfillmentType = fulfillmentType;
-  aggregateBreakdown.deliveryEstimate = deliveryEstimate;
-  aggregateBreakdown.isLocal = isLocal;
+  const overallHasShiprocket = sellerBreakdownEntries.some((e) => e.fulfillmentType === "SHIPROCKET");
+  const overallFulfillmentType = overallHasShiprocket ? "SHIPROCKET" : "LOCAL";
+  const overallDeliveryEstimate = overallHasShiprocket
+    ? "3-4 business days"
+    : (localPincodeRecord?.deliveryTimeEstimate || "12-15 mins");
+  const overallIsLocal = !overallHasShiprocket;
+
+  aggregateBreakdown.fulfillmentType = overallFulfillmentType;
+  aggregateBreakdown.deliveryEstimate = overallDeliveryEstimate;
+  aggregateBreakdown.isLocal = overallIsLocal;
 
   return {
     hydratedItems,
@@ -601,9 +656,9 @@ export async function buildCheckoutPricingSnapshot({
     couponSnapshot: resolvedCouponSnapshot,
     coupon: resolvedCoupon,
     freeDeliveryApplied: applyFreeDelivery,
-    fulfillmentType,
-    deliveryEstimate,
-    isLocal,
+    fulfillmentType: overallFulfillmentType,
+    deliveryEstimate: overallDeliveryEstimate,
+    isLocal: overallIsLocal,
   };
 }
 

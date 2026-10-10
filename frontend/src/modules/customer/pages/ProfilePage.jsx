@@ -1,9 +1,9 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
     MapPin, Package, CreditCard, Wallet, ChevronRight,
     LogOut, ShieldCheck, Heart, HelpCircle, Info, Edit2,
-    ClipboardCheck, Ticket, LifeBuoy, MapPinned, CalendarCheck, AlertTriangle
+    ClipboardCheck, Ticket, LifeBuoy, MapPinned, CalendarCheck, AlertTriangle, ArrowLeft
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { customerApi } from '../services/customerApi';
@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import AccountDesktopLayout from '../components/layout/AccountDesktopLayout';
 
 const ProfilePage = () => {
+    const navigate = useNavigate();
     const { user, logout } = useAuth();
     const { settings } = useSettings();
     const { t } = useTranslation();
@@ -43,11 +44,30 @@ const ProfilePage = () => {
         return raw;
     };
 
+    const handleBack = () => {
+        if (window.history.state && window.history.state.idx > 0) {
+            navigate(-1);
+        } else {
+            navigate('/');
+        }
+    };
+
     const mobileProfileView = (
         <div className="customer-profile-page min-h-screen bg-[#f1f4f8] pb-20 font-['Outfit',_sans-serif]">
-            {/* Header without Back Button */}
+            {/* Header with Back Button */}
             <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 pt-4 pb-3 border-b border-slate-100 mb-4 flex items-center justify-between shadow-2xs">
-                <h1 className="text-xl font-bold text-slate-900 tracking-tight">{t('myProfile')}</h1>
+                <div className="flex items-center gap-2.5">
+                    <button
+                        type="button"
+                        onClick={handleBack}
+                        className="p-1.5 -ml-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 active:scale-95 transition-all cursor-pointer"
+                        title="Back"
+                        aria-label="Back"
+                    >
+                        <ArrowLeft size={18} />
+                    </button>
+                    <h1 className="text-xl font-bold text-slate-900 tracking-tight">{t('myProfile')}</h1>
+                </div>
             </div>
 
             <div className="max-w-2xl mx-auto px-4 pt-1 relative z-20 space-y-4">

@@ -369,8 +369,8 @@ const ForYouProductsSection = ({ categories: propCategories, latitude, longitude
 
       {/* Initial Loading Skeleton */}
       {isLoading && products.length === 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-4 md:gap-x-5 gap-y-4 sm:gap-y-6 px-3.5 sm:px-4 md:px-0">
-          {[...Array(10)].map((_, i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-6 gap-x-3 sm:gap-x-4 md:gap-x-5 gap-y-4 sm:gap-y-6 px-3.5 sm:px-4 md:px-0">
+          {[...Array(12)].map((_, i) => (
             <div key={i} className="bg-white flex flex-col animate-pulse">
               <div
                 className="w-full rounded-[12px] bg-[#F0F0F0] mb-2.5"
@@ -392,9 +392,9 @@ const ForYouProductsSection = ({ categories: propCategories, latitude, longitude
         </div>
       )}
 
-      {/* Responsive Products Grid: 2 per row on mobile, 4 to 5 per row on desktop matching Flipkart */}
+      {/* Responsive Products Grid: 2 per row on mobile, 4 to 6 per row on desktop matching Flipkart */}
       {products.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-4 md:gap-x-5 gap-y-4 sm:gap-y-6 px-3.5 sm:px-4 md:px-0">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-6 gap-x-3 sm:gap-x-4 md:gap-x-5 gap-y-4 sm:gap-y-6 px-3.5 sm:px-4 md:px-0">
           {products.map((item) => (
             <ProductCard
               key={item._id || item.id}

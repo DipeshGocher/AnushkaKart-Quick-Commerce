@@ -57,7 +57,7 @@ const AllCategoriesGreeting = ({ categories, firstName, greetingConfig }) => {
       style={{ background: sectionBg }}
       aria-label="Browse categories"
     >
-      <div className="w-full max-w-7xl mx-auto">
+      <div className="w-full max-w-none px-0 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">
         <div className="flex items-center justify-between px-4 sm:px-6">
           <h2
             className="flex items-center gap-2 text-[19px] sm:text-[21px] font-bold leading-tight tracking-tight drop-shadow-xs"

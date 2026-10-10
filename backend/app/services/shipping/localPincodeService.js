@@ -182,3 +182,139 @@ export async function toggleLocalPincodeStatus(id) {
   await item.save();
   return item;
 }
+
+/**
+ * Resolves the effective delivery mode for a product (quick_only vs both).
+ * Product override takes precedence if set to "quick_only" or "both".
+ * If "inherit" or unset, it checks the product's category.
+ * If category deliveryMode is not set, defaults to "quick_only" for grocery and "both" for others.
+ */
+export async function resolveProductDeliveryMode(product, category = null) {
+  if (!product) return "both";
+  
+  const pMode = product.deliveryMode;
+  if (pMode === "quick_only" || pMode === "both") {
+    return pMode;
+  }
+
+  // Resolve from category
+  let cat = category;
+  if (!cat) {
+    const catId = product.headerId?._id || product.headerId || product.categoryId?._id || product.categoryId;
+    if (catId) {
+      try {
+        const Category = (await import("../../models/category.js")).default;
+        cat = await Category.findById(catId).select("deliveryMode catalogType name").lean();
+      } catch (err) {
+        // silent fallback
+      }
+    }
+  }
+
+  if (cat?.deliveryMode === "quick_only" || cat?.deliveryMode === "both") {
+    return cat.deliveryMode;
+  }
+
+  // Default heuristic if not explicitly set:
+  // Fresh/Grocery/Dairy catalog categories are quick_only by default
+  if (cat?.catalogType === "grocery") {
+    return "quick_only";
+  }
+
+  return "both";
+}
+
+/**
+ * Core Rules Engine:
+ * Evaluates delivery eligibility & fulfillment route based on:
+ * - customerPincode (Destination)
+ * - sellerPincode (Origin)
+ * - deliveryMode ("quick_only" | "both")
+ */
+export async function evaluateDeliveryEligibility({
+  customerPincode,
+  sellerPincode,
+  deliveryMode = "both",
+}) {
+  const cleanCustomer = String(customerPincode || "").trim();
+  const cleanSeller = String(sellerPincode || "").trim();
+
+  const isCustomerLocal = cleanCustomer ? await isPincodeLocal(cleanCustomer) : false;
+  // If sellerPincode is missing (e.g. platform direct fulfillment / in-house dark store), default seller to local
+  const isSellerLocal = cleanSeller ? await isPincodeLocal(cleanSeller) : true;
+
+  const localDetails = isCustomerLocal ? await getLocalPincodeDetails(cleanCustomer) : null;
+  const localEstimate = localDetails?.deliveryTimeEstimate || "12-15 mins";
+
+  if (deliveryMode === "quick_only") {
+    if (isCustomerLocal && isSellerLocal) {
+      return {
+        isDeliverable: true,
+        fulfillmentType: "LOCAL_RIDERS",
+        deliveryEstimate: localEstimate,
+        shippingFeeType: "LOCAL",
+        deliveryMode: "quick_only",
+        isCustomerLocal: true,
+        isSellerLocal: true,
+        displayBadge: `⚡ ${localEstimate} Delivery`,
+        reason: null,
+      };
+    }
+
+    if (!isCustomerLocal) {
+      return {
+        isDeliverable: false,
+        fulfillmentType: null,
+        deliveryEstimate: null,
+        shippingFeeType: null,
+        deliveryMode: "quick_only",
+        isCustomerLocal: false,
+        isSellerLocal,
+        displayBadge: `Quick Delivery not available at ${cleanCustomer || "your location"}`,
+        reason: `Quick Delivery is not available in your area (${cleanCustomer || "pincode"}). Fresh grocery items are only delivered locally.`,
+      };
+    }
+
+    // Customer is local, but seller is outside
+    return {
+      isDeliverable: false,
+      fulfillmentType: null,
+      deliveryEstimate: null,
+      shippingFeeType: null,
+      deliveryMode: "quick_only",
+      isCustomerLocal: true,
+      isSellerLocal: false,
+      displayBadge: "Not deliverable (Seller outside local zone)",
+      reason: "This fresh product is stocked outside the local delivery zone and cannot be delivered via courier.",
+    };
+  }
+
+  // deliveryMode === "both" (Hybrid)
+  if (isCustomerLocal && isSellerLocal) {
+    return {
+      isDeliverable: true,
+      fulfillmentType: "LOCAL_RIDERS",
+      deliveryEstimate: localEstimate,
+      shippingFeeType: "LOCAL",
+      deliveryMode: "both",
+      isCustomerLocal: true,
+      isSellerLocal: true,
+      displayBadge: `⚡ ${localEstimate} Delivery (Local)`,
+      reason: null,
+    };
+  }
+
+  // Either customer or seller is outside -> Shiprocket Pan-India courier
+  return {
+    isDeliverable: true,
+    fulfillmentType: "SHIPROCKET",
+    deliveryEstimate: "3-4 business days",
+    shippingFeeType: "SHIPROCKET",
+    deliveryMode: "both",
+    isCustomerLocal,
+    isSellerLocal,
+    displayBadge: "📦 Standard Courier (3-4 Days)",
+    reason: null,
+  };
+}
+

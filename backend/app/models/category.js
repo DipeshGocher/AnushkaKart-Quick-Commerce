@@ -49,6 +49,11 @@ const categorySchema = new mongoose.Schema(
       enum: ["grocery", "refurbished"],
       default: "grocery",
     },
+    deliveryMode: {
+      type: String,
+      enum: ["quick_only", "both"],
+      default: "both",
+    },
     isKitCategory: {
       type: Boolean,
       default: false,

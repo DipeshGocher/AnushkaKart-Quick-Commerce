@@ -91,12 +91,26 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
           </div>
           <div className="flex justify-between items-center px-2">
             <span className="text-slate-500 font-bold text-[13px] lg:text-xs uppercase tracking-wider">
-              Delivery Fee
+              {pricingPreview?.fulfillmentType === "SHIPROCKET"
+                ? "Courier Shipping"
+                : "Delivery Fee (Express)"}
             </span>
             <span className="font-black text-slate-800 text-sm lg:text-xs">
-              {pricingPreview ? `₹${deliveryFee}` : isPreviewLoading ? "…" : "—"}
+              {pricingPreview ? (deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`) : isPreviewLoading ? "…" : "—"}
             </span>
           </div>
+          {pricingPreview?.fulfillmentType === "SHIPROCKET" && (
+            <div className="px-2 -mt-3 lg:-mt-1 flex items-center justify-between text-[11px] lg:text-[10px] font-semibold text-sky-600">
+              <span>📦 Standard Courier (Shiprocket 3-4 days)</span>
+              {deliveryFee === 0 && <span className="text-emerald-600 font-bold">FREE Above ₹499</span>}
+            </div>
+          )}
+          {pricingPreview?.fulfillmentType === "LOCAL" && (
+            <div className="px-2 -mt-3 lg:-mt-1 flex items-center justify-between text-[11px] lg:text-[10px] font-semibold text-emerald-600">
+              <span>⚡ Local Express Delivery ({pricingPreview.deliveryEstimate || "12-15 mins"})</span>
+              {deliveryFee === 0 && <span className="text-emerald-600 font-bold">FREE</span>}
+            </div>
+          )}
           {pricingPreview &&
             typeof pricingPreview.distanceKmActual === "number" &&
             typeof pricingPreview.distanceKmRounded === "number" && (

@@ -246,15 +246,25 @@ export const AuthProvider = ({ children }) => {
         // Final fallback: redirect based on current path if needed
         // (ProtectedRoute usually handles this, but explicit navigation is safer for some UI edge cases)
         const path = window.location.pathname;
-        if (path.startsWith('/admin')) window.location.href = '/admin/auth';
-        else if (path.startsWith('/seller')) window.location.href = '/seller/auth';
-        else if (path.startsWith('/warehouse')) window.location.href = '/warehouse/auth';
-        else if (path.startsWith('/delivery')) {
+        if (path.startsWith('/admin')) {
+            clearByPrefix('admin_', { storage: 'session' });
+            clearByPrefix('admin_', { storage: 'local' });
+            window.location.href = '/admin/auth';
+        } else if (path.startsWith('/seller')) {
+            clearByPrefix('seller_', { storage: 'session' });
+            clearByPrefix('seller_', { storage: 'local' });
+            window.location.href = '/seller/auth';
+        } else if (path.startsWith('/warehouse')) {
+            clearByPrefix('warehouse_', { storage: 'session' });
+            clearByPrefix('warehouse_', { storage: 'local' });
+            window.location.href = '/warehouse/auth';
+        } else if (path.startsWith('/delivery')) {
             clearByPrefix('delivery_', { storage: 'session' });
             clearByPrefix('delivery_', { storage: 'local' });
             window.location.href = '/delivery/auth';
+        } else {
+            window.location.href = '/login';
         }
-        else window.location.href = '/login';
     };
 
     const refreshUser = async () => {

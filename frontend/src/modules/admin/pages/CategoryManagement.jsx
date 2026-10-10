@@ -45,7 +45,8 @@ const CategoryManagement = () => {
         type: 'header',
         parentId: '',
         mappedAttributes: [],
-        trustBadges: []
+        trustBadges: [],
+        deliveryMode: 'both'
     });
 
     const [allAttributes, setAllAttributes] = useState([]);
@@ -291,7 +292,8 @@ const CategoryManagement = () => {
                         isRequired: !!m.isRequired
                     }))
                     : [],
-                trustBadges: Array.isArray(item.trustBadges) ? item.trustBadges : []
+                trustBadges: Array.isArray(item.trustBadges) ? item.trustBadges : [],
+                deliveryMode: item.deliveryMode || 'both'
             });
             setEditingItem(item);
             setPreviewUrl(item.image || null);
@@ -305,7 +307,8 @@ const CategoryManagement = () => {
                 type: type,
                 parentId: parentId || '',
                 mappedAttributes: [],
-                trustBadges: []
+                trustBadges: [],
+                deliveryMode: 'both'
             });
             setEditingItem(null);
             setPreviewUrl(null);
@@ -378,6 +381,13 @@ const CategoryManagement = () => {
                                         {item.status === 'inactive' && (
                                             <Badge variant="gray" className="text-[7px] h-3 px-1 font-bold uppercase tracking-tighter">Draft</Badge>
                                         )}
+                                        <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold ${
+                                            item.deliveryMode === 'quick_only' 
+                                                ? 'bg-amber-100 text-amber-800 border border-amber-300' 
+                                                : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                        }`}>
+                                            {item.deliveryMode === 'quick_only' ? '⚡ Quick' : '🔄 Both'}
+                                        </span>
                                     </div>
                                     <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">{item.slug}</span>
                                 </div>
@@ -936,6 +946,31 @@ const CategoryManagement = () => {
                                             onChange={(newBadges) => setFormData({ ...formData, trustBadges: newBadges })}
                                             maxBadges={3}
                                         />
+
+                                    {/* Delivery Mode (Rules Engine) */}
+                                    <div className="space-y-1.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                                                Delivery Fulfillment Mode
+                                            </label>
+                                            <span className="text-[9px] font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full border border-brand-200 uppercase">
+                                                Rules Engine
+                                            </span>
+                                        </div>
+                                        <select
+                                            value={formData.deliveryMode || 'both'}
+                                            onChange={(e) => setFormData({ ...formData, deliveryMode: e.target.value })}
+                                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none cursor-pointer focus:ring-2 focus:ring-primary/10"
+                                        >
+                                            <option value="quick_only">⚡ Quick Delivery Only (Local Pincodes - 15 Mins)</option>
+                                            <option value="both">🔄 Both (Local 15 Mins + Shiprocket Pan-India)</option>
+                                        </select>
+                                        <p className="text-[10px] text-slate-400 font-medium ml-1">
+                                            {formData.deliveryMode === 'quick_only'
+                                                ? 'Sirf Local Pincodes (Jhansi) par deliver hoga. Bahar out-of-reach dikhega.'
+                                                : 'Local me riders se aur all India Shiprocket courier se deliver hoga.'}
+                                        </p>
+                                    </div>
 
                                         <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
                                         <div>

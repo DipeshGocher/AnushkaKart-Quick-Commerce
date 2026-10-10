@@ -185,14 +185,22 @@
   -webkit-text-fill-color: #ffffff !important;
 }
 
-.customer-location-header:not(.is-category-mode) .customer-category-nav-item {
-  min-width: 50px;
+.customer-location-header .customer-category-nav-item {
+  transition: height 0.24s cubic-bezier(0.22, 1, 0.36, 1), min-width 0.24s cubic-bezier(0.22, 1, 0.36, 1), padding 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: height, min-width;
+}
+
+.customer-location-header:not(.is-category-mode):not(.is-scrolled-compact) .customer-category-nav-item {
+  width: var(--cat-item-width, calc((100vw - 32px - 40px) / 6));
+  min-width: var(--cat-item-width, calc((100vw - 32px - 40px) / 6));
+  max-width: var(--cat-item-width, calc((100vw - 32px - 40px) / 6));
+  flex: 0 0 var(--cat-item-width, calc((100vw - 32px - 40px) / 6));
   height: 46px;
   justify-content: center;
   align-items: center;
-  gap: 1px;
-  padding-left: 0.25rem;
-  padding-right: 0.25rem;
+  gap: 1.5px;
+  padding-left: 2px;
+  padding-right: 2px;
   padding-top: 2px;
   padding-bottom: 4px;
 }
@@ -208,6 +216,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+              max-height 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+              flex-basis 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  max-height: 22px;
+  will-change: opacity, transform;
 }
 
 .customer-location-header .customer-category-nav-icon svg,
@@ -226,7 +240,7 @@
   box-shadow: none;
 }
 
-.customer-location-header:not(.is-category-mode) .customer-category-nav-label {
+.customer-location-header:not(.is-category-mode):not(.is-scrolled-compact) .customer-category-nav-label {
   color: #344054 !important;
   font-size: 10px !important;
   font-weight: 600;
@@ -241,14 +255,102 @@
   padding-bottom: 2px !important;
 }
 
-.customer-location-header:not(.is-category-mode) .customer-category-nav-item.is-active .customer-category-nav-label {
+.customer-location-header:not(.is-category-mode):not(.is-scrolled-compact) .customer-category-nav-item.is-active .customer-category-nav-label {
   color: #1764cf !important;
   font-weight: 700;
 }
 
-.customer-location-header:not(.is-category-mode) .customer-category-nav-indicator {
+.customer-location-header:not(.is-category-mode):not(.is-scrolled-compact) .customer-category-nav-indicator {
   height: 2.5px !important;
   bottom: 0 !important;
+  border-radius: 9999px !important;
+}
+
+/* ── Scrolled-compact: "All" category when user has scrolled down ──
+   Icons collapse + labels enlarge to match category-mode tab style,
+   but the header colour stays unchanged (no dark-blue override). */
+.customer-location-header.is-scrolled-compact .customer-category-nav-icon {
+  opacity: 0 !important;
+  max-height: 0px !important;
+  transform: scale(0.6) translateY(-4px) !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  flex: 0 0 0px !important;
+}
+
+.customer-location-header.is-scrolled-compact .customer-category-nav-item {
+  min-width: auto !important;
+  max-width: none !important;
+  width: auto !important;
+  flex: 0 0 auto !important;
+  height: 36px !important;
+  padding: 0 10px 8px 10px !important;
+  margin: 0 !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.customer-location-header.is-scrolled-compact .customer-category-nav-label {
+  font-size: 13.5px !important;
+  line-height: 1.2 !important;
+  max-width: none !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  display: inline-block !important;
+  min-height: auto !important;
+  letter-spacing: -0.01em !important;
+  text-shadow: none !important;
+  filter: none !important;
+}
+
+/* Dark header (e.g. blue All category) — white labels */
+.customer-location-header.is-scrolled-compact:not(.is-bright-header) .customer-category-nav-label {
+  color: rgba(255, 255, 255, 0.85) !important;
+  font-weight: 500 !important;
+}
+
+.customer-location-header.is-scrolled-compact:not(.is-bright-header) .customer-category-nav-item.is-active .customer-category-nav-label {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+.customer-location-header.is-scrolled-compact:not(.is-bright-header) .customer-category-nav-indicator {
+  background-color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35) !important;
+  bottom: 0px !important;
+  left: 0px !important;
+  right: 0px !important;
+  width: 100% !important;
+  height: 4px !important;
+  border-radius: 9999px !important;
+}
+
+/* Light/bright header — dark labels */
+.customer-location-header.is-scrolled-compact.is-bright-header .customer-category-nav-label {
+  color: rgba(15, 23, 42, 0.72) !important;
+  font-weight: 500 !important;
+}
+
+.customer-location-header.is-scrolled-compact.is-bright-header .customer-category-nav-item.is-active .customer-category-nav-label {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+.customer-location-header.is-scrolled-compact.is-bright-header .customer-category-nav-indicator {
+  background-color: #0f172a !important;
+  box-shadow: none !important;
+  bottom: 0px !important;
+  left: 0px !important;
+  right: 0px !important;
+  width: 100% !important;
+  height: 4px !important;
   border-radius: 9999px !important;
 }
 
@@ -259,9 +361,15 @@
   overflow: hidden !important;
 }
 
-/* Category mode: When moving from "All" to any other category, hide icons and display clean text labels with underline bar like Image 1 */
+/* Category mode: Smoothly fade and collapse icons without abrupt pop */
 .customer-location-header.is-category-mode .customer-category-nav-icon {
-  display: none !important;
+  opacity: 0 !important;
+  max-height: 0px !important;
+  transform: scale(0.6) translateY(-4px) !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  flex: 0 0 0px !important;
 }
 
 .customer-location-header.is-category-mode .customer-category-nav-item {
@@ -305,20 +413,20 @@
   filter: none !important;
 }
 
-/* When dark background: Text and underline are white */
+/* When dark background: Text and underline are white or custom headerFontColor */
 .customer-location-header.is-category-mode:not(.is-bright-header) .customer-category-nav-label {
-  color: rgba(255, 255, 255, 0.85) !important;
+  color: var(--category-header-text-color, rgba(255, 255, 255, 0.85)) !important;
   font-weight: 500 !important;
 }
 
 .customer-location-header.is-category-mode:not(.is-bright-header) .customer-category-nav-item.is-active .customer-category-nav-label {
-  color: #ffffff !important;
+  color: var(--category-header-text-active, #ffffff) !important;
   font-weight: 700 !important;
 }
 
 .customer-location-header.is-category-mode:not(.is-bright-header) .customer-category-nav-indicator,
 .customer-location-header.is-category-mode:not(.is-bright-header) .customer-category-nav-item.is-active span[class*="absolute bottom-0"] {
-  background-color: #ffffff !important;
+  background-color: var(--category-header-indicator, #ffffff) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35) !important;
   bottom: 0px !important;
   left: 0px !important;
@@ -328,20 +436,20 @@
   border-radius: 9999px !important;
 }
 
-/* When bright/light background: Text and underline automatically become BLACK */
+/* When bright/light background: Text and underline automatically become BLACK or custom headerFontColor */
 .customer-location-header.is-category-mode.is-bright-header .customer-category-nav-label {
-  color: rgba(15, 23, 42, 0.72) !important;
+  color: var(--category-header-text-color, rgba(15, 23, 42, 0.72)) !important;
   font-weight: 500 !important;
 }
 
 .customer-location-header.is-category-mode.is-bright-header .customer-category-nav-item.is-active .customer-category-nav-label {
-  color: #0f172a !important;
+  color: var(--category-header-text-active, #0f172a) !important;
   font-weight: 700 !important;
 }
 
 .customer-location-header.is-category-mode.is-bright-header .customer-category-nav-indicator,
 .customer-location-header.is-category-mode.is-bright-header .customer-category-nav-item.is-active span[class*="absolute bottom-0"] {
-  background-color: #0f172a !important;
+  background-color: var(--category-header-indicator, #0f172a) !important;
   box-shadow: none !important;
   bottom: 0px !important;
   left: 0px !important;
@@ -401,18 +509,21 @@
     padding-right: 14px;
   }
 
-  .customer-location-header:not(.is-category-mode) .customer-category-nav-item {
-    min-width: 50px;
+  .customer-location-header:not(.is-category-mode):not(.is-scrolled-compact) .customer-category-nav-item {
+    width: var(--cat-item-width, calc((100vw - 32px - 40px) / 6)) !important;
+    min-width: var(--cat-item-width, calc((100vw - 32px - 40px) / 6)) !important;
+    max-width: var(--cat-item-width, calc((100vw - 32px - 40px) / 6)) !important;
+    flex: 0 0 var(--cat-item-width, calc((100vw - 32px - 40px) / 6)) !important;
     height: 46px;
   }
 
-  .customer-location-header:not(.is-category-mode) .customer-category-nav-icon {
+  .customer-location-header:not(.is-category-mode):not(.is-scrolled-compact) .customer-category-nav-icon {
     height: 20px !important;
     width: 20px !important;
     flex: 0 0 20px !important;
   }
 
-  .customer-location-header:not(.is-category-mode) .customer-category-nav-label {
+  .customer-location-header:not(.is-category-mode):not(.is-scrolled-compact) .customer-category-nav-label {
     max-width: 65px;
     font-size: 10px !important;
     min-height: auto !important;
@@ -1108,8 +1219,11 @@ header input:focus {
 }
 
 @media (max-width: 767px) {
-  .customer-location-header:not(.is-category-mode) .customer-category-nav-item {
-    min-width: 50px;
+  .customer-location-header:not(.is-category-mode):not(.is-scrolled-compact) .customer-category-nav-item {
+    width: var(--cat-item-width, calc((100vw - 32px - 40px) / 6)) !important;
+    min-width: var(--cat-item-width, calc((100vw - 32px - 40px) / 6)) !important;
+    max-width: var(--cat-item-width, calc((100vw - 32px - 40px) / 6)) !important;
+    flex: 0 0 var(--cat-item-width, calc((100vw - 32px - 40px) / 6)) !important;
     height: 46px;
   }
 }

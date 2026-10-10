@@ -59,6 +59,9 @@ const ExperienceBannerCarousel = ({
   const getVisibleCardsCount = React.useCallback(() => {
     if (isMobile) return 1;
     const w = windowWidth || (typeof window !== "undefined" ? window.innerWidth : 1200);
+    if (w >= 1536) {
+      return Math.min(4, Math.max(1, totalItems));
+    }
     if (w >= 1024) {
       return Math.min(3, Math.max(1, totalItems));
     }
@@ -283,7 +286,12 @@ const ExperienceBannerCarousel = ({
               onClick={() => handleBannerClick(banner)}
               style={
                 !isMobile && desktopCardWidth > 0
-                  ? { width: `${desktopCardWidth}px`, height: isSectionBanner ? "145px" : "205px" }
+                  ? {
+                      width: `${desktopCardWidth}px`,
+                      height: stretchSingle
+                        ? (isSectionBanner ? "clamp(135px, 12vw, 175px)" : "clamp(240px, 20vw, 360px)")
+                        : (isSectionBanner ? "145px" : "215px")
+                    }
                   : (isMobile && edgeToEdge && !peekNext)
                   ? { width: containerWidth ? `${containerWidth}px` : "100vw" }
                   : undefined
@@ -310,8 +318,8 @@ const ExperienceBannerCarousel = ({
                     ? "aspect-[2/1] sm:aspect-[2.1/1]"
                     : totalItems === 1
                     ? stretchSingle
-                      ? "w-full aspect-[2.1/1]"
-                      : "w-full max-w-[360px] mx-auto aspect-[1.95/1] sm:aspect-[2.1/1]"
+                      ? "w-full aspect-[2.6/1] sm:aspect-[2.85/1]"
+                      : "w-full max-w-[360px] mx-auto aspect-[2.2/1] sm:aspect-[2.5/1]"
                     : peekNext
                     ? "w-[84vw] sm:w-[80vw] aspect-[1.95/1] sm:aspect-[2.1/1]"
                     : fullWidth
@@ -319,13 +327,15 @@ const ExperienceBannerCarousel = ({
                     : "w-[85vw] aspect-[2/1] sm:aspect-[21/9]"
                   : totalItems === 1
                   ? stretchSingle
-                    ? isSectionBanner ? "w-full h-[145px]" : "w-full h-[205px]"
-                    : isSectionBanner ? "h-[145px] max-w-[420px] mx-auto" : "h-[205px] max-w-[420px] mx-auto"
+                    ? isSectionBanner ? "w-full h-[145px] lg:h-[165px]" : "w-full h-[240px] lg:h-[300px] xl:h-[350px]"
+                    : isSectionBanner ? "h-[145px] max-w-[420px] mx-auto" : "h-[215px] max-w-[420px] mx-auto"
                   : totalItems === 2
-                  ? isSectionBanner ? "h-[145px] max-w-[440px]" : "h-[205px] max-w-[440px]"
+                  ? isSectionBanner ? "h-[145px] max-w-[440px]" : "h-[215px] max-w-[480px]"
+                  : numVisible >= 4
+                  ? isSectionBanner ? "w-[calc((100%-36px)/4)] h-[140px] lg:h-[145px]" : "w-[calc((100%-36px)/4)] h-[200px] lg:h-[215px]"
                   : numVisible >= 3
-                  ? isSectionBanner ? "w-[calc((100%-24px)/3)] h-[140px] lg:h-[145px]" : "w-[calc((100%-24px)/3)] h-[200px] lg:h-[205px]"
-                  : isSectionBanner ? "w-[calc((100%-12px)/2)] h-[140px] lg:h-[145px]" : "w-[calc((100%-12px)/2)] h-[200px] lg:h-[205px]"
+                  ? isSectionBanner ? "w-[calc((100%-24px)/3)] h-[140px] lg:h-[145px]" : "w-[calc((100%-24px)/3)] h-[200px] lg:h-[215px]"
+                  : isSectionBanner ? "w-[calc((100%-12px)/2)] h-[140px] lg:h-[145px]" : "w-[calc((100%-12px)/2)] h-[200px] lg:h-[215px]"
               )}
             >
               {banner.isVideo ? (
@@ -362,7 +372,11 @@ const ExperienceBannerCarousel = ({
                     : "(max-width: 768px) 85vw, 420px"}
                   className={cn(
                     "w-full h-full pointer-events-none",
-                    isSectionBanner ? "object-cover object-center" : "object-cover object-top sm:object-center"
+                    stretchSingle
+                      ? "object-cover object-center"
+                      : isSectionBanner
+                      ? "object-cover object-center"
+                      : "object-cover object-top sm:object-center"
                   )}
                   loading={idx === 0 ? "eager" : "lazy"}
                   fetchPriority={idx === 0 ? "high" : "low"}

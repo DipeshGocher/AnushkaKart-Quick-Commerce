@@ -120,6 +120,9 @@ const HEADER_PALETTE = [
 ];
 
 const getThemeColor = (category) => {
+  if (category?.headerColor) return category.headerColor;
+  if (category?.themeColor) return category.themeColor;
+  if (category?.color) return category.color;
   const label = `${category?.name || ''} ${category?.slug || ''}`.toLowerCase();
   const themes = [
     [/grocery|fresh|food|produce|fruit|vegetable/, '#166534'], // green a little dark
@@ -142,15 +145,16 @@ const isAllCategory = (category) => !category || String(category.name || categor
 
 /** Curated medium-tone colors keep every visible category distinct. */
 export function getCustomerHeaderColor(category, categories = []) {
-  if (isAllCategory(category)) return '#3478d3';
+  if (isAllCategory(category)) return category?.headerColor || '#3478d3';
+  if (category?.headerColor) return category.headerColor;
 
   const visibleCategories = categories.length ? categories : [category];
   const usedColors = new Set();
   for (let index = 0; index < visibleCategories.length; index += 1) {
     const item = visibleCategories[index];
     let color = isAllCategory(item)
-      ? '#3478d3'
-      : getThemeColor(item) || HEADER_PALETTE[index % HEADER_PALETTE.length];
+      ? (item?.headerColor || '#3478d3')
+      : item?.headerColor || getThemeColor(item) || HEADER_PALETTE[index % HEADER_PALETTE.length];
 
     if (usedColors.has(color.toLowerCase())) {
       color = HEADER_PALETTE.find((candidate) => !usedColors.has(candidate)) ||
@@ -160,7 +164,7 @@ export function getCustomerHeaderColor(category, categories = []) {
     if (categoryKey(item) === categoryKey(category)) return color;
   }
 
-  return getThemeColor(category) || HEADER_PALETTE[1];
+  return category?.headerColor || getThemeColor(category) || HEADER_PALETTE[1];
 }
 
 /** Check if color has high luminance (bright), requiring dark/black text */
@@ -192,9 +196,9 @@ export function isBrightColor(color) {
 
 /**
  * Resolves the primary base theme color for a header category.
- * - Handles the "All" category default light blue (#dcecff)
- * - Checks preset patterns for primary categories (Groceries, Electronics, Mobiles, etc.)
- * - For new or custom categories (e.g. "Festival" with purple), falls back to category.headerColor / themeColor / color
+ * - Prioritizes custom admin-saved category.headerColor / themeColor / color FIRST!
+ * - Handles the "All" category default light blue (#dcecff) or admin headerColor
+ * - Only falls back to preset patterns if no custom color is defined in DB
  */
 export function getCategoryHeaderColor(category) {
   if (
@@ -204,9 +208,18 @@ export function getCategoryHeaderColor(category) {
     String(category.slug || "").toLowerCase() === "all" ||
     String(category.name || "").toLowerCase() === "all"
   ) {
-    return "#dcecff";
+    return category?.headerColor || "#dcecff";
   }
 
+  // 1. Explicit admin configured color always takes highest priority!
+  const customColor =
+    category.headerColor ||
+    category.themeColor ||
+    category.color ||
+    category.backgroundColor;
+  if (customColor) return customColor;
+
+  // 2. Preset fallbacks ONLY if no custom color was configured
   const text = `${category.name || ""} ${category.slug || ""}`.toLowerCase();
   if (/grocer/i.test(text)) return "#166534"; // green a little dark
   if (/electr/i.test(text)) return "#003957"; // cobalt blue (#003957)
@@ -215,12 +228,17 @@ export function getCategoryHeaderColor(category) {
   if (/fashion|cloth/i.test(text)) return "#D8B863"; // Sand (#D8B863)
   if (/beaut|skin|cosmetic/i.test(text)) return "#FE7F9C"; // Watermelon (#FE7F9C)
 
-  return (
-    category.headerColor ||
-    category.themeColor ||
-    category.color ||
-    category.backgroundColor ||
-    "#003957"
-  );
+  return "#003957";
+}
+
+/**
+ * Resolves title / text color for the header based on admin category.headerFontColor or background luminance.
+ */
+export function getCategoryHeaderTextColor(category, bgColor) {
+  if (category?.headerFontColor) {
+    return category.headerFontColor;
+  }
+  const resolvedBg = bgColor || getCategoryHeaderColor(category);
+  return isBrightColor(resolvedBg) ? "#0f172a" : "#ffffff";
 }
 

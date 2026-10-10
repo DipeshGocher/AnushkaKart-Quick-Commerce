@@ -4,6 +4,7 @@ import { customerApi } from "../services/customerApi";
 import { useAuth } from "../../../core/context/AuthContext";
 import { getJSON, setJSON, remove as removeStorage, STORAGE_KEYS } from "@core/utils/storage";
 import { useLocation as useAppLocation } from "./LocationContext";
+import { evaluateProductDelivery } from "../services/deliveryService";
 
 const CartContext = createContext(null);
 
@@ -164,6 +165,13 @@ export const CartProvider = ({ children }) => {
   }, [cart, isAuthenticated]);
 
   const addToCart = async (product, defaultQuantity = 1, forceVariantSku = null, options = {}) => {
+    // Delivery eligibility check for customer location
+    const deliveryCheck = evaluateProductDelivery(product, currentLocation?.pincode);
+    if (!deliveryCheck.canAddToCart) {
+      toast.error(deliveryCheck.warning || `Quick Delivery not available at ${currentLocation?.pincode || "your location"}`);
+      return;
+    }
+
     const isRefurb = isRefurbishedItem(product) || (product?.conditionType !== 'new' && typeof window !== 'undefined' && (window.location.pathname.startsWith('/marketplace') || window.location.pathname.startsWith('/refurbished')));
     const variantSku = forceVariantSku ?? String(product?.variantSku || product?.variantName || "").trim();
     const id = product.id || product._id;
