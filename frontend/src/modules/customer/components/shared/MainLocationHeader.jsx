@@ -100,18 +100,18 @@ function CategoryNavColumn({
         if (onItemClick) onItemClick(e.currentTarget);
       }}
       className={cn(
-        "customer-category-nav-item relative z-[2] flex shrink-0 cursor-pointer items-center justify-end flex-col transition-all duration-200 select-none",
+        "customer-category-nav-item relative z-[2] flex shrink-0 cursor-pointer items-center justify-center flex-col transition-all duration-200 select-none",
         isTextOnlyMode
           ? "px-3.5 pt-1 pb-2 h-9"
-          : "min-w-[58px] flex-col gap-1 px-2 pb-2 pt-0.5 md:min-w-[72px]",
+          : "min-w-[50px] sm:min-w-[56px] flex-col gap-0.5 px-1.5 pb-1 pt-0.5 md:min-w-[62px] h-[46px] sm:h-[48px]",
         isActive && "is-active"
       )}>
       {!isTextOnlyMode && (
         <div 
           className={cn(
             "customer-category-nav-icon relative z-10 flex items-center justify-center transition-all duration-200",
-            "h-11 w-11 md:h-12 md:w-12",
-            isActive ? "scale-105 opacity-100" : "opacity-90"
+            "h-5 w-5 sm:h-[22px] sm:w-[22px]",
+            isActive ? "scale-105 opacity-100" : "opacity-85"
           )}
         >
           <CategoryIcon
@@ -119,8 +119,8 @@ function CategoryNavColumn({
             alt={cat.name}
             className={cn(
               "transition-all duration-200",
-              "h-6 w-6 md:h-7 md:w-7",
-              isActive ? "scale-110" : "scale-100"
+              "h-[18px] w-[18px] sm:h-[19px] sm:w-[19px]",
+              isActive ? "scale-105" : "scale-100"
             )}
             style={{ color: isActive ? activeColor : iconColor }}
           />
@@ -129,10 +129,10 @@ function CategoryNavColumn({
       <div className={cn("relative flex items-center justify-center", isTextOnlyMode ? "w-auto" : "w-full")}>
         <span
           className={cn(
-            "customer-category-nav-label relative z-10 block text-center leading-tight tracking-tight transition-all duration-200 whitespace-nowrap",
+            "customer-category-nav-label relative z-10 block text-center leading-none tracking-tight transition-all duration-200 whitespace-nowrap mt-0.5",
             isTextOnlyMode
               ? "text-[13.5px] md:text-[14px]"
-              : "max-w-[82px] pb-0.5 text-[10px] md:max-w-[104px] md:text-[12px]",
+              : "max-w-[68px] text-[10px] sm:text-[10.5px] md:max-w-[84px] md:text-[11px]",
             isActive ? "font-bold" : "font-medium",
           )}
           style={{
@@ -145,7 +145,7 @@ function CategoryNavColumn({
       {isActive && (
         <motion.span
           layoutId="category-nav-indicator"
-          className="customer-category-nav-indicator absolute bottom-0 left-0.5 right-0.5 h-[3.5px] rounded-full pointer-events-none"
+          className="customer-category-nav-indicator absolute bottom-0 inset-x-2 h-[2.5px] rounded-full pointer-events-none"
           style={{
             backgroundColor: indicatorColor,
           }}
@@ -749,14 +749,14 @@ const MainLocationHeader = ({
                 className={cn(
                   "overflow-x-auto no-scrollbar scroll-smooth transition-all duration-300",
                   (isAllCategory && !isScrolled)
-                    ? "h-20 overflow-y-hidden pb-1.5"
+                    ? "h-[48px] overflow-y-hidden pb-0.5"
                     : "h-10 overflow-y-visible pb-0"
                 )}
               >
                 <div className={cn(
                   "flex shrink-0 px-2 transition-all duration-300", 
                   (isAllCategory && !isScrolled)
-                    ? "h-20 items-end gap-1 pb-1"
+                    ? "h-[48px] items-center gap-1 pb-0.5"
                     : "h-10 items-end gap-3 pb-0"
                 )}>
                   {categories.map((cat) => (
@@ -778,10 +778,10 @@ const MainLocationHeader = ({
             {/* Desktop wrapper: centered scrollable row */}
             <motion.div
               ref={navRef}
-              style={{ height: (isAllCategory && !isScrolled) ? "80px" : "40px", opacity: 1, marginTop: 4 }}
+              style={{ height: (isAllCategory && !isScrolled) ? "48px" : "40px", opacity: 1, marginTop: 2 }}
               className={cn(
                 "relative z-10 w-full hidden md:flex overflow-x-auto overflow-y-visible px-4 no-scrollbar scroll-smooth justify-center",
-                (isAllCategory && !isScrolled) ? "items-end gap-2.5 pb-1.5" : "items-end gap-4 pb-0"
+                (isAllCategory && !isScrolled) ? "items-center gap-2 pb-0.5" : "items-end gap-4 pb-0"
               )}
             >
               {categories.map((cat) => (

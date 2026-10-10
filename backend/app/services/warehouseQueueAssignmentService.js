@@ -88,6 +88,30 @@ export async function warehouseAcceptAtomic(warehouseId, orderId) {
 
   await removeSellerTimeoutJob(canonicalOrderId);
 
+  if (updated.fulfillmentType === "SHIPROCKET") {
+    await Order.findByIdAndUpdate(updated._id, {
+      $set: {
+        workflowStatus: WORKFLOW_STATUS.SELLER_ACCEPTED,
+        status: "confirmed",
+        sellerAcceptedAt: now,
+      },
+      $unset: { expiresAt: 1, deliverySearchExpiresAt: 1 },
+    });
+
+    emitOrderStatusUpdate(
+      updated.orderId,
+      {
+        workflowStatus: WORKFLOW_STATUS.SELLER_ACCEPTED,
+        status: "confirmed",
+      },
+      updated.customer?._id || updated.customer,
+    );
+
+    return await Order.findById(updated._id)
+      .populate("customer", "name phone")
+      .populate("warehouseId", "name location");
+  }
+
   // We do NOT create a broadcasting DeliveryAssignment right away,
   // because offerToNextInQueue handles creating it!
   

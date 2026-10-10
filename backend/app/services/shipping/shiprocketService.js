@@ -1,10 +1,27 @@
 import Order from "../../models/order.js";
 import axios from "axios";
+import { WORKFLOW_STATUS } from "../../constants/orderWorkflow.js";
+import { emitOrderStatusUpdate } from "../orderSocketEmitter.js";
+import { applyDeliveredSettlement } from "../orderSettlement.js";
+import { compensateOrderCancellation } from "../orderCompensation.js";
+import { emitNotificationEvent } from "../../modules/notifications/notification.emitter.js";
+import { NOTIFICATION_EVENTS } from "../../modules/notifications/notification.constants.js";
+import { invalidate, buildKey } from "../cacheService.js";
 
 const SHIPROCKET_BASE_URL = "https://apiv2.shiprocket.in/v1/external";
 
 let cachedToken = null;
 let tokenExpiry = 0;
+
+async function invalidateCustomerOrdersCache(customerId) {
+  if (!customerId) return;
+  try {
+    const cid = customerId?._id ? customerId._id.toString() : customerId.toString();
+    await invalidate(buildKey("orders", "customer", `${cid}:*`));
+  } catch (err) {
+    // Non-fatal cache invalidation error
+  }
+}
 
 /**
  * Returns true if real Shiprocket credentials are provided in the environment.
@@ -105,7 +122,22 @@ export async function processShiprocketOrder(orderParam) {
 
     order.status = "confirmed";
     order.orderStatus = "confirmed";
+    if (order.workflowVersion >= 2) {
+      order.workflowStatus = WORKFLOW_STATUS.SELLER_ACCEPTED;
+    }
     await order.save();
+
+    emitOrderStatusUpdate(
+      order.orderId,
+      {
+        workflowStatus: order.workflowStatus,
+        status: order.status,
+        shiprocket: order.shiprocket,
+      },
+      order.customer?._id || order.customer,
+    );
+
+    await invalidateCustomerOrdersCache(order.customer);
 
     return {
       success: true,
@@ -200,7 +232,22 @@ export async function processShiprocketOrder(orderParam) {
 
     order.status = "confirmed";
     order.orderStatus = "confirmed";
+    if (order.workflowVersion >= 2) {
+      order.workflowStatus = WORKFLOW_STATUS.SELLER_ACCEPTED;
+    }
     await order.save();
+
+    emitOrderStatusUpdate(
+      order.orderId,
+      {
+        workflowStatus: order.workflowStatus,
+        status: order.status,
+        shiprocket: order.shiprocket,
+      },
+      order.customer?._id || order.customer,
+    );
+
+    await invalidateCustomerOrdersCache(order.customer);
 
     return {
       success: true,
@@ -246,7 +293,24 @@ export async function requestShiprocketPickup(orderParam) {
       source: "manual",
     });
     order.status = "packed";
+    order.orderStatus = "packed";
+    if (order.workflowVersion >= 2) {
+      order.workflowStatus = WORKFLOW_STATUS.PICKUP_READY;
+    }
     await order.save();
+
+    emitOrderStatusUpdate(
+      order.orderId,
+      {
+        workflowStatus: order.workflowStatus,
+        status: order.status,
+        shiprocket: order.shiprocket,
+      },
+      order.customer?._id || order.customer,
+    );
+
+    await invalidateCustomerOrdersCache(order.customer);
+
     return { success: true, mode: "SIMULATED", message: "Pickup scheduled successfully" };
   }
 
@@ -267,7 +331,23 @@ export async function requestShiprocketPickup(orderParam) {
     source: "api",
   });
   order.status = "packed";
+  order.orderStatus = "packed";
+  if (order.workflowVersion >= 2) {
+    order.workflowStatus = WORKFLOW_STATUS.PICKUP_READY;
+  }
   await order.save();
+
+  emitOrderStatusUpdate(
+    order.orderId,
+    {
+      workflowStatus: order.workflowStatus,
+      status: order.status,
+      shiprocket: order.shiprocket,
+    },
+    order.customer?._id || order.customer,
+  );
+
+  await invalidateCustomerOrdersCache(order.customer);
 
   return { success: true, mode: "LIVE", data: res.data };
 }
@@ -362,19 +442,38 @@ export async function updateShiprocketManualStatus(orderId, { status, remarks = 
   if (upperStatus === "DELIVERED") {
     order.status = "delivered";
     order.orderStatus = "delivered";
+    if (order.workflowVersion >= 2) {
+      order.workflowStatus = WORKFLOW_STATUS.DELIVERED;
+    }
     order.deliveredAt = new Date();
     order.shiprocket.deliveredAt = new Date();
   } else if (upperStatus === "OUT_FOR_DELIVERY") {
     order.status = "out_for_delivery";
     order.orderStatus = "out_for_delivery";
+    if (order.workflowVersion >= 2) {
+      order.workflowStatus = WORKFLOW_STATUS.OUT_FOR_DELIVERY;
+    }
     order.outForDeliveryAt = new Date();
   } else if (upperStatus === "IN_TRANSIT") {
     order.status = "packed";
     order.orderStatus = "packed";
+    if (order.workflowVersion >= 2) {
+      order.workflowStatus = WORKFLOW_STATUS.PICKUP_READY;
+    }
     if (!order.shiprocket.shippedAt) order.shiprocket.shippedAt = new Date();
+  } else if (upperStatus === "PICKUP_SCHEDULED") {
+    order.status = "packed";
+    order.orderStatus = "packed";
+    if (order.workflowVersion >= 2) {
+      order.workflowStatus = WORKFLOW_STATUS.PICKUP_READY;
+    }
+    if (!order.shiprocket.pickupScheduledAt) order.shiprocket.pickupScheduledAt = new Date();
   } else if (upperStatus === "CANCELLED") {
     order.status = "cancelled";
     order.orderStatus = "cancelled";
+    if (order.workflowVersion >= 2) {
+      order.workflowStatus = WORKFLOW_STATUS.CANCELLED;
+    }
   }
 
   order.shiprocket.history.push({
@@ -386,6 +485,62 @@ export async function updateShiprocketManualStatus(orderId, { status, remarks = 
   });
 
   await order.save();
+
+  if (upperStatus === "DELIVERED") {
+    try {
+      await applyDeliveredSettlement(order, order.orderId);
+    } catch (settleErr) {
+      console.error("[Shiprocket] applyDeliveredSettlement error:", settleErr.message);
+    }
+    emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_DELIVERED, {
+      orderId: order.orderId,
+      customerId: order.customer?._id || order.customer,
+      userId: order.customer?._id || order.customer,
+      sellerId: order.seller?._id || order.seller,
+    });
+  } else if (upperStatus === "CANCELLED") {
+    try {
+      await compensateOrderCancellation(order, order.orderId, {
+        reason: remarks || "Shiprocket courier shipment cancelled",
+      });
+    } catch (cancelErr) {
+      console.error("[Shiprocket] compensateOrderCancellation error:", cancelErr.message);
+    }
+    emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_CANCELLED, {
+      orderId: order.orderId,
+      customerId: order.customer?._id || order.customer,
+      userId: order.customer?._id || order.customer,
+      sellerId: order.seller?._id || order.seller,
+      customerMessage: "Your order shipment was cancelled.",
+      sellerMessage: `Order #${order.orderId} shipment was cancelled.`,
+    });
+  } else if (upperStatus === "OUT_FOR_DELIVERY") {
+    emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_OUT_FOR_DELIVERY, {
+      orderId: order.orderId,
+      customerId: order.customer?._id || order.customer,
+      userId: order.customer?._id || order.customer,
+      sellerId: order.seller?._id || order.seller,
+    });
+  } else if (upperStatus === "IN_TRANSIT" || upperStatus === "PICKUP_SCHEDULED") {
+    emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_PACKED, {
+      orderId: order.orderId,
+      customerId: order.customer?._id || order.customer,
+      userId: order.customer?._id || order.customer,
+      sellerId: order.seller?._id || order.seller,
+    });
+  }
+
+  emitOrderStatusUpdate(
+    order.orderId,
+    {
+      workflowStatus: order.workflowStatus,
+      status: order.status,
+      shiprocket: order.shiprocket,
+    },
+    order.customer?._id || order.customer,
+  );
+
+  await invalidateCustomerOrdersCache(order.customer);
 
   return {
     success: true,
@@ -434,18 +589,30 @@ export async function processShiprocketWebhook(payload = {}, headers = {}) {
   if (statusRaw === "DELIVERED") {
     order.status = "delivered";
     order.orderStatus = "delivered";
+    if (order.workflowVersion >= 2) {
+      order.workflowStatus = WORKFLOW_STATUS.DELIVERED;
+    }
     order.deliveredAt = new Date();
     order.shiprocket.deliveredAt = new Date();
   } else if (statusRaw.includes("OUT FOR DELIVERY") || statusRaw === "OUT_FOR_DELIVERY") {
     order.status = "out_for_delivery";
     order.orderStatus = "out_for_delivery";
+    if (order.workflowVersion >= 2) {
+      order.workflowStatus = WORKFLOW_STATUS.OUT_FOR_DELIVERY;
+    }
   } else if (statusRaw.includes("IN TRANSIT") || statusRaw === "IN_TRANSIT" || statusRaw.includes("SHIPPED")) {
     order.status = "packed";
     order.orderStatus = "packed";
+    if (order.workflowVersion >= 2) {
+      order.workflowStatus = WORKFLOW_STATUS.PICKUP_READY;
+    }
     if (!order.shiprocket.shippedAt) order.shiprocket.shippedAt = new Date();
   } else if (statusRaw.includes("CANCELLED") || statusRaw === "CANCELLED") {
     order.status = "cancelled";
     order.orderStatus = "cancelled";
+    if (order.workflowVersion >= 2) {
+      order.workflowStatus = WORKFLOW_STATUS.CANCELLED;
+    }
   }
 
   order.shiprocket.history.push({
@@ -457,6 +624,62 @@ export async function processShiprocketWebhook(payload = {}, headers = {}) {
   });
 
   await order.save();
+
+  if (statusRaw === "DELIVERED") {
+    try {
+      await applyDeliveredSettlement(order, order.orderId);
+    } catch (settleErr) {
+      console.error("[Shiprocket Webhook] applyDeliveredSettlement error:", settleErr.message);
+    }
+    emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_DELIVERED, {
+      orderId: order.orderId,
+      customerId: order.customer?._id || order.customer,
+      userId: order.customer?._id || order.customer,
+      sellerId: order.seller?._id || order.seller,
+    });
+  } else if (statusRaw.includes("CANCELLED") || statusRaw === "CANCELLED") {
+    try {
+      await compensateOrderCancellation(order, order.orderId, {
+        reason: remarks || "Shiprocket webhook cancelled shipment",
+      });
+    } catch (cancelErr) {
+      console.error("[Shiprocket Webhook] compensateOrderCancellation error:", cancelErr.message);
+    }
+    emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_CANCELLED, {
+      orderId: order.orderId,
+      customerId: order.customer?._id || order.customer,
+      userId: order.customer?._id || order.customer,
+      sellerId: order.seller?._id || order.seller,
+      customerMessage: "Your order shipment was cancelled.",
+      sellerMessage: `Order #${order.orderId} shipment was cancelled.`,
+    });
+  } else if (statusRaw.includes("OUT FOR DELIVERY") || statusRaw === "OUT_FOR_DELIVERY") {
+    emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_OUT_FOR_DELIVERY, {
+      orderId: order.orderId,
+      customerId: order.customer?._id || order.customer,
+      userId: order.customer?._id || order.customer,
+      sellerId: order.seller?._id || order.seller,
+    });
+  } else if (statusRaw.includes("IN TRANSIT") || statusRaw === "IN_TRANSIT" || statusRaw.includes("SHIPPED")) {
+    emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_PACKED, {
+      orderId: order.orderId,
+      customerId: order.customer?._id || order.customer,
+      userId: order.customer?._id || order.customer,
+      sellerId: order.seller?._id || order.seller,
+    });
+  }
+
+  emitOrderStatusUpdate(
+    order.orderId,
+    {
+      workflowStatus: order.workflowStatus,
+      status: order.status,
+      shiprocket: order.shiprocket,
+    },
+    order.customer?._id || order.customer,
+  );
+
+  await invalidateCustomerOrdersCache(order.customer);
 
   return {
     success: true,

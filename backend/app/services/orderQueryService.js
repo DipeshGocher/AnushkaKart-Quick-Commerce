@@ -313,6 +313,7 @@ export async function fetchAvailableOrdersForDelivery({
     const v2OrdersRaw = await Order.find({
       workflowVersion: { $gte: 2 },
       workflowStatus: WORKFLOW_STATUS.DELIVERY_SEARCH,
+      fulfillmentType: { $ne: "SHIPROCKET" },
       deliveryBoy: null,
       seller: { $in: sellerIds },
       skippedBy: { $nin: [userId] },
@@ -337,6 +338,7 @@ export async function fetchAvailableOrdersForDelivery({
         { workflowVersion: { $lt: 2 } },
       ],
       status: { $in: ["confirmed", "packed"] },
+      fulfillmentType: { $ne: "SHIPROCKET" },
       deliveryBoy: null,
       seller: { $in: sellerIds },
       skippedBy: { $nin: [userId] },

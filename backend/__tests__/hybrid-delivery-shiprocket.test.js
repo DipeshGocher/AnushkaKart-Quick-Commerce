@@ -23,6 +23,33 @@ jest.unstable_mockModule("../app/models/order.js", () => ({
   },
 }));
 
+const mockApplyDeliveredSettlement = jest.fn().mockResolvedValue(true);
+const mockCompensateOrderCancellation = jest.fn().mockResolvedValue(true);
+const mockEmitOrderStatusUpdate = jest.fn();
+const mockEmitNotificationEvent = jest.fn();
+const mockInvalidate = jest.fn().mockResolvedValue(true);
+
+jest.unstable_mockModule("../app/services/orderSettlement.js", () => ({
+  applyDeliveredSettlement: mockApplyDeliveredSettlement,
+}));
+
+jest.unstable_mockModule("../app/services/orderCompensation.js", () => ({
+  compensateOrderCancellation: mockCompensateOrderCancellation,
+}));
+
+jest.unstable_mockModule("../app/services/orderSocketEmitter.js", () => ({
+  emitOrderStatusUpdate: mockEmitOrderStatusUpdate,
+}));
+
+jest.unstable_mockModule("../app/modules/notifications/notification.emitter.js", () => ({
+  emitNotificationEvent: mockEmitNotificationEvent,
+}));
+
+jest.unstable_mockModule("../app/services/cacheService.js", () => ({
+  invalidate: mockInvalidate,
+  buildKey: (...args) => args.join(":"),
+}));
+
 const {
   isPincodeLocal,
   getLocalPincodeDetails,
@@ -140,10 +167,13 @@ describe("Hybrid Delivery Architecture - Local vs Shiprocket", () => {
       ).rejects.toThrow("Invalid status: INVALID_STATUS");
     });
 
-    it("processes inbound Shiprocket webhook event and updates order status", async () => {
+    it("processes inbound Shiprocket webhook event and updates order status with settlement and sockets", async () => {
       const mockOrder = {
         orderId: "ORD-TEST-104",
         fulfillmentType: "SHIPROCKET",
+        workflowVersion: 2,
+        customer: "CUST-101",
+        seller: "SELLER-101",
         shiprocket: { awb: "SR12345678IN", currentStatus: "IN_TRANSIT", history: [] },
         save: jest.fn().mockResolvedValue(true),
       };
@@ -162,8 +192,43 @@ describe("Hybrid Delivery Architecture - Local vs Shiprocket", () => {
       expect(res.success).toBe(true);
       expect(mockOrder.shiprocket.currentStatus).toBe("DELIVERED");
       expect(mockOrder.status).toBe("delivered");
+      expect(mockOrder.workflowStatus).toBe("DELIVERED");
+      expect(mockApplyDeliveredSettlement).toHaveBeenCalledWith(mockOrder, "ORD-TEST-104");
+      expect(mockEmitOrderStatusUpdate).toHaveBeenCalled();
+      expect(mockEmitNotificationEvent).toHaveBeenCalled();
+      expect(mockInvalidate).toHaveBeenCalled();
       expect(mockOrder.shiprocket.history.length).toBe(1);
       expect(mockOrder.shiprocket.history[0].source).toBe("webhook");
+      expect(mockOrder.save).toHaveBeenCalled();
+    });
+
+    it("triggers cancellation compensation when Shiprocket manual status is set to CANCELLED", async () => {
+      const mockOrder = {
+        orderId: "ORD-TEST-105",
+        fulfillmentType: "SHIPROCKET",
+        workflowVersion: 2,
+        customer: "CUST-102",
+        seller: "SELLER-102",
+        shiprocket: { currentStatus: "AWB_ASSIGNED", history: [] },
+        save: jest.fn().mockResolvedValue(true),
+      };
+
+      mockOrderFindOne.mockResolvedValue(mockOrder);
+
+      const result = await updateShiprocketManualStatus("ORD-TEST-105", {
+        status: "CANCELLED",
+        remarks: "Shipment cancelled by courier",
+      });
+
+      expect(result.success).toBe(true);
+      expect(mockOrder.status).toBe("cancelled");
+      expect(mockOrder.workflowStatus).toBe("CANCELLED");
+      expect(mockCompensateOrderCancellation).toHaveBeenCalledWith(
+        mockOrder,
+        "ORD-TEST-105",
+        expect.objectContaining({ reason: "Shipment cancelled by courier" }),
+      );
+      expect(mockEmitOrderStatusUpdate).toHaveBeenCalled();
       expect(mockOrder.save).toHaveBeenCalled();
     });
   });

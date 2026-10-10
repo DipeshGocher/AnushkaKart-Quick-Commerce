@@ -385,6 +385,7 @@ export async function deliveryAcceptAtomic(deliveryId, orderId, idempotencyKey) 
       orderId,
       workflowVersion: { $gte: 2 },
       workflowStatus: WORKFLOW_STATUS.DELIVERY_SEARCH,
+      fulfillmentType: { $ne: "SHIPROCKET" },
       deliveryBoy: null,
       deliverySearchExpiresAt: { $gt: now },
       skippedBy: { $nin: [deliveryOid] },
@@ -410,7 +411,9 @@ export async function deliveryAcceptAtomic(deliveryId, orderId, idempotencyKey) 
       throw err;
     }
     let msg = "Order already assigned or not available";
-    if (o.deliverySearchExpiresAt && new Date(o.deliverySearchExpiresAt) <= now) {
+    if (o.fulfillmentType === "SHIPROCKET") {
+      msg = "This is a Shiprocket courier shipment and cannot be accepted by local delivery partners.";
+    } else if (o.deliverySearchExpiresAt && new Date(o.deliverySearchExpiresAt) <= now) {
       msg =
         "Accept window has expired. Wait for the next delivery request.";
     } else if (o.deliveryBoy) {

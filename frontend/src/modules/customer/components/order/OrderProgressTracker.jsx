@@ -107,18 +107,20 @@ const OrderProgressTracker = ({
               </div>
               <div>
                 <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
-                  Estimated Time
+                  {order?.fulfillmentType === "SHIPROCKET" ? "Delivery Estimate" : "Estimated Time"}
                 </p>
                 <p className="text-lg font-black text-emerald-900">{estimatedArrivalText}</p>
               </div>
             </div>
             <div className="text-right flex flex-col items-end gap-1">
               <div>
-                <p className="text-xs text-emerald-700 font-semibold">Arriving in</p>
+                <p className="text-xs text-emerald-700 font-semibold">
+                  {order?.fulfillmentType === "SHIPROCKET" ? "Expected Delivery" : "Arriving in"}
+                </p>
                 <p className="text-2xl font-black text-emerald-900">{arrivingInText}</p>
               </div>
               <div className="inline-flex items-center rounded-full bg-white/80 px-3 py-1 text-[11px] font-bold text-emerald-800 ring-1 ring-emerald-200">
-                Total distance: {totalDistanceText}
+                {order?.fulfillmentType === "SHIPROCKET" ? "Pan-India Courier" : `Total distance: ${totalDistanceText}`}
               </div>
             </div>
           </div>

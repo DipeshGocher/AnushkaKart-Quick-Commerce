@@ -518,6 +518,14 @@ const OrderDetailPage = () => {
       };
     }
 
+    if (order?.fulfillmentType === "SHIPROCKET") {
+      return {
+        arrivalTimeText: order?.shiprocket?.etd || "3-4 Business Days",
+        arrivingInText: order?.deliveryEstimate || "3-4 Days",
+        totalDistanceText: "Standard Courier",
+      };
+    }
+
     const targetLocation =
       routePhase === "delivery" ? order?.address?.location : sellerLocation;
 
@@ -560,7 +568,7 @@ const OrderDetailPage = () => {
   ]);
 
   useEffect(() => {
-    if (!orderId || status === "delivered" || status === "cancelled") return;
+    if (!orderId || status === "delivered" || status === "cancelled" || order?.fulfillmentType === "SHIPROCKET") return;
 
     // If rider location isn't available yet, fallback to seller location so we can at least show the polyline
     const currentOrigin = hasValidLatLng(liveLocation)
@@ -910,15 +918,117 @@ const OrderDetailPage = () => {
 
         {/* Live Tracking Map removed per user request */}
 
-        {/* Proximity-based Delivery OTP Display */}
-        <DeliveryOtpDisplay
-          orderId={order?.orderId || orderId}
-          checkoutGroupId={order?.checkoutGroupId || orderId}
-          initialOtp={order?.deliveryOtp || order?.handoffOtp || (handoffOtp ? { code: handoffOtp } : null)}
-        />
+        {/* Proximity-based Delivery OTP Display - Only for Local Quick Commerce orders */}
+        {order.fulfillmentType !== "SHIPROCKET" && (
+          <DeliveryOtpDisplay
+            orderId={order?.orderId || orderId}
+            checkoutGroupId={order?.checkoutGroupId || orderId}
+            initialOtp={order?.deliveryOtp || order?.handoffOtp || (handoffOtp ? { code: handoffOtp } : null)}
+          />
+        )}
 
-        {/* Delivery Partner Card - Redesigned */}
-        {order.deliveryBoy && status !== "delivered" && status !== "cancelled" && (
+        {/* Shiprocket Courier Tracking Card - Pan-India Courier Orders */}
+        {order.fulfillmentType === "SHIPROCKET" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 space-y-4"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                  <Truck size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 leading-tight">
+                    Pan-India Courier Shipment
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    {order.shiprocket?.courierName || "Shiprocket Express Logistics"}
+                  </p>
+                </div>
+              </div>
+              <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${
+                order.shiprocket?.currentStatus === "DELIVERED"
+                  ? "bg-emerald-100 text-emerald-800"
+                  : order.shiprocket?.currentStatus === "OUT_FOR_DELIVERY"
+                  ? "bg-purple-100 text-purple-800"
+                  : order.shiprocket?.currentStatus === "IN_TRANSIT"
+                  ? "bg-blue-100 text-blue-800"
+                  : "bg-amber-100 text-amber-800"
+              }`}>
+                {order.shiprocket?.currentStatus || "PROCESSING"}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">AWB Tracking No.</span>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="font-mono font-black text-slate-900 text-sm truncate">
+                    {order.shiprocket?.awb || "Assigning soon"}
+                  </span>
+                  {order.shiprocket?.awb && (
+                    <button
+                      onClick={() => {
+                        navigator.clipboard?.writeText(order.shiprocket.awb);
+                        toast.success("AWB Number copied!");
+                      }}
+                      className="text-[10px] text-blue-600 font-bold hover:underline shrink-0"
+                    >
+                      Copy
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Est. Delivery</span>
+                <span className="font-bold text-slate-800 text-xs mt-1 block">
+                  {order.shiprocket?.etd || order.deliveryEstimate || "3-4 Business Days"}
+                </span>
+              </div>
+            </div>
+
+            {order.shiprocket?.awb && (
+              <a
+                href={order.shiprocket?.trackingUrl || `https://shiprocket.co/tracking/${order.shiprocket.awb}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+              >
+                <span>Track on Courier Portal</span>
+                <ArrowRight size={13} />
+              </a>
+            )}
+
+            {/* Event history timeline */}
+            {Array.isArray(order.shiprocket?.history) && order.shiprocket.history.length > 0 && (
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  Shipment Tracking Updates
+                </p>
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                  {order.shiprocket.history.slice().reverse().map((ev, i) => (
+                    <div key={i} className="text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100/80 flex items-start justify-between gap-2">
+                      <div>
+                        <span className="font-bold text-slate-800">{ev.status}</span>
+                        {ev.location && <span className="text-slate-500"> • {ev.location}</span>}
+                        {ev.remarks && <p className="text-[11px] text-slate-500 mt-0.5">{ev.remarks}</p>}
+                      </div>
+                      <span className="text-[10px] text-slate-400 shrink-0">
+                        {new Date(ev.timestamp).toLocaleDateString([], { month: "short", day: "numeric" })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* Delivery Partner Card - Only for Local Rider Orders */}
+        {order.deliveryBoy && order.fulfillmentType !== "SHIPROCKET" && status !== "delivered" && status !== "cancelled" && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
