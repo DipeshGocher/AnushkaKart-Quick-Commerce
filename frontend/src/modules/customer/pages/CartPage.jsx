@@ -13,7 +13,7 @@ import LocationDrawer from '../components/shared/LocationDrawer';
 import EmptyCartAnimation from '../components/shared/EmptyCartAnimation';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 import PageSkeleton from '@/shared/components/PageSkeleton';
-import { evaluateProductDelivery } from '../services/deliveryService';
+import { evaluateProductDelivery, isPincodeLocalSync } from '../services/deliveryService';
 import { motion, useReducedMotion } from 'framer-motion';
 
 const CartPage = ({ asOverlay = false, onClose }) => {
@@ -114,7 +114,14 @@ const CartPage = ({ asOverlay = false, onClose }) => {
 
   const handleBuyNow = (item) => {
     if (asOverlay && onClose) onClose();
-    navigate('/checkout', { state: { directBuyItem: item } });
+    const isLocal = isPincodeLocalSync(destinationPincode);
+    navigate('/checkout', {
+      state: {
+        directBuyItem: item,
+        initialFulfillmentType: isLocal ? "LOCAL" : "SHIPROCKET",
+        destinationPincode,
+      },
+    });
   };
 
   const displayAddress = currentLocation?.address || currentLocation?.formattedAddress || currentLocation?.name || "Select delivery location";
@@ -184,7 +191,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                   <div className="text-xs text-red-800">
                     <p className="font-bold text-red-700">Quick Delivery Not Available for {unserviceableCartItems.length} Item(s)</p>
                     <p className="mt-0.5 text-slate-600 leading-relaxed">
-                      Fresh groceries cannot be delivered to pincode <strong>{destinationPincode || 'your location'}</strong>. Please remove them to proceed with your order.
+                      Fresh grocery items are only delivered in local areas. Please remove them to proceed with your order.
                     </p>
                   </div>
                 </div>
@@ -271,7 +278,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                               {!deliveryCheck.canAddToCart ? (
                                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md">
                                   <Ban size={11} className="shrink-0" />
-                                  <span>{deliveryCheck.warning || `Quick delivery not available at ${destinationPincode}`}</span>
+                                  <span>{deliveryCheck.warning || "This item is only delivered in local areas."}</span>
                                 </span>
                               ) : deliveryCheck.badge ? (
                                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
@@ -384,6 +391,10 @@ const CartPage = ({ asOverlay = false, onClose }) => {
 
                 <Link
                   to={unserviceableCartItems.length > 0 ? "#" : "/checkout"}
+                  state={{
+                    initialFulfillmentType: isPincodeLocalSync(destinationPincode) ? "LOCAL" : "SHIPROCKET",
+                    destinationPincode,
+                  }}
                   onClick={handleProceedToCheckout}
                   className={`w-full ${unserviceableCartItems.length > 0 ? 'bg-slate-400 cursor-not-allowed opacity-90' : 'bg-[#fb641b] hover:bg-[#f45305] shadow-md shadow-orange-500/20'} active:scale-[0.99] text-white font-bold text-sm py-3.5 px-6 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer`}
                 >
@@ -436,6 +447,10 @@ const CartPage = ({ asOverlay = false, onClose }) => {
             {/* Right: Grocery Proceed to Buy Button */}
             <Link
               to={unserviceableCartItems.length > 0 ? "#" : "/checkout"}
+              state={{
+                initialFulfillmentType: isPincodeLocalSync(destinationPincode) ? "LOCAL" : "SHIPROCKET",
+                destinationPincode,
+              }}
               onClick={handleProceedToCheckout}
               className={`${unserviceableCartItems.length > 0 ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-[#ffdf00] hover:bg-[#f5d500] text-[#212121]'} active:scale-95 font-bold text-sm sm:text-base px-7 py-3.5 rounded-xl transition-all flex items-center gap-2 cursor-pointer shrink-0`}
             >

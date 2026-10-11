@@ -107,8 +107,8 @@ export function evaluateProductDelivery(product, customerPincode) {
         canAddToCart: true,
         deliveryMode: "quick_only",
         fulfillmentType: "LOCAL_RIDERS",
-        badge: "⚡ 12-15 Mins",
-        deliveryEstimate: "12-15 mins",
+        badge: "⚡ 20-35 Mins",
+        deliveryEstimate: "20-35 mins",
         isCustomerLocal: false,
         warning: null,
       };
@@ -120,8 +120,8 @@ export function evaluateProductDelivery(product, customerPincode) {
         canAddToCart: true,
         deliveryMode: "quick_only",
         fulfillmentType: "LOCAL_RIDERS",
-        badge: "⚡ 12-15 Mins",
-        deliveryEstimate: "12-15 mins",
+        badge: "⚡ 20-35 Mins",
+        deliveryEstimate: "20-35 mins",
         isCustomerLocal: true,
         warning: null,
       };
@@ -146,10 +146,10 @@ export function evaluateProductDelivery(product, customerPincode) {
       canAddToCart: false,
       deliveryMode: "quick_only",
       fulfillmentType: null,
-      badge: `Quick Delivery not available at ${cleanCustomerPincode}`,
+      badge: "Local delivery only",
       deliveryEstimate: null,
       isCustomerLocal: false,
-      warning: `Quick Delivery not available at ${cleanCustomerPincode}. This item is only delivered in local areas.`,
+      warning: "This item is only delivered in local areas.",
     };
   }
 
@@ -160,8 +160,8 @@ export function evaluateProductDelivery(product, customerPincode) {
       canAddToCart: true,
       deliveryMode: "both",
       fulfillmentType: "LOCAL_RIDERS",
-      badge: "⚡ 12-15 Mins",
-      deliveryEstimate: "12-15 mins",
+      badge: "⚡ 20-35 Mins",
+      deliveryEstimate: "20-35 mins",
       isCustomerLocal: true,
       warning: null,
     };

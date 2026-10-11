@@ -137,7 +137,7 @@ const OrderDetail = () => {
             fetchDetail(); // Refresh data
         } catch (error) {
             console.error("Failed to update status:", error);
-            showToast("Failed to update status", "error");
+            showToast(error.response?.data?.message || error.message || "Failed to update status", "error");
         }
     };
 
@@ -258,18 +258,49 @@ const OrderDetail = () => {
                             <div className="relative inline-block w-44">
                                 <select
                                     value={order.status}
+                                    disabled={order.status === 'delivered' || order.status === 'cancelled'}
                                     onChange={(e) => handleStatusUpdate(e.target.value)}
                                     className={cn(
-                                        "w-full text-[10px] pl-3 pr-8 py-1.5 rounded-xl font-black uppercase tracking-widest border appearance-none cursor-pointer focus:ring-2 focus:ring-offset-1 transition-all outline-none shadow-sm",
+                                        "w-full text-[10px] pl-3 pr-8 py-1.5 rounded-xl font-black uppercase tracking-widest border appearance-none transition-all outline-none shadow-sm",
+                                        (order.status === 'delivered' || order.status === 'cancelled') ? "cursor-default opacity-80" : "cursor-pointer focus:ring-2 focus:ring-offset-1",
                                         getStatusStyles(order.status)
                                     )}
                                 >
-                                    <option value="pending">Pending</option>
-                                    <option value="confirmed">Confirmed</option>
-                                    <option value="packed">Packed</option>
-                                    <option value="out_for_delivery">Out for Delivery</option>
-                                    <option value="delivered">Delivered</option>
-                                    <option value="cancelled">Cancelled</option>
+                                    {order.status === 'pending' && (
+                                        <>
+                                            <option value="pending">Pending</option>
+                                            <option value="confirmed">Confirm</option>
+                                            <option value="cancelled">Cancel Order</option>
+                                        </>
+                                    )}
+                                    {order.status === 'confirmed' && (
+                                        <>
+                                            <option value="confirmed">Confirmed</option>
+                                            <option value="packed">Mark Packed</option>
+                                            <option value="out_for_delivery">Out for Delivery</option>
+                                            <option value="cancelled">Cancel Order</option>
+                                        </>
+                                    )}
+                                    {order.status === 'packed' && (
+                                        <>
+                                            <option value="packed">Packed</option>
+                                            <option value="out_for_delivery">Out for Delivery</option>
+                                            <option value="cancelled">Cancel Order</option>
+                                        </>
+                                    )}
+                                    {order.status === 'out_for_delivery' && (
+                                        <>
+                                            <option value="out_for_delivery">Out for Delivery</option>
+                                            <option value="delivered">Delivered</option>
+                                            <option value="cancelled">Cancel Order</option>
+                                        </>
+                                    )}
+                                    {order.status === 'delivered' && (
+                                        <option value="delivered">Delivered</option>
+                                    )}
+                                    {order.status === 'cancelled' && (
+                                        <option value="cancelled">Cancelled</option>
+                                    )}
                                 </select>
                                 <Info className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-60" />
                             </div>

@@ -25,7 +25,7 @@ import mongoose from "mongoose";
 
 import Order from "../../models/order.js";
 import Product from "../../models/product.js";
-import { buildKey, getOrSet, getTTL } from "../cacheService.js";
+import { buildKey, getOrSet, getTTL, invalidate } from "../cacheService.js";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_NAMES = [
@@ -103,6 +103,7 @@ async function computeSellerStats(sellerOid, range) {
       $match: {
         seller: sellerOid,
         status: { $ne: "cancelled" },
+        workflowStatus: { $ne: "CANCELLED" },
       },
     },
     {
@@ -111,13 +112,46 @@ async function computeSellerStats(sellerOid, range) {
           {
             $group: {
               _id: null,
-              totalSales: { $sum: { $ifNull: ["$paymentBreakdown.sellerPayoutTotal", 0] } },
+              totalSales: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $eq: ["$status", "delivered"] },
+                        { $ne: ["$workflowStatus", "CANCELLED"] },
+                      ],
+                    },
+                    { $ifNull: ["$paymentBreakdown.sellerPayoutTotal", 0] },
+                    0,
+                  ],
+                },
+              },
+              deliveredOrders: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $eq: ["$status", "delivered"] },
+                        { $ne: ["$workflowStatus", "CANCELLED"] },
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
               totalOrders: { $sum: 1 },
             },
           },
         ],
         currentWeek: [
-          { $match: { createdAt: { $gte: sevenDaysAgo } } },
+          {
+            $match: {
+              createdAt: { $gte: sevenDaysAgo },
+              status: "delivered",
+              workflowStatus: { $ne: "CANCELLED" },
+            },
+          },
           {
             $group: {
               _id: null,
@@ -127,7 +161,13 @@ async function computeSellerStats(sellerOid, range) {
           },
         ],
         prevWeek: [
-          { $match: { createdAt: { $gte: fourteenDaysAgo, $lt: sevenDaysAgo } } },
+          {
+            $match: {
+              createdAt: { $gte: fourteenDaysAgo, $lt: sevenDaysAgo },
+              status: "delivered",
+              workflowStatus: { $ne: "CANCELLED" },
+            },
+          },
           {
             $group: {
               _id: null,
@@ -137,7 +177,13 @@ async function computeSellerStats(sellerOid, range) {
           },
         ],
         salesTrend: [
-          { $match: { createdAt: { $gte: trendStartDate } } },
+          {
+            $match: {
+              createdAt: { $gte: trendStartDate },
+              status: "delivered",
+              workflowStatus: { $ne: "CANCELLED" },
+            },
+          },
           {
             $group: {
               _id: { $dateToString: { format: aggregationFormat, date: "$createdAt" } },
@@ -194,10 +240,11 @@ async function computeSellerStats(sellerOid, range) {
     },
   ]);
 
-  const overviewRaw = statsResult.overview[0] || { totalSales: 0, totalOrders: 0 };
-  const totalSales = overviewRaw.totalSales;
-  const totalOrders = overviewRaw.totalOrders;
-  const avgOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
+  const overviewRaw = statsResult.overview[0] || { totalSales: 0, totalOrders: 0, deliveredOrders: 0 };
+  const totalSales = overviewRaw.totalSales || 0;
+  const totalOrders = overviewRaw.totalOrders || 0;
+  const deliveredOrders = overviewRaw.deliveredOrders || 0;
+  const avgOrderValue = deliveredOrders > 0 ? totalSales / deliveredOrders : (totalOrders > 0 && totalSales > 0 ? totalSales / totalOrders : 0);
 
   const currentSales = statsResult.currentWeek[0]?.sales || 0;
   const prevSalesVal = statsResult.prevWeek[0]?.sales || 0;
@@ -348,6 +395,19 @@ async function computeSellerStats(sellerOid, range) {
   };
 }
 
+export async function invalidateSellerStatsCache(sellerId) {
+  if (!sellerId) return;
+  const sellerIdStr = sellerId.toString();
+  try {
+    await Promise.all([
+      invalidate(buildKey("seller", "stats", `${sellerIdStr}:daily`)),
+      invalidate(buildKey("seller", "stats", `${sellerIdStr}:weekly`)),
+      invalidate(buildKey("seller", "stats", `${sellerIdStr}:monthly`)),
+    ]);
+  } catch (_e) {}
+}
+
 export default {
   getSellerStats,
+  invalidateSellerStatsCache,
 };

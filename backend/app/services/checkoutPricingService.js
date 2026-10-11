@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Seller from "../models/seller.js";
 import Warehouse from "../models/warehouse.js";
 import Category from "../models/category.js";
@@ -494,45 +495,52 @@ export async function buildCheckoutPricingSnapshot({
   }
 
   // Phase 4: Validate delivery eligibility for every item in the cart against destination pincode
-  for (const item of hydratedItems) {
-    const itemDeliveryMode = await resolveProductDeliveryMode(
-      { deliveryMode: item.deliveryMode, headerId: item.headerCategoryId },
-      null
-    );
-
-    const sellerId = String(item?.sellerId || item?.warehouseId || "");
-    let sellerPincode = "";
-    if (sellerId) {
-      let sellerDoc = await Seller.findById(sellerId).select("pincode").lean();
-      if (!sellerDoc) {
-        sellerDoc = await Warehouse.findById(sellerId).select("pincode").lean();
-      }
-      sellerPincode = sellerDoc?.pincode ? String(sellerDoc.pincode).trim() : "";
-    }
-
-    const eligibility = await evaluateDeliveryEligibility({
-      customerPincode: pincode,
-      sellerPincode,
-      deliveryMode: itemDeliveryMode,
-    });
-
-    if (!eligibility.isDeliverable) {
-      const productName = item.productName || item.name || "This item";
-      const err = new Error(
-        eligibility.reason ||
-        `Quick Delivery is not available for "${productName}" at pincode ${pincode || "your location"}. Fresh perishables can only be delivered within local quick commerce zones. Please remove this item from your cart to proceed.`
+  if (pincode) {
+    for (const item of hydratedItems) {
+      const itemDeliveryMode = await resolveProductDeliveryMode(
+        { deliveryMode: item.deliveryMode, headerId: item.headerCategoryId },
+        null
       );
-      err.statusCode = 400;
-      throw err;
-    }
 
-    item.itemFulfillmentType = eligibility.fulfillmentType;
-    item.itemDeliveryEstimate = eligibility.deliveryEstimate;
+      const sellerId = String(item?.sellerId || item?.warehouseId || "");
+      let sellerPincode = "";
+      if (sellerId && mongoose.Types.ObjectId.isValid(sellerId)) {
+        let sellerDoc = await Seller.findById(sellerId).select("pincode").lean();
+        if (!sellerDoc) {
+          sellerDoc = await Warehouse.findById(sellerId).select("pincode").lean();
+        }
+        sellerPincode = sellerDoc?.pincode ? String(sellerDoc.pincode).trim() : "";
+      }
+
+      const eligibility = await evaluateDeliveryEligibility({
+        customerPincode: pincode,
+        sellerPincode,
+        deliveryMode: itemDeliveryMode,
+      });
+
+      if (!eligibility.isDeliverable) {
+        const productName = item.productName || item.name || "This item";
+        const err = new Error(
+          eligibility.reason ||
+          `Quick Delivery is not available for "${productName}" at pincode ${pincode || "your location"}. Fresh perishables can only be delivered within local quick commerce zones. Please remove this item from your cart to proceed.`
+        );
+        err.statusCode = 400;
+        throw err;
+      }
+
+      item.itemFulfillmentType = eligibility.fulfillmentType;
+      item.itemDeliveryEstimate = eligibility.deliveryEstimate;
+    }
+  } else {
+    for (const item of hydratedItems) {
+      item.itemFulfillmentType = "LOCAL_RIDERS";
+      item.itemDeliveryEstimate = "20-35 mins";
+    }
   }
 
   const fulfillmentType = isLocal ? "LOCAL" : "SHIPROCKET";
   const deliveryEstimate = isLocal
-    ? (localPincodeRecord?.deliveryTimeEstimate || "12-15 mins")
+    ? (localPincodeRecord?.deliveryTimeEstimate || "20-35 mins")
     : "3-5 business days";
 
   const itemsBySeller = groupHydratedItemsBySeller(hydratedItems);
@@ -555,7 +563,7 @@ export async function buildCheckoutPricingSnapshot({
     const sellerFulfillmentType = sellerHasShiprocket ? "SHIPROCKET" : "LOCAL";
     const sellerDeliveryEstimate = sellerHasShiprocket
       ? "3-4 business days"
-      : (localPincodeRecord?.deliveryTimeEstimate || "12-15 mins");
+      : (localPincodeRecord?.deliveryTimeEstimate || "20-35 mins");
 
     const distanceData = await computeDistanceKmForSeller({
       sellerId,
@@ -640,7 +648,7 @@ export async function buildCheckoutPricingSnapshot({
   const overallFulfillmentType = overallHasShiprocket ? "SHIPROCKET" : "LOCAL";
   const overallDeliveryEstimate = overallHasShiprocket
     ? "3-4 business days"
-    : (localPincodeRecord?.deliveryTimeEstimate || "12-15 mins");
+    : (localPincodeRecord?.deliveryTimeEstimate || "20-35 mins");
   const overallIsLocal = !overallHasShiprocket;
 
   aggregateBreakdown.fulfillmentType = overallFulfillmentType;

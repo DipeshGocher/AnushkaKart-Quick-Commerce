@@ -48,7 +48,7 @@ const CheckoutCartSummary = React.memo(function CheckoutCartSummary({
                 return (
                   <div className="inline-flex items-center gap-1.5 px-2 py-0.5 mb-1.5 rounded-md bg-red-50 border border-red-200 text-red-600 text-[10px] font-bold">
                     <Ban size={11} className="shrink-0" />
-                    <span>Quick Delivery not available at {destinationPincode}</span>
+                    <span>This item is only delivered in local areas</span>
                   </div>
                 );
               }

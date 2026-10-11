@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@core/context/AuthContext";
 import { useSettings } from "@core/context/SettingsContext";
+import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
 import { UserRole } from "@core/constants/roles";
 import SignInCard2 from "@/components/ui/sign-in-card-2";
 import {
@@ -120,9 +121,20 @@ const Auth = () => {
       ? "border-emerald-500 bg-emerald-50/20 focus:border-emerald-600 focus:bg-white"
       : "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:bg-white";
   };
-  const { login } = useAuth();
+  const { login, isAuthenticated, role } = useAuth();
   const { settings } = useSettings();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    setActiveRole(ROLES.SELLER);
+  }, []);
+
+  useEffect(() => {
+    if (isLogin && isAuthenticated && role === 'seller') {
+      navigate('/seller', { replace: true });
+    }
+  }, [isLogin, isAuthenticated, role, navigate]);
+
   const appName = settings?.appName || "App";
   const logoUrl = settings?.logoUrl || "/logo.png";
   const [signupStep, setSignupStep] = useState(() => {

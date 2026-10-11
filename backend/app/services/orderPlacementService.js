@@ -578,7 +578,7 @@ export async function placeOrderAtomic({
           walletAmount: proportionateWallet,
         },
         fulfillmentType: entry.fulfillmentType || pricingSnapshot.fulfillmentType || "LOCAL",
-        deliveryEstimate: entry.deliveryEstimate || pricingSnapshot.deliveryEstimate || "12-15 mins",
+        deliveryEstimate: entry.deliveryEstimate || pricingSnapshot.deliveryEstimate || "20-35 mins",
         shiprocket: (entry.fulfillmentType || pricingSnapshot.fulfillmentType) === "SHIPROCKET"
           ? {
               currentStatus: "NEW",

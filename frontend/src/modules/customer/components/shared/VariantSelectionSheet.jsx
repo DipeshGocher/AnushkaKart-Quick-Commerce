@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { motion, AnimatePresence, useAnimation, useDragControls } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { X, Minus, Plus, Package, Ban } from 'lucide-react';
+import { X, Minus, Plus, Package, Ban, Clock } from 'lucide-react';
 import { useVariantSelection } from '../../context/VariantSelectionContext';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '@core/context/AuthContext';
@@ -163,12 +163,14 @@ const VariantSelectionSheet = () => {
 
                             {/* Delivery Warning Banner */}
                             {!canAddToCart && (
-                                <div className="mx-5 mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-left flex items-start gap-2.5">
-                                    <Ban size={18} className="text-red-500 shrink-0 mt-0.5" />
-                                    <div className="text-xs text-red-700">
-                                        <p className="font-bold">Quick Delivery Not Available</p>
-                                        <p className="text-[11px] text-red-600 mt-0.5 leading-snug">
-                                            {deliveryWarning || `Quick delivery for fresh perishables is not available at ${customerPincode || 'your location'}.`}
+                                <div className="mx-5 mb-3 p-3 bg-gradient-to-r from-rose-50/70 via-orange-50/30 to-slate-50/50 border border-rose-100 rounded-2xl text-left flex items-center gap-3 shadow-2xs">
+                                    <div className="w-9 h-9 rounded-xl bg-rose-100/80 text-rose-600 flex items-center justify-center shrink-0 shadow-2xs">
+                                        <Clock size={17} strokeWidth={2.2} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="text-xs font-bold text-slate-800">Quick Delivery Not Available</h4>
+                                        <p className="text-[11.5px] text-slate-500 font-medium mt-0.5 leading-snug">
+                                            {deliveryWarning || "This item is only delivered in local areas."}
                                         </p>
                                     </div>
                                 </div>

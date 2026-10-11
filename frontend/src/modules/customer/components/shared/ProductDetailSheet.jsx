@@ -475,7 +475,7 @@ const ProductDetailSheet = () => {
         }
 
         if (!canAddToCart) {
-            showToast(deliveryWarning || `Quick Delivery not available at ${customerPincode || 'your location'}`, 'error');
+            showToast(deliveryWarning || "This item is only delivered in local areas.", 'error');
             return;
         }
 
@@ -869,25 +869,25 @@ const ProductDetailSheet = () => {
         if (!selectedProduct) return null;
 
         if (!canAddToCart) {
+            const cleanWarning = deliveryWarning
+                ? deliveryWarning
+                    .replace(/Quick Delivery (not available at|is not available at)[^.]*\.\s*/i, "")
+                    .replace(/\b\d{6}\b/g, "")
+                    .trim() || "This item is only delivered in local areas."
+                : "This item is only delivered in local areas.";
+
             return (
-                <div className="rounded-2xl border border-red-200/90 bg-red-50/70 p-4 shadow-2xs my-3 text-left">
-                    <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
-                            <Ban size={20} strokeWidth={2.5} />
+                <div className="rounded-xl border border-rose-100 bg-gradient-to-r from-rose-50/70 via-orange-50/20 to-slate-50/40 px-3 py-2 shadow-2xs my-2 text-left transition-all">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-rose-100/80 border border-rose-200/60 text-rose-600 flex items-center justify-center shrink-0">
+                            <Clock size={15} strokeWidth={2.2} />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs font-black text-red-700 uppercase tracking-wide">
-                                    Quick Delivery Not Available
-                                </span>
-                                {customerPincode && (
-                                    <span className="text-[10px] font-bold text-red-600 bg-white border border-red-200 px-2 py-0.5 rounded-md">
-                                        PIN: {customerPincode}
-                                    </span>
-                                )}
-                            </div>
-                            <p className="text-[12px] text-red-600 font-medium mt-1 leading-snug">
-                                {deliveryWarning || "Quick Delivery is not available at your pincode. Fresh perishables (milk, vegetables, dairy) are currently delivered only within local delivery zones (Jhansi: 284204, 284205)."}
+                            <h4 className="text-[12px] font-bold text-slate-800 tracking-tight leading-tight">
+                                Quick Delivery Not Available
+                            </h4>
+                            <p className="text-[11px] text-slate-500 font-medium leading-tight mt-0.5">
+                                {cleanWarning}
                             </p>
                         </div>
                     </div>
@@ -897,25 +897,15 @@ const ProductDetailSheet = () => {
 
         if (fulfillmentType === "LOCAL_RIDERS") {
             return (
-                <div className="rounded-2xl border border-emerald-200/90 bg-emerald-50/60 p-4 shadow-2xs my-3 text-left">
-                    <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 shadow-2xs">
-                            <Zap size={20} strokeWidth={2.5} />
+                <div className="rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 via-teal-50/40 to-emerald-50/50 px-3 py-2 shadow-2xs my-2 text-left transition-all">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                            <Zap size={16} strokeWidth={2.5} />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs font-black text-emerald-800 uppercase tracking-wide flex items-center gap-1">
-                                    <span>⚡ Superfast 12–15 Mins Delivery</span>
-                                </span>
-                                {customerPincode && (
-                                    <span className="text-[10px] font-bold text-emerald-700 bg-white border border-emerald-200 px-2 py-0.5 rounded-md">
-                                        PIN: {customerPincode}
-                                    </span>
-                                )}
-                            </div>
-                            <p className="text-[12px] text-emerald-700 font-medium mt-1 leading-snug">
-                                Delivered in <strong className="font-bold text-emerald-900">12–15 mins</strong> by AnushkaKart local express riders right to your doorstep.
-                            </p>
+                            <h4 className="text-[12px] font-bold text-emerald-800 tracking-tight flex items-center gap-1 leading-tight">
+                                ⚡ Superfast 20–35 Mins Delivery
+                            </h4>
                         </div>
                     </div>
                 </div>
@@ -923,25 +913,15 @@ const ProductDetailSheet = () => {
         }
 
         return (
-            <div className="rounded-2xl border border-sky-200/90 bg-sky-50/60 p-4 shadow-2xs my-3 text-left">
-                <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center shrink-0 shadow-2xs">
-                        <Truck size={20} strokeWidth={2.2} />
+            <div className="rounded-xl border border-sky-100 bg-sky-50/60 px-3 py-2 shadow-2xs my-2 text-left">
+                <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+                        <Truck size={15} strokeWidth={2.2} />
                     </div>
                     <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-black text-sky-800 uppercase tracking-wide flex items-center gap-1">
-                                <span>📦 Standard Courier Delivery (3–4 Days)</span>
-                            </span>
-                            {customerPincode && (
-                                <span className="text-[10px] font-bold text-sky-700 bg-white border border-sky-200 px-2 py-0.5 rounded-md">
-                                    PIN: {customerPincode}
-                                </span>
-                            )}
-                        </div>
-                        <p className="text-[12px] text-sky-700 font-medium mt-1 leading-snug">
-                            Shipped via Shiprocket courier partners across India with live order tracking.
-                        </p>
+                        <span className="text-[12px] font-bold text-sky-800 tracking-tight">
+                            📦 Standard Courier Delivery (3–4 Days)
+                        </span>
                     </div>
                 </div>
             </div>
@@ -1185,7 +1165,7 @@ const ProductDetailSheet = () => {
                                                 type="button"
                                                 onClick={() => {
                                                     if (!canAddToCart) {
-                                                        showToast(deliveryWarning || `Quick Delivery not available at ${customerPincode || 'your location'}`, 'error');
+                                                        showToast(deliveryWarning || "This item is only delivered in local areas.", 'error');
                                                         return;
                                                     }
                                                     closeProduct();
@@ -1254,9 +1234,6 @@ const ProductDetailSheet = () => {
                                             )}
                                         </motion.div>
                                     )}
-
-                                    {/* Delivery Fulfillment Notice Card */}
-                                    {renderDeliveryFulfillmentCard()}
 
                                     {/* Price + Add-to-Cart Card */}
                                     <motion.div
@@ -1393,6 +1370,9 @@ const ProductDetailSheet = () => {
                                             </div>
                                         </motion.div>
                                     )}
+
+                                    {/* Delivery Fulfillment Notice Card (Below Select Variant) */}
+                                    {renderDeliveryFulfillmentCard()}
 
                                     {/* Included Items for Monthly Kits */}
                                     {selectedProduct.isMonthlyKit && selectedProduct.includedItems && selectedProduct.includedItems.length > 0 && (
@@ -1617,9 +1597,6 @@ const ProductDetailSheet = () => {
                                         )}
                                 </div>
 
-                                {/* Delivery Fulfillment Notice Card (Mobile) */}
-                                {renderDeliveryFulfillmentCard()}
-
                                 {/* Variants Selection (Mobile) */}
                                 {selectedProduct.variants && selectedProduct.variants.filter(v => v.name).length > 0 && (
                                     <div className="pt-1 mb-1">
@@ -1651,6 +1628,9 @@ const ProductDetailSheet = () => {
                                         </div>
                                     </div>
                                 )}
+
+                                {/* Delivery Fulfillment Notice Card (Mobile - Below Select Variant) */}
+                                {renderDeliveryFulfillmentCard()}
 
                                 {/* Included Items (Mobile) */}
                                 {selectedProduct.isMonthlyKit && selectedProduct.includedItems && selectedProduct.includedItems.length > 0 && (

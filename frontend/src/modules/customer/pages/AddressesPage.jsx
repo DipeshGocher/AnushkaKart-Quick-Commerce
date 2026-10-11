@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { customerApi } from '../services/customerApi';
 import { useLocation } from '../context/LocationContext';
 import AccountDesktopLayout from '../components/layout/AccountDesktopLayout';
+import AddAddressModal from '../components/shared/AddAddressModal';
 
 const AddressesPage = () => {
     const navigate = useNavigate();
@@ -469,65 +470,11 @@ const AddressesPage = () => {
             </AccountDesktopLayout>
 
             {/* Add Address Modal */}
-            <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-                <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                        <DialogTitle>Add New Address</DialogTitle>
-                        <DialogDescription>
-                            Enter your delivery details below.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                            <Label>Address Type</Label>
-                            <div className="flex gap-2">
-                                <Button type="button" variant="outline" className={`flex-1 ${addForm.type === 'home' ? 'border-primary text-primary bg-brand-50' : ''}`} onClick={() => setAddForm(f => ({ ...f, type: 'home' }))}>Home</Button>
-                                <Button type="button" variant="outline" className={`flex-1 ${addForm.type === 'work' ? 'border-primary text-primary bg-brand-50' : ''}`} onClick={() => setAddForm(f => ({ ...f, type: 'work' }))}>Work</Button>
-                                <Button type="button" variant="outline" className={`flex-1 ${addForm.type === 'other' ? 'border-primary text-primary bg-brand-50' : ''}`} onClick={() => setAddForm(f => ({ ...f, type: 'other' }))}>Other</Button>
-                            </div>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="name">Full Name</Label>
-                            <Input id="name" placeholder="John Doe" value={addForm.name} onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))} />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="phone">Phone Number</Label>
-                            <Input id="phone" placeholder="+91 98765 43210" value={addForm.phone} onChange={e => setAddForm(f => ({ ...f, phone: e.target.value }))} />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="address">Address</Label>
-                            <Textarea id="address" placeholder="Flat No, Building, Street" value={addForm.address} onChange={e => setAddForm(f => ({ ...f, address: e.target.value }))} />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="landmark">Nearest Landmark (optional)</Label>
-                            <Input
-                                id="landmark"
-                                placeholder="Near City Mall, Opp. Temple"
-                                value={addForm.landmark}
-                                onChange={e => setAddForm(f => ({ ...f, landmark: e.target.value }))}
-                            />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="city">City</Label>
-                                <Input id="city" placeholder="New Delhi" value={addForm.city} onChange={e => setAddForm(f => ({ ...f, city: e.target.value }))} />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="state">State</Label>
-                                <Input id="state" placeholder="Delhi" value={addForm.state} onChange={e => setAddForm(f => ({ ...f, state: e.target.value }))} />
-                            </div>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="pincode">Pincode</Label>
-                            <Input id="pincode" placeholder="110075" value={addForm.pincode} onChange={e => setAddForm(f => ({ ...f, pincode: e.target.value }))} />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsAddOpen(false)} disabled={saving}>Cancel</Button>
-                        <Button className="bg-primary hover:bg-orange-600" onClick={handleSaveNewAddress} disabled={saving}>{saving ? 'Saving...' : 'Save Address'}</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <AddAddressModal
+                isOpen={isAddOpen}
+                onClose={() => setIsAddOpen(false)}
+                onAddressSaved={fetchAddresses}
+            />
 
             {/* Edit Address Modal */}
             <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>

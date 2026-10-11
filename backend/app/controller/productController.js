@@ -1726,10 +1726,8 @@ export const getProductById = async (req, res) => {
         if (rawProduct?.warehouseId) warehouseIdForProduct = String(rawProduct.warehouseId);
       }
 
-      const fulfillmentId = sellerIdForProduct || warehouseIdForProduct;
-      if (req.query.allProducts !== "true" && coords.valid && nearbySellerSet && (!fulfillmentId || !nearbySellerSet.has(String(fulfillmentId)))) {
-        return handleResponse(res, 404, "Product not available in your area");
-      }
+      // Hybrid Commerce: Products are available Pan-India via courier or locally via quick commerce pincodes.
+      // GPS radius restriction removed so customers never get "Product not available in your area" error.
     }
 
     const payload = normalizeProductDocumentModeration(product);

@@ -33,9 +33,10 @@ const DeliveryPincodes = () => {
     areaName: "",
     city: "",
     state: "",
-    deliveryTimeEstimate: "12-15 mins",
+    deliveryTimeEstimate: "20-35 mins",
     isActive: true,
     notes: "",
+    riderRadiusKm: 10,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -73,9 +74,10 @@ const DeliveryPincodes = () => {
       areaName: "",
       city: "Mauranipur",
       state: "Uttar Pradesh",
-      deliveryTimeEstimate: "12-15 mins",
+      deliveryTimeEstimate: "20-35 mins",
       isActive: true,
       notes: "",
+      riderRadiusKm: 10,
     });
     setIsModalOpen(true);
   };
@@ -87,9 +89,10 @@ const DeliveryPincodes = () => {
       areaName: item.areaName || "",
       city: item.city || "",
       state: item.state || "",
-      deliveryTimeEstimate: item.deliveryTimeEstimate || "12-15 mins",
+      deliveryTimeEstimate: item.deliveryTimeEstimate || "20-35 mins",
       isActive: item.isActive !== false,
       notes: item.notes || "",
+      riderRadiusKm: item.riderRadiusKm !== undefined ? item.riderRadiusKm : 10,
     });
     setIsModalOpen(true);
   };
@@ -219,7 +222,7 @@ const DeliveryPincodes = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Quick Commerce Speed</p>
-              <h3 className="text-2xl font-black text-slate-900 mt-1">12-15 Mins</h3>
+              <h3 className="text-2xl font-black text-slate-900 mt-1">20-35 Mins</h3>
               <p className="text-xs text-amber-600 mt-1 font-medium flex items-center gap-1">
                 <Clock size={13} /> Local Delivery Partner App
               </p>
@@ -254,7 +257,7 @@ const DeliveryPincodes = () => {
         <div className="space-y-1 text-sm">
           <h4 className="font-bold text-slate-800">How Hybrid Delivery Routing Works:</h4>
           <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
-            <span className="font-semibold text-emerald-700">1. Local Quick Commerce (In-House Boys):</span> When a customer's address matches an active pincode in the table below (such as Mauranipur <b>284204</b> or <b>284205</b>), the order is assigned to local delivery boys using your existing broadcast / manual workflow with instant 12-15 min delivery & OTP.
+            <span className="font-semibold text-emerald-700">1. Local Quick Commerce (In-House Boys):</span> When a customer's address matches an active pincode in the table below (such as Mauranipur <b>284204</b> or <b>284205</b>), the order is assigned to local delivery boys using your existing broadcast / manual workflow with instant 20-35 min delivery & OTP.
           </p>
           <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
             <span className="font-semibold text-blue-700">2. Out-of-Reach (Shiprocket Courier):</span> Any address with a pincode outside this local list is automatically classified as a <b>Shiprocket Courier Order</b>. The customer sees estimated delivery in 3-4 days at checkout, and Super Admin can generate AWBs, schedule pickups, print labels, and track shipments directly from the Orders dashboard.
@@ -344,7 +347,7 @@ const DeliveryPincodes = () => {
                     </td>
                     <td className="py-3.5 px-4 font-semibold text-slate-700">
                       <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60 font-mono">
-                        <Clock size={12} /> {item.deliveryTimeEstimate || "12-15 mins"}
+                        <Clock size={12} /> {item.deliveryTimeEstimate || "20-35 mins"}
                       </span>
                     </td>
                     <td className="py-3.5 px-4">
@@ -370,7 +373,7 @@ const DeliveryPincodes = () => {
                     <td className="py-3.5 px-4">
                       {item.isActive ? (
                         <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50/70 px-2.5 py-1 rounded-lg">
-                          <Bike size={13} /> Local Riders
+                          <Bike size={13} /> Local Riders (≤ {item.riderRadiusKm || 10} km)
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-lg">
@@ -483,12 +486,40 @@ const DeliveryPincodes = () => {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. 12-15 mins"
+                  placeholder="e.g. 20-35 mins"
                   value={formData.deliveryTimeEstimate}
                   onChange={(e) => setFormData({ ...formData, deliveryTimeEstimate: e.target.value })}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
                 <p className="text-xs text-slate-400 mt-1">Displayed to customer at checkout for this pincode.</p>
+              </div>
+
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-700 uppercase">
+                    Delivery Boys Alert Radius (Max 30 km)
+                  </label>
+                  <span className="text-xs font-black text-primary px-2.5 py-0.5 bg-primary/10 rounded-md">
+                    {formData.riderRadiusKm || 10} km
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="30"
+                  step="1"
+                  value={formData.riderRadiusKm || 10}
+                  onChange={(e) => setFormData({ ...formData, riderRadiusKm: Number(e.target.value) })}
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary"
+                />
+                <div className="flex justify-between text-[10px] text-slate-400 font-medium">
+                  <span>1 km</span>
+                  <span>15 km</span>
+                  <span>30 km (Max Limit)</span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Store orders in this pincode will alert local delivery riders within {formData.riderRadiusKm || 10} km radius.
+                </p>
               </div>
 
               <div>

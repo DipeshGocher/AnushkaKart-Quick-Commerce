@@ -107,7 +107,7 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
           )}
           {pricingPreview?.fulfillmentType === "LOCAL" && (
             <div className="px-2 -mt-3 lg:-mt-1 flex items-center justify-between text-[11px] lg:text-[10px] font-semibold text-emerald-600">
-              <span>⚡ Local Express Delivery ({pricingPreview.deliveryEstimate || "12-15 mins"})</span>
+              <span>⚡ Local Express Delivery ({pricingPreview.deliveryEstimate || "20-35 mins"})</span>
               {deliveryFee === 0 && <span className="text-emerald-600 font-bold">FREE</span>}
             </div>
           )}

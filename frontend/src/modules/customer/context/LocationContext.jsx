@@ -21,7 +21,7 @@ export const LocationProvider = ({ children }) => {
   // Default location (used until we can resolve a better one)
   const [currentLocation, setCurrentLocation] = useState({
     name: "214, Rajshri Palace Colony, Pipliyahana, Indore, Madhya Pradesh 452018, India",
-    time: "12-15 mins",
+    time: "20-35 mins",
     city: "Indore",
     state: "Madhya Pradesh",
     pincode: "452018",
@@ -42,28 +42,30 @@ export const LocationProvider = ({ children }) => {
     newLoc,
     { persist = true, updateSavedHome = false } = {},
   ) => {
-    setCurrentLocation(newLoc);
+    setCurrentLocation((prev) => {
+      const merged = { ...prev, ...newLoc };
+      if (persist) {
+        const payload = {
+          address: merged.name,
+          city: merged.city,
+          state: merged.state,
+          pincode: merged.pincode,
+          latitude: merged.latitude,
+          longitude: merged.longitude,
+          addressId: merged.addressId,
+          time: merged.time,
+        };
+        setJSON(STORAGE_KEY, payload, { ttlMs: LOCATION_TTL_MS });
+      }
+      return merged;
+    });
 
-    if (updateSavedHome) {
+    if (updateSavedHome && newLoc?.name) {
       setSavedAddresses((prev) =>
         prev.map((addr) =>
           addr.label === "Home" ? { ...addr, address: newLoc.name } : addr,
         ),
       );
-    }
-
-    if (persist) {
-      const payload = {
-        address: newLoc.name,
-        city: newLoc.city,
-        state: newLoc.state,
-        pincode: newLoc.pincode,
-        latitude: newLoc.latitude,
-        longitude: newLoc.longitude,
-        // Internal app properties
-        time: newLoc.time,
-      };
-      setJSON(STORAGE_KEY, payload, { ttlMs: LOCATION_TTL_MS });
     }
   };
 
@@ -73,8 +75,15 @@ export const LocationProvider = ({ children }) => {
       {
         id: Date.now().toString(),
         label: newAddress.label || "Other",
-        address: newAddress.address,
-        phone: newAddress.phone || "N/A",
+        address: newAddress.address || newAddress.fullAddress,
+        city: newAddress.city,
+        state: newAddress.state,
+        pincode: newAddress.pincode,
+        landmark: newAddress.landmark,
+        location: newAddress.location,
+        placeId: newAddress.placeId,
+        name: newAddress.receiverName || newAddress.name,
+        phone: newAddress.receiverPhone || newAddress.phone || "N/A",
         isCurrent: false,
       },
     ]);
@@ -101,7 +110,7 @@ export const LocationProvider = ({ children }) => {
 
       const fallbackFromCoords = (latitude, longitude) => ({
         name: `Lat ${Number(latitude).toFixed(5)}, Lng ${Number(longitude).toFixed(5)}`,
-        time: "12-15 mins",
+        time: "20-35 mins",
         city: currentLocation?.city || "Indore",
         state: currentLocation?.state || "Madhya Pradesh",
         pincode: currentLocation?.pincode || "452018",
@@ -190,7 +199,7 @@ export const LocationProvider = ({ children }) => {
 
             liveLocation = {
               name: friendlyName,
-              time: "12-15 mins",
+              time: "20-35 mins",
               city: locality || liveLocation.city,
               state: state || liveLocation.state,
               pincode: pincode || liveLocation.pincode,
@@ -269,6 +278,11 @@ export const LocationProvider = ({ children }) => {
               .filter(Boolean)
               .join(", ") ||
             "",
+          city: addr.city || (addr.fullAddress?.toLowerCase().includes("mauranipur") ? "Jhansi" : undefined),
+          state: addr.state || (addr.fullAddress?.toLowerCase().includes("mauranipur") ? "Uttar Pradesh" : undefined),
+          pincode: addr.pincode || (addr.fullAddress?.toLowerCase().includes("mauranipur") ? "284204" : undefined),
+          landmark: addr.landmark,
+          name: addr.receiverName || profile?.name || "",
           location:
             addr?.location &&
             typeof addr.location.lat === "number" &&
@@ -278,7 +292,7 @@ export const LocationProvider = ({ children }) => {
               ? { lat: addr.location.lat, lng: addr.location.lng }
               : null,
           placeId: typeof addr?.placeId === "string" ? addr.placeId : null,
-          phone: profile?.phone ?? "",
+          phone: addr.receiverPhone || profile?.phone || "",
           isCurrent: idx === 0,
         })),
       );
@@ -301,7 +315,7 @@ export const LocationProvider = ({ children }) => {
       updateLocation(
         {
           name: addressName,
-          time: parsed.time || "12-15 mins",
+          time: parsed.time && parsed.time !== "12-15 mins" ? parsed.time : "20-35 mins",
           city: parsed.city,
           state: parsed.state,
           pincode: parsed.pincode,

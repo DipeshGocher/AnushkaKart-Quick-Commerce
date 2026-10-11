@@ -53,6 +53,7 @@ import * as walletService from "../services/finance/walletService.js";
 import { OWNER_TYPE } from "../constants/finance.js";
 import { processPayout } from "../services/finance/payoutService.js";
 import { buildKey, invalidate } from "../services/cacheService.js";
+import { invalidateSellerStatsCache } from "../services/seller/sellerStatsService.js";
 import { computeReturnWindowForOrder } from "../utils/returnWindow.js";
 import logger from "../services/logger.js";
 import { validateBody as validateWithJoi } from "../middleware/validate.js";
@@ -302,6 +303,17 @@ export const cancelOrder = async (req, res) => {
       return handleResponse(res, 404, "Order not found");
     }
 
+    if (
+      order.status === "delivered" ||
+      (order.workflowStatus && order.workflowStatus === WORKFLOW_STATUS.DELIVERED)
+    ) {
+      return handleResponse(
+        res,
+        400,
+        "Order is already DELIVERED. Delivered orders cannot be cancelled (use Return/Refund flow)."
+      );
+    }
+
     if (order.workflowVersion >= 2) {
       try {
         const updated = await customerCancelV2(
@@ -422,6 +434,64 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     const canonicalOrderId = order.orderId;
+    const currentStatus = String(order.status || "pending").toLowerCase();
+    const newStatus = status ? String(status).toLowerCase() : null;
+
+    // ─────────────────────────────────────────────────────────────
+    // STRICT FORWARD-ONLY STATE MACHINE VALIDATION
+    // Prevents backward transitions and mutations of terminal states.
+    // ─────────────────────────────────────────────────────────────
+    if (newStatus && newStatus !== currentStatus) {
+      if (
+        currentStatus === "delivered" ||
+        (order.workflowStatus && order.workflowStatus === WORKFLOW_STATUS.DELIVERED)
+      ) {
+        return handleResponse(
+          res,
+          400,
+          "Order is already DELIVERED. Delivered orders cannot be changed or cancelled (use Return/Refund flow)."
+        );
+      }
+      if (
+        currentStatus === "cancelled" ||
+        (order.workflowStatus && order.workflowStatus === WORKFLOW_STATUS.CANCELLED)
+      ) {
+        return handleResponse(
+          res,
+          400,
+          "Order is already CANCELLED. Cancelled orders cannot be reactivated."
+        );
+      }
+
+      const ALLOWED_FORWARD_TRANSITIONS = {
+        pending: ["confirmed", "cancelled"],
+        confirmed: ["packed", "out_for_delivery", "cancelled"],
+        packed: ["out_for_delivery", "cancelled"],
+        out_for_delivery: ["delivered", "cancelled"],
+        delivered: [],
+        cancelled: [],
+      };
+
+      const allowedNext = ALLOWED_FORWARD_TRANSITIONS[currentStatus] || [];
+      if (!allowedNext.includes(newStatus)) {
+        return handleResponse(
+          res,
+          400,
+          `Invalid status transition from '${currentStatus.toUpperCase()}' to '${newStatus.toUpperCase()}'. Order status cannot be moved backward.`
+        );
+      }
+
+      if (role === "seller") {
+        const sellerAllowed = ["confirmed", "packed", "cancelled"];
+        if (!sellerAllowed.includes(newStatus)) {
+          return handleResponse(
+            res,
+            403,
+            `Sellers are not permitted to set status to '${newStatus.toUpperCase()}'.`
+          );
+        }
+      }
+    }
 
     if (order.workflowVersion >= 2 && role === "seller") {
       if (status === "confirmed") {
@@ -434,8 +504,8 @@ export const updateOrderStatus = async (req, res) => {
       }
       if (status === "cancelled") {
         try {
-          const updated = await sellerRejectAtomic(userId, canonicalOrderId);
-          return handleResponse(res, 200, "Order rejected", updated);
+          const updated = await sellerRejectAtomic(userId, canonicalOrderId, req.body?.cancelReason || req.body?.reason);
+          return handleResponse(res, 200, "Order cancelled successfully", updated);
         } catch (e) {
           return handleResponse(res, e.statusCode || 500, e.message);
         }
@@ -549,6 +619,9 @@ export const updateOrderStatus = async (req, res) => {
 
     try {
       await invalidate(buildKey("orders", "customer", `${order.customer.toString()}:*`));
+      if (order.seller) {
+        await invalidateSellerStatsCache(order.seller);
+      }
     } catch (cacheErr) {
       logger.warn("updateOrderStatus cache invalidation failed", {
         scope: "updateOrderStatus",

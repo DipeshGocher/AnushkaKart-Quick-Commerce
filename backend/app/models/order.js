@@ -94,7 +94,11 @@ const orderSchema = new mongoose.Schema(
       name: String,
       address: String,
       city: String,
+      state: String,
+      pincode: String,
       phone: String,
+      receiverName: String,
+      receiverPhone: String,
       landmark: String,
       location: {
         lat: Number,
@@ -279,7 +283,7 @@ const orderSchema = new mongoose.Schema(
     },
     deliveryEstimate: {
       type: String,
-      default: "12-15 mins",
+      default: "20-35 mins",
     },
     shiprocket: {
       shipmentId: { type: String, default: null, index: true },

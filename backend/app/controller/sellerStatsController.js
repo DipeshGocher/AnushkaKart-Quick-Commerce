@@ -47,12 +47,12 @@ export const getSellerEarnings = async (req, res) => {
         const liveAvailableBalance = wallet ? wallet.availableBalance : settledBalance;
 
         // Keep "Total Revenue" aligned with Dashboard definition:
-        // sum of non-cancelled seller orders from Order collection.
+        // sum of delivered seller orders from Order collection.
         const [orderRevenueAgg] = await Order.aggregate([
             {
                 $match: {
                     seller: sellerOid,
-                    status: { $ne: 'cancelled' },
+                    status: 'delivered',
                 },
             },
             {

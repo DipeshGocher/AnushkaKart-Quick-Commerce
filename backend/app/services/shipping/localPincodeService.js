@@ -6,7 +6,7 @@ const DEFAULT_SEEDED_PINCODES = [
     areaName: "Mauranipur Hub / Local Area",
     city: "Mauranipur",
     state: "Uttar Pradesh",
-    deliveryTimeEstimate: "12-15 mins",
+    deliveryTimeEstimate: "20-35 mins",
     isActive: true,
     notes: "Primary In-House Hyperlocal Delivery Zone",
   },
@@ -15,7 +15,7 @@ const DEFAULT_SEEDED_PINCODES = [
     areaName: "Ranipur / Local Sector",
     city: "Mauranipur",
     state: "Uttar Pradesh",
-    deliveryTimeEstimate: "12-15 mins",
+    deliveryTimeEstimate: "20-35 mins",
     isActive: true,
     notes: "Secondary In-House Hyperlocal Delivery Zone",
   },
@@ -122,13 +122,19 @@ export async function addLocalPincode(data) {
     throw err;
   }
 
+  const rawRadius = Number(data.riderRadiusKm);
+  const riderRadiusKm = Number.isFinite(rawRadius)
+    ? Math.min(Math.max(rawRadius, 1), 30)
+    : 10;
+
   return await LocalPincode.create({
     pincode,
     areaName: data.areaName || "",
     city: data.city || "",
     state: data.state || "",
-    deliveryTimeEstimate: data.deliveryTimeEstimate || "12-15 mins",
+    deliveryTimeEstimate: data.deliveryTimeEstimate || "20-35 mins",
     isActive: data.isActive !== undefined ? Boolean(data.isActive) : true,
+    riderRadiusKm,
     notes: data.notes || "",
   });
 }
@@ -144,6 +150,10 @@ export async function updateLocalPincode(id, data) {
   if (data.state !== undefined) updateData.state = String(data.state).trim();
   if (data.deliveryTimeEstimate !== undefined) updateData.deliveryTimeEstimate = String(data.deliveryTimeEstimate).trim();
   if (data.isActive !== undefined) updateData.isActive = Boolean(data.isActive);
+  if (data.riderRadiusKm !== undefined) {
+    const r = Number(data.riderRadiusKm);
+    updateData.riderRadiusKm = Number.isFinite(r) ? Math.min(Math.max(r, 1), 30) : 10;
+  }
   if (data.notes !== undefined) updateData.notes = String(data.notes).trim();
 
   const updated = await LocalPincode.findByIdAndUpdate(id, updateData, { new: true }).lean();
@@ -244,7 +254,7 @@ export async function evaluateDeliveryEligibility({
   const isSellerLocal = cleanSeller ? await isPincodeLocal(cleanSeller) : true;
 
   const localDetails = isCustomerLocal ? await getLocalPincodeDetails(cleanCustomer) : null;
-  const localEstimate = localDetails?.deliveryTimeEstimate || "12-15 mins";
+  const localEstimate = localDetails?.deliveryTimeEstimate || "20-35 mins";
 
   if (deliveryMode === "quick_only") {
     if (isCustomerLocal && isSellerLocal) {

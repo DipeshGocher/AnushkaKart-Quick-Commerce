@@ -160,8 +160,37 @@ export const AuthProvider = ({ children }) => {
                 } catch (error) {
                     console.error('Failed to fetch profile:', error);
                     if (error.response?.status === 404 || error.response?.status === 401) {
-                        console.warn('User not found or token invalid, logging out automatically.');
-                        logout();
+                        console.warn('User not found or token invalid, clearing state.');
+                        const path = typeof window !== 'undefined' ? window.location.pathname : '';
+                        const isAuthRoute =
+                            path === '/admin/auth' ||
+                            path === '/seller/auth' ||
+                            path === '/delivery/auth' ||
+                            path === '/warehouse/auth' ||
+                            path === '/login' ||
+                            path === '/signup';
+
+                        if (isAuthRoute) {
+                            // Silently wipe the invalid token for this role without reloading the page!
+                            const storageKey = ROLE_STORAGE_KEYS[currentRole];
+                            if (storageKey) rawRemove(storageKey);
+                            if (path.startsWith('/admin')) rawRemove(STORAGE_KEYS.AUTH_ADMIN);
+                            if (path.startsWith('/seller')) rawRemove(STORAGE_KEYS.AUTH_SELLER);
+                            if (path.startsWith('/delivery')) rawRemove(STORAGE_KEYS.AUTH_DELIVERY);
+                            if (path.startsWith('/warehouse')) rawRemove(STORAGE_KEYS.AUTH_WAREHOUSE);
+                            rawRemove(LEGACY_TOKEN_KEY);
+                            setAuthData((prev) => ({
+                                ...prev,
+                                [currentRole]: null,
+                                ...(path.startsWith('/admin') ? { admin: null } : {}),
+                                ...(path.startsWith('/seller') ? { seller: null } : {}),
+                                ...(path.startsWith('/delivery') ? { delivery: null } : {}),
+                                ...(path.startsWith('/warehouse') ? { warehouse: null } : {}),
+                            }));
+                            setUser(null);
+                        } else {
+                            logout();
+                        }
                     } else {
                         // Preserve existing user state on network failures instead of clearing it completely
                         // This prevents the UI from flashing empty data if a background refresh fails
@@ -208,28 +237,37 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = async () => {
+        const path = typeof window !== 'undefined' ? window.location.pathname : '';
         const storageKey = ROLE_STORAGE_KEYS[currentRole];
         const previousUserId = user?._id || user?.id || '';
 
-        try {
-            const { removeStoredFcmToken } = await import('@core/firebase/pushClient');
-            await removeStoredFcmToken({ role: currentRole });
-        } catch (error) {
-            console.warn('Failed to remove push token during logout:', error);
-        }
-
+        // Synchronously remove storage keys IMMEDIATELY
         if (storageKey) {
             rawRemove(storageKey);
         }
+        if (path.startsWith('/admin')) {
+            rawRemove(STORAGE_KEYS.AUTH_ADMIN);
+            clearByPrefix('admin_', { storage: 'session' });
+            clearByPrefix('admin_', { storage: 'local' });
+        } else if (path.startsWith('/seller')) {
+            rawRemove(STORAGE_KEYS.AUTH_SELLER);
+            clearByPrefix('seller_', { storage: 'session' });
+            clearByPrefix('seller_', { storage: 'local' });
+        } else if (path.startsWith('/warehouse')) {
+            rawRemove(STORAGE_KEYS.AUTH_WAREHOUSE);
+            clearByPrefix('warehouse_', { storage: 'session' });
+            clearByPrefix('warehouse_', { storage: 'local' });
+        } else if (path.startsWith('/delivery')) {
+            rawRemove(STORAGE_KEYS.AUTH_DELIVERY);
+            clearByPrefix('delivery_', { storage: 'session' });
+            clearByPrefix('delivery_', { storage: 'local' });
+        }
 
-        // Remove the legacy shared token only when it belongs to the current role session.
+        // Remove legacy shared token
         if (token && rawGet(LEGACY_TOKEN_KEY) === token) {
             rawRemove(LEGACY_TOKEN_KEY);
         }
 
-        // Centralized sensitive-data cleanup: push tokens, recipient PII,
-        // recent searches, support-unread counts, guest cart/wishlist and (for
-        // delivery role) the rider's last-known GPS.
         clearOnLogout({
             role: currentRole,
             userId: previousUserId,
@@ -238,29 +276,38 @@ export const AuthProvider = ({ children }) => {
         setAuthData((prev) => ({
             ...prev,
             [currentRole]: null,
+            ...(path.startsWith('/admin') ? { admin: null } : {}),
+            ...(path.startsWith('/seller') ? { seller: null } : {}),
+            ...(path.startsWith('/delivery') ? { delivery: null } : {}),
+            ...(path.startsWith('/warehouse') ? { warehouse: null } : {}),
         }));
 
-        // Clear the current user profile from memory
         setUser(null);
 
-        // Final fallback: redirect based on current path if needed
-        // (ProtectedRoute usually handles this, but explicit navigation is safer for some UI edge cases)
-        const path = window.location.pathname;
+        // Async cleanup of push notification tokens (non-blocking)
+        import('@core/firebase/pushClient')
+            .then(({ removeStoredFcmToken }) => removeStoredFcmToken({ role: currentRole }))
+            .catch((error) => console.warn('Failed to remove push token during logout:', error));
+
+        // Redirect only if NOT already on an auth page
+        const isAlreadyOnAuth =
+            path === '/admin/auth' ||
+            path === '/seller/auth' ||
+            path === '/warehouse/auth' ||
+            path === '/delivery/auth' ||
+            path === '/login';
+
+        if (isAlreadyOnAuth) {
+            return;
+        }
+
         if (path.startsWith('/admin')) {
-            clearByPrefix('admin_', { storage: 'session' });
-            clearByPrefix('admin_', { storage: 'local' });
             window.location.href = '/admin/auth';
         } else if (path.startsWith('/seller')) {
-            clearByPrefix('seller_', { storage: 'session' });
-            clearByPrefix('seller_', { storage: 'local' });
             window.location.href = '/seller/auth';
         } else if (path.startsWith('/warehouse')) {
-            clearByPrefix('warehouse_', { storage: 'session' });
-            clearByPrefix('warehouse_', { storage: 'local' });
             window.location.href = '/warehouse/auth';
         } else if (path.startsWith('/delivery')) {
-            clearByPrefix('delivery_', { storage: 'session' });
-            clearByPrefix('delivery_', { storage: 'local' });
             window.location.href = '/delivery/auth';
         } else {
             window.location.href = '/login';

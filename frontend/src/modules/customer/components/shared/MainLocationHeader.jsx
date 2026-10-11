@@ -112,7 +112,7 @@ function CategoryNavColumn({
         "customer-category-nav-item relative z-[2] flex shrink-0 cursor-pointer items-center justify-center flex-col select-none",
         isTextOnlyMode
           ? "px-3 pt-1 pb-1.5 h-9"
-          : "flex-col gap-0.5 px-0.5 pb-1 pt-0.5 md:min-w-[68px] md:max-w-[80px] h-[46px]",
+          : "flex-col gap-0.5 px-0.5 pb-1 pt-0.5 md:min-w-[68px] md:max-w-[88px] h-[46px]",
         isActive && "is-active"
       )}>
       {!isTextOnlyMode && (
@@ -836,23 +836,29 @@ const MainLocationHeader = ({
             <motion.div
               ref={navRef}
               style={{ height: (isAllCategory && !isScrolled) ? "48px" : "40px", opacity: 1, marginTop: 2 }}
-              className={cn(
-                "relative z-10 w-full hidden md:flex overflow-x-auto overflow-y-visible px-4 lg:px-8 xl:px-12 no-scrollbar scroll-smooth justify-center",
-                (isAllCategory && !isScrolled) ? "items-center gap-3 lg:gap-5 xl:gap-6 pb-0.5" : "items-end gap-4 lg:gap-6 xl:gap-8 pb-0"
-              )}
+              className="relative z-10 w-full hidden md:flex overflow-x-auto overflow-y-visible px-4 lg:px-8 xl:px-12 no-scrollbar scroll-smooth"
             >
-              {categories.map((cat) => (
-                <CategoryNavColumn
-                  key={cat.id || cat._id}
-                  cat={cat}
-                  isActive={String(activeCategory?._id || activeCategory?.id || "") === String(cat._id || cat.id || "")}
-                  onCategorySelect={onCategorySelect}
-                  isBright={isBright}
-                  isAllCategory={isAllCategory}
-                  onItemClick={scrollCategoryIntoView}
-                  headerTextColor={categoryModeTextColor}
-                />
-              ))}
+              <div
+                className={cn(
+                  "flex mx-auto shrink-0",
+                  (isAllCategory && !isScrolled)
+                    ? "items-center gap-2.5 lg:gap-4 xl:gap-5 pb-0.5"
+                    : "items-end gap-3 lg:gap-5 xl:gap-6 pb-0"
+                )}
+              >
+                {categories.map((cat) => (
+                  <CategoryNavColumn
+                    key={cat.id || cat._id}
+                    cat={cat}
+                    isActive={String(activeCategory?._id || activeCategory?.id || "") === String(cat._id || cat.id || "")}
+                    onCategorySelect={onCategorySelect}
+                    isBright={isBright}
+                    isAllCategory={isAllCategory}
+                    onItemClick={scrollCategoryIntoView}
+                    headerTextColor={categoryModeTextColor}
+                  />
+                ))}
+              </div>
             </motion.div>
 
             {showRightArrow && (

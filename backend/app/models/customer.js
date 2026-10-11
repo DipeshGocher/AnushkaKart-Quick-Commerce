@@ -21,6 +21,8 @@ const addressSchema = new mongoose.Schema({
         lat: Number,
         lng: Number,
     },
+    receiverName: String,
+    receiverPhone: String,
 });
 
 const userSchema = new mongoose.Schema(

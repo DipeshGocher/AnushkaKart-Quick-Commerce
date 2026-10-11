@@ -43,6 +43,7 @@ import {
 import { distanceMeters } from "../utils/geoUtils.js";
 import { applyDeliveredSettlement } from "./orderSettlement.js";
 import { requireCanonicalOrderId } from "../utils/orderLookup.js";
+import { invalidateSellerStatsCache } from "./seller/sellerStatsService.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
 import logger from "./logger.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
@@ -293,38 +294,66 @@ export async function sellerAcceptAtomic(sellerId, orderId) {
 }
 
 /**
- * Seller rejects: SELLER_PENDING -> CANCELLED + compensation.
+ * Seller rejects/cancels: CREATED / SELLER_PENDING / SELLER_ACCEPTED / DELIVERY_SEARCH / PICKUP_READY -> CANCELLED + compensation.
  */
-export async function sellerRejectAtomic(sellerId, orderId) {
+export async function sellerRejectAtomic(sellerId, orderId, reason = "Rejected by seller") {
   orderId = await requireCanonicalOrderId(orderId);
   const now = new Date();
   const order = await Order.findOneAndUpdate(
     {
       orderId,
       seller: sellerId,
+      status: { $ne: "delivered" },
       workflowVersion: { $gte: 2 },
-      workflowStatus: WORKFLOW_STATUS.SELLER_PENDING,
-      sellerPendingExpiresAt: { $gt: now },
+      workflowStatus: {
+        $in: [
+          WORKFLOW_STATUS.CREATED,
+          WORKFLOW_STATUS.SELLER_PENDING,
+          WORKFLOW_STATUS.SELLER_ACCEPTED,
+          WORKFLOW_STATUS.DELIVERY_SEARCH,
+          WORKFLOW_STATUS.PICKUP_READY,
+        ],
+      },
     },
     {
       $set: {
         workflowStatus: WORKFLOW_STATUS.CANCELLED,
         status: "cancelled",
+        orderStatus: "cancelled",
         cancelledBy: "seller",
-        cancelReason: "Rejected by seller",
+        cancelReason: reason || "Rejected by seller",
+      },
+      $unset: {
+        deliveredAt: 1,
       },
     },
     { new: true },
   );
 
   if (!order) {
-    const err = new Error("Order not available to reject");
+    const err = new Error("Order cannot be cancelled in its current state (it may be out for delivery or completed)");
     err.statusCode = 409;
     throw err;
   }
 
   await removeSellerTimeoutJob(orderId);
+
+  try {
+    await removeDeliveryTimeoutJob(orderId, order.deliverySearchMeta?.attempt || 1);
+  } catch (_e) {}
+
+  try {
+    await DeliveryAssignment.updateMany(
+      { orderMongoId: order._id, status: "broadcasting" },
+      { $set: { status: "cancelled" } }
+    );
+  } catch (_e) {}
+
   await compensateOrderCancellation(order, orderId);
+
+  try {
+    await invalidateSellerStatsCache(order.seller);
+  } catch (_e) {}
 
   emitOrderStatusUpdate(order.orderId, {
     workflowStatus: WORKFLOW_STATUS.CANCELLED,
@@ -809,27 +838,36 @@ export async function customerCancelV2(customerId, orderId, reason) {
     {
       orderId,
       customer: customerId,
+      status: { $ne: "delivered" },
       workflowStatus: WORKFLOW_STATUS.SELLER_PENDING,
     },
     {
       $set: {
         workflowStatus: WORKFLOW_STATUS.CANCELLED,
         status: "cancelled",
+        orderStatus: "cancelled",
         cancelledBy: "customer",
         cancelReason: reason || "Cancelled by customer",
+      },
+      $unset: {
+        deliveredAt: 1,
       },
     },
     { new: true },
   );
 
   if (!updated) {
-    const err = new Error("Unable to cancel");
+    const err = new Error("Unable to cancel order (it may be accepted or delivered)");
     err.statusCode = 400;
     throw err;
   }
 
   await removeSellerTimeoutJob(orderId);
   await compensateOrderCancellation(updated, orderId);
+
+  try {
+    await invalidateSellerStatsCache(updated.seller);
+  } catch (_e) {}
   emitOrderStatusUpdate(orderId, { workflowStatus: WORKFLOW_STATUS.CANCELLED }, updated.customer);
   emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_CANCELLED, {
     orderId: updated.orderId,

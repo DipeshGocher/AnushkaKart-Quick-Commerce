@@ -8,7 +8,7 @@ import { useWishlist } from "../context/WishlistContext";
 import { customerApi } from "../services/customerApi";
 import { useLocation as useAppLocation } from "../context/LocationContext";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
-import { evaluateProductDelivery } from "../services/deliveryService";
+import { evaluateProductDelivery, isPincodeLocalSync } from "../services/deliveryService";
 import {
   MapPin,
   Clock,
@@ -35,6 +35,9 @@ import {
   Wallet,
   Ban,
   AlertTriangle,
+  Loader2,
+  Zap,
+  Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -62,8 +65,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 
-// Sub-components
 import CheckoutAddressSection from "./checkout/components/CheckoutAddressSection";
+import AddAddressModal from "../components/shared/AddAddressModal";
 
 import CheckoutCartSummary from "./checkout/components/CheckoutCartSummary";
 import CheckoutPricingBreakdown from "./checkout/components/CheckoutPricingBreakdown";
@@ -199,17 +202,12 @@ const CheckoutPage = () => {
     address: "",
     landmark: "",
     city: "",
+    state: "",
+    pincode: "",
     phone: "",
   });
-  const [isEditAddressOpen, setIsEditAddressOpen] = useState(false);
-  const [editAddressForm, setEditAddressForm] = useState({
-    type: "Home",
-    name: "",
-    address: "",
-    landmark: "",
-    city: "",
-    phone: "",
-  });
+  const [isAddAddressModalOpen, setIsAddAddressModalOpen] = useState(false);
+  const [addressToEdit, setAddressToEdit] = useState(null);
   const [showRecipientForm, setShowRecipientForm] = useState(false);
   const [recipientData, setRecipientData] = useState({
     completeAddress: "",
@@ -243,19 +241,42 @@ const CheckoutPage = () => {
           ? user.addresses[0]
           : null;
 
-      if (savedAddr || user.name || user.phone) {
+      const addressText =
+        savedAddr?.address ||
+        savedAddr?.fullAddress ||
+        currentLocation?.name ||
+        "";
+
+      const defaultPin =
+        savedAddr?.pincode ||
+        (addressText.match(/\b\d{6}\b/)
+          ? addressText.match(/\b\d{6}\b/)[0]
+          : currentLocation?.pincode || "");
+
+      const defaultCity = savedAddr?.city || currentLocation?.city || "";
+      const defaultState = savedAddr?.state || currentLocation?.state || "";
+
+      if (savedAddr || addressText || user.name || user.phone) {
         const defaultAddr = {
-          type: savedAddr?.label ? (savedAddr.label.charAt(0).toUpperCase() + savedAddr.label.slice(1)) : "Home",
-          name: user.name || "Customer",
-          address: savedAddr?.fullAddress || "",
+          id: savedAddr?.id || savedAddr?._id,
+          type: savedAddr?.label
+            ? savedAddr.label.charAt(0).toUpperCase() + savedAddr.label.slice(1)
+            : "Home",
+          name: savedAddr?.name || savedAddr?.receiverName || user.name || "Customer",
+          address: addressText,
           landmark: savedAddr?.landmark || "",
-          city: `${savedAddr?.city || ""} ${savedAddr?.pincode || ""}`.trim() || "",
-          phone: user.phone || "",
-          location: savedAddr?.location || currentLocation || undefined,
+          city: `${defaultCity} ${defaultPin}`.trim() || defaultCity || defaultPin || "",
+          state: defaultState,
+          pincode: defaultPin,
+          phone: savedAddr?.phone || savedAddr?.receiverPhone || user.phone || "",
+          location:
+            savedAddr?.location ||
+            (currentLocation?.latitude
+              ? { lat: Number(currentLocation.latitude), lng: Number(currentLocation.longitude) }
+              : undefined),
         };
 
         setCurrentAddress(defaultAddr);
-        setEditAddressForm(defaultAddr);
         addressInitializedRef.current = true;
       }
     }
@@ -355,6 +376,27 @@ const CheckoutPage = () => {
     });
   }, [cart, activeDestinationPincode]);
 
+  const resolvedFulfillmentType = useMemo(() => {
+    if (pricingPreview?.fulfillmentType) {
+      return pricingPreview.fulfillmentType;
+    }
+    if (location.state?.initialFulfillmentType) {
+      return location.state.initialFulfillmentType;
+    }
+    if (activeDestinationPincode) {
+      return isPincodeLocalSync(activeDestinationPincode) ? "LOCAL" : "SHIPROCKET";
+    }
+    if (currentLocation?.pincode) {
+      return isPincodeLocalSync(currentLocation.pincode) ? "LOCAL" : "SHIPROCKET";
+    }
+    return "LOCAL";
+  }, [
+    pricingPreview?.fulfillmentType,
+    location.state?.initialFulfillmentType,
+    activeDestinationPincode,
+    currentLocation?.pincode,
+  ]);
+
   const buildAddressForOrder = () => {
     let resolvedPincode = "";
     if (savedRecipient?.pincode) {
@@ -396,9 +438,33 @@ const CheckoutPage = () => {
 
     return {
       ...currentAddress,
+      city: currentAddress?.city || "",
+      state: currentAddress?.state || "",
       pincode: resolvedPincode || currentAddress?.pincode || "",
-      location: hasAddrLoc ? { lat: addrLoc.lat, lng: addrLoc.lng } : undefined,
+      location: hasAddrLoc
+        ? { lat: addrLoc.lat, lng: addrLoc.lng }
+        : currentLocation?.latitude
+        ? { lat: Number(currentLocation.latitude), lng: Number(currentLocation.longitude) }
+        : undefined,
     };
+  };
+
+  const handleAddressAddedInCheckout = (newAddr) => {
+    const formattedCity = `${newAddr.city || ""} ${newAddr.pincode || ""}`.trim();
+    setCurrentAddress({
+      type: newAddr.label ? newAddr.label.charAt(0).toUpperCase() + newAddr.label.slice(1) : "Home",
+      name: newAddr.receiverName || newAddr.name || user?.name || "Customer",
+      address: newAddr.fullAddress || newAddr.address || "",
+      landmark: newAddr.landmark || "",
+      city: formattedCity || newAddr.pincode || "",
+      state: newAddr.state || "",
+      pincode: newAddr.pincode || "",
+      phone: newAddr.receiverPhone || newAddr.phone || user?.phone || "",
+      location: newAddr.location,
+      placeId: newAddr.placeId,
+    });
+    setIsAddressModalOpen(false);
+    setIsAddAddressModalOpen(false);
   };
 
   const handleSaveRecipient = () => {
@@ -423,8 +489,8 @@ const CheckoutPage = () => {
   };
 
   const handleOpenEditAddress = () => {
-    setEditAddressForm(currentAddress);
-    setIsEditAddressOpen(true);
+    setAddressToEdit(currentAddress);
+    setIsAddAddressModalOpen(true);
   };
 
   const isValidLatLng = (loc) =>
@@ -510,25 +576,32 @@ const CheckoutPage = () => {
         return;
       }
 
+      const resolvedPincode =
+        addr.pincode ||
+        (rawText.match(/\b\d{6}\b/) ? rawText.match(/\b\d{6}\b/)[0] : currentLocation?.pincode || "");
+
       setCurrentAddress({
-        type: addr.label,
-        name: user?.name || currentAddress.name,
+        id: addr.id || addr._id,
+        type: addr.label ? addr.label.charAt(0).toUpperCase() + addr.label.slice(1) : "Home",
+        name: addr.name || user?.name || currentAddress.name,
         address: rawText,
-        city: "",
+        city: addr.city ? `${addr.city} ${resolvedPincode}`.trim() : resolvedPincode || "",
+        state: addr.state || currentLocation?.state || "",
+        pincode: resolvedPincode,
         phone: addr.phone || currentAddress.phone,
-        landmark: "",
+        landmark: addr.landmark || "",
         ...(pid ? { placeId: pid } : {}),
-        ...(resolvedLoc ? { location: resolvedLoc } : {}),
+        ...(resolvedLoc ? { location: resolvedLoc } : (addr.location ? { location: addr.location } : {})),
       });
 
       if (resolvedLoc) {
         updateLocation(
           {
             name: rawText,
-            time: currentLocation?.time || "12-15 mins",
-            city: currentLocation?.city,
-            state: currentLocation?.state,
-            pincode: currentLocation?.pincode,
+            time: currentLocation?.time && currentLocation?.time !== "12-15 mins" ? currentLocation.time : "20-35 mins",
+            city: addr.city || currentLocation?.city,
+            state: addr.state || currentLocation?.state,
+            pincode: resolvedPincode || currentLocation?.pincode,
             latitude: resolvedLoc.lat,
             longitude: resolvedLoc.lng,
           },
@@ -540,70 +613,6 @@ const CheckoutPage = () => {
     } finally {
       setIsResolvingAddressCoords(false);
     }
-  };
-
-  const handleSaveEditedAddress = async () => {
-    if (
-      !editAddressForm.name.trim() ||
-      !editAddressForm.address.trim() ||
-      !editAddressForm.city.trim()
-    ) {
-      showToast("Please fill name, address and city", "error");
-      return;
-    }
-
-    let location = null;
-    let placeId = null;
-    let formattedAddress = null;
-    try {
-      const query = [
-        editAddressForm.address,
-        editAddressForm.landmark,
-        editAddressForm.city,
-      ]
-        .filter(Boolean)
-        .join(", ");
-      const resp = await customerApi.geocodeAddress(query);
-      const loc = resp.data?.result?.location;
-      if (
-        loc &&
-        typeof loc.lat === "number" &&
-        typeof loc.lng === "number" &&
-        Number.isFinite(loc.lat) &&
-        Number.isFinite(loc.lng)
-      ) {
-        location = { lat: loc.lat, lng: loc.lng };
-        placeId = resp.data?.result?.placeId || null;
-        formattedAddress = resp.data?.result?.formattedAddress || null;
-        updateLocation(
-          {
-            name: resp.data?.result?.formattedAddress || query,
-            time: currentLocation?.time || "12-15 mins",
-            city: currentLocation?.city,
-            state: currentLocation?.state,
-            pincode: currentLocation?.pincode,
-            latitude: loc.lat,
-            longitude: loc.lng,
-          },
-          { persist: true, updateSavedHome: false },
-        );
-      }
-    } catch (e) {
-      showToast(
-        e.response?.data?.message ||
-          "Could not fetch coordinates for this address. Delivery charges may be inaccurate.",
-        "error",
-      );
-    }
-
-    setCurrentAddress({
-      ...editAddressForm,
-      ...(location ? { location } : {}),
-      ...(placeId ? { placeId } : {}),
-      ...(formattedAddress ? { formattedAddress } : {}),
-    });
-    setIsEditAddressOpen(false);
-    showToast("Delivery address updated", "success");
   };
 
   const handleUseCurrentLiveLocation = async () => {
@@ -618,6 +627,7 @@ const CheckoutPage = () => {
         city: [liveLocation.city, liveLocation.state, liveLocation.pincode]
           .filter(Boolean)
           .join(", "),
+        pincode: liveLocation.pincode || "",
         ...(typeof liveLocation.latitude === "number" &&
         typeof liveLocation.longitude === "number"
           ? { location: { lat: liveLocation.latitude, lng: liveLocation.longitude } }
@@ -635,6 +645,7 @@ const CheckoutPage = () => {
         city: [currentLocation.city, currentLocation.state, currentLocation.pincode]
           .filter(Boolean)
           .join(", "),
+        pincode: currentLocation.pincode || "",
         ...(typeof currentLocation.latitude === "number" &&
         typeof currentLocation.longitude === "number"
           ? { location: { lat: currentLocation.latitude, lng: currentLocation.longitude } }
@@ -799,7 +810,7 @@ const CheckoutPage = () => {
             setPricingPreview({
               ...rawBreakdown,
               fulfillmentType: res.data.result?.fulfillmentType || rawBreakdown.fulfillmentType || "LOCAL",
-              deliveryEstimate: res.data.result?.deliveryEstimate || rawBreakdown.deliveryEstimate || "12-15 mins",
+              deliveryEstimate: res.data.result?.deliveryEstimate || rawBreakdown.deliveryEstimate || "20-35 mins",
               isLocal: res.data.result?.isLocal ?? rawBreakdown.isLocal ?? true,
             });
           } else {
@@ -873,7 +884,7 @@ const CheckoutPage = () => {
 
     if (unserviceableCartItems.length > 0) {
       showToast(
-        `Please remove fresh items not deliverable to pincode ${activeDestinationPincode || "your location"} before placing your order.`,
+        "Please remove fresh items not deliverable in your area before placing your order.",
         "error"
       );
       return;
@@ -1163,47 +1174,65 @@ const CheckoutPage = () => {
           {/* Left Column */}
           <div className="lg:col-span-7 xl:col-span-8 space-y-6 pb-8">
             {/* Delivery Time Banner */}
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mt-3 transition-all duration-200">
-              {pricingPreview?.fulfillmentType === "SHIPROCKET" ? (
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 text-blue-600">
-                      <Truck size={24} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-black text-slate-800 text-lg">
-                          Delivery in {pricingPreview?.deliveryEstimate || "3-4 days"}
-                        </h3>
-                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                          Shiprocket Courier
-                        </span>
+            <div className="mt-3 transition-all duration-300">
+              {isResolvingAddressCoords || isPreviewLoading ? (
+                <div className="bg-white/95 rounded-2xl p-4 sm:p-5 shadow-xs border border-slate-200/80 flex items-center gap-3.5 animate-pulse">
+                  <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+                    <Loader2 size={22} className="animate-spin text-brand-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-sm sm:text-base">
+                      Checking delivery speed...
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Updating delivery options for your address
+                    </p>
+                  </div>
+                </div>
+              ) : resolvedFulfillmentType === "SHIPROCKET" ? (
+                <div className="bg-gradient-to-r from-blue-50/90 via-white to-blue-50/40 rounded-2xl p-4 sm:p-5 shadow-xs border border-blue-200/90 transition-all">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-11 h-11 rounded-xl bg-blue-100/80 border border-blue-200 text-blue-700 flex items-center justify-center shrink-0 shadow-2xs">
+                        <Truck size={22} strokeWidth={2.3} />
                       </div>
-                      <p className="text-sm text-slate-500">
-                        Shipment of {cartCount} items • Standard delivery via Shiprocket
-                      </p>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-black text-slate-900 text-base sm:text-lg tracking-tight">
+                            E commerce Delivery
+                          </h3>
+                        </div>
+                        <p className="text-xs sm:text-sm font-semibold text-slate-600 mt-0.5">
+                          Delivery in {pricingPreview?.deliveryEstimate || "3-5 Days"}
+                        </p>
+                      </div>
                     </div>
+                    <span className="text-[10px] uppercase font-black tracking-wider px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 border border-blue-200 shrink-0">
+                      Standard
+                    </span>
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-full bg-brand-50 flex items-center justify-center flex-shrink-0">
-                      <Clock size={24} className="text-primary" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-black text-slate-800 text-lg">
-                          Delivery in {pricingPreview?.deliveryEstimate || "12-15 mins"}
-                        </h3>
-                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
-                          Quick Commerce
-                        </span>
+                <div className="bg-gradient-to-r from-emerald-50/90 via-white to-emerald-50/40 rounded-2xl p-4 sm:p-5 shadow-xs border border-emerald-200/90 transition-all">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-11 h-11 rounded-xl bg-amber-100/80 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 shadow-2xs">
+                        <Zap size={22} className="fill-amber-500 text-amber-600" />
                       </div>
-                      <p className="text-sm text-slate-500">
-                        Shipment of {cartCount} items • In-house express delivery
-                      </p>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-black text-slate-900 text-base sm:text-lg tracking-tight">
+                            Quick Delivery
+                          </h3>
+                        </div>
+                        <p className="text-xs sm:text-sm font-semibold text-emerald-800 mt-0.5">
+                          Delivery in {pricingPreview?.deliveryEstimate || "20-35 mins"}
+                        </p>
+                      </div>
                     </div>
+                    <span className="text-[10px] uppercase font-black tracking-wider px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                      ⚡ Express
+                    </span>
                   </div>
                 </div>
               )}
@@ -1236,7 +1265,7 @@ const CheckoutPage = () => {
                 <div className="text-xs text-red-800">
                   <p className="font-extrabold text-sm text-red-700">Quick Delivery Not Available for Some Items</p>
                   <p className="mt-1 leading-relaxed">
-                    {unserviceableCartItems.length} item(s) in your cart (fresh grocery/perishables) cannot be delivered to pincode <strong>{activeDestinationPincode || "your address"}</strong>. Please remove them or change your delivery address to proceed.
+                    {unserviceableCartItems.length} item(s) in your cart (fresh grocery/perishables) are only delivered in select local areas. Please remove them or change your delivery address to proceed.
                   </p>
                 </div>
               </div>
@@ -1356,103 +1385,66 @@ const CheckoutPage = () => {
             <DialogTitle>Select Delivery Address</DialogTitle>
             <DialogDescription>Choose where you want your order delivered.</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            {locationSavedAddresses.map((addr) => (
-              <button
-                key={addr.id}
-                onClick={() => handleSelectSavedAddress(addr)}
-                disabled={isResolvingAddressCoords}
-                className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
-                  currentAddress.id === addr.id
-                    ? "border-primary bg-brand-50 shadow-sm"
-                    : "border-slate-100 bg-white hover:border-slate-200"
-                }`}>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className={`p-2 rounded-full ${currentAddress.id === addr.id ? "bg-primary text-primary-foreground" : "bg-slate-100 text-slate-500"}`}>
-                    <MapPin size={16} />
+          <div className="grid gap-3 py-3 max-h-[60vh] overflow-y-auto">
+            {locationSavedAddresses.length === 0 ? (
+              <div className="p-6 text-center text-slate-500 text-xs">
+                <MapPin className="mx-auto mb-2 text-slate-400" size={24} />
+                No saved addresses yet. Click below to add one.
+              </div>
+            ) : (
+              locationSavedAddresses.map((addr) => (
+                <button
+                  key={addr.id}
+                  onClick={() => handleSelectSavedAddress(addr)}
+                  disabled={isResolvingAddressCoords}
+                  className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
+                    currentAddress.id === addr.id
+                      ? "border-primary bg-brand-50 shadow-sm"
+                      : "border-slate-100 bg-white hover:border-slate-200"
+                  }`}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={`p-2 rounded-full ${currentAddress.id === addr.id ? "bg-primary text-primary-foreground" : "bg-slate-100 text-slate-500"}`}>
+                      <MapPin size={16} />
+                    </div>
+                    <span className="font-black text-slate-800 uppercase tracking-widest text-[10px]">{addr.label}</span>
                   </div>
-                  <span className="font-black text-slate-800 uppercase tracking-widest text-[10px]">{addr.label}</span>
-                </div>
-                <p className="text-sm font-bold text-slate-800">{user?.name || currentAddress.name}</p>
-                <p className="text-xs text-slate-500 leading-relaxed mb-1">{addr.address}</p>
-                {addr.phone && (
-                  <p className="text-[11px] text-slate-400 font-medium">Phone: {addr.phone}</p>
-                )}
-              </button>
-            ))}
+                  <p className="text-sm font-bold text-slate-800">{addr.name || user?.name || currentAddress.name}</p>
+                  <p className="text-xs text-slate-500 leading-relaxed mb-1">{addr.address}</p>
+                  {addr.phone && (
+                    <p className="text-[11px] text-slate-400 font-medium">Phone: {addr.phone}</p>
+                  )}
+                </button>
+              ))
+            )}
           </div>
           <DialogFooter>
             <Button
               variant="outline"
               className="w-full border-brand-600 text-brand-600 hover:bg-brand-50"
-              onClick={() => navigate("/addresses")}>
+              onClick={() => {
+                setIsAddressModalOpen(false);
+                setAddressToEdit(null);
+                setIsAddAddressModalOpen(true);
+              }}>
               <Plus size={16} className="mr-2" /> Add New Address
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Current Address Modal */}
-      <Dialog open={isEditAddressOpen} onOpenChange={setIsEditAddressOpen}>
-        <DialogContent className="sm:max-w-[425px] overflow-hidden p-0">
-          <motion.div
-            initial={{ y: "100%", opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: "100%", opacity: 0 }}
-            transition={{ type: "spring", stiffness: 260, damping: 25 }}
-            className="p-6">
-            <DialogHeader>
-              <DialogTitle>Edit Delivery Address</DialogTitle>
-              <DialogDescription>Update the details of your current delivery address.</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="edit-address" className="text-xs font-semibold text-slate-700">Address</Label>
-                <Input
-                  id="edit-address"
-                  value={editAddressForm.address}
-                  onChange={(e) => setEditAddressForm((prev) => ({ ...prev, address: e.target.value }))}
-                  className="h-10"
-                  placeholder="House, street, area"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-landmark" className="text-xs font-semibold text-slate-700">Nearest Landmark (optional)</Label>
-                <Input
-                  id="edit-landmark"
-                  value={editAddressForm.landmark || ""}
-                  onChange={(e) => setEditAddressForm((prev) => ({ ...prev, landmark: e.target.value }))}
-                  className="h-10"
-                  placeholder="e.g. Near City Mall, Opp. Temple"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-city" className="text-xs font-semibold text-slate-700">City / Pincode</Label>
-                <Input
-                  id="edit-city"
-                  value={editAddressForm.city}
-                  onChange={(e) => setEditAddressForm((prev) => ({ ...prev, city: e.target.value }))}
-                  className="h-10"
-                  placeholder="City - Pincode"
-                />
-              </div>
-            </div>
-            <DialogFooter className="mt-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsEditAddressOpen(false)}
-                className="border-slate-200 text-slate-600 hover:bg-slate-50">
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSaveEditedAddress}
-                className="bg-primary hover:bg-orange-600 text-white font-bold">
-                Save changes
-              </Button>
-            </DialogFooter>
-          </motion.div>
-        </DialogContent>
-      </Dialog>
+      {/* Unified Add / Edit Delivery Address Modal */}
+      <AddAddressModal
+        isOpen={isAddAddressModalOpen}
+        initialAddress={addressToEdit}
+        onClose={() => {
+          setIsAddAddressModalOpen(false);
+          setAddressToEdit(null);
+        }}
+        onAddressSaved={(savedAddr) => {
+          handleAddressAddedInCheckout(savedAddr);
+          setAddressToEdit(null);
+        }}
+      />
 
       <style
         dangerouslySetInnerHTML={{

@@ -6,9 +6,11 @@ import { useLocation } from "../../context/LocationContext";
 import { loadGoogleMaps } from "../../../../core/services/googleMapsLoader";
 import { customerApi } from "../../services/customerApi";
 import { getCachedGeocode, setCachedGeocode } from "@/core/utils/geocodeCache";
+import AddAddressModal from "./AddAddressModal";
 
 const LocationDrawer = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
+  const [isAddAddressModalOpen, setIsAddAddressModalOpen] = useState(false);
   const {
     currentLocation,
     savedAddresses,
@@ -131,14 +133,41 @@ const LocationDrawer = ({ isOpen, onClose }) => {
       Number.isFinite(address.location.lat) &&
       Number.isFinite(address.location.lng);
 
-    const apply = (coords) => {
+    // Resolve city, state, pincode from address fields or address text
+    let resolvedCity = address.city;
+    let resolvedState = address.state;
+    let resolvedPincode = address.pincode;
+
+    if (!resolvedCity && address.address) {
+      const lower = address.address.toLowerCase();
+      if (lower.includes("mauranipur") || lower.includes("jhansi")) {
+        resolvedCity = "Jhansi";
+        if (!resolvedState) resolvedState = "Uttar Pradesh";
+        if (!resolvedPincode) resolvedPincode = "284204";
+      } else if (lower.includes("indore")) {
+        resolvedCity = "Indore";
+        if (!resolvedState) resolvedState = "Madhya Pradesh";
+        if (!resolvedPincode) resolvedPincode = "452010";
+      } else {
+        const parts = address.address.split(",").map((p) => p.trim()).filter(Boolean);
+        if (parts.length >= 2) {
+          resolvedCity = parts[parts.length - 2];
+        }
+      }
+    }
+
+    const apply = (coords, extra = {}) => {
       const newLoc = {
         name: address.address,
-        time: "12-15 mins",
+        time: "20-35 mins",
+        city: address.city || extra.city || resolvedCity || currentLocation.city,
+        state: address.state || extra.state || resolvedState || currentLocation.state,
+        pincode: address.pincode || extra.pincode || resolvedPincode || currentLocation.pincode,
+        addressId: address.id,
         ...(coords ? { latitude: coords.lat, longitude: coords.lng } : {}),
       };
 
-      // Persist so checkout/nearby sellers use the same chosen address coordinates.
+      // Persist so checkout/nearby sellers and add address modal use the same chosen location
       updateLocation(newLoc, { persist: true, updateSavedHome: false });
       onClose();
     };
@@ -148,7 +177,7 @@ const LocationDrawer = ({ isOpen, onClose }) => {
       return;
     }
 
-    // Older saved addresses may not have coords. Prefer backend geocoding so billing is controlled centrally.
+    // Older saved addresses may not have coords. Prefer backend geocoding
     const addrText = address?.address || "";
     const cacheKey = `addr:${addrText}`;
     const cached = getCachedGeocode(cacheKey);
@@ -172,8 +201,8 @@ const LocationDrawer = ({ isOpen, onClose }) => {
   };
 
   const handleAddAddress = () => {
-    onClose();
-    navigate("/addresses?add=1");
+    if (onClose) onClose();
+    setIsAddAddressModalOpen(true);
   };
 
   const handleSelectPlace = React.useCallback(
@@ -203,7 +232,7 @@ const LocationDrawer = ({ isOpen, onClose }) => {
         updateLocation(
           {
             name: result.formatted_address || prediction.description,
-            time: "12-15 mins",
+            time: "20-35 mins",
             city: city || currentLocation.city,
             state: state || currentLocation.state,
             pincode: pincode || currentLocation.pincode,
@@ -332,8 +361,9 @@ const LocationDrawer = ({ isOpen, onClose }) => {
   const visibleSavedAddresses = savedAddresses;
 
   return (
-    <AnimatePresence>
-      {isOpen && (
+    <>
+      <AnimatePresence>
+        {isOpen && (
         <>
           {/* Backdrop */}
           <motion.div
@@ -495,55 +525,75 @@ const LocationDrawer = ({ isOpen, onClose }) => {
                 </h4>
 
                 <div className="flex flex-col gap-4">
-                  {visibleSavedAddresses.map((addr) => (
-                    <div
-                      key={addr.id}
-                      onClick={() => handleSelectAddress(addr)}
-                      className="bg-white p-3 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden group cursor-pointer hover:bg-slate-50 transition-colors">
-                      <div className="flex items-start gap-4">
-                        <div className="h-12 w-12 bg-slate-50 rounded-xl flex items-center justify-center text-yellow-500 flex-shrink-0">
-                          {addr.label === "Home" ? (
-                            <Home
-                              size={26}
-                              fill="currentColor"
-                              className="opacity-80"
-                            />
-                          ) : (
-                            <MapPin
-                              size={26}
-                              fill="currentColor"
-                              className="opacity-80"
-                            />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-bold text-[#1A1A1A] text-lg">
-                              {addr.label}
-                            </h3>
-                            {(addr.address === currentLocation.name ||
-                              addr.isCurrent) && (
-                              <span className="text-[10px] bg-teal-50 text-teal-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-tight border border-teal-100">
-                                You are here
-                              </span>
+                  {visibleSavedAddresses.map((addr, idx) => {
+                    const isSelected = (() => {
+                      if (currentLocation?.addressId) {
+                        return addr.id === currentLocation.addressId;
+                      }
+                      if (currentLocation?.name && addr.address) {
+                        const cn = currentLocation.name.trim().toLowerCase();
+                        const an = addr.address.trim().toLowerCase();
+                        if (an === cn || cn.includes(an) || an.includes(cn)) {
+                          return true;
+                        }
+                      }
+                      const hasAnyMatch = visibleSavedAddresses.some((a) => {
+                        if (!a.address || !currentLocation?.name) return false;
+                        const an2 = a.address.trim().toLowerCase();
+                        const cn2 = currentLocation.name.trim().toLowerCase();
+                        return an2 === cn2 || cn2.includes(an2) || an2.includes(cn2);
+                      });
+                      return !hasAnyMatch && idx === 0;
+                    })();
+
+                    return (
+                      <div
+                        key={addr.id}
+                        onClick={() => handleSelectAddress(addr)}
+                        className="bg-white p-3 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden group cursor-pointer hover:bg-slate-50 transition-colors">
+                        <div className="flex items-start gap-4">
+                          <div className="h-12 w-12 bg-slate-50 rounded-xl flex items-center justify-center text-yellow-500 flex-shrink-0">
+                            {addr.label === "Home" ? (
+                              <Home
+                                size={26}
+                                fill="currentColor"
+                                className="opacity-80"
+                              />
+                            ) : (
+                              <MapPin
+                                size={26}
+                                fill="currentColor"
+                                className="opacity-80"
+                              />
                             )}
                           </div>
-                          <p className="text-[13px] text-slate-500 font-medium leading-relaxed mb-3">
-                            {addr.address}
-                          </p>
-                          <p className="text-[12px] text-slate-400 font-bold">
-                            Phone number: {addr.phone}
-                          </p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-bold text-[#1A1A1A] text-lg">
+                                {addr.label}
+                              </h3>
+                              {isSelected && (
+                                <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-tight border border-emerald-200">
+                                  Default
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[13px] text-slate-500 font-medium leading-relaxed mb-3">
+                              {addr.address}
+                            </p>
+                            <p className="text-[12px] text-slate-400 font-bold">
+                              Phone number: {addr.phone}
+                            </p>
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Selection Glow */}
-                      {(addr.address === currentLocation.name ||
-                        addr.isCurrent) && (
-                        <div className="absolute top-0 right-0 h-1 w-24 bg-gradient-to-l from-primary to-transparent opacity-50" />
-                      )}
-                    </div>
-                  ))}
+                        {/* Selection Glow */}
+                        {isSelected && (
+                          <div className="absolute top-0 right-0 h-1 w-24 bg-gradient-to-l from-primary to-transparent opacity-50" />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -552,6 +602,16 @@ const LocationDrawer = ({ isOpen, onClose }) => {
         </>
       )}
     </AnimatePresence>
+
+    <AddAddressModal
+      isOpen={isAddAddressModalOpen}
+      onClose={() => setIsAddAddressModalOpen(false)}
+      onAddressSaved={() => {
+        setIsAddAddressModalOpen(false);
+        onClose();
+      }}
+    />
+  </>
   );
 };
 

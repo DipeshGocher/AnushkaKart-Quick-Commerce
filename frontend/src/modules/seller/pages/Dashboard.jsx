@@ -234,7 +234,7 @@ const Dashboard = () => {
       if (typeof refreshOrders === "function") refreshOrders();
     } catch (error) {
       console.error("Failed to update status:", error);
-      toast.error("Failed to update status");
+      toast.error(error.response?.data?.message || error.message || "Failed to update status");
     }
   };
 
@@ -658,51 +658,23 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Modal Footer - same as Orders */}
-              <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row gap-3 sm:gap-0 sm:items-center justify-end">
-                <div className="flex gap-2 items-center">
-                  <button
-                    onClick={() => setIsOrderModalOpen(false)}
-                    className="px-6 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all"
+              {/* Modal Footer */}
+              <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-500">Status:</span>
+                  <Badge
+                    variant={getStatusColor(selectedOrder.status)}
+                    className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1"
                   >
-                    CLOSE
-                  </button>
-                  <div className="relative inline-block w-40">
-                    <select
-                      value={selectedOrder.status.toLowerCase()}
-                      onChange={(e) =>
-                        handleStatusUpdate(selectedOrder.id, e.target.value)
-                      }
-                      className={cn(
-                        "w-full text-[10px] pl-3 pr-8 py-2 rounded-xl font-black uppercase tracking-wider border appearance-none cursor-pointer focus:ring-2 focus:ring-offset-1 transition-all outline-none shadow-sm",
-                        getStatusColor(selectedOrder.status) === "warning"
-                          ? "bg-amber-100 text-amber-700 focus:ring-amber-200"
-                          : getStatusColor(selectedOrder.status) === "info"
-                            ? "bg-brand-100 text-brand-700 focus:ring-brand-200"
-                            : getStatusColor(selectedOrder.status) === "primary"
-                              ? "bg-brand-100 text-brand-700 focus:ring-brand-200"
-                              : getStatusColor(selectedOrder.status) ===
-                                  "secondary"
-                                ? "bg-purple-100 text-purple-700 focus:ring-purple-200"
-                                : getStatusColor(selectedOrder.status) ===
-                                    "success"
-                                  ? "bg-brand-100 text-brand-700 focus:ring-brand-200"
-                                  : getStatusColor(selectedOrder.status) ===
-                                      "error"
-                                    ? "bg-rose-100 text-rose-700 focus:ring-rose-200"
-                                    : "bg-slate-100 text-slate-700 focus:ring-slate-200"
-                      )}
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="confirmed">Confirmed</option>
-                      <option value="packed">Packed</option>
-                      <option value="out_for_delivery">Out for Delivery</option>
-                      <option value="delivered">Delivered</option>
-                      <option value="cancelled">Cancelled</option>
-                    </select>
-                    <HiOutlineChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-60" />
-                  </div>
+                    {selectedOrder.status}
+                  </Badge>
                 </div>
+                <button
+                  onClick={() => setIsOrderModalOpen(false)}
+                  className="px-6 py-2.5 rounded-xl text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition-all shadow-sm"
+                >
+                  CLOSE
+                </button>
               </div>
             </motion.div>
           </div>

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
+import { setActiveRole, ROLES } from '@core/auth/activeRoleStore';
 import { toast } from 'sonner';
 import { adminApi } from '../services/adminApi';
 import { Loader2, Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react';
@@ -10,9 +11,19 @@ import SignInCard2 from '@/components/ui/sign-in-card-2';
 const AdminAuth = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
-    const { login } = useAuth();
+    const { login, isAuthenticated, role } = useAuth();
     const { settings } = useSettings();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        setActiveRole(ROLES.ADMIN);
+    }, []);
+
+    useEffect(() => {
+        if (isAuthenticated && role === 'admin') {
+            navigate('/admin', { replace: true });
+        }
+    }, [isAuthenticated, role, navigate]);
     
     const logoUrl = settings?.logoUrl || '/logo.png';
 

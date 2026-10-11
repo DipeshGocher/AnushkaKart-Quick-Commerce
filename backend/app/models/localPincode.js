@@ -27,12 +27,18 @@ const localPincodeSchema = new mongoose.Schema(
     deliveryTimeEstimate: {
       type: String,
       trim: true,
-      default: "12-15 mins",
+      default: "20-35 mins",
     },
     isActive: {
       type: Boolean,
       default: true,
       index: true,
+    },
+    riderRadiusKm: {
+      type: Number,
+      default: 10,
+      min: 1,
+      max: 30,
     },
     notes: {
       type: String,

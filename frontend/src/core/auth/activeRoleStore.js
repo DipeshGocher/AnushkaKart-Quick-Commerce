@@ -42,12 +42,18 @@ function inferRoleFromUrl() {
 }
 
 /**
- * Returns the current role. If no router has explicitly set the role yet,
- * falls back to URL inference for the very first call.
+ * Returns the current role. If the URL clearly belongs to an explicit portal
+ * (/admin, /seller, /delivery, /warehouse), that URL role always takes precedence
+ * over any stale role left in memory by an earlier page in the same tab.
  */
 export function getActiveRole() {
+    const urlRole = inferRoleFromUrl();
+    if (urlRole !== ROLES.CUSTOMER && _activeRole !== urlRole) {
+        _activeRole = urlRole;
+        return urlRole;
+    }
     if (_activeRole != null) return _activeRole;
-    return inferRoleFromUrl();
+    return urlRole;
 }
 
 /**

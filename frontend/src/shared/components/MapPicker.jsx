@@ -208,34 +208,8 @@ const MapPicker = ({
   }, [clearCircleOverlay]);
 
   useEffect(() => {
-    if (!isLoaded || !mapRef.current || !window.google?.maps) {
-      return;
-    }
-
-    clearCircleOverlay();
-
-    if (!marker) {
-      return;
-    }
-
-    circleRef.current = new window.google.maps.Circle({
-      map: mapRef.current,
-      center: marker,
-      radius: radius * 1000,
-      fillColor: "var(--primary)",
-      fillOpacity: 0.1,
-      strokeColor: "var(--primary)",
-      strokeOpacity: 0.5,
-      strokeWeight: 2,
-      clickable: false,
-      editable: false,
-      zIndex: 1,
-    });
-
-    return () => {
-      clearCircleOverlay();
-    };
-  }, [isLoaded, marker, radius, clearCircleOverlay]);
+    // Circle overlay removed - seller sets precise shop pin location
+  }, []);
 
   const handleConfirm = async () => {
     if (!marker) {
@@ -371,33 +345,6 @@ const MapPicker = ({
               )}
             </GoogleMap>
           )}
-        </div>
-
-        <div className="bg-gray-50 p-4 rounded-lg space-y-3">
-          <div className="flex justify-between items-center">
-            <label className="text-sm font-medium text-gray-700">
-              Service Radius (km)
-            </label>
-            <span className="text-sm font-bold text-primary">{radius} km</span>
-          </div>
-          <input
-            type="range"
-            min="1"
-            max={maxRadius}
-            step="1"
-            value={radius}
-            onChange={(e) => setRadius(Number(e.target.value))}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
-          />
-          <div className="flex justify-between text-[10px] text-gray-400">
-            <span>1 km</span>
-            <span>{maxRadius} km</span>
-          </div>
-          <p className="text-xs text-gray-500 flex items-start gap-1">
-            <MapPin className="w-3 h-3 mt-0.5 flex-shrink-0" />
-            Customers within this radius from your shop will be able to see and
-            order from you.
-          </p>
         </div>
       </div>
     </Modal>

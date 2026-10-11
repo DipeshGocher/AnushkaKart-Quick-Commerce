@@ -32,29 +32,9 @@ async function getCustomerVisibleProductById(productId) {
 }
 
 async function assertProductInCustomerRadius(product, lat, lng) {
-  // Refurbished products ship via courier / central shipping and bypass local grocery radius checks
-  if (product?.conditionType === "refurbished" || product?.catalogType === "refurbished") {
-    return;
-  }
-
-  const coords = parseCustomerCoordinates({ lat, lng });
-  if (!coords.valid) {
-    const err = new Error("lat and lng are required to add items in your delivery area");
-    err.statusCode = 400;
-    throw err;
-  }
-  const nearbyIds = await getNearbySellerIdsForCustomer(coords.lat, coords.lng);
-  const nearbySet = new Set(nearbyIds.map(String));
-  const fulfillmentId = product?.sellerId
-    ? String(product.sellerId)
-    : product?.warehouseId
-      ? String(product.warehouseId)
-      : null;
-  if (!fulfillmentId || !nearbySet.has(fulfillmentId)) {
-    const err = new Error("This product is not available for delivery to your location");
-    err.statusCode = 400;
-    throw err;
-  }
+  // Hybrid Commerce: Products are deliverable either via Local Pincode Quick Commerce or Shiprocket Pan-India.
+  // GPS radius check is removed so customers can add any available product to cart without radius errors.
+  return;
 }
 
 async function fetchPopulatedCart(cartId) {

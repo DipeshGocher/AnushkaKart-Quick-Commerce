@@ -80,9 +80,7 @@ export const getKitById = async (req, res) => {
               ? String(kit.warehouseId)
               : null;
 
-        if (!warehouseId || !nearbySet.has(warehouseId)) {
-            return handleResponse(res, 404, "Kit not available in your area");
-        }
+        // Hybrid Commerce: Kits are deliverable Pan-India or via local pincodes without radius blockage
 
         return handleResponse(res, 200, "Kit details fetched", kit);
     } catch (error) {

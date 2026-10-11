@@ -241,10 +241,10 @@ function filterV2OrdersByRadius(v2Orders, deliveryCoords) {
     if (!Array.isArray(coords) || coords.length < 2) return true;
 
     const [slng, slat] = coords;
-    const searchR = order.deliverySearchMeta?.radiusMeters || 5000;
-    const serviceKm = Number(order.seller?.serviceRadius ?? 5);
+    const searchR = order.deliverySearchMeta?.radiusMeters || 10000;
+    const serviceKm = Number(order.seller?.serviceRadius ?? (order.riderRadiusKm ?? 10));
     const serviceM = Math.max(serviceKm, 0) * 1000;
-    const maxR = Math.min(searchR, serviceM);
+    const maxR = Math.min(searchR, serviceM, 30000);
     return distanceMeters(dlat, dlng, slat, slng) <= maxR;
   });
 }

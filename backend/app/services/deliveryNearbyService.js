@@ -39,20 +39,38 @@ function filterByHaversine(candidates, lat, lng, maxDistanceM) {
 export async function getDeliveryPartnerIdsWithinSellerRadius(sellerId) {
   if (!sellerId) return [];
 
-  const seller = await Seller.findById(sellerId)
-    .select("location serviceRadius")
+  let entity = await Seller.findById(sellerId)
+    .select("location pincode address")
     .lean();
 
-  if (!seller?.location?.coordinates?.length) return [];
+  if (!entity) {
+    try {
+      const Warehouse = (await import("../models/warehouse.js")).default;
+      entity = await Warehouse.findById(sellerId)
+        .select("location pincode address")
+        .lean();
+    } catch (_wErr) {}
+  }
 
-  const [lng, lat] = seller.location.coordinates;
+  if (!entity?.location?.coordinates?.length) return [];
+
+  const [lng, lat] = entity.location.coordinates;
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
   if (Math.abs(lat) < 1e-5 && Math.abs(lng) < 1e-5) return [];
 
-  const radiusKm = Math.min(
-    Math.max(Number(seller.serviceRadius) || 5, 1),
-    100,
-  );
+  // Determine rider search radius from the store's Local Pincode configuration set in Admin panel (max 30 km)
+  let radiusKm = 10;
+  const storePincode = String(entity.pincode || entity.address?.pincode || "").trim();
+  if (storePincode) {
+    try {
+      const LocalPincode = (await import("../models/localPincode.js")).default;
+      const localPin = await LocalPincode.findOne({ pincode: storePincode, isActive: true }).lean();
+      if (localPin && Number.isFinite(localPin.riderRadiusKm)) {
+        radiusKm = Math.min(Math.max(Number(localPin.riderRadiusKm), 1), 30);
+      }
+    } catch (_pErr) {}
+  }
+
   const maxDistanceM = radiusKm * 1000;
 
   const base = buildDeliveryFilter();
