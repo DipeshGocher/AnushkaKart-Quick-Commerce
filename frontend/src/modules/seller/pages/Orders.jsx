@@ -90,7 +90,19 @@ const Orders = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ordersFromContext?.length, ordersFromContext?.[0]?.orderId]);
 
-    const fetchOrders = async (requestedPage = 1, showPageLoader = false) => {
+    // Timeouts can be processed by a separate backend worker, without a seller socket event.
+    // Reconcile the visible list so expired orders leave Pending without a page reload.
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (hasMountedRef.current && document.visibilityState === 'visible') {
+                fetchOrders(page, false, true);
+            }
+        }, 15000);
+        return () => clearInterval(interval);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [page, startDate, endDate, sortBy]);
+
+    const fetchOrders = async (requestedPage = 1, showPageLoader = false, silent = false) => {
         try {
             if (showPageLoader) {
                 setLoading(true);
@@ -162,7 +174,7 @@ const Orders = () => {
             }
         } catch (error) {
             console.error("Failed to fetch orders:", error);
-            showToast("Failed to fetch orders", "error");
+            if (!silent) showToast("Failed to fetch orders", "error");
         } finally {
             if (showPageLoader) {
                 setLoading(false);
@@ -759,7 +771,7 @@ const Orders = () => {
                                             <HiOutlineInboxStack className="h-8 w-8" />
                                         </div>
                                         <h3 className="text-sm font-bold text-slate-900">No orders found</h3>
-                                        <p className="text-xs text-slate-600 font-medium max-w-xs text-center mt-1">We couldn't find any orders matching your current filters. Try adjusting your search.</p>
+                                        <p className="text-xs text-slate-600 font-medium max-w-xs text-center mt-1">We couldn&apos;t find any orders matching your current filters. Try adjusting your search.</p>
                                         <Button variant="outline" className="mt-6 rounded-xl text-xs" onClick={() => { setActiveTab('All'); setSearchTerm(''); }}>CLEAR ALL FILTERS</Button>
                                     </div>
                                 )}
@@ -820,7 +832,7 @@ const Orders = () => {
                                             </div>
                                             <div className="min-w-0">
                                                 <h3 className="text-sm sm:text-base font-black text-slate-900 truncate">Quick Snapshot</h3>
-                                                <p className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest">Today's Performance</p>
+                                                <p className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest">Today&apos;s Performance</p>
                                             </div>
                                         </div>
                                         <button onClick={() => setIsQuickViewModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-600 shrink-0">

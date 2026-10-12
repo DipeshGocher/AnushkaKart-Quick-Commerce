@@ -1,7 +1,6 @@
 import React from "react";
 import { Plus, Minus, Ban } from "lucide-react";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
-import { evaluateProductDelivery } from "../../../services/deliveryService";
 
 /**
  * CheckoutCartSummary
@@ -19,7 +18,9 @@ const CheckoutCartSummary = React.memo(function CheckoutCartSummary({
   onUpdateQuantity,
   onRemoveFromCart,
   onMoveToWishlist,
-  destinationPincode,
+  getDeliveryItem,
+  isDeliveryLoading,
+  deliveryError,
 }) {
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-4">
@@ -43,8 +44,11 @@ const CheckoutCartSummary = React.memo(function CheckoutCartSummary({
               </p>
             )}
             {(() => {
-              const check = destinationPincode ? evaluateProductDelivery(item, destinationPincode) : null;
-              if (check && !check.canAddToCart) {
+              const check = getDeliveryItem?.(item);
+              if (isDeliveryLoading || !check) {
+                return <div className="text-[10px] font-bold text-slate-500 mb-1">{deliveryError || "Checking delivery..."}</div>;
+              }
+              if (!check.isDeliverable) {
                 return (
                   <div className="inline-flex items-center gap-1.5 px-2 py-0.5 mb-1.5 rounded-md bg-red-50 border border-red-200 text-red-600 text-[10px] font-bold">
                     <Ban size={11} className="shrink-0" />
@@ -52,10 +56,10 @@ const CheckoutCartSummary = React.memo(function CheckoutCartSummary({
                   </div>
                 );
               }
-              if (check && check.badge) {
+              if (check) {
                 return (
                   <div className="text-[10px] font-extrabold uppercase tracking-wide text-emerald-600 mb-1">
-                    {check.badge.label}
+                    {check.fulfillmentType === "LOCAL_RIDERS" ? "⚡ Quick (20-35 Mins)" : "📦 Standard (3-4 Days)"}
                   </div>
                 );
               }

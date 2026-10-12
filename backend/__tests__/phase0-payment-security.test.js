@@ -1,4 +1,5 @@
 import { jest } from "@jest/globals";
+import crypto from "node:crypto";
 
 const mockOrderFindOne = jest.fn();
 const mockOrderFindById = jest.fn();
@@ -76,6 +77,12 @@ jest.unstable_mockModule("../app/services/payment/providers/razorpay.adapter.js"
     async verifyPaymentStatus() {
       return { status: "COMPLETED" };
     }
+    async getPaymentStatus() {
+      return { state: "attempted", gatewayResponse: {} };
+    }
+    mapStatusToInternal(state) {
+      return state === "attempted" ? "PENDING" : state;
+    }
   },
 }));
 
@@ -130,6 +137,8 @@ jest.unstable_mockModule("@phonepe-pg/pg-sdk-node", () => ({
 const {
   createPaymentOrderForOrderRef,
   processGatewayWebhook,
+  verifyClientPaymentCallback,
+  verifyPaymentGatewayStatus,
 } = await import("../app/services/paymentService.js");
 
 describe("Phase 0 payment hardening", () => {
@@ -264,5 +273,28 @@ describe("Phase 0 payment hardening", () => {
       }),
     );
     expect(mockOrderUpdateOne).not.toHaveBeenCalled();
+  });
+
+  it("rejects forged Razorpay checkout confirmations before fetching gateway status", async () => {
+    mockPaymentFindOne.mockResolvedValueOnce({
+      customer: "user-1",
+      rawGatewayResponse: { razorpayOrderId: "order_gateway_1" },
+    });
+    await expect(verifyClientPaymentCallback({
+      merchantOrderId: "ORD-1-A1",
+      userId: "user-1",
+      razorpayOrderId: "order_gateway_1",
+      gatewayPaymentId: "pay_1",
+      gatewaySignature: crypto.createHmac("sha256", "wrong_secret")
+        .update("order_gateway_1|pay_1").digest("hex"),
+    })).rejects.toMatchObject({ statusCode: 401 });
+  });
+
+  it("keeps a failed attempt retryable when Razorpay order remains attempted", async () => {
+    const payment = { customer: "user-1", status: "FAILED" };
+    mockPaymentFindOne.mockResolvedValueOnce(payment);
+    const result = await verifyPaymentGatewayStatus({ merchantOrderId: "ORD-1-A1", userId: "user-1" });
+    expect(result.status).toBe("FAILED");
+    expect(mockHandleOnlineOrderFinance).not.toHaveBeenCalled();
   });
 });

@@ -49,12 +49,6 @@ export async function isPincodeLocal(pincode) {
   const clean = String(pincode).trim();
   if (!clean) return false;
 
-  // Auto-seed if collection is completely empty
-  const totalCount = await LocalPincode.countDocuments();
-  if (totalCount === 0) {
-    await seedInitialPincodes();
-  }
-
   const found = await LocalPincode.findOne({
     pincode: clean,
     isActive: true,
@@ -122,7 +116,7 @@ export async function listLocalPincodes({ search = "", status = "all", page = 1,
  */
 export async function addLocalPincode(data) {
   const pincode = String(data.pincode || "").trim();
-  if (!pincode || !/^\d{4,8}$/.test(pincode)) {
+  if (!/^\d{6}$/.test(pincode)) {
     const err = new Error("Invalid pincode format");
     err.statusCode = 400;
     throw err;
@@ -157,7 +151,15 @@ export async function addLocalPincode(data) {
  */
 export async function updateLocalPincode(id, data) {
   const updateData = {};
-  if (data.pincode !== undefined) updateData.pincode = String(data.pincode).trim();
+  if (data.pincode !== undefined) {
+    const nextPincode = String(data.pincode).trim();
+    if (!/^\d{6}$/.test(nextPincode)) {
+      const err = new Error("Invalid 6-digit pincode");
+      err.statusCode = 400;
+      throw err;
+    }
+    updateData.pincode = nextPincode;
+  }
   if (data.areaName !== undefined) updateData.areaName = String(data.areaName).trim();
   if (data.city !== undefined) updateData.city = String(data.city).trim();
   if (data.state !== undefined) updateData.state = String(data.state).trim();
@@ -285,63 +287,20 @@ export async function evaluateDeliveryEligibility({
   const cleanSeller = String(sellerPincode || "").trim();
 
   const isCustomerLocal = cleanCustomer ? await isPincodeLocal(cleanCustomer) : false;
-  // If sellerPincode is missing (e.g. platform direct fulfillment / in-house dark store), default seller to local
-  const isSellerLocal = cleanSeller ? await isPincodeLocal(cleanSeller) : true;
+  const isSellerLocal = cleanSeller ? await isPincodeLocal(cleanSeller) : false;
 
   const localDetails = isCustomerLocal ? await getLocalPincodeDetails(cleanCustomer) : null;
   const localEstimate = localDetails?.deliveryTimeEstimate || "20-35 mins";
 
-  if (deliveryMode === "quick_only") {
-    if (isCustomerLocal && isSellerLocal) {
-      return {
-        isDeliverable: true,
-        fulfillmentType: "LOCAL_RIDERS",
-        deliveryEstimate: localEstimate,
-        shippingFeeType: "LOCAL",
-        deliveryMode: "quick_only",
-        isCustomerLocal: true,
-        isSellerLocal: true,
-        displayBadge: `⚡ ${localEstimate} Delivery`,
-        reason: null,
-      };
-    }
-
-    if (!isCustomerLocal) {
-      return {
-        isDeliverable: false,
-        fulfillmentType: null,
-        deliveryEstimate: null,
-        shippingFeeType: null,
-        deliveryMode: "quick_only",
-        isCustomerLocal: false,
-        isSellerLocal,
-        displayBadge: `Quick Delivery not available at ${cleanCustomer || "your location"}`,
-        reason: `Quick Delivery is not available in your area (${cleanCustomer || "pincode"}). Fresh grocery items are only delivered locally.`,
-      };
-    }
-
-    // Customer is local, but seller is outside
-    return {
-      isDeliverable: false,
-      fulfillmentType: null,
-      deliveryEstimate: null,
-      shippingFeeType: null,
-      deliveryMode: "quick_only",
-      isCustomerLocal: true,
-      isSellerLocal: false,
-      displayBadge: "Not deliverable (Seller outside local zone)",
-      reason: "This fresh product is stocked outside the local delivery zone and cannot be delivered via courier.",
-    };
-  }
-
-  // deliveryMode === "both" (Hybrid)
+  // Fulfillment is determined by both endpoints, including products previously
+  // marked quick_only. The merchant is responsible for courier eligibility.
   if (isCustomerLocal && isSellerLocal) {
     return {
       isDeliverable: true,
       fulfillmentType: "LOCAL_RIDERS",
       deliveryEstimate: localEstimate,
       shippingFeeType: "LOCAL",
-      deliveryMode: "both",
+      deliveryMode,
       isCustomerLocal: true,
       isSellerLocal: true,
       displayBadge: `⚡ ${localEstimate} Delivery (Local)`,
@@ -355,7 +314,7 @@ export async function evaluateDeliveryEligibility({
     fulfillmentType: "SHIPROCKET",
     deliveryEstimate: "3-4 business days",
     shippingFeeType: "SHIPROCKET",
-    deliveryMode: "both",
+    deliveryMode,
     isCustomerLocal,
     isSellerLocal,
     displayBadge: "📦 Standard Courier (3-4 Days)",

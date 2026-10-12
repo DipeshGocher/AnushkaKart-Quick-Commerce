@@ -1,4 +1,5 @@
 import handleResponse from "../utils/helper.js";
+import crypto from "node:crypto";
 import Product from "../models/product.js";
 import LocalPincode from "../models/localPincode.js";
 import {
@@ -294,8 +295,18 @@ export const updateShiprocketStatusManual = async (req, res) => {
  */
 export const shiprocketWebhookHandler = async (req, res) => {
   try {
+    const expectedToken = process.env.SHIPROCKET_WEBHOOK_TOKEN?.trim();
+    if (!expectedToken) {
+      return res.status(503).json({ success: false, message: "Shiprocket webhook is not configured" });
+    }
+    const suppliedToken = String(req.headers["x-api-key"] || "").trim();
+    const expected = Buffer.from(expectedToken);
+    const supplied = Buffer.from(suppliedToken);
+    if (expected.length !== supplied.length || !crypto.timingSafeEqual(expected, supplied)) {
+      return res.status(401).json({ success: false, message: "Unauthorized webhook" });
+    }
     const result = await processShiprocketWebhook(req.body, req.headers);
-    return res.status(200).json(result);
+    return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     console.error("[Shiprocket Webhook Error]:", error);
     return res.status(500).json({ success: false, error: error.message });

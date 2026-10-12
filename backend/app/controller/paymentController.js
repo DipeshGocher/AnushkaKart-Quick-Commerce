@@ -120,7 +120,8 @@ export const handleRazorpayWebhook = async (req, res) => {
       message: error?.message,
       error,
     });
-    return res.status(500).send("Internal Server Error");
+    return res.status(error?.statusCode === 401 ? 401 : 500)
+      .send(error?.statusCode === 401 ? "Unauthorized" : "Internal Server Error");
   }
 };
 

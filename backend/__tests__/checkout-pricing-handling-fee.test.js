@@ -27,6 +27,17 @@ jest.unstable_mockModule("../app/services/finance/financeSettingsService.js", ()
   getOrCreateFinanceSettings: mockGetOrCreateFinanceSettings,
 }));
 
+jest.unstable_mockModule("../app/services/shipping/localPincodeService.js", () => ({
+  isPincodeLocal: jest.fn().mockResolvedValue(false),
+  getLocalPincodeDetails: jest.fn().mockResolvedValue(null),
+  resolveProductDeliveryMode: jest.fn().mockResolvedValue("both"),
+  evaluateDeliveryEligibility: jest.fn().mockResolvedValue({
+    isDeliverable: true,
+    fulfillmentType: "SHIPROCKET",
+    deliveryEstimate: "3-4 business days",
+  }),
+}));
+
 const { buildCheckoutPricingSnapshot } = await import(
   "../app/services/checkoutPricingService.js"
 );
@@ -107,15 +118,15 @@ describe("checkout pricing snapshot handling fee", () => {
         { product: "p1", quantity: 1 },
         { product: "p2", quantity: 1 },
       ],
-      address: {}, // ensures distance calc returns 0 without Seller lookup
+      address: { pincode: "452001" }, // courier routing; no location keeps distance calc at 0
       session: null,
     });
 
     expect(snapshot.sellerCount).toBe(2);
-    expect(snapshot.aggregateBreakdown.deliveryFeeCharged).toBe(60);
+    expect(snapshot.aggregateBreakdown.deliveryFeeCharged).toBe(98);
     expect(snapshot.aggregateBreakdown.handlingFeeCharged).toBe(30);
     expect(snapshot.aggregateBreakdown.productSubtotal).toBe(300);
-    expect(snapshot.aggregateBreakdown.grandTotal).toBe(390);
+    expect(snapshot.aggregateBreakdown.grandTotal).toBe(428);
 
     const perSellerFees = snapshot.sellerBreakdownEntries.map(
       (entry) => entry.breakdown.handlingFeeCharged,

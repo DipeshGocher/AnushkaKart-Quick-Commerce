@@ -33,6 +33,7 @@ export const LocationProvider = ({ children }) => {
   const [savedAddresses, setSavedAddresses] = useState([]);
 
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+  const [isLocationReady, setIsLocationReady] = useState(false);
   const [locationError, setLocationError] = useState(null);
 
   // Update the current location.
@@ -42,8 +43,16 @@ export const LocationProvider = ({ children }) => {
     newLoc,
     { persist = true, updateSavedHome = false } = {},
   ) => {
+    setIsLocationReady(true);
     setCurrentLocation((prev) => {
-      const merged = { ...prev, ...newLoc };
+      const addressChanged = (newLoc.name !== undefined && newLoc.name !== prev.name) ||
+        (newLoc.pincode !== undefined && newLoc.pincode !== prev.pincode) ||
+        (newLoc.addressId !== undefined && newLoc.addressId !== prev.addressId);
+      const merged = {
+        ...prev,
+        ...(addressChanged ? { addressId: null, latitude: null, longitude: null } : {}),
+        ...newLoc,
+      };
       if (persist) {
         const payload = {
           address: merged.name,
@@ -316,6 +325,7 @@ export const LocationProvider = ({ children }) => {
         {
           name: addressName,
           time: parsed.time && parsed.time !== "12-15 mins" ? parsed.time : "20-35 mins",
+          addressId: parsed.addressId,
           city: parsed.city,
           state: parsed.state,
           pincode: parsed.pincode,
@@ -324,23 +334,18 @@ export const LocationProvider = ({ children }) => {
         },
         { persist: false, updateSavedHome: false },
       );
+      setIsLocationReady(true);
     } else {
-      // Auto-fetch live location immediately on first load
-      fetchAndCacheLocation().then((result) => {
-        // If the browser blocks it or an error occurs, fallback to default location
-        if (!result.ok) {
-          updateLocation(currentLocation, {
-            persist: true,
-            updateSavedHome: false,
-          });
-        }
-      });
+      // Keep the initial address stable until the customer explicitly selects
+      // another address or taps the current-location action.
+      updateLocation(currentLocation, { persist: true, updateSavedHome: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const locationValue = useMemo(() => ({
     currentLocation,
+    isLocationReady,
     savedAddresses,
     updateLocation,
     addAddress,
@@ -349,7 +354,7 @@ export const LocationProvider = ({ children }) => {
     locationError,
     refreshLocation: fetchAndCacheLocation,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [currentLocation, savedAddresses, isFetchingLocation, locationError, refreshAddresses]);
+  }), [currentLocation, isLocationReady, savedAddresses, isFetchingLocation, locationError, refreshAddresses]);
 
   return (
     <LocationContext.Provider value={locationValue}>

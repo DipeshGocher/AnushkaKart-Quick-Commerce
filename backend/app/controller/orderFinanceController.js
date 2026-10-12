@@ -142,6 +142,8 @@ export const verifyOnlineOrderPayment = async (req, res) => {
       userId: req.user?.id,
       gatewayOrderId: payload.merchantOrderId,
       gatewayPaymentId: payload.transactionId || null,
+      razorpayOrderId: payload.razorpayOrderId,
+      gatewaySignature: payload.signature,
       correlationId: req.correlationId || null,
     });
 

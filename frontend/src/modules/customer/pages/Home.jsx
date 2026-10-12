@@ -657,7 +657,9 @@ const Home = () => {
       const missingResults = await Promise.allSettled(missingIds.map((id) => customerApi.getProductById(id, locationParams)));
       const fetchedMissing = missingResults.filter((r) => r.status === "fulfilled").flatMap((r) => { const p = r.value?.data?.result || r.value?.data?.results; return Array.isArray(p) ? p : (p ? [p] : []); }).map((p) => ({ ...p, id: p._id, image: p.mainImage || (p.variants?.[0]?.images?.[0]) || p.image || "", price: p.salePrice || p.price, originalPrice: p.price, weight: p.weight || "1 unit", deliveryTime: "8-15 mins" }));
       if (fetchedMissing.length) setProducts((prev) => { const merged = [...prev]; const mergedIds = new Set(merged.map((p) => String(p?._id || p?.id || "").trim())); fetchedMissing.forEach((p) => { const key = String(p?._id || p?.id || "").trim(); if (!mergedIds.has(key)) { merged.push(p); mergedIds.add(key); } }); return merged; });
-    } catch (e) { }
+    } catch {
+      // Keep the existing catalog visible if optional section hydration fails.
+    }
   };
 
   useEffect(() => { fetchData(); }, [currentLocation?.latitude, currentLocation?.longitude]);
@@ -912,7 +914,7 @@ const Home = () => {
 
           return (
             <motion.div ref={heroRef} className="block will-change-transform pt-0" style={isMobile ? { opacity: 1 } : { opacity, y, scale, pointerEvents }}>
-              <div className="w-full max-w-none px-0 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16 mt-3 sm:mt-3.5 md:mt-4 mb-1 relative z-20 overflow-hidden">
+              <div className="w-full min-w-0 max-w-none px-3 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16 mt-3 sm:mt-3.5 md:mt-4 mb-1 relative z-20 overflow-hidden">
                 <ExperienceBannerCarousel
                   section={{ title: "" }}
                   items={homeBanners}
@@ -949,7 +951,7 @@ const Home = () => {
         {isAllCategorySelected && (
           <div className="w-full max-w-none px-3.5 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16 my-4">
             <div
-              className="overflow-hidden rounded-2xl md:rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-slate-100/80 bg-white cursor-pointer hover:opacity-95 transition-all"
+              className="w-full max-w-[1000px] mx-auto overflow-hidden rounded-2xl md:rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-slate-100/80 bg-white cursor-pointer hover:opacity-95 transition-all"
               onClick={() => {
                 window.scrollTo({ top: 0, behavior: "smooth" });
                 navigate("/category/all");
@@ -958,7 +960,7 @@ const Home = () => {
               <img
                 src={quickCommerceBanner}
                 alt="Anushka Store Quick Commerce - Daily Essentials Delivered in Minutes"
-                className="w-full h-auto aspect-[3.54/1] max-h-[380px] object-contain sm:object-cover block"
+                className="w-full h-auto max-h-[280px] object-contain block"
                 loading="lazy"
               />
             </div>

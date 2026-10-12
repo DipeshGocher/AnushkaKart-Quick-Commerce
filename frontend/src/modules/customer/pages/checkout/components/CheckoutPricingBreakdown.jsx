@@ -1,3 +1,4 @@
+import React from "react";
 import { Clipboard, Tag, Wallet } from "lucide-react";
 import { motion } from "framer-motion";
 

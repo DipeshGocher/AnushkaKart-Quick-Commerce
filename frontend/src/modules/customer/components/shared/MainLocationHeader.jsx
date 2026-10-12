@@ -532,7 +532,7 @@ const MainLocationHeader = ({
             "--category-header-indicator": targetTextColor,
           }}
           className={cn(
-            "customer-location-header pointer-events-auto w-full max-w-none px-4 lg:px-8 xl:px-12 2xl:px-16 overflow-hidden transform-gpu will-change-[transform,background-color] backdrop-blur-xl transition-[padding,background-color] duration-200 ease-out",
+            "customer-location-header pointer-events-auto w-full max-w-full min-w-0 px-4 lg:px-6 xl:px-8 2xl:px-10 overflow-hidden transform-gpu will-change-[transform,background-color] backdrop-blur-xl transition-[padding,background-color] duration-200 ease-out",
             "rounded-b-[24px] shadow-[0_8px_24px_rgba(0,0,0,0.12)] border-b",
             !isAllCategory && "is-category-mode",
             isAllCategory && isScrolled && "is-scrolled-compact",
@@ -553,9 +553,9 @@ const MainLocationHeader = ({
           <div className={cn("absolute inset-x-0 bottom-0 h-px pointer-events-none", isAllCategory ? "bg-blue-200/80" : "hidden")} />
 
           {/* Desktop/Tablet Header Layout (md and above) */}
-          <div className={cn("hidden md:flex items-center justify-between relative z-20 w-full max-w-none px-2 sm:px-4 lg:px-6 transition-all duration-300 mt-1", (isAllCategory && isScrolled) ? "mb-2" : "mb-8")}>
+          <div className={cn("hidden md:flex items-center gap-2 lg:gap-3 relative z-20 w-full min-w-0 max-w-full transition-all duration-300 mt-1", (isAllCategory && isScrolled) ? "mb-2" : "mb-8")}>
             {/* Left Section: Logo + Location row */}
-            <div className="flex items-center gap-2.5 lg:gap-3.5 shrink-0">
+            <div className="flex min-w-0 shrink items-center gap-2 lg:gap-3">
               <div
                 onClick={() => navigate("/")}
                 className="flex items-center gap-2 cursor-pointer group shrink-0">
@@ -574,7 +574,7 @@ const MainLocationHeader = ({
                 data-lenis-prevent
                 data-lenis-prevent-touch
                 onClick={() => setIsLocationOpen(true)}
-                className="customer-delivery-card flex min-w-0 max-w-[190px] lg:max-w-[230px] xl:max-w-[270px] h-[38px] items-center gap-1.5 rounded-xl border border-blue-100/90 bg-blue-50/70 px-2.5 text-left shadow-[0_2px_8px_rgba(40,117,232,0.06)] backdrop-blur-xl transition-transform active:scale-[0.99] cursor-pointer"
+                className="customer-delivery-card flex min-w-0 w-[190px] lg:w-[230px] xl:w-[270px] max-w-full shrink items-center gap-1.5 h-[38px] rounded-xl border border-blue-100/90 bg-blue-50/70 px-2.5 text-left shadow-[0_2px_8px_rgba(40,117,232,0.06)] backdrop-blur-xl transition-transform active:scale-[0.99] cursor-pointer"
               >
                 <MapPin className="customer-delivery-icon h-3.5 w-3.5 shrink-0 text-[#2875E8]" style={{ color: '#2875E8' }} />
                 <span className="customer-delivery-label shrink-0 text-[11px] font-black text-[#2875E8] tracking-tight uppercase" style={{ color: '#2875E8' }}>HOME</span>
@@ -585,11 +585,11 @@ const MainLocationHeader = ({
               </button>
 
               {/* Delivery Time Badge / Logo */}
-              <DeliveryBadge settings={settings} className="hidden sm:flex" />
+              <DeliveryBadge settings={settings} className="hidden 2xl:flex" />
             </div>
 
             {/* Center Section: Highly Visible Search Bar */}
-            <div className="flex-1 min-w-[180px] max-w-[340px] lg:max-w-[400px] xl:max-w-[460px] px-2 lg:px-3">
+            <div className="min-w-0 flex-1 xl:max-w-[680px]">
               <motion.div
                 onClick={handleSearchClick}
                 whileHover={{ scale: 1.01 }}
@@ -604,7 +604,7 @@ const MainLocationHeader = ({
                   placeholder={searchPlaceholder || "Search Products..."}
                   readOnly
                   tabIndex={-1}
-                  className="flex-1 bg-transparent border-0 ring-0 outline-none focus:outline-none focus:ring-0 focus:border-0 focus-visible:outline-none focus-visible:ring-0 pl-2 text-slate-900 font-bold placeholder:text-slate-500 text-[13px] cursor-pointer pointer-events-none select-none shadow-none truncate"
+                  className="min-w-0 flex-1 bg-transparent border-0 ring-0 outline-none focus:outline-none focus:ring-0 focus:border-0 focus-visible:outline-none focus-visible:ring-0 pl-2 text-slate-900 font-bold placeholder:text-slate-500 text-[13px] cursor-pointer pointer-events-none select-none shadow-none truncate"
                   style={{ outline: "none", border: "none", boxShadow: "none", WebkitTapHighlightColor: "transparent" }}
                 />
                 <div className="flex items-center gap-1.5 border-l border-slate-200 pl-2">
@@ -614,13 +614,13 @@ const MainLocationHeader = ({
             </div>
 
             {/* Right Section: clean icons and buttons over the glossy header */}
-            <div className="flex items-center gap-1.5 lg:gap-2 shrink-0">
+            <div className="flex shrink-0 items-center gap-1 lg:gap-2">
               {/* Categories Button (Website / Desktop only) */}
               <motion.button
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
                 onClick={() => navigate("/categories")}
-                className="hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/95 hover:bg-white text-slate-700 hover:text-primary transition-all cursor-pointer font-bold text-[11px] shadow-xs border border-slate-200/80 shrink-0 whitespace-nowrap"
+                className="hidden 2xl:flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/95 hover:bg-white text-slate-700 hover:text-primary transition-all cursor-pointer font-bold text-[11px] shadow-xs border border-slate-200/80 shrink-0 whitespace-nowrap"
                 title="All Categories"
               >
                 <LayoutGrid size={13} className="text-primary shrink-0" />
@@ -632,7 +632,7 @@ const MainLocationHeader = ({
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
                 onClick={() => navigate("/products")}
-                className="hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/95 hover:bg-white text-slate-700 hover:text-emerald-700 transition-all cursor-pointer font-bold text-[11px] shadow-xs border border-slate-200/80 shrink-0 whitespace-nowrap"
+                className="hidden 2xl:flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/95 hover:bg-white text-slate-700 hover:text-emerald-700 transition-all cursor-pointer font-bold text-[11px] shadow-xs border border-slate-200/80 shrink-0 whitespace-nowrap"
                 title="All Products"
               >
                 <ShoppingBag size={13} className="text-emerald-600 shrink-0" />

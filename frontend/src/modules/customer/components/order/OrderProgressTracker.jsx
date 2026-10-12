@@ -101,28 +101,39 @@ const OrderProgressTracker = ({
       {status !== "delivered" && (
         <div className="mt-8 pt-5 border-t border-slate-100">
           <div className="flex items-center justify-between bg-emerald-50 rounded-2xl p-4 gap-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-                <Clock size={20} className="text-emerald-700" />
+            {status === "pending" ? (
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                  <Clock size={20} className="text-emerald-700" />
+                </div>
+                <p className="text-base font-black text-emerald-900">Waiting for Confirm...</p>
               </div>
-              <div>
-                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
-                  {order?.fulfillmentType === "SHIPROCKET" ? "Delivery Estimate" : "Estimated Time"}
-                </p>
-                <p className="text-lg font-black text-emerald-900">{estimatedArrivalText}</p>
-              </div>
-            </div>
-            <div className="text-right flex flex-col items-end gap-1">
-              <div>
-                <p className="text-xs text-emerald-700 font-semibold">
-                  {order?.fulfillmentType === "SHIPROCKET" ? "Expected Delivery" : "Arriving in"}
-                </p>
-                <p className="text-2xl font-black text-emerald-900">{arrivingInText}</p>
-              </div>
-              <div className="inline-flex items-center rounded-full bg-white/80 px-3 py-1 text-[11px] font-bold text-emerald-800 ring-1 ring-emerald-200">
-                {order?.fulfillmentType === "SHIPROCKET" ? "Pan-India Courier" : `Total distance: ${totalDistanceText}`}
-              </div>
-            </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                    <Clock size={20} className="text-emerald-700" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
+                      {order?.fulfillmentType === "SHIPROCKET" ? "Delivery Estimate" : "Estimated Time"}
+                    </p>
+                    <p className="text-lg font-black text-emerald-900">{estimatedArrivalText}</p>
+                  </div>
+                </div>
+                <div className="text-right flex flex-col items-end gap-1">
+                  <div>
+                    <p className="text-xs text-emerald-700 font-semibold">
+                      {order?.fulfillmentType === "SHIPROCKET" ? "Expected Delivery" : "Arriving in"}
+                    </p>
+                    <p className="text-2xl font-black text-emerald-900">{arrivingInText}</p>
+                  </div>
+                  <div className="inline-flex items-center rounded-full bg-white/80 px-3 py-1 text-[11px] font-bold text-emerald-800 ring-1 ring-emerald-200">
+                    {order?.fulfillmentType === "SHIPROCKET" ? "Pan-India Courier" : `Total distance: ${totalDistanceText}`}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

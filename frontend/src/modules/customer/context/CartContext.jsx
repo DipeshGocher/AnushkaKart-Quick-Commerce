@@ -4,7 +4,6 @@ import { customerApi } from "../services/customerApi";
 import { useAuth } from "../../../core/context/AuthContext";
 import { getJSON, setJSON, remove as removeStorage, STORAGE_KEYS } from "@core/utils/storage";
 import { useLocation as useAppLocation } from "./LocationContext";
-import { evaluateProductDelivery } from "../services/deliveryService";
 
 const CartContext = createContext(null);
 
@@ -165,16 +164,30 @@ export const CartProvider = ({ children }) => {
   }, [cart, isAuthenticated]);
 
   const addToCart = async (product, defaultQuantity = 1, forceVariantSku = null, options = {}) => {
-    // Delivery eligibility check for customer location
-    const deliveryCheck = evaluateProductDelivery(product, currentLocation?.pincode);
-    if (!deliveryCheck.canAddToCart) {
-      toast.error(deliveryCheck.warning || `Quick Delivery not available at ${currentLocation?.pincode || "your location"}`);
+    const id = product.id || product._id;
+    const destinationPincode = String(currentLocation?.pincode || "").trim();
+    if (!/^\d{6}$/.test(destinationPincode)) {
+      toast.error("Select a delivery address with a valid pincode first.");
+      return;
+    }
+    let deliveryCheck;
+    try {
+      const response = await customerApi.validateCartDelivery({
+        customerPincode: destinationPincode,
+        items: [{ productId: id }],
+      });
+      deliveryCheck = response.data?.result?.items?.[0];
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Could not check delivery for this address. Please try again.");
+      return;
+    }
+    if (!deliveryCheck?.isDeliverable) {
+      toast.error(deliveryCheck?.warning || "This item cannot be delivered to the selected address.");
       return;
     }
 
     const isRefurb = isRefurbishedItem(product) || (product?.conditionType !== 'new' && typeof window !== 'undefined' && (window.location.pathname.startsWith('/marketplace') || window.location.pathname.startsWith('/refurbished')));
     const variantSku = forceVariantSku ?? String(product?.variantSku || product?.variantName || "").trim();
-    const id = product.id || product._id;
     const key = `${id}::${variantSku || ""}`;
     console.log("DEBUG: addToCart product:", { id, name: product?.name, variantSku, key, isRefurb });
     const { price, salePrice, variantName, variantImage } = resolveVariantPricing(product, variantSku);

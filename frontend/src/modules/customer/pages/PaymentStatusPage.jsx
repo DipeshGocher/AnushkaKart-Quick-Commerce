@@ -39,7 +39,7 @@ const PaymentStatusPage = () => {
                     
                     // Auto redirect after 3 seconds
                     setTimeout(() => {
-                        const targetId = payment.checkoutGroupId || payment.publicOrderId || payment.order;
+                        const targetId = payment.order || payment.publicOrderId;
                         navigate(`/orders/${targetId}`, { replace: true });
                     }, 4000);
                 } else if (paymentStatus === "FAILED" || paymentStatus === "CANCELLED") {
@@ -47,7 +47,13 @@ const PaymentStatusPage = () => {
                     if (pollInterval.current) clearInterval(pollInterval.current);
                 } else {
                     // Still pending, continue polling
-                    setRetryCount(prev => prev + 1);
+                    setRetryCount(prev => {
+                        if (prev + 1 >= maxRetries) {
+                            setStatus("timeout");
+                            if (pollInterval.current) clearInterval(pollInterval.current);
+                        }
+                        return prev + 1;
+                    });
                 }
             }
         } catch (err) {
@@ -70,24 +76,20 @@ const PaymentStatusPage = () => {
             }
 
             // If it's a 404, the order might not have been recorded yet or webhook not reached
-            setRetryCount(prev => prev + 1);
+            setRetryCount(prev => {
+                if (prev + 1 >= maxRetries) {
+                    setStatus("timeout");
+                    if (pollInterval.current) clearInterval(pollInterval.current);
+                }
+                return prev + 1;
+            });
         }
     };
 
     useEffect(() => {
         if (merchantOrderId) {
             verifyPayment();
-            pollInterval.current = setInterval(() => {
-                setRetryCount(prev => {
-                    if (prev >= maxRetries) {
-                        setStatus("timeout");
-                        if (pollInterval.current) clearInterval(pollInterval.current);
-                        return prev;
-                    }
-                    verifyPayment();
-                    return prev;
-                });
-            }, 3000);
+            pollInterval.current = setInterval(verifyPayment, 3000);
         } else {
             setStatus("failure");
             setError("Invalid payment reference");
@@ -101,7 +103,9 @@ const PaymentStatusPage = () => {
     const handleManualRetry = () => {
         setRetryCount(0);
         setStatus("verifying");
+        if (pollInterval.current) clearInterval(pollInterval.current);
         verifyPayment();
+        pollInterval.current = setInterval(verifyPayment, 3000);
     };
 
     return (
@@ -226,10 +230,10 @@ const PaymentStatusPage = () => {
                             <motion.div key="text-failure" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                                 <h1 className="text-2xl font-[1000] text-slate-800 mb-2 uppercase tracking-tight">Payment Failed</h1>
                                 <p className="text-rose-600 text-sm font-black mb-6 uppercase tracking-wider">{error || "Transaction Rejected"}</p>
-                                <p className="text-slate-500 text-sm font-medium mb-8">Oops! Something went wrong with the transaction. Your money (if debited) will be refunded automatically by Razorpay.</p>
+                                <p className="text-slate-500 text-sm font-medium mb-8">The payment did not complete. If your bank debited money, check the payment status before trying again.</p>
                                 <div className="flex flex-col gap-3">
                                     <Button 
-                                        onClick={() => navigate('/checkout')}
+                                        onClick={() => navigate(orderDetails?.order ? `/orders/${orderDetails.order}` : '/orders')}
                                         className="w-full bg-slate-900 hover:bg-black text-white font-bold h-12 rounded-xl"
                                     >
                                         Try Again

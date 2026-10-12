@@ -1,6 +1,6 @@
 import { customerApi } from "./customerApi";
 
-let cachedLocalPincodes = new Set(["284204", "284205"]);
+let cachedLocalPincodes = new Set();
 let isPincodesLoaded = false;
 let fetchPromise = null;
 
@@ -15,14 +15,14 @@ export async function loadLocalPincodes() {
     .getLocalPincodes()
     .then((res) => {
       const list = res?.data?.result?.localPincodes;
-      if (Array.isArray(list) && list.length > 0) {
+      if (Array.isArray(list)) {
         cachedLocalPincodes = new Set(list.map((p) => String(p).trim()));
       }
       isPincodesLoaded = true;
       return cachedLocalPincodes;
     })
     .catch((err) => {
-      console.warn("[deliveryService] Failed to load local pincodes, using fallback:", err.message);
+      console.warn("[deliveryService] Failed to load local pincodes:", err.message);
       return cachedLocalPincodes;
     })
     .finally(() => {
@@ -91,74 +91,20 @@ export function evaluateProductDelivery(product, customerPincode) {
   const cleanCustomerPincode = customerPincode ? String(customerPincode).trim() : "";
   const isCustomerLocal = Boolean(cleanCustomerPincode && isPincodeLocalSync(cleanCustomerPincode));
 
-  // Default seller origin to primary local hub if missing
+  // An unknown seller origin must not be treated as local.
   const sellerPincode = String(
-    product?.sellerId?.pincode || product?.warehouseId?.pincode || "284204"
+    product?.sellerId?.pincode || product?.warehouseId?.pincode || ""
   ).trim();
   const isSellerLocal = isPincodeLocalSync(sellerPincode);
 
   const deliveryMode = resolveProductDeliveryMode(product);
 
-  // 1. QUICK_ONLY (Fresh / Perishables: Milk, Sabzi, Dairy)
-  if (deliveryMode === "quick_only") {
-    if (!cleanCustomerPincode) {
-      return {
-        isDeliverable: true,
-        canAddToCart: true,
-        deliveryMode: "quick_only",
-        fulfillmentType: "LOCAL_RIDERS",
-        badge: "⚡ 20-35 Mins",
-        deliveryEstimate: "20-35 mins",
-        isCustomerLocal: false,
-        warning: null,
-      };
-    }
-
-    if (isCustomerLocal && isSellerLocal) {
-      return {
-        isDeliverable: true,
-        canAddToCart: true,
-        deliveryMode: "quick_only",
-        fulfillmentType: "LOCAL_RIDERS",
-        badge: "⚡ 20-35 Mins",
-        deliveryEstimate: "20-35 mins",
-        isCustomerLocal: true,
-        warning: null,
-      };
-    }
-
-    if (!isSellerLocal && isCustomerLocal) {
-      return {
-        isDeliverable: false,
-        canAddToCart: false,
-        deliveryMode: "quick_only",
-        fulfillmentType: null,
-        badge: "Not Deliverable",
-        deliveryEstimate: null,
-        isCustomerLocal: true,
-        warning: "Seller is outside the local zone; fresh items cannot be shipped from outside.",
-      };
-    }
-
-    // Customer is outside local pincode (e.g. Indore 452018)
-    return {
-      isDeliverable: false,
-      canAddToCart: false,
-      deliveryMode: "quick_only",
-      fulfillmentType: null,
-      badge: "Local delivery only",
-      deliveryEstimate: null,
-      isCustomerLocal: false,
-      warning: "This item is only delivered in local areas.",
-    };
-  }
-
-  // 2. BOTH / HYBRID (Clothes, Electronics, Packed FMCG)
+  // Seller and customer both need active local pincodes for rider delivery.
   if (isCustomerLocal && isSellerLocal) {
     return {
       isDeliverable: true,
       canAddToCart: true,
-      deliveryMode: "both",
+      deliveryMode,
       fulfillmentType: "LOCAL_RIDERS",
       badge: "⚡ 20-35 Mins",
       deliveryEstimate: "20-35 mins",
@@ -171,7 +117,7 @@ export function evaluateProductDelivery(product, customerPincode) {
   return {
     isDeliverable: true,
     canAddToCart: true,
-    deliveryMode: "both",
+    deliveryMode,
     fulfillmentType: "SHIPROCKET",
     badge: "📦 Standard (3-4 Days)",
     deliveryEstimate: "3-4 business days",

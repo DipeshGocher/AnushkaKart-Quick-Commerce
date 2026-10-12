@@ -13,7 +13,7 @@ import LocationDrawer from '../components/shared/LocationDrawer';
 import EmptyCartAnimation from '../components/shared/EmptyCartAnimation';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 import PageSkeleton from '@/shared/components/PageSkeleton';
-import { evaluateProductDelivery, isPincodeLocalSync } from '../services/deliveryService';
+import { useDeliveryDecision } from '../services/useDeliveryDecision';
 import { motion, useReducedMotion } from 'framer-motion';
 
 const CartPage = ({ asOverlay = false, onClose }) => {
@@ -27,7 +27,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
     updateQuantity
   } = useCart();
   const { addToWishlist } = useWishlist();
-  const { currentLocation } = useAppLocation() || {};
+  const { currentLocation, isLocationReady } = useAppLocation() || {};
 
   const [isLocationOpen, setIsLocationOpen] = useState(false);
 
@@ -62,17 +62,28 @@ const CartPage = ({ asOverlay = false, onClose }) => {
     };
   }, [activeCart]);
 
-  const destinationPincode = currentLocation?.pincode ? String(currentLocation.pincode).trim() : "";
+  const destinationPincode = isLocationReady && currentLocation?.pincode ? String(currentLocation.pincode).trim() : "";
+  const { decision: deliveryDecision, loading: isDeliveryLoading, error: deliveryError, getItem: getDeliveryItem } =
+    useDeliveryDecision(activeCart, destinationPincode);
+  const deliveryReady = Boolean(deliveryDecision && !isDeliveryLoading && !deliveryError);
 
   const unserviceableCartItems = useMemo(() => {
-    if (!destinationPincode) return [];
-    return activeCart.filter((item) => {
-      const check = evaluateProductDelivery(item, destinationPincode);
-      return !check.canAddToCart;
-    });
-  }, [activeCart, destinationPincode]);
+    if (!deliveryDecision) return [];
+    return activeCart.filter((item) =>
+      deliveryDecision.items?.some((entry) =>
+        String(entry.productId) === String(item.id || item._id) && !entry.isDeliverable
+      )
+    );
+  }, [activeCart, deliveryDecision]);
+
+  const initialFulfillmentType = deliveryDecision?.overallFulfillment === "LOCAL_RIDERS" ? "LOCAL" : "SHIPROCKET";
 
   const handleProceedToCheckout = (e) => {
+    if (!deliveryReady) {
+      if (e) e.preventDefault();
+      toast.error(deliveryError || "Select a delivery address and wait while delivery is checked.");
+      return false;
+    }
     if (unserviceableCartItems.length > 0) {
       if (e) e.preventDefault();
       toast.error(
@@ -113,8 +124,12 @@ const CartPage = ({ asOverlay = false, onClose }) => {
   };
 
   const handleBuyNow = (item) => {
+    if (!deliveryReady) {
+      toast.error(deliveryError || "Select a delivery address and wait while delivery is checked.");
+      return;
+    }
     if (asOverlay && onClose) onClose();
-    const isLocal = isPincodeLocalSync(destinationPincode);
+    const isLocal = getDeliveryItem(item)?.fulfillmentType === "LOCAL_RIDERS";
     navigate('/checkout', {
       state: {
         directBuyItem: item,
@@ -205,7 +220,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                   const unitPrice = sale > 0 && sale < mrp ? sale : mrp;
                   const hasDiscount = mrp > unitPrice;
                   const discountPercent = hasDiscount ? Math.round(((mrp - unitPrice) / mrp) * 100) : 0;
-                  const deliveryCheck = evaluateProductDelivery(item, destinationPincode);
+                  const deliveryCheck = getDeliveryItem(item);
                   return (
                     <div 
                       key={`${item.id || item._id}-${item.variantSku || ''}`}
@@ -275,14 +290,18 @@ const CartPage = ({ asOverlay = false, onClose }) => {
 
                             {/* Delivery Fulfillment / Restriction Badge */}
                             <div className="mt-2">
-                              {!deliveryCheck.canAddToCart ? (
+                              {!deliveryReady ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md">
+                                  {deliveryError || (destinationPincode ? "Checking delivery..." : "Select delivery address")}
+                                </span>
+                              ) : !deliveryCheck?.isDeliverable ? (
                                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md">
                                   <Ban size={11} className="shrink-0" />
-                                  <span>{deliveryCheck.warning || "This item is only delivered in local areas."}</span>
+                                  <span>{deliveryCheck?.warning || "Delivery unavailable for this item."}</span>
                                 </span>
-                              ) : deliveryCheck.badge ? (
+                              ) : deliveryCheck ? (
                                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
-                                  <span>{deliveryCheck.badge}</span>
+                                  <span>{deliveryCheck.fulfillmentType === "LOCAL_RIDERS" ? "⚡ Quick (20-35 Mins)" : "📦 Standard (3-4 Days)"}</span>
                                 </span>
                               ) : null}
                             </div>
@@ -390,9 +409,9 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                 )}
 
                 <Link
-                  to={unserviceableCartItems.length > 0 ? "#" : "/checkout"}
+                  to={!deliveryReady || unserviceableCartItems.length > 0 ? "#" : "/checkout"}
                   state={{
-                    initialFulfillmentType: isPincodeLocalSync(destinationPincode) ? "LOCAL" : "SHIPROCKET",
+                    initialFulfillmentType,
                     destinationPincode,
                   }}
                   onClick={handleProceedToCheckout}
@@ -427,7 +446,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
           {totalSavings > 0 && (
             <div className="bg-emerald-50 text-emerald-800 text-xs font-bold px-4 py-1.5 flex items-center justify-center gap-1.5 border-b border-emerald-100">
               <Sparkles size={12} className="text-emerald-600" />
-              <span>You'll save ₹{totalSavings} on this order</span>
+              <span>You&apos;ll save ₹{totalSavings} on this order</span>
             </div>
           )}
 
@@ -446,15 +465,15 @@ const CartPage = ({ asOverlay = false, onClose }) => {
 
             {/* Right: Grocery Proceed to Buy Button */}
             <Link
-              to={unserviceableCartItems.length > 0 ? "#" : "/checkout"}
+              to={!deliveryReady || unserviceableCartItems.length > 0 ? "#" : "/checkout"}
               state={{
-                initialFulfillmentType: isPincodeLocalSync(destinationPincode) ? "LOCAL" : "SHIPROCKET",
+                initialFulfillmentType,
                 destinationPincode,
               }}
               onClick={handleProceedToCheckout}
               className={`${unserviceableCartItems.length > 0 ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-[#ffdf00] hover:bg-[#f5d500] text-[#212121]'} active:scale-95 font-bold text-sm sm:text-base px-7 py-3.5 rounded-xl transition-all flex items-center gap-2 cursor-pointer shrink-0`}
             >
-              <span>{unserviceableCartItems.length > 0 ? 'Fix Cart' : 'Proceed to buy'}</span>
+              <span>{!deliveryReady ? 'Checking delivery...' : unserviceableCartItems.length > 0 ? 'Fix Cart' : 'Proceed to buy'}</span>
               <ArrowRight size={16} strokeWidth={2.5} />
             </Link>
           </div>

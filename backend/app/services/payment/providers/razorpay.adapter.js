@@ -4,15 +4,20 @@ import { PaymentProviderPort } from "../ports/paymentProviderPort.js";
 import { PAYMENT_STATUS } from "../../../constants/payment.js";
 
 let razorpayInstance = null;
+let instanceKey = null;
 
 function getRazorpayInstance() {
-  if (!razorpayInstance) {
-    const key_id = process.env.RAZORPAY_KEY_ID;
-    const key_secret = process.env.RAZORPAY_KEY_SECRET;
-    if (!key_id || !key_secret) {
-      throw new Error("Razorpay credentials not configured in environment");
-    }
+  const key_id = process.env.RAZORPAY_KEY_ID?.trim();
+  const key_secret = process.env.RAZORPAY_KEY_SECRET?.trim();
+  if (!key_id || !key_secret) {
+    const error = new Error("Online payment is not configured yet. Please use Cash on Delivery or try again later.");
+    error.statusCode = 503;
+    throw error;
+  }
+  const credentialsFingerprint = crypto.createHash("sha256").update(`${key_id}:${key_secret}`).digest("hex");
+  if (!razorpayInstance || instanceKey !== credentialsFingerprint) {
     razorpayInstance = new Razorpay({ key_id, key_secret });
+    instanceKey = credentialsFingerprint;
   }
   return razorpayInstance;
 }
@@ -20,6 +25,10 @@ function getRazorpayInstance() {
 export class RazorpayAdapter extends PaymentProviderPort {
   get providerName() {
     return "RAZORPAY";
+  }
+
+  getPublicKeyId() {
+    return process.env.RAZORPAY_KEY_ID?.trim() || null;
   }
 
   async initiatePayment({ merchantOrderId, amountPaise, redirectUrl }) {
@@ -44,11 +53,16 @@ export class RazorpayAdapter extends PaymentProviderPort {
         redirectUrl: "", // Frontend will not redirect, it will use the orderId
         gatewayResponse: {
           razorpayOrderId: order.id,
+          keyId: this.getPublicKeyId(),
         },
       };
     } catch (error) {
       const errorMessage = error.error?.description || error.message || JSON.stringify(error);
-      const err = new Error(`Razorpay initiation failed: ${errorMessage}`);
+      const isAuthFailure = error.statusCode === 401 || error.status === 401 || /authentication failed/i.test(errorMessage);
+      const err = new Error(isAuthFailure
+        ? "Online payment credentials are not active yet. Please use Cash on Delivery or try again later."
+        : `Razorpay initiation failed: ${errorMessage}`);
+      if (isAuthFailure) err.statusCode = 503;
       err.cause = error;
       throw err;
     }
@@ -90,7 +104,9 @@ export class RazorpayAdapter extends PaymentProviderPort {
       .update(rawBody)
       .digest("hex");
 
-    return expectedSignature === authorization;
+    const provided = Buffer.from(String(authorization || ""), "hex");
+    const expected = Buffer.from(expectedSignature, "hex");
+    return provided.length === expected.length && crypto.timingSafeEqual(provided, expected);
   }
 
   async decodeWebhookPayload({ rawBody }) {
@@ -102,6 +118,7 @@ export class RazorpayAdapter extends PaymentProviderPort {
       const paymentEntity = payload.payload.payment.entity;
       return {
         merchantOrderId: paymentEntity.notes?.merchantOrderId || paymentEntity.description, // Requires passing merchantOrderId in notes
+        razorpayOrderId: paymentEntity.order_id,
         state: paymentEntity.status, // "captured" or "failed"
         transactionId: paymentEntity.id,
         raw: payload,
@@ -110,6 +127,7 @@ export class RazorpayAdapter extends PaymentProviderPort {
       const orderEntity = payload.payload.order.entity;
       return {
         merchantOrderId: orderEntity.receipt,
+        razorpayOrderId: orderEntity.id,
         state: orderEntity.status, // "paid"
         transactionId: null,
         raw: payload,

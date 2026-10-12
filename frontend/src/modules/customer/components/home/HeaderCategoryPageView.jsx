@@ -21,12 +21,6 @@ import ExperienceBannerCarousel from '../experience/ExperienceBannerCarousel';
 import CuratedCategoryDealsSection from './CuratedCategoryDealsSection';
 
 // Banner assets for header categories
-import groceryBannerImg from '@/assets/banners/groceries_header_banner.jpg';
-import electronicsBannerImg from '@/assets/banners/electronics_section_banner.jpg';
-import mobilesBannerImg from '@/assets/banners/mobiles_section_banner.jpg';
-import beautyBannerImg from '@/assets/banners/beauty_section_banner.jpg';
-import fashionBannerImg from '@/assets/banners/fashion_section_banner.jpg';
-import homeAppliancesBannerImg from '@/assets/banners/home_appliances_section_banner.jpg';
 import freshGroceryAllBanner from '@/assets/banners/fresh_grocery_all_banner.jpg';
 import electronicsAllBanner from '@/assets/banners/electronics_all_banner.jpg';
 import mobilesAllBanner from '@/assets/banners/mobiles_all_banner.jpg';
@@ -36,13 +30,13 @@ import homeAllBanner from '@/assets/banners/home_all_banner.jpg';
 
 const getCategoryBanner = (headerName = '', headerSlug = '') => {
   const text = `${headerName || ''} ${headerSlug || ''}`.toLowerCase();
-  if (/grocer/i.test(text)) return groceryBannerImg;
-  if (/electr/i.test(text)) return electronicsBannerImg;
-  if (/mobil|phone|smartphon/i.test(text)) return mobilesBannerImg;
-  if (/beaut|cosmetic|skin/i.test(text)) return beautyBannerImg;
-  if (/fashion|cloth|apparel|kid/i.test(text)) return fashionBannerImg;
-  if (/home|appliance|kitchen/i.test(text)) return homeAppliancesBannerImg;
-  return groceryBannerImg;
+  if (/grocer/i.test(text)) return freshGroceryAllBanner;
+  if (/electr/i.test(text)) return electronicsAllBanner;
+  if (/mobil|phone|smartphon/i.test(text)) return mobilesAllBanner;
+  if (/beaut|cosmetic|skin/i.test(text)) return beautyAllBanner;
+  if (/fashion|cloth|apparel|kid/i.test(text)) return fashionAllBanner;
+  if (/home|appliance|kitchen/i.test(text)) return homeAllBanner;
+  return freshGroceryAllBanner;
 };
 
 const formatPrice = (value) =>
@@ -542,22 +536,22 @@ const HeaderCategoryPageView = ({
     // 3. Single default banner for each category page
     const text = `${headerCategory?.name || ''} ${headerCategory?.slug || ''}`.toLowerCase();
     if (/grocer/i.test(text)) {
-      return [{ imageUrl: groceryBannerImg, title: 'Fresh Groceries' }];
+      return [{ imageUrl: freshGroceryAllBanner, title: 'Fresh Groceries' }];
     }
     if (/electr/i.test(text)) {
-      return [{ imageUrl: electronicsBannerImg, title: 'Electronics Fest' }];
+      return [{ imageUrl: electronicsAllBanner, title: 'Electronics Fest' }];
     }
     if (/mobil|phone|smartphon/i.test(text)) {
-      return [{ imageUrl: mobilesBannerImg, title: 'Mobiles & Tablets' }];
+      return [{ imageUrl: mobilesAllBanner, title: 'Mobiles & Tablets' }];
     }
     if (/beaut|cosmetic|skin/i.test(text)) {
-      return [{ imageUrl: beautyBannerImg, title: 'Beauty & Skincare' }];
+      return [{ imageUrl: beautyAllBanner, title: 'Beauty & Skincare' }];
     }
     if (/fashion|cloth|apparel|kid/i.test(text)) {
-      return [{ imageUrl: fashionBannerImg, title: 'Fashion & Apparel' }];
+      return [{ imageUrl: fashionAllBanner, title: 'Fashion & Apparel' }];
     }
     if (/home|appliance|kitchen/i.test(text)) {
-      return [{ imageUrl: homeAppliancesBannerImg, title: 'Home & Kitchen' }];
+      return [{ imageUrl: homeAllBanner, title: 'Home & Kitchen' }];
     }
 
     const singleFallback = getCategoryBanner(headerCategory?.name, headerCategory?.slug);
@@ -570,7 +564,7 @@ const HeaderCategoryPageView = ({
     <div className="w-full flex flex-col pb-20 select-none animate-in fade-in duration-300">
       {/* ── 1. HEADER CATEGORY BANNER (SINGLE STATIC BANNER ONLY) ── */}
       {categoryBanners.length > 0 && (
-        <div className="w-full relative overflow-hidden select-none mt-2.5 sm:mt-3 mb-2 px-0 md:px-0">
+        <div className="w-full relative overflow-hidden select-none mt-2.5 sm:mt-3 mb-2 px-4 md:px-0">
           <ExperienceBannerCarousel
             section={{ title: "" }}
             items={categoryBanners.slice(0, 1)}

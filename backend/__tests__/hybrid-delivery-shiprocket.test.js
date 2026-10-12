@@ -1,4 +1,5 @@
 import { jest } from "@jest/globals";
+import axios from "axios";
 
 const mockLocalPincodeFindOne = jest.fn();
 const mockLocalPincodeCountDocuments = jest.fn();
@@ -6,6 +7,8 @@ const mockLocalPincodeInsertMany = jest.fn();
 const mockOrderFindOne = jest.fn();
 const mockOrderFindById = jest.fn();
 const mockOrderFindByIdAndUpdate = jest.fn();
+const mockCustomerFindById = jest.fn();
+const mockProductFind = jest.fn();
 
 jest.unstable_mockModule("../app/models/localPincode.js", () => ({
   default: {
@@ -21,6 +24,14 @@ jest.unstable_mockModule("../app/models/order.js", () => ({
     findById: mockOrderFindById,
     findByIdAndUpdate: mockOrderFindByIdAndUpdate,
   },
+}));
+
+jest.unstable_mockModule("../app/models/customer.js", () => ({
+  default: { findById: mockCustomerFindById },
+}));
+
+jest.unstable_mockModule("../app/models/product.js", () => ({
+  default: { find: mockProductFind },
 }));
 
 const mockApplyDeliveredSettlement = jest.fn().mockResolvedValue(true);
@@ -53,6 +64,7 @@ jest.unstable_mockModule("../app/services/cacheService.js", () => ({
 const {
   isPincodeLocal,
   getLocalPincodeDetails,
+  evaluateDeliveryEligibility,
 } = await import("../app/services/shipping/localPincodeService.js");
 
 const {
@@ -98,14 +110,33 @@ describe("Hybrid Delivery Architecture - Local vs Shiprocket", () => {
       expect(isLocal).toBe(false);
     });
 
-    it("auto-seeds default pincodes if collection is empty", async () => {
-      mockLocalPincodeCountDocuments.mockResolvedValue(0);
+    it("keeps an empty admin pincode list non-local", async () => {
       mockLocalPincodeFindOne.mockReturnValue({
-        lean: jest.fn().mockResolvedValue({ pincode: "284204", isActive: true }),
+        lean: jest.fn().mockResolvedValue(null),
       });
 
-      await isPincodeLocal("284204");
-      expect(mockLocalPincodeInsertMany).toHaveBeenCalled();
+      expect(await isPincodeLocal("284204")).toBe(false);
+      expect(mockLocalPincodeInsertMany).not.toHaveBeenCalled();
+    });
+
+    it("routes riders only when seller and customer pincodes are both active", async () => {
+      mockLocalPincodeCountDocuments.mockResolvedValue(2);
+      mockLocalPincodeFindOne.mockImplementation(({ pincode }) => ({
+        lean: jest.fn().mockResolvedValue(["284204", "284205"].includes(pincode)
+          ? { pincode, deliveryTimeEstimate: "20-35 mins", isActive: true }
+          : null),
+      }));
+      const scenarios = [
+        ["284204", "284205", "LOCAL_RIDERS"],
+        ["284204", "110001", "SHIPROCKET"],
+        ["110001", "284204", "SHIPROCKET"],
+        ["110001", "110002", "SHIPROCKET"],
+        ["284204", "", "SHIPROCKET"],
+      ];
+      for (const [customerPincode, sellerPincode, expected] of scenarios) {
+        const result = await evaluateDeliveryEligibility({ customerPincode, sellerPincode, deliveryMode: "quick_only" });
+        expect(result.fulfillmentType).toBe(expected);
+      }
     });
   });
 
@@ -113,7 +144,8 @@ describe("Hybrid Delivery Architecture - Local vs Shiprocket", () => {
     it("processes a Shiprocket order and generates simulated AWB when live credentials are absent", async () => {
       const mockOrder = {
         orderId: "ORD-TEST-101",
-        address: { city: "Indore", name: "Rahul", phone: "9876543210" },
+        fulfillmentType: "SHIPROCKET",
+        address: { city: "Indore", state: "Madhya Pradesh", pincode: "452001", address: "Main Road", name: "Rahul", phone: "9876543210" },
         pricing: { subtotal: 350 },
         save: jest.fn().mockResolvedValue(true),
       };
@@ -128,6 +160,61 @@ describe("Hybrid Delivery Architecture - Local vs Shiprocket", () => {
       expect(mockOrder.shiprocket.awb).toMatch(/^SR\d+IN$/);
       expect(mockOrder.shiprocket.currentStatus).toBe("AWB_ASSIGNED");
       expect(mockOrder.save).toHaveBeenCalled();
+    });
+
+    it("uses real order address, catalog weight and API shipment IDs in live mode", async () => {
+      const previousEmail = process.env.SHIPROCKET_EMAIL;
+      const previousPassword = process.env.SHIPROCKET_PASSWORD;
+      const previousContactEmail = process.env.SHIPROCKET_CONTACT_EMAIL;
+      process.env.SHIPROCKET_EMAIL = "api@example.test";
+      process.env.SHIPROCKET_PASSWORD = "test-password";
+      process.env.SHIPROCKET_CONTACT_EMAIL = "store@example.test";
+      mockCustomerFindById.mockReturnValue({ select: () => ({ lean: async () => ({ email: "buyer@example.test" }) }) });
+      mockProductFind.mockReturnValue({ select: () => ({ lean: async () => [
+        { _id: "507f1f77bcf86cd799439011", sku: "WIRE-1", weight: "750 g" },
+      ] }) });
+      const order = {
+        orderId: "ORD-LIVE-101",
+        fulfillmentType: "SHIPROCKET",
+        paymentMode: "COD",
+        customer: "507f1f77bcf86cd799439012",
+        address: { name: "Buyer", address: "Main Road", city: "Indore", state: "Madhya Pradesh", pincode: "452001", phone: "9876543210" },
+        items: [{ name: "Wire", product: "507f1f77bcf86cd799439011", quantity: 2, price: 499 }],
+        paymentBreakdown: { productSubtotal: 998, deliveryFeeCharged: 49, handlingFeeCharged: 10, discountTotal: 20, walletAmount: 100 },
+        save: jest.fn().mockResolvedValue(true),
+      };
+      mockOrderFindOne.mockResolvedValue(order);
+      const post = jest.spyOn(axios, "post").mockImplementation(async (url, payload) => {
+        if (url.endsWith("/auth/login")) return { data: { token: "test-token" } };
+        if (url.endsWith("/orders/create/adhoc")) return { data: { order_id: 765, shipment_id: 123, status_code: 1 } };
+        if (url.endsWith("/courier/assign/awb")) return { data: { response: { data: { awb_code: "AWB123", courier_name: "Test Courier" } } } };
+        throw new Error(`Unexpected API route: ${url}`);
+      });
+      try {
+        const result = await processShiprocketOrder(order.orderId);
+        expect(result.success).toBe(true);
+        const createCall = post.mock.calls.find(([url]) => url.endsWith("/orders/create/adhoc"));
+        expect(createCall[1]).toEqual(expect.objectContaining({
+          billing_email: "buyer@example.test",
+          billing_phone: "9876543210",
+          billing_pincode: "452001",
+          sub_total: 998,
+          shipping_charges: 49,
+          transaction_charges: 10,
+          total_discount: 120,
+          weight: 1.5,
+          order_items: [expect.objectContaining({ sku: "WIRE-1", units: 2 })],
+        }));
+        expect(order.shiprocket).toEqual(expect.objectContaining({ shipmentId: "123", shiprocketOrderId: "765", awb: "AWB123" }));
+      } finally {
+        post.mockRestore();
+        if (previousEmail === undefined) delete process.env.SHIPROCKET_EMAIL;
+        else process.env.SHIPROCKET_EMAIL = previousEmail;
+        if (previousPassword === undefined) delete process.env.SHIPROCKET_PASSWORD;
+        else process.env.SHIPROCKET_PASSWORD = previousPassword;
+        if (previousContactEmail === undefined) delete process.env.SHIPROCKET_CONTACT_EMAIL;
+        else process.env.SHIPROCKET_CONTACT_EMAIL = previousContactEmail;
+      }
     });
 
     it("allows Super Admin to update Shiprocket status manually", async () => {

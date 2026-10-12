@@ -1,7 +1,20 @@
 @import "./customer-typography.css";
 
+/* Keep storefront carousels scrollable without making the document pan sideways. */
+html:has(.customer-app),
+body:has(.customer-app),
+#root:has(.customer-app) {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 /* Customer storefront theme. Scoped to CustomerLayout so operational portals keep their own UI. */
 .customer-app {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
   --primary: #2875e8;
   --primary-color: #2875e8;
   --secondary: #0f2747;
@@ -36,7 +49,14 @@
 }
 
 .customer-app > main {
+  width: 100%;
+  min-width: 0;
   background: var(--customer-page);
+}
+
+.customer-app > main > div {
+  width: 100%;
+  min-width: 0;
 }
 
 .customer-app main [class*="sticky"][class*="bg-white"] {

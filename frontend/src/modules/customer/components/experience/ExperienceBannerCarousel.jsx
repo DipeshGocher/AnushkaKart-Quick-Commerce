@@ -34,15 +34,14 @@ const ExperienceBannerCarousel = ({
   const visibleItems = items.slice(0, visibleCount);
   const totalItems = visibleItems.length;
   const currentSlideIsVideo = Boolean(visibleItems[activeIndex]?.isVideo);
-  const containerRef = React.useRef(null);
+  const viewportRef = React.useRef(null);
   const cardRef = React.useRef(null);
   const [cardStep, setCardStep] = React.useState(0);
   const [containerWidth, setContainerWidth] = React.useState(0);
+  const [mobileCardHeight, setMobileCardHeight] = React.useState(0);
   const [isPaused, setIsPaused] = React.useState(false);
+  const [bannerAspectRatios, setBannerAspectRatios] = React.useState({});
   const [isMobile, setIsMobile] = React.useState(() => isMobileOrWebView());
-  const [windowWidth, setWindowWidth] = React.useState(() =>
-    typeof window !== "undefined" ? window.innerWidth : 1200
-  );
   const resumeTimeoutRef = React.useRef(null);
   const hasMore = visibleCount < items.length;
 
@@ -58,15 +57,15 @@ const ExperienceBannerCarousel = ({
   // Compute number of cards visible simultaneously on desktop (Flipkart style)
   const getVisibleCardsCount = React.useCallback(() => {
     if (isMobile) return 1;
-    const w = windowWidth || (typeof window !== "undefined" ? window.innerWidth : 1200);
-    if (w >= 1536) {
+    const w = containerWidth || (typeof window !== "undefined" ? window.innerWidth : 1200);
+    if (w >= 1400) {
       return Math.min(4, Math.max(1, totalItems));
     }
-    if (w >= 1024) {
+    if (w >= 900) {
       return Math.min(3, Math.max(1, totalItems));
     }
     return Math.min(2, Math.max(1, totalItems));
-  }, [isMobile, windowWidth, totalItems]);
+  }, [isMobile, containerWidth, totalItems]);
 
   const numVisible = getVisibleCardsCount();
   const maxActiveIndex = isMobile
@@ -76,18 +75,10 @@ const ExperienceBannerCarousel = ({
   const measureCardStep = React.useCallback(() => {
     const mobile = isMobileOrWebView();
     setIsMobile(mobile);
-    const winW = typeof window !== "undefined" ? window.innerWidth : 1200;
-    setWindowWidth(winW);
-
-    if (containerRef.current?.parentElement) {
-      const parentW = containerRef.current.parentElement.clientWidth;
-      setContainerWidth(parentW);
-      if (cardRef.current) {
-        const cWidth = cardRef.current.offsetWidth;
-        const effectiveGap = (mobile && edgeToEdge && !peekNext) ? 0 : slideGap;
-        setCardStep(cWidth + effectiveGap);
-      }
-    } else if (cardRef.current) {
+    if (viewportRef.current) {
+      setContainerWidth(viewportRef.current.getBoundingClientRect().width);
+    }
+    if (cardRef.current) {
       const effectiveGap = (mobile && edgeToEdge && !peekNext) ? 0 : slideGap;
       setCardStep(cardRef.current.offsetWidth + effectiveGap);
     }
@@ -95,9 +86,38 @@ const ExperienceBannerCarousel = ({
 
   React.useEffect(() => {
     measureCardStep();
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measureCardStep) : null;
+    if (viewportRef.current) observer?.observe(viewportRef.current);
+    if (cardRef.current) observer?.observe(cardRef.current);
     window.addEventListener("resize", measureCardStep);
-    return () => window.removeEventListener("resize", measureCardStep);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", measureCardStep);
+    };
   }, [measureCardStep, visibleItems.length]);
+
+  // The track takes the height of its tallest slide. On phones, keep the
+  // viewport at the active slide's actual height so dots never drift down.
+  React.useLayoutEffect(() => {
+    if (!isMobile) return undefined;
+    const activeCard = viewportRef.current?.querySelector(`[data-banner-index="${activeIndex}"]`);
+    if (!activeCard) return undefined;
+
+    const measureHeight = () => {
+      const height = activeCard.getBoundingClientRect().height;
+      if (height > 0) {
+        setMobileCardHeight((previous) => Math.abs(previous - height) < 0.5 ? previous : height);
+      }
+    };
+    measureHeight();
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measureHeight) : null;
+    observer?.observe(activeCard);
+    window.addEventListener("resize", measureHeight);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", measureHeight);
+    };
+  }, [isMobile, activeIndex, visibleItems.length]);
 
   // Pause on user interaction and resume after delay
   const pauseAutoPlay = () => {
@@ -207,7 +227,6 @@ const ExperienceBannerCarousel = ({
   const desktopCardWidth = React.useMemo(() => {
     if (isMobile || !containerWidth) return 0;
     
-    // Standard 3-slot card width from "All" page (~405px at 1240px container)
     const standard3SlotWidth = Math.floor((containerWidth - 2 * slideGap) / 3);
     
     if (totalItems === 1) {
@@ -224,7 +243,8 @@ const ExperienceBannerCarousel = ({
     // 3 or more banners: fill 3 slots (or 2 on tablet)
     const currentNumVisible = Math.min(numVisible, totalItems);
     const totalGaps = (currentNumVisible - 1) * slideGap;
-    return Math.max(200, Math.floor((containerWidth - totalGaps) / currentNumVisible));
+    const slotWidth = Math.max(200, Math.floor((containerWidth - totalGaps) / currentNumVisible));
+    return totalItems <= numVisible ? Math.min(slotWidth, 420) : slotWidth;
   }, [isMobile, containerWidth, totalItems, numVisible, slideGap, stretchSingle]);
 
   if (!items.length) return null;
@@ -238,9 +258,11 @@ const ExperienceBannerCarousel = ({
       onTouchEnd={resumeAutoPlay}
     >
       <div
+        ref={viewportRef}
+        style={isMobile && mobileCardHeight > 0 ? { height: mobileCardHeight } : undefined}
         className={cn(
-          "w-full overflow-hidden touch-pan-y",
-          edgeToEdge
+          "w-full min-w-0 overflow-hidden touch-pan-y",
+          edgeToEdge || stretchSingle
             ? "px-0"
             : totalItems === 1
             ? "px-3.5 sm:px-4 md:px-0 flex justify-center"
@@ -250,14 +272,13 @@ const ExperienceBannerCarousel = ({
         )}
       >
         <motion.div
-          ref={containerRef}
           drag={!isMobile && totalItems <= 2 ? false : (maxActiveIndex > 0 ? "x" : false)}
           dragConstraints={{ left: 0, right: 0 }}
           dragElastic={0.15}
           onDragStart={pauseAutoPlay}
           onDragEnd={handleDragEnd}
           animate={{
-            x: (!isMobile && totalItems <= 2)
+            x: (!isMobile && maxActiveIndex === 0)
               ? 0
               : (cardStep ? -(activeIndex * cardStep) : (isMobile && edgeToEdge && !peekNext) ? `-${activeIndex * 100}%` : `-${(activeIndex / totalItems) * 100}%`),
           }}
@@ -267,11 +288,11 @@ const ExperienceBannerCarousel = ({
               : { type: "spring", stiffness: 280, damping: 28 }
           }
           className={cn(
-            "flex",
-            !isMobile && totalItems <= 2 ? "w-full justify-center" : ""
+            "flex items-start",
+            !isMobile && maxActiveIndex === 0 ? "w-full justify-center" : ""
           )}
           style={
-            !isMobile && totalItems <= 2
+            !isMobile && maxActiveIndex === 0
               ? { width: "100%", columnGap: `${slideGap}px` }
               : {
                   width: "max-content",
@@ -279,28 +300,30 @@ const ExperienceBannerCarousel = ({
                 }
           }
         >
-          {visibleItems.map((banner, idx) => (
+          {visibleItems.map((banner, idx) => {
+            const bannerKey = banner.videoUrl || banner.imageUrl || String(idx);
+            return (
             <div
               ref={idx === 0 ? cardRef : null}
+              data-banner-index={idx}
               key={idx}
               onClick={() => handleBannerClick(banner)}
               style={
                 !isMobile && desktopCardWidth > 0
                   ? {
                       width: `${desktopCardWidth}px`,
-                      height: stretchSingle
-                        ? (isSectionBanner ? "clamp(135px, 12vw, 175px)" : "clamp(240px, 20vw, 360px)")
-                        : (isSectionBanner ? "145px" : "215px")
+                      height: "auto",
+                      aspectRatio: bannerAspectRatios[bannerKey] || 3,
                     }
-                  : (isMobile && edgeToEdge && !peekNext)
-                  ? { width: containerWidth ? `${containerWidth}px` : "100vw" }
-                  : undefined
+                  : (isMobile && (stretchSingle || (edgeToEdge && !peekNext)))
+                  ? { width: containerWidth ? `${containerWidth}px` : "100vw", height: "auto", aspectRatio: bannerAspectRatios[bannerKey] || 3 }
+                  : { height: "auto", aspectRatio: bannerAspectRatios[bannerKey] || 2 }
               }
               className={cn(
                 "relative shrink-0 overflow-hidden flex items-center justify-center cursor-pointer transition-shadow",
                 edgeToEdge
                   ? "rounded-none md:rounded-2xl border-0 shadow-none md:shadow-[0_4px_16px_rgba(0,0,0,0.06)] md:border md:border-slate-100/80 bg-slate-100"
-                  : "rounded-2xl md:rounded-3xl bg-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.06)] border border-slate-100/80",
+                  : "rounded-2xl md:rounded-3xl bg-white shadow-[0_4px_16px_rgba(0,0,0,0.06)] border border-slate-100/80",
                 isMobile
                   ? isSectionBanner
                     ? (edgeToEdge && !peekNext)
@@ -350,7 +373,14 @@ const ExperienceBannerCarousel = ({
                   muted
                   playsInline
                   autoPlay={activeIndex === idx}
-                  className="w-full h-full object-cover object-center pointer-events-none"
+                  className="w-full h-full object-contain object-center pointer-events-none"
+                  onLoadedMetadata={(event) => {
+                    const video = event.currentTarget;
+                    if (video.videoHeight > 0) {
+                      const ratio = video.videoWidth / video.videoHeight;
+                      setBannerAspectRatios((previous) => previous[bannerKey] === ratio ? previous : { ...previous, [bannerKey]: ratio });
+                    }
+                  }}
                   onEnded={() => {
                     setActiveIndex((prev) => (prev >= maxActiveIndex ? 0 : prev + 1));
                   }}
@@ -372,12 +402,14 @@ const ExperienceBannerCarousel = ({
                     : "(max-width: 768px) 85vw, 420px"}
                   className={cn(
                     "w-full h-full pointer-events-none",
-                    stretchSingle
-                      ? "object-cover object-center"
-                      : isSectionBanner
-                      ? "object-cover object-center"
-                      : "object-cover object-top sm:object-center"
+                    "object-contain object-center"
                   )}
+                  onLoad={(event) => {
+                    if (event.currentTarget.naturalHeight > 0) {
+                      const ratio = event.currentTarget.naturalWidth / event.currentTarget.naturalHeight;
+                      setBannerAspectRatios((previous) => previous[bannerKey] === ratio ? previous : { ...previous, [bannerKey]: ratio });
+                    }
+                  }}
                   loading={idx === 0 ? "eager" : "lazy"}
                   fetchPriority={idx === 0 ? "high" : "low"}
                   decoding="async"
@@ -400,7 +432,7 @@ const ExperienceBannerCarousel = ({
                 </div>
               )}
             </div>
-          ))}
+          ); })}
         </motion.div>
       </div>
 
@@ -428,7 +460,7 @@ const ExperienceBannerCarousel = ({
 
       {/* Indicator dots */}
       {(showDots || totalItems > 1) && (isMobile ? totalItems > 1 : maxActiveIndex > 0) && (
-        <div className="mt-2.5 flex items-center justify-center gap-1.5" role="tablist" aria-label="Home banners">
+        <div className="mt-1 md:mt-2.5 flex items-center justify-center gap-1.5" role="tablist" aria-label="Home banners">
           {[...Array(isMobile ? totalItems : maxActiveIndex + 1)].map((_, index) => (
             <button
               key={index}

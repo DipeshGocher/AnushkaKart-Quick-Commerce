@@ -26,6 +26,7 @@ router.post("/validate-cart", validateCartDelivery);
 
 /* Public webhook endpoint for Shiprocket callbacks */
 router.post("/webhook/shiprocket", shiprocketWebhookHandler);
+router.post("/webhook/courier", shiprocketWebhookHandler);
 
 /* Shiprocket status check */
 router.get("/shiprocket/status", verifyToken, allowRoles("admin"), getShiprocketStatus);

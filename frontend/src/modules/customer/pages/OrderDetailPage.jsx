@@ -466,6 +466,27 @@ const OrderDetailPage = () => {
 
   const status = order ? getLegacyStatusFromOrder(order) : null;
 
+  // A scheduler may cancel an expired seller alert in a separate process,
+  // where no order-room socket event is available to this API process.
+  useEffect(() => {
+    if (!orderId || status !== "pending" || order?.workflowStatus === "CREATED") {
+      return undefined;
+    }
+    let active = true;
+    const interval = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      customerApi.getOrderDetails(orderId)
+        .then((response) => {
+          if (active && response.data?.result) setOrder(response.data.result);
+        })
+        .catch(() => {});
+    }, 15000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [orderId, status, order?.workflowStatus]);
+
   /**
    * mapStatus — what we tell LiveTrackingMap.
    *
@@ -494,7 +515,11 @@ const OrderDetailPage = () => {
     order.paymentMode === "ONLINE" &&
     order.paymentStatus !== "PAID" &&
     status !== "cancelled";
-  const sellerLocation = coordsToLatLng(order?.seller?.location?.coordinates);
+  const sellerLocation =
+    coordsToLatLng(order?.seller?.location?.coordinates) ||
+    coordsToLatLng(order?.warehouseId?.location?.coordinates) ||
+    order?.delivery?.warehouseLocation ||
+    null;
   const routePhase = getTrackingRoutePhase(order);
   const routeMatchesPhase =
     routePhase === "pickup"
@@ -545,16 +570,29 @@ const OrderDetailPage = () => {
     }
 
     const arrivalMs = clockTick + minutes * 60 * 1000;
-    const routeDistanceMeters = Number(
-      activeRoutePolyline?.distanceMeters ?? activeRoutePolyline?.distance,
-    );
+    const savedRouteDistanceMeters = Number(order?.delivery?.routeDistanceMeters);
+    const savedRouteDistanceKm = Number(order?.delivery?.routeDistanceKm);
+    const roadDistanceMeters =
+      Number.isFinite(savedRouteDistanceMeters) && savedRouteDistanceMeters > 0
+        ? savedRouteDistanceMeters
+        : Number.isFinite(savedRouteDistanceKm) && savedRouteDistanceKm > 0
+          ? savedRouteDistanceKm * 1000
+          : null;
+    const directDistanceMeters = roadDistanceMeters
+      ? null
+      : distanceMeters(
+          sellerLocation,
+          order?.delivery?.customerLocation || order?.address?.location,
+        );
+    const totalDistanceText = roadDistanceMeters
+      ? formatDistance(roadDistanceMeters)
+      : directDistanceMeters > 0
+        ? `~${formatDistance(directDistanceMeters)}`
+        : "Unavailable";
     return {
       arrivalTimeText: formatArrivalTime(arrivalMs),
       arrivingInText: formatArrivingIn(minutes),
-      totalDistanceText: formatDistance(
-        routeDistanceMeters ||
-        distanceMeters(liveLocation, targetLocation),
-      ),
+      totalDistanceText,
     };
   }, [
     activeRoutePolyline?.distanceMeters,
@@ -790,13 +828,14 @@ const OrderDetailPage = () => {
         return;
       }
       
-      const paymentData = response.data.result;
-      const merchantOrderId = paymentData?.rawGatewayResponse?.merchantOrderId;
-      const amountPaise = paymentData?.rawGatewayResponse?.amount;
+      const paymentData = response.data.result?.payment;
+      const merchantOrderId = paymentData?.gatewayOrderId;
+      const amountPaise = paymentData?.amount;
       const razorpayOrderId = paymentData?.rawGatewayResponse?.razorpayOrderId;
+      const razorpayKeyId = paymentData?.rawGatewayResponse?.keyId;
 
-      if (!razorpayOrderId) {
-        toast.error("Razorpay Order ID not received from backend", { id: toastId });
+      if (!razorpayOrderId || !razorpayKeyId) {
+        toast.error("Razorpay checkout is not configured correctly", { id: toastId });
         return;
       }
 
@@ -809,15 +848,24 @@ const OrderDetailPage = () => {
       toast.dismiss(toastId);
 
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_b0PSRa7kNhbHj3",
+        key: razorpayKeyId,
         amount: amountPaise,
         currency: "INR",
         name: "Anushka Store",
         description: `Payment for Order ${paymentRef}`,
         order_id: razorpayOrderId,
-        handler: function (response) {
-          toast.success("Payment Successful! Verifying...");
-          navigate(`/payment-status?merchantOrderId=${merchantOrderId}&paymentId=${response.razorpay_payment_id}`);
+        handler: async function (response) {
+          try {
+            await customerApi.verifyOnlineOrderPayment(order.orderId, {
+              merchantOrderId,
+              transactionId: response.razorpay_payment_id,
+              razorpayOrderId: response.razorpay_order_id,
+              signature: response.razorpay_signature,
+            });
+          } catch (error) {
+            toast.error(error.response?.data?.message || "Payment is awaiting confirmation. Check status before retrying.");
+          }
+          navigate(`/payment-status?merchantOrderId=${encodeURIComponent(merchantOrderId)}`);
         },
         prefill: {
           contact: order?.deliveryAddress?.phone || "",

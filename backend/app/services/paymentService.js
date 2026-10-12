@@ -14,13 +14,12 @@ import {
 import { handleOnlineOrderFinance } from "./finance/orderFinanceService.js";
 import { DEFAULT_SELLER_TIMEOUT_MS, WORKFLOW_STATUS } from "../constants/orderWorkflow.js";
 import { afterPlaceOrderV2 } from "./orderWorkflowService.js";
-import { releaseReservedStockForOrder } from "./stockService.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
 import logger from "./logger.js";
 import { getActivePaymentProvider } from "./payment/providerRegistry.js";
 
-const MAX_MERCHANT_ORDER_ID_LENGTH = 63;
+const MAX_MERCHANT_ORDER_ID_LENGTH = 40;
 
 function sanitizeGatewayPayload(payload = {}) {
   return {
@@ -336,10 +335,7 @@ async function updateCheckoutGroupPaymentStatus(checkoutGroupId, nextStatus) {
       { checkoutGroupId },
       {
         $set: {
-          status: "CANCELLED",
           paymentStatus: ORDER_PAYMENT_STATUS.FAILED,
-          "stockReservation.status": "RELEASED",
-          "stockReservation.releasedAt": new Date(),
         },
       },
     );
@@ -392,48 +388,13 @@ async function handleOrderSideEffectsFromPaymentStatus(payment, nextStatus, reas
   }
 
   if (nextStatus === PAYMENT_STATUS.FAILED || nextStatus === PAYMENT_STATUS.CANCELLED) {
-    const session = await mongoose.startSession();
-    try {
-      session.startTransaction();
-      for (const order of orders) {
-        const orderForUpdate = await Order.findById(order._id, null, { session });
-        if (
-          orderForUpdate &&
-          orderForUpdate.workflowStatus === WORKFLOW_STATUS.CREATED &&
-          orderForUpdate.status !== "cancelled"
-        ) {
-          await releaseReservedStockForOrder(orderForUpdate, {
-            session,
-            reason: reason || "Payment failed",
-          });
-          orderForUpdate.status = "cancelled";
-          orderForUpdate.orderStatus = "cancelled";
-          orderForUpdate.workflowStatus = WORKFLOW_STATUS.CANCELLED;
-          orderForUpdate.cancelledBy = "system";
-          orderForUpdate.cancelReason = reason || "Payment failed";
-          orderForUpdate.paymentStatus = ORDER_PAYMENT_STATUS.FAILED;
-          await orderForUpdate.save({ session });
-        }
-      }
-      await session.commitTransaction();
-    } catch (error) {
-      await session.abortTransaction();
-      throw error;
-    } finally {
-      session.endSession();
-    }
+    // A failed gateway attempt is retryable while the order is still open.
+    // Stock expiry / explicit cancellation remains responsible for release.
+    await Order.updateMany(
+      { _id: { $in: orders.map((order) => order._id) }, workflowStatus: WORKFLOW_STATUS.CREATED },
+      { $set: { paymentStatus: ORDER_PAYMENT_STATUS.FAILED } },
+    );
     await updateCheckoutGroupPaymentStatus(payment.checkoutGroupId, nextStatus);
-    for (const order of orders) {
-      emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_CANCELLED, {
-        orderId: order.orderId,
-        checkoutGroupId: payment.checkoutGroupId,
-        customerId: order.customer,
-        userId: order.customer,
-        sellerId: order.seller,
-        customerMessage: "Order was cancelled because payment failed.",
-        sellerMessage: `Order #${order.orderId} was cancelled because payment failed.`,
-      });
-    }
     return;
   }
 
@@ -504,7 +465,7 @@ export async function createPaymentOrderForOrderRef({
     },
   }).sort({ createdAt: -1 });
 
-  if (existingOpenPayment && existingOpenPayment.rawGatewayResponse?.redirectUrl) {
+  if (existingOpenPayment && (existingOpenPayment.rawGatewayResponse?.redirectUrl || existingOpenPayment.rawGatewayResponse?.razorpayOrderId)) {
     return {
       payment: existingOpenPayment,
       redirectUrl: existingOpenPayment.rawGatewayResponse.redirectUrl,
@@ -597,6 +558,15 @@ export async function verifyPaymentGatewayStatus({
   const statusResp = await provider.getPaymentStatus({ merchantOrderId, payment });
   const nextStatus = provider.mapStatusToInternal(statusResp.state);
 
+  if (payment.status === PAYMENT_STATUS.CAPTURED && nextStatus !== PAYMENT_STATUS.REFUNDED) {
+    return { payment, status: PAYMENT_STATUS.CAPTURED };
+  }
+  if (payment.status === PAYMENT_STATUS.REFUNDED ||
+      ((payment.status === PAYMENT_STATUS.FAILED || payment.status === PAYMENT_STATUS.CANCELLED) &&
+        nextStatus === PAYMENT_STATUS.PENDING)) {
+    return { payment, status: payment.status };
+  }
+
   await transitionPaymentState(payment, {
     nextStatus,
     source: PAYMENT_EVENT_SOURCE.CLIENT_VERIFY,
@@ -643,11 +613,15 @@ export async function processGatewayWebhook({
 
   const decoded = await provider.decodeWebhookPayload({ rawBody });
 
-  const eventId = decoded.eventId;
+  if ((!decoded.merchantOrderId && !decoded.razorpayOrderId) || decoded.state === "ignored") {
+    return { accepted: true, ignored: true, reason: "Unrelated gateway event" };
+  }
+
   const payloadHash = crypto
     .createHash("sha256")
     .update(JSON.stringify(decoded.raw))
     .digest("hex");
+  const eventId = decoded.eventId || payloadHash;
   const eventType = decoded.state || "unknown";
 
   try {
@@ -665,12 +639,22 @@ export async function processGatewayWebhook({
   }
 
   const merchantOrderId = decoded.merchantOrderId;
-  const payment = await Payment.findOne({ gatewayOrderId: merchantOrderId });
+  const payment = await Payment.findOne(decoded.razorpayOrderId
+    ? { "rawGatewayResponse.razorpayOrderId": decoded.razorpayOrderId }
+    : { gatewayOrderId: merchantOrderId });
   if (!payment) {
     return { accepted: true, ignored: true, reason: "Payment attempt not found" };
   }
+  if (decoded.razorpayOrderId && decoded.razorpayOrderId !== payment.rawGatewayResponse?.razorpayOrderId) {
+    const err = new Error("Razorpay order mismatch in webhook");
+    err.statusCode = 400;
+    throw err;
+  }
 
   const nextStatus = provider.mapStatusToInternal(decoded.state);
+  if (payment.status === PAYMENT_STATUS.CAPTURED && nextStatus !== PAYMENT_STATUS.REFUNDED) {
+    return { accepted: true, ignored: true, reason: "Payment already captured" };
+  }
   await transitionPaymentState(payment, {
     nextStatus,
     source: PAYMENT_EVENT_SOURCE.WEBHOOK,
@@ -707,9 +691,38 @@ export async function processGatewayWebhook({
 }
 
 export async function verifyClientPaymentCallback(data) {
-    return verifyPaymentGatewayStatus({
-        merchantOrderId: data.gatewayOrderId || data.merchantOrderId,
-        userId: data.userId,
-        correlationId: data.correlationId
-    });
+  const merchantOrderId = data.gatewayOrderId || data.merchantOrderId;
+  const payment = await Payment.findOne({ gatewayOrderId: merchantOrderId });
+  if (!payment || String(payment.customer) !== String(data.userId)) {
+    const err = new Error("Payment attempt not found");
+    err.statusCode = 404;
+    throw err;
+  }
+  const orderId = payment.rawGatewayResponse?.razorpayOrderId;
+  const paymentId = data.gatewayPaymentId;
+  const signature = data.gatewaySignature;
+  if (!orderId || !paymentId || !signature || !process.env.RAZORPAY_KEY_SECRET) {
+    const err = new Error("Missing Razorpay payment confirmation details");
+    err.statusCode = 400;
+    throw err;
+  }
+  if (data.razorpayOrderId && data.razorpayOrderId !== orderId) {
+    const err = new Error("Razorpay order ID mismatch");
+    err.statusCode = 400;
+    throw err;
+  }
+  const expected = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+    .update(`${orderId}|${paymentId}`).digest("hex");
+  const actualBuffer = Buffer.from(String(signature), "hex");
+  const expectedBuffer = Buffer.from(expected, "hex");
+  if (actualBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) {
+    const err = new Error("Invalid Razorpay payment signature");
+    err.statusCode = 401;
+    throw err;
+  }
+  return verifyPaymentGatewayStatus({
+    merchantOrderId,
+    userId: data.userId,
+    correlationId: data.correlationId,
+  });
 }

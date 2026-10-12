@@ -36,6 +36,7 @@ const LocationDrawer = ({ isOpen, onClose }) => {
   const latestPlacesRequestRef = React.useRef(0);
   const autocompleteSessionTokenRef = React.useRef(null);
   const placesCacheRef = React.useRef(new Map());
+  const addressSelectionRef = React.useRef(0);
 
   const resetAutocompleteSession = React.useCallback(() => {
     autocompleteSessionTokenRef.current = null;
@@ -126,6 +127,7 @@ const LocationDrawer = ({ isOpen, onClose }) => {
   };
 
   const handleSelectAddress = (address) => {
+    const selectionId = ++addressSelectionRef.current;
     const hasCoords =
       address?.location &&
       typeof address.location.lat === "number" &&
@@ -136,18 +138,16 @@ const LocationDrawer = ({ isOpen, onClose }) => {
     // Resolve city, state, pincode from address fields or address text
     let resolvedCity = address.city;
     let resolvedState = address.state;
-    let resolvedPincode = address.pincode;
+    let resolvedPincode = address.pincode || (String(address.address || "").match(/\b\d{6}\b/) || [""])[0];
 
     if (!resolvedCity && address.address) {
       const lower = address.address.toLowerCase();
       if (lower.includes("mauranipur") || lower.includes("jhansi")) {
         resolvedCity = "Jhansi";
         if (!resolvedState) resolvedState = "Uttar Pradesh";
-        if (!resolvedPincode) resolvedPincode = "284204";
       } else if (lower.includes("indore")) {
         resolvedCity = "Indore";
         if (!resolvedState) resolvedState = "Madhya Pradesh";
-        if (!resolvedPincode) resolvedPincode = "452010";
       } else {
         const parts = address.address.split(",").map((p) => p.trim()).filter(Boolean);
         if (parts.length >= 2) {
@@ -156,15 +156,16 @@ const LocationDrawer = ({ isOpen, onClose }) => {
       }
     }
 
-    const apply = (coords, extra = {}) => {
+    const apply = (coords) => {
       const newLoc = {
         name: address.address,
         time: "20-35 mins",
-        city: address.city || extra.city || resolvedCity || currentLocation.city,
-        state: address.state || extra.state || resolvedState || currentLocation.state,
-        pincode: address.pincode || extra.pincode || resolvedPincode || currentLocation.pincode,
+        city: address.city || resolvedCity || "",
+        state: address.state || resolvedState || "",
+        pincode: resolvedPincode,
         addressId: address.id,
-        ...(coords ? { latitude: coords.lat, longitude: coords.lng } : {}),
+        latitude: coords?.lat ?? null,
+        longitude: coords?.lng ?? null,
       };
 
       // Persist so checkout/nearby sellers and add address modal use the same chosen location
@@ -186,18 +187,26 @@ const LocationDrawer = ({ isOpen, onClose }) => {
       return;
     }
 
+    apply(null);
+
     customerApi
       .geocodeAddress(addrText)
       .then((resp) => {
         const loc = resp.data?.result?.location;
         if (loc && typeof loc.lat === "number" && typeof loc.lng === "number") {
           setCachedGeocode(cacheKey, { location: { lat: loc.lat, lng: loc.lng } });
-          apply({ lat: loc.lat, lng: loc.lng });
-          return;
+          if (selectionId === addressSelectionRef.current) {
+            updateLocation({
+              name: address.address,
+              pincode: resolvedPincode,
+              addressId: address.id,
+              latitude: loc.lat,
+              longitude: loc.lng,
+            });
+          }
         }
-        apply(null);
       })
-      .catch(() => apply(null));
+      .catch(() => {});
   };
 
   const handleAddAddress = () => {

@@ -484,8 +484,13 @@ export async function buildCheckoutPricingSnapshot({
     const match = (address?.address || "").match(/\b\d{6}\b/) || (address?.city || "").match(/\b\d{6}\b/);
     if (match) pincode = match[0];
   }
+  if (!/^\d{6}$/.test(pincode)) {
+    const err = new Error("A valid 6-digit delivery pincode is required for checkout");
+    err.statusCode = 400;
+    throw err;
+  }
 
-  let isLocal = true;
+  let isLocal = false;
   let localPincodeRecord = null;
   if (pincode) {
     isLocal = await isPincodeLocal(pincode);

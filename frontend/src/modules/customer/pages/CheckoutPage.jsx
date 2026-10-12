@@ -8,7 +8,7 @@ import { useWishlist } from "../context/WishlistContext";
 import { customerApi } from "../services/customerApi";
 import { useLocation as useAppLocation } from "../context/LocationContext";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
-import { evaluateProductDelivery, isPincodeLocalSync } from "../services/deliveryService";
+import { useDeliveryDecision } from "../services/useDeliveryDecision";
 import {
   MapPin,
   Clock,
@@ -142,6 +142,7 @@ const CheckoutPage = () => {
   const {
     savedAddresses: locationSavedAddresses,
     currentLocation,
+    isLocationReady,
     refreshLocation,
     isFetchingLocation,
     updateLocation,
@@ -190,11 +191,12 @@ const CheckoutPage = () => {
   const [walletAmountToUse, setWalletAmountToUse] = useState(0);
   const [showSuccess, setShowSuccess] = useState(false);
   const [orderId, setOrderId] = useState(null);
-  const [pricingPreview, setPricingPreview] = useState(null);
+  const [pricingPreviewState, setPricingPreview] = useState(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState(null);
   const postOrderNavigateRef = useRef(null);
   const previewDebounceRef = useRef(null);
+  const addressSelectionRef = useRef(0);
   const [currentAddress, setCurrentAddress] = useState({
     type: "Home",
     name: "",
@@ -216,10 +218,31 @@ const CheckoutPage = () => {
     phone: "",
   });
   const [savedRecipient, setSavedRecipient] = useState(null);
+  const previewAddressKey = JSON.stringify({
+    selectedAddress: currentLocation?.name,
+    selectedPincode: currentLocation?.pincode,
+    checkoutAddress: currentAddress.address,
+    checkoutPincode: currentAddress.pincode,
+    recipientAddress: savedRecipient?.completeAddress,
+    recipientPincode: savedRecipient?.pincode,
+    items: cart.map((item) => [item.id || item._id, item.variantSku, item.quantity]),
+    payment: selectedPayment,
+    timeSlot: selectedTimeSlot,
+    coupon: selectedCoupon?.code,
+  });
+  const pricingPreview = pricingPreviewState?.__previewKey === previewAddressKey
+    ? pricingPreviewState : null;
   const [recommendedProducts, setRecommendedProducts] = useState([]);
   const [coupons, setCoupons] = useState([]);
   const [manualCode, setManualCode] = useState("");
   const [emptyBoxData, setEmptyBoxData] = useState(null);
+
+  useEffect(() => {
+    if (savedRecipient && (
+      String(savedRecipient.completeAddress).trim() !== String(currentLocation?.name || "").trim() ||
+      String(savedRecipient.pincode).trim() !== String(currentLocation?.pincode || "").trim()
+    )) setSavedRecipient(null);
+  }, [currentLocation?.name, currentLocation?.pincode, savedRecipient]);
 
   // Dynamically load empty-box Lottie only when cart is empty
   useEffect(() => {
@@ -230,34 +253,30 @@ const CheckoutPage = () => {
     }
   }, [cart.length === 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const addressInitializedRef = useRef(false);
-
   useEffect(() => {
-    if (user && !addressInitializedRef.current) {
-      const savedAddr = (locationSavedAddresses && locationSavedAddresses.length > 0)
-        ? locationSavedAddresses[0]
-        : (user.addresses && user.addresses.length > 0)
-          ? user.addresses[0]
-          : null;
+    if (user && isLocationReady) {
+      const savedAddr = locationSavedAddresses.find((addr) =>
+        String(addr.id) === String(currentLocation?.addressId)
+      ) || null;
 
       const addressText =
-        savedAddr?.address ||
-        savedAddr?.fullAddress ||
         currentLocation?.name ||
+        savedAddr?.address ||
         "";
 
       const defaultPin =
+        currentLocation?.pincode ||
         savedAddr?.pincode ||
         (addressText.match(/\b\d{6}\b/)
           ? addressText.match(/\b\d{6}\b/)[0]
           : currentLocation?.pincode || "");
 
-      const defaultCity = savedAddr?.city || currentLocation?.city || "";
-      const defaultState = savedAddr?.state || currentLocation?.state || "";
+      const defaultCity = currentLocation?.city || savedAddr?.city || "";
+      const defaultState = currentLocation?.state || savedAddr?.state || "";
 
       if (savedAddr || addressText || user.name || user.phone) {
         const defaultAddr = {
-          id: savedAddr?.id || savedAddr?._id,
+          id: currentLocation?.addressId || savedAddr?.id || savedAddr?._id,
           type: savedAddr?.label
             ? savedAddr.label.charAt(0).toUpperCase() + savedAddr.label.slice(1)
             : "Home",
@@ -268,18 +287,15 @@ const CheckoutPage = () => {
           state: defaultState,
           pincode: defaultPin,
           phone: savedAddr?.phone || savedAddr?.receiverPhone || user.phone || "",
-          location:
-            savedAddr?.location ||
-            (currentLocation?.latitude
-              ? { lat: Number(currentLocation.latitude), lng: Number(currentLocation.longitude) }
-              : undefined),
+          location: currentLocation?.latitude != null && currentLocation?.longitude != null
+            ? { lat: Number(currentLocation.latitude), lng: Number(currentLocation.longitude) }
+            : savedAddr?.location || undefined,
         };
 
         setCurrentAddress(defaultAddr);
-        addressInitializedRef.current = true;
       }
     }
-  }, [user, locationSavedAddresses, currentLocation]);
+  }, [user, isLocationReady, locationSavedAddresses, currentLocation]);
 
   const paymentMethods = [
     ...(settings?.onlineEnabled === false
@@ -359,35 +375,21 @@ const CheckoutPage = () => {
     currentAddress?.city,
     currentLocation?.pincode,
   ]);
+  const { decision: deliveryDecision, loading: isDeliveryDecisionLoading, error: deliveryDecisionError, getItem: getDeliveryItem } =
+    useDeliveryDecision(cart, activeDestinationPincode);
 
   const unserviceableCartItems = useMemo(() => {
-    if (!activeDestinationPincode) return [];
-    return cart.filter((item) => {
-      const check = evaluateProductDelivery(item, activeDestinationPincode);
-      return !check.canAddToCart;
-    });
-  }, [cart, activeDestinationPincode]);
+    if (!deliveryDecision) return [];
+    return cart.filter((item) =>
+      deliveryDecision.items?.some((entry) =>
+        String(entry.productId) === String(item.id || item._id) && !entry.isDeliverable
+      )
+    );
+  }, [cart, deliveryDecision]);
 
   const resolvedFulfillmentType = useMemo(() => {
-    if (pricingPreview?.fulfillmentType) {
-      return pricingPreview.fulfillmentType;
-    }
-    if (location.state?.initialFulfillmentType) {
-      return location.state.initialFulfillmentType;
-    }
-    if (activeDestinationPincode) {
-      return isPincodeLocalSync(activeDestinationPincode) ? "LOCAL" : "SHIPROCKET";
-    }
-    if (currentLocation?.pincode) {
-      return isPincodeLocalSync(currentLocation.pincode) ? "LOCAL" : "SHIPROCKET";
-    }
-    return "LOCAL";
-  }, [
-    pricingPreview?.fulfillmentType,
-    location.state?.initialFulfillmentType,
-    activeDestinationPincode,
-    currentLocation?.pincode,
-  ]);
+    return pricingPreview?.fulfillmentType || null;
+  }, [pricingPreview?.fulfillmentType]);
 
   const buildAddressForOrder = () => {
     let resolvedPincode = "";
@@ -442,6 +444,7 @@ const CheckoutPage = () => {
   };
 
   const handleAddressAddedInCheckout = (newAddr) => {
+    setSavedRecipient(null);
     const formattedCity = `${newAddr.city || ""} ${newAddr.pincode || ""}`.trim();
     setCurrentAddress({
       type: newAddr.label ? newAddr.label.charAt(0).toUpperCase() + newAddr.label.slice(1) : "Home",
@@ -459,15 +462,37 @@ const CheckoutPage = () => {
     setIsAddAddressModalOpen(false);
   };
 
-  const handleSaveRecipient = () => {
+  const handleSaveRecipient = async () => {
     if (
       !recipientData.completeAddress ||
       !recipientData.name ||
-      recipientData.phone.length !== 10
+      recipientData.phone.length !== 10 ||
+      !/^\d{6}$/.test(String(recipientData.pincode || "").trim())
     ) {
-      showToast("Please fill all required fields", "error");
+      showToast("Please enter recipient details and a valid 6-digit delivery pincode", "error");
       return;
     }
+    let coords;
+    try {
+      coords = await resolveAddressCoords(`${recipientData.completeAddress}, ${recipientData.pincode}`);
+    } catch (error) {
+      showToast(error?.message || "Could not locate recipient address", "error");
+      return;
+    }
+    if (!coords) {
+      showToast("Could not locate recipient address. Please choose another address.", "error");
+      return;
+    }
+    const samePincode = String(currentLocation?.pincode || "") === String(recipientData.pincode);
+    updateLocation({
+      name: recipientData.completeAddress,
+      pincode: String(recipientData.pincode).trim(),
+      city: samePincode ? currentLocation?.city : "",
+      state: samePincode ? currentLocation?.state : "",
+      latitude: coords.lat,
+      longitude: coords.lng,
+      addressId: null,
+    });
     setSavedRecipient(recipientData);
     setShowRecipientForm(false);
     setJSON(RECIPIENT_STORAGE_KEY, recipientData);
@@ -528,14 +553,40 @@ const CheckoutPage = () => {
     const addrLoc = addr?.location;
     const hasLoc = isValidLatLng(addrLoc);
     const pid = typeof addr?.placeId === "string" ? addr.placeId.trim() : "";
+    const resolvedPincode = addr.pincode || (rawText.match(/\b\d{6}\b/) || [""])[0];
+    const selectionId = ++addressSelectionRef.current;
+
+    setCurrentAddress({
+      id: addr.id || addr._id,
+      type: addr.label ? addr.label.charAt(0).toUpperCase() + addr.label.slice(1) : "Home",
+      name: addr.name || user?.name || currentAddress.name,
+      address: rawText,
+      city: addr.city ? `${addr.city} ${resolvedPincode}`.trim() : resolvedPincode,
+      state: addr.state || "",
+      pincode: resolvedPincode,
+      phone: addr.phone || user?.phone || currentAddress.phone,
+      landmark: addr.landmark || "",
+      placeId: pid,
+      location: hasLoc ? addrLoc : undefined,
+    });
+    setSavedRecipient(null);
+    updateLocation({
+      name: rawText,
+      city: addr.city || "",
+      state: addr.state || "",
+      pincode: resolvedPincode,
+      addressId: addr.id || addr._id,
+      latitude: hasLoc ? addrLoc.lat : null,
+      longitude: hasLoc ? addrLoc.lng : null,
+    });
+    setIsAddressModalOpen(false);
+    if (hasLoc) return;
 
     setIsResolvingAddressCoords(true);
     try {
       let resolvedLoc = null;
       try {
-        if (hasLoc) {
-          resolvedLoc = addrLoc;
-        } else if (pid) {
+        if (pid) {
           const cacheKey = `pid:${pid}`;
           const cached = getCachedGeocode(cacheKey);
           if (cached?.location?.lat && cached?.location?.lng) {
@@ -562,48 +613,28 @@ const CheckoutPage = () => {
 
       if (!resolvedLoc) {
         showToast(
-          "Could not fetch coordinates for this address. Please edit the address or choose a different one.",
+          "Address selected, but coordinates are unavailable. Please edit it if checkout pricing cannot be calculated.",
           "error",
         );
         return;
       }
-
-      const resolvedPincode =
-        addr.pincode ||
-        (rawText.match(/\b\d{6}\b/) ? rawText.match(/\b\d{6}\b/)[0] : currentLocation?.pincode || "");
-
-      setCurrentAddress({
-        id: addr.id || addr._id,
-        type: addr.label ? addr.label.charAt(0).toUpperCase() + addr.label.slice(1) : "Home",
-        name: addr.name || user?.name || currentAddress.name,
-        address: rawText,
-        city: addr.city ? `${addr.city} ${resolvedPincode}`.trim() : resolvedPincode || "",
-        state: addr.state || currentLocation?.state || "",
-        pincode: resolvedPincode,
-        phone: addr.phone || currentAddress.phone,
-        landmark: addr.landmark || "",
-        ...(pid ? { placeId: pid } : {}),
-        ...(resolvedLoc ? { location: resolvedLoc } : (addr.location ? { location: addr.location } : {})),
-      });
-
-      if (resolvedLoc) {
+      if (selectionId === addressSelectionRef.current) {
+        setCurrentAddress((prev) => ({ ...prev, location: resolvedLoc }));
         updateLocation(
           {
             name: rawText,
-            time: currentLocation?.time && currentLocation?.time !== "12-15 mins" ? currentLocation.time : "20-35 mins",
-            city: addr.city || currentLocation?.city,
-            state: addr.state || currentLocation?.state,
-            pincode: resolvedPincode || currentLocation?.pincode,
+            city: addr.city || "",
+            state: addr.state || "",
+            pincode: resolvedPincode,
+            addressId: addr.id || addr._id,
             latitude: resolvedLoc.lat,
             longitude: resolvedLoc.lng,
           },
           { persist: true, updateSavedHome: false },
         );
       }
-
-      setIsAddressModalOpen(false);
     } finally {
-      setIsResolvingAddressCoords(false);
+      if (selectionId === addressSelectionRef.current) setIsResolvingAddressCoords(false);
     }
   };
 
@@ -611,6 +642,7 @@ const CheckoutPage = () => {
     const result = await refreshLocation();
 
     if (result?.ok && result.location) {
+      setSavedRecipient(null);
       const liveLocation = result.location;
       setCurrentAddress((prev) => ({
         ...prev,
@@ -630,6 +662,7 @@ const CheckoutPage = () => {
     }
 
     if (currentLocation?.name) {
+      setSavedRecipient(null);
       setCurrentAddress((prev) => ({
         ...prev,
         address: currentLocation.name,
@@ -745,12 +778,6 @@ const CheckoutPage = () => {
 
   // Load recipient from localStorage + fetch coupons on mount
   useEffect(() => {
-    const parsed = getJSON(RECIPIENT_STORAGE_KEY, null);
-    if (parsed && parsed.completeAddress && parsed.name && parsed.phone) {
-      setRecipientData(parsed);
-      setSavedRecipient(parsed);
-    }
-
     const fetchCoupons = async () => {
       try {
         const res = await customerApi.getActiveCoupons();
@@ -770,8 +797,21 @@ const CheckoutPage = () => {
     if (!isAuthenticated || cart.length === 0) {
       setPricingPreview(null);
       setPreviewError(null);
+      setIsPreviewLoading(false);
       return;
     }
+
+    if (!/^\d{6}$/.test(activeDestinationPincode)) {
+      setPricingPreview(null);
+      setPreviewError("Select a delivery address with a valid 6-digit pincode.");
+      setIsPreviewLoading(false);
+      return;
+    }
+
+    let active = true;
+    setPricingPreview(null);
+    setPreviewError(null);
+    setIsPreviewLoading(true);
 
     const buildPreviewPayload = () => ({
       items: cart.map((item) => ({
@@ -793,27 +833,30 @@ const CheckoutPage = () => {
 
     const fetchPreview = async () => {
       try {
-        setIsPreviewLoading(true);
-        setPreviewError(null);
         const res = await customerApi.checkoutPreview(buildPreviewPayload());
+        if (!active) return;
         if (res.data?.success) {
           const rawBreakdown = res.data.result?.breakdown ?? null;
-          if (rawBreakdown) {
+          const fulfillmentType = res.data.result?.fulfillmentType || rawBreakdown?.fulfillmentType;
+          if (rawBreakdown && (fulfillmentType === "LOCAL" || fulfillmentType === "SHIPROCKET")) {
             setPricingPreview({
               ...rawBreakdown,
-              fulfillmentType: res.data.result?.fulfillmentType || rawBreakdown.fulfillmentType || "LOCAL",
-              deliveryEstimate: res.data.result?.deliveryEstimate || rawBreakdown.deliveryEstimate || "20-35 mins",
-              isLocal: res.data.result?.isLocal ?? rawBreakdown.isLocal ?? true,
+              __previewKey: previewAddressKey,
+              fulfillmentType,
+              deliveryEstimate: res.data.result?.deliveryEstimate || rawBreakdown.deliveryEstimate || (fulfillmentType === "LOCAL" ? "20-35 mins" : "3-4 business days"),
+              isLocal: fulfillmentType === "LOCAL",
             });
           } else {
             setPricingPreview(null);
+            setPreviewError("Delivery details could not be verified for this address.");
           }
-          setPreviewError(null);
+          if (rawBreakdown && (fulfillmentType === "LOCAL" || fulfillmentType === "SHIPROCKET")) setPreviewError(null);
         } else {
           setPricingPreview(null);
           setPreviewError(res.data?.message || "Unable to calculate order total");
         }
       } catch (error) {
+        if (!active) return;
         console.error("Checkout preview failed", error);
         setPricingPreview(null);
         const message =
@@ -822,14 +865,17 @@ const CheckoutPage = () => {
           "Unable to calculate order total. Please check your delivery address.";
         setPreviewError(message);
       } finally {
-        setIsPreviewLoading(false);
+        if (active) setIsPreviewLoading(false);
       }
     };
 
     clearTimeout(previewDebounceRef.current);
     previewDebounceRef.current = setTimeout(fetchPreview, 400);
 
-    return () => clearTimeout(previewDebounceRef.current);
+    return () => {
+      active = false;
+      clearTimeout(previewDebounceRef.current);
+    };
   }, [
     isAuthenticated,
     cart,
@@ -839,6 +885,8 @@ const CheckoutPage = () => {
     savedRecipient,
     currentAddress,
     currentLocation,
+    activeDestinationPincode,
+    previewAddressKey,
   ]);
 
   // Recommended products — only re-fetches when the set of product IDs changes
@@ -870,6 +918,10 @@ const CheckoutPage = () => {
     // Validate address before placing order
     if (!orderAddress?.address || orderAddress.address.trim() === "") {
       showToast("Please provide a valid delivery address before placing your order.", "error");
+      return;
+    }
+    if (!/^\d{6}$/.test(String(orderAddress.pincode || "").trim())) {
+      showToast("Please add a valid 6-digit delivery pincode.", "error");
       return;
     }
 
@@ -934,11 +986,12 @@ const CheckoutPage = () => {
             if (paymentRes.data.success) {
               const paymentData = paymentRes.data.result.payment;
               const razorpayOrderId = paymentData?.rawGatewayResponse?.razorpayOrderId;
+              const razorpayKeyId = paymentData?.rawGatewayResponse?.keyId;
               const amountPaise = paymentData?.amount;
               const merchantOrderId = paymentData?.gatewayOrderId;
 
-              if (!razorpayOrderId) {
-                throw new Error("Razorpay Order ID not received from backend");
+              if (!razorpayOrderId || !razorpayKeyId) {
+                throw new Error("Razorpay checkout is not configured correctly. Please retry later.");
               }
 
               const isLoaded = await loadRazorpayScript();
@@ -947,21 +1000,31 @@ const CheckoutPage = () => {
               }
 
               const options = {
-                key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_b0PSRa7kNhbHj3",
+                key: razorpayKeyId,
                 amount: amountPaise,
                 currency: "INR",
                 name: appName,
                 description: `Order ${mainOrderId}`,
                 order_id: razorpayOrderId,
-                handler: function (response) {
-                  // After successful payment, verify with backend or just show success
-                  if (directBuyItem) {
-                    removeFromCart(directBuyItem.id || directBuyItem._id, directBuyItem.variantSku);
-                  } else {
-                    clearCartSection('grocery');
+                handler: async function (response) {
+                  try {
+                    const confirmation = await customerApi.verifyOnlineOrderPayment(mainOrderId, {
+                      merchantOrderId,
+                      transactionId: response.razorpay_payment_id,
+                      razorpayOrderId: response.razorpay_order_id,
+                      signature: response.razorpay_signature,
+                    });
+                    if (confirmation.data?.result?.paymentStatus === "CAPTURED") {
+                      if (directBuyItem) {
+                        removeFromCart(directBuyItem.id || directBuyItem._id, directBuyItem.variantSku);
+                      } else {
+                        clearCartSection('grocery');
+                      }
+                    }
+                  } catch (error) {
+                    showToast(error.response?.data?.message || "Payment is awaiting confirmation. Check its status before retrying.", "warning");
                   }
-                  showToast("Payment Successful! Verifying with server...", "success");
-                  navigate(`/payment-status?merchantOrderId=${merchantOrderId}&paymentId=${response.razorpay_payment_id}`);
+                  navigate(`/payment-status?merchantOrderId=${encodeURIComponent(merchantOrderId)}`);
                 },
                 prefill: {
                   name: user?.name || orderAddress.name || "",
@@ -1166,7 +1229,7 @@ const CheckoutPage = () => {
           <div className="lg:col-span-7 xl:col-span-8 space-y-6 pb-8">
             {/* Delivery Time Banner */}
             <div className="mt-3 transition-all duration-300">
-              {isResolvingAddressCoords || isPreviewLoading ? (
+              {isResolvingAddressCoords || isPreviewLoading || isDeliveryDecisionLoading ? (
                 <div className="bg-white/95 rounded-2xl p-4 sm:p-5 shadow-xs border border-slate-200/80 flex items-center gap-3.5 animate-pulse">
                   <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
                     <Loader2 size={22} className="animate-spin text-brand-600" />
@@ -1179,6 +1242,10 @@ const CheckoutPage = () => {
                       Updating delivery options for your address
                     </p>
                   </div>
+                </div>
+              ) : !resolvedFulfillmentType ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+                  {previewError || "Delivery details are unavailable for this address. Please check the address and retry."}
                 </div>
               ) : resolvedFulfillmentType === "SHIPROCKET" ? (
                 <div className="bg-gradient-to-r from-blue-50/90 via-white to-blue-50/40 rounded-2xl p-4 sm:p-5 shadow-xs border border-blue-200/90 transition-all">
@@ -1254,9 +1321,9 @@ const CheckoutPage = () => {
               <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-4 flex items-start gap-3 shadow-xs">
                 <Ban className="text-red-600 shrink-0 mt-0.5" size={20} />
                 <div className="text-xs text-red-800">
-                  <p className="font-extrabold text-sm text-red-700">Quick Delivery Not Available for Some Items</p>
+                  <p className="font-extrabold text-sm text-red-700">Delivery Unavailable for Some Items</p>
                   <p className="mt-1 leading-relaxed">
-                    {unserviceableCartItems.length} item(s) in your cart (fresh grocery/perishables) are only delivered in select local areas. Please remove them or change your delivery address to proceed.
+                    {unserviceableCartItems.length} item(s) cannot be delivered to this address. Please remove them or choose another address.
                   </p>
                 </div>
               </div>
@@ -1270,7 +1337,9 @@ const CheckoutPage = () => {
               onMoveToWishlist={handleMoveToWishlist}
               showAll={showAllCartItems}
               onToggleShowAll={() => setShowAllCartItems((v) => !v)}
-              destinationPincode={activeDestinationPincode}
+              getDeliveryItem={getDeliveryItem}
+              isDeliveryLoading={isDeliveryDecisionLoading}
+              deliveryError={deliveryDecisionError}
             />
 
             {/* Wishlist Section */}
