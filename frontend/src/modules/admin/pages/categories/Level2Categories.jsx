@@ -156,6 +156,15 @@ const Level2Categories = () => {
     }
   };
 
+  const handleNameChange = (e) => {
+    const val = e.target.value;
+    setFormData((prev) => ({
+      ...prev,
+      name: val,
+      slug: makeSlug(val),
+    }));
+  };
+
   const handleSave = async () => {
     if (!formData.name || !formData.slug || !formData.parentId) {
       toast.error("Name, slug and parent header are required");
