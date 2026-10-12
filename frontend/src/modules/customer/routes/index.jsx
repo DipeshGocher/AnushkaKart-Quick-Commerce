@@ -45,7 +45,14 @@ const CustomerRoutes = () => {
                                 <Route path="product/:id" element={<ProductDetailPage />} />
                                 <Route path="kit/:id" element={<KitDetailPage />} />
                                 <Route path="terms" element={<TermsPage />} />
+                                <Route path="terms-and-conditions" element={<TermsPage />} />
+                                <Route path="terms-conditions" element={<TermsPage />} />
+                                <Route path="terms&conditions" element={<TermsPage />} />
+                                <Route path="term-and-conditions" element={<TermsPage />} />
                                 <Route path="privacy" element={<PrivacyPage />} />
+                                <Route path="privacy-policy" element={<PrivacyPage />} />
+                                <Route path="support" element={<SupportPage />} />
+                                <Route path="help" element={<SupportPage />} />
                                 <Route path="about" element={<AboutPage />} />
                                 <Route path="offers" element={<OffersPage />} />
                                 <Route path="cart" element={<CartPage />} />
@@ -58,7 +65,6 @@ const CustomerRoutes = () => {
                                 <Route path="transactions" element={<ProtectedRoute><OrderTransactionsPage /></ProtectedRoute>} />
                                 <Route path="addresses" element={<ProtectedRoute><AddressesPage /></ProtectedRoute>} />
                                 <Route path="settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-                                <Route path="support" element={<ProtectedRoute><SupportPage /></ProtectedRoute>} />
                                 <Route path="chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
                                 <Route path="checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
                                 <Route path="payment-status" element={<ProtectedRoute><PaymentStatusPage /></ProtectedRoute>} />

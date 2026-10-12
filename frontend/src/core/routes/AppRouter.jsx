@@ -59,6 +59,7 @@ import SellerRoutes, { sellerRoutes } from '../../modules/seller/routes/index';
 import AdminRoutes, { adminRoutes } from '../../modules/admin/routes/index';
 import DeliveryRoutes, { deliveryRoutes } from '../../modules/delivery/routes/index';
 const DynamicLegalPage = lazy(() => import('../../shared/components/DynamicLegalPage'));
+const DeliveryHelpSupport = lazy(() => import('../../modules/delivery/pages/profile/HelpSupport'));
 
 import CustomerLayout from '../../modules/customer/components/layout/CustomerLayout';
 
@@ -110,7 +111,8 @@ const RESERVED_CUSTOMER_SLUGS = new Set([
     'admin', 'seller', 'delivery', 'unauthorized', 'marketplace', 'api', 
     'login', 'signup', 'verify-otp', 'categories', 'category', 'product', 'products', 
     'search', 'orders', 'cart', 'wishlist', 'settings', 'profile', 
-    'wallet', 'notifications', 'checkout', 'support', 'privacy', 'about', 'offers'
+    'wallet', 'notifications', 'checkout', 'support', 'help', 'privacy', 'privacy-policy', 'about', 'offers',
+    'terms', 'terms-and-conditions', 'terms-conditions', 'terms&conditions', 'term-and-conditions'
 ]);
 
 const HierarchicalProductRoute = () => {
@@ -160,9 +162,13 @@ const AppRouter = () => {
                     path: 'delivery/auth',
                     element: <DeliveryAuth />,
                 },
-                // Public legal pages for each module
+                // Public legal and support pages for each module
                 {
                     path: 'seller/terms',
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="terms" audience="seller" /></Suspense>,
+                },
+                {
+                    path: 'seller/terms-and-conditions',
                     element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="terms" audience="seller" /></Suspense>,
                 },
                 {
@@ -170,12 +176,52 @@ const AppRouter = () => {
                     element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="privacy" audience="seller" /></Suspense>,
                 },
                 {
-                    path: 'delivery/support',
+                    path: 'seller/privacy-policy',
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="privacy" audience="seller" /></Suspense>,
+                },
+                {
+                    path: 'seller/support',
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><SupportPage /></Suspense>,
+                },
+                {
+                    path: 'delivery/terms',
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="terms" audience="delivery" /></Suspense>,
+                },
+                {
+                    path: 'delivery/terms-and-conditions',
                     element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="terms" audience="delivery" /></Suspense>,
                 },
                 {
                     path: 'delivery/privacy',
                     element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="privacy" audience="delivery" /></Suspense>,
+                },
+                {
+                    path: 'delivery/privacy-policy',
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="privacy" audience="delivery" /></Suspense>,
+                },
+                {
+                    path: 'delivery/support',
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DeliveryHelpSupport /></Suspense>,
+                },
+                {
+                    path: 'admin/terms',
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="terms" audience="customer" /></Suspense>,
+                },
+                {
+                    path: 'admin/terms-and-conditions',
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="terms" audience="customer" /></Suspense>,
+                },
+                {
+                    path: 'admin/privacy',
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="privacy" audience="customer" /></Suspense>,
+                },
+                {
+                    path: 'admin/privacy-policy',
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="privacy" audience="customer" /></Suspense>,
+                },
+                {
+                    path: 'admin/support',
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><SupportPage /></Suspense>,
                 },
                 {
                     path: 'seller',
@@ -226,8 +272,15 @@ const AppRouter = () => {
                         { path: 'category/:categoryName', element: <CategoryProductsPage /> },
                         { path: 'product/:id', element: <ProductDetailPage /> },
                         { path: 'kit/:id', element: <KitDetailPage /> },
-                        { path: 'support', element: <TermsPage /> },
+                        { path: 'support', element: <SupportPage /> },
+                        { path: 'help', element: <SupportPage /> },
+                        { path: 'terms', element: <TermsPage /> },
+                        { path: 'terms-and-conditions', element: <TermsPage /> },
+                        { path: 'terms-conditions', element: <TermsPage /> },
+                        { path: 'terms&conditions', element: <TermsPage /> },
+                        { path: 'term-and-conditions', element: <TermsPage /> },
                         { path: 'privacy', element: <PrivacyPage /> },
+                        { path: 'privacy-policy', element: <PrivacyPage /> },
                         { path: 'about', element: <AboutPage /> },
                         { path: 'offers', element: <OffersPage /> },
                         { path: 'shop-by-store', element: <ShopByStorePage /> },
@@ -238,7 +291,6 @@ const AppRouter = () => {
                         { path: 'transactions', element: <ProtectedRoute><OrderTransactionsPage /></ProtectedRoute> },
                         { path: 'addresses', element: <ProtectedRoute><AddressesPage /></ProtectedRoute> },
                         { path: 'settings', element: <ProtectedRoute><SettingsPage /></ProtectedRoute> },
-                        { path: 'help', element: <ProtectedRoute><SupportPage /></ProtectedRoute> },
                         { path: 'chat', element: <ProtectedRoute><ChatPage /></ProtectedRoute> },
                         { path: 'checkout', element: <ProtectedRoute><CheckoutPage /></ProtectedRoute> },
                         { path: 'payment-status', element: <PaymentStatusPage /> },

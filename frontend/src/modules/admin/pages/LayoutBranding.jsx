@@ -137,7 +137,7 @@ export default function LayoutBranding() {
         linkedin: '',
         footerCopyright: '',
         footerPrivacyUrl: '/privacy',
-        footerTermsUrl: '/support',
+        footerTermsUrl: '/terms-and-conditions',
         footerBgColor: '',
         footerEnabled: true
     });
@@ -1599,9 +1599,9 @@ export default function LayoutBranding() {
                                 <label className="text-xs font-bold text-slate-700">Terms of Service Link URL</label>
                                 <input
                                     type="text"
-                                    value={settings.footerTermsUrl || '/support'}
+                                    value={settings.footerTermsUrl || '/terms-and-conditions'}
                                     onChange={(e) => handleInputChange('footerTermsUrl', e.target.value)}
-                                    placeholder="/support"
+                                    placeholder="/terms-and-conditions"
                                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
                                 />
                             </div>

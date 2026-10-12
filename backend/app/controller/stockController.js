@@ -23,12 +23,18 @@ export const adjustStock = async (req, res) => {
             return handleResponse(res, 404, "Product not found or unauthorized");
         }
 
-        const qtyChange = Number(quantity);
+        const rawQty = Number(quantity);
+        const qtyChange = Math.abs(rawQty);
+        if (isNaN(qtyChange) || qtyChange <= 0) {
+            return handleResponse(res, 400, "Please enter a valid positive quantity");
+        }
+
         const previousStock = Number(product.stock || 0);
-        const finalStock = type === 'Restock' ? product.stock + qtyChange : product.stock - qtyChange;
+        const isAddition = type === 'Restock' || type === 'Addition';
+        const finalStock = isAddition ? previousStock + qtyChange : previousStock - qtyChange;
 
         if (finalStock < 0) {
-            return handleResponse(res, 400, "Stock cannot be negative");
+            return handleResponse(res, 400, `Cannot remove more stock than currently available (${previousStock} units)`);
         }
 
         // 1. Update Product Stock
@@ -39,15 +45,15 @@ export const adjustStock = async (req, res) => {
         const historyEntry = new StockHistory({
             product: productId,
             ...(role === "warehouse" ? { warehouseId: userId } : { seller: userId }),
-            type, // Restock, Correction
-            quantity: type === 'Restock' ? qtyChange : -qtyChange,
-            note: note || `Manual ${type} adjustment`
+            type: isAddition ? 'Restock' : 'Correction',
+            quantity: isAddition ? qtyChange : -qtyChange,
+            note: note || `Manual ${isAddition ? 'Restock' : 'Remove'} adjustment`
         });
 
         await historyEntry.save();
 
         if (
-            type !== 'Restock' &&
+            !isAddition &&
             qtyChange > 0 &&
             await isLowStockAlertsEnabled()
         ) {

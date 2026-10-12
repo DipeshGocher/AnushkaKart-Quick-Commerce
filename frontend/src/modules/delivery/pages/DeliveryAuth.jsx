@@ -314,7 +314,7 @@ const DeliveryAuth = () => {
       <div className="text-xs leading-relaxed text-slate-500">
         <label htmlFor={`signupTerms-${signupStep}`} className="cursor-pointer">I agree to the </label>
         <span 
-          onClick={() => navigate('/delivery/support')}
+          onClick={() => navigate('/delivery/terms')}
           className="text-[#6666FF] font-bold hover:underline cursor-pointer"
         >Terms of Service</span> &amp;{" "}
         <span 
@@ -1117,7 +1117,7 @@ const DeliveryAuth = () => {
                   />
                   <label htmlFor="terms" className="text-xs text-gray-500 leading-relaxed cursor-pointer">
                     I confirm my phone number is correct and I agree to the{" "}
-                    <span onClick={() => navigate('/delivery/support')} className="text-brand-600 font-bold hover:underline cursor-pointer">Terms of Service</span> &amp;{" "}
+                    <span onClick={() => navigate('/delivery/terms')} className="text-brand-600 font-bold hover:underline cursor-pointer">Terms of Service</span> &amp;{" "}
                     <span onClick={() => navigate('/delivery/privacy')} className="text-brand-600 font-bold hover:underline cursor-pointer">Privacy Policy</span>.
                   </label>
                 </div>

@@ -149,9 +149,15 @@ const StockManagement = () => {
     }, [inventory, searchTerm, filterStatus, sortBy]);
 
     const handleFullAdjustment = async () => {
-        const value = parseInt(adjustValue);
+        const value = parseInt(adjustValue, 10);
         if (isNaN(value) || value <= 0) {
             toast.error("Please enter a valid quantity");
+            return;
+        }
+
+        const currentStock = Number(selectedItem?.stock || 0);
+        if (adjustType === 'Remove' && value > currentStock) {
+            toast.error(`Cannot remove more than current stock (${currentStock} units)`);
             return;
         }
 
@@ -159,12 +165,12 @@ const StockManagement = () => {
             const res = await sellerApi.adjustStock({
                 productId: selectedItem.id,
                 type: adjustType === 'Restock' ? 'Restock' : 'Correction',
-                quantity: adjustType === 'Restock' ? value : -value,
+                quantity: value,
                 note: adjustNote
             });
 
             if (res.data.success) {
-                toast.success("Stock adjusted successfully");
+                toast.success(adjustType === 'Restock' ? `Restocked ${value} units successfully` : `Removed ${value} units successfully`);
                 setIsAdjustModalOpen(false);
                 fetchInventory(true);
             }
@@ -510,28 +516,43 @@ const StockManagement = () => {
 
                                 <div className="space-y-4">
                                     <div className="flex p-1 bg-slate-100 rounded-2xl border border-slate-200">
-                                        {['Restock', 'Remove'].map((type) => (
-                                            <button
-                                                key={type}
-                                                onClick={() => setAdjustType(type)}
-                                                className={cn(
-                                                    "flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-                                                    adjustType === type
-                                                        ? "bg-white text-slate-900 shadow-md"
-                                                        : "text-slate-600 hover:text-slate-600"
-                                                )}
-                                            >
-                                                {type}
-                                            </button>
-                                        ))}
+                                        <button
+                                            type="button"
+                                            onClick={() => setAdjustType('Restock')}
+                                            className={cn(
+                                                "flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                                                adjustType === 'Restock'
+                                                    ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
+                                                    : "text-slate-600 hover:text-slate-900"
+                                            )}
+                                        >
+                                            + Restock (Add)
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setAdjustType('Remove')}
+                                            className={cn(
+                                                "flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                                                adjustType === 'Remove'
+                                                    ? "bg-rose-600 text-white shadow-md shadow-rose-600/20"
+                                                    : "text-slate-600 hover:text-slate-900"
+                                            )}
+                                        >
+                                            - Remove (Deduct)
+                                        </button>
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <label className="text-xs font-black text-slate-600 uppercase tracking-widest ml-1">Quantity Change</label>
+                                        <label className="text-xs font-black text-slate-600 uppercase tracking-widest ml-1">
+                                            {adjustType === 'Restock' ? 'Quantity to Add (Restock)' : 'Quantity to Remove (Deduct)'}
+                                        </label>
                                         <div className="relative group">
-                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-black text-slate-600">#</div>
+                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-black text-slate-600">
+                                                {adjustType === 'Restock' ? '+' : '-'}
+                                            </div>
                                             <input
                                                 type="number"
+                                                min="1"
                                                 value={adjustValue}
                                                 onChange={(e) => setAdjustValue(e.target.value)}
                                                 className="w-full pl-10 pr-4 py-4 bg-slate-50 border-none rounded-2xl text-2xl font-black text-slate-900 focus:ring-2 focus:ring-primary/20 transition-all outline-none"
@@ -540,13 +561,38 @@ const StockManagement = () => {
                                         </div>
                                     </div>
 
+                                    {/* Projected Stock Preview */}
+                                    {selectedItem && (
+                                        <div className={cn(
+                                            "p-3 rounded-xl border flex items-center justify-between text-xs font-bold transition-colors",
+                                            adjustType === 'Restock'
+                                                ? "bg-emerald-50/70 border-emerald-200 text-emerald-800"
+                                                : (Number(selectedItem.stock || 0) === 0
+                                                    ? "bg-amber-50/70 border-amber-200 text-amber-800"
+                                                    : "bg-rose-50/70 border-rose-200 text-rose-800")
+                                        )}>
+                                            <span>
+                                                {adjustType === 'Restock' ? 'Projected Stock After Add:' : 'Projected Stock After Deduct:'}
+                                            </span>
+                                            <span className="font-black text-sm">
+                                                {adjustType === 'Restock'
+                                                    ? `${Number(selectedItem.stock || 0) + (parseInt(adjustValue, 10) || 0)} Units`
+                                                    : (Number(selectedItem.stock || 0) === 0
+                                                        ? '0 Units (No stock available to remove)'
+                                                        : `${Math.max(0, Number(selectedItem.stock || 0) - (parseInt(adjustValue, 10) || 0))} Units`
+                                                    )
+                                                }
+                                            </span>
+                                        </div>
+                                    )}
+
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-black text-slate-600 uppercase tracking-widest ml-1">Internal Note (Optional)</label>
                                         <textarea
                                             value={adjustNote}
                                             onChange={(e) => setAdjustNote(e.target.value)}
                                             className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-primary/20 transition-all outline-none resize-none h-20"
-                                            placeholder="Reason for adjustment..."
+                                            placeholder={adjustType === 'Restock' ? "Reason for restock (e.g. New shipment arrived)..." : "Reason for removal (e.g. Expired, Damaged, Sold offline)..."}
                                         />
                                     </div>
                                 </div>
@@ -562,9 +608,14 @@ const StockManagement = () => {
                                 </Button>
                                 <Button
                                     onClick={handleFullAdjustment}
-                                    className="flex-1 py-4 text-xs font-bold rounded-2xl shadow-xl shadow-primary/20"
+                                    className={cn(
+                                        "flex-1 py-4 text-xs font-bold rounded-2xl shadow-xl transition-all",
+                                        adjustType === 'Restock'
+                                            ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
+                                            : "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/20"
+                                    )}
                                 >
-                                    SAVE CHANGES
+                                    {adjustType === 'Restock' ? '+ ADD TO STOCK' : '- REMOVE FROM STOCK'}
                                 </Button>
                             </div>
                         </motion.div>

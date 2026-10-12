@@ -139,7 +139,7 @@ const Footer = () => {
                     <p className="md:text-base text-white/60">{copyrightText}</p>
                     <div className="flex gap-6 justify-center md:justify-end mt-4 md:mt-0 md:gap-12">
                         <Link to={settings?.footerPrivacyUrl || '/privacy'} className="hover:text-brand-300 md:text-base text-white/60 transition-all">Privacy Policy</Link>
-                        <Link to={settings?.footerTermsUrl || '/support'} className="hover:text-brand-300 md:text-base text-white/60 transition-all">Terms of Service</Link>
+                        <Link to={settings?.footerTermsUrl && settings?.footerTermsUrl !== '/support' ? settings.footerTermsUrl : '/terms-and-conditions'} className="hover:text-brand-300 md:text-base text-white/60 transition-all">Terms of Service</Link>
                     </div>
                 </div>
             </div>

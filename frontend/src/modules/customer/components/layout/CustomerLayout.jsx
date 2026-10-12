@@ -84,7 +84,8 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
     const hideHeaderRoutes = [
         '/', '/categories', '/orders', '/transactions',
         '/profile', '/profile/edit', '/wishlist', '/addresses', '/wallet', '/help', 
-        '/privacy', '/about', '/support', '/checkout',
+        '/privacy', '/privacy-policy', '/about', '/support', '/checkout',
+        '/terms', '/terms-and-conditions', '/terms-conditions', '/terms&conditions', '/term-and-conditions',
         '/search', '/chat', '/notifications', '/cart'
     ];
     const hideBottomNavRoutes = ['/checkout', '/search', '/chat'];

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { MessageCircle, Phone, Mail, ChevronDown, ChevronUp, FileText, ChevronLeft, PlusCircle, X, Send } from 'lucide-react';
 import { useToast } from '@shared/components/ui/Toast';
 import { useSettings } from '@core/context/SettingsContext';
+import { useAuth } from '@core/context/AuthContext';
 import { customerApi } from '../services/customerApi';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,8 +18,15 @@ const SupportPage = () => {
     const navigate = useNavigate();
     const { showToast } = useToast();
     const { settings } = useSettings();
-    const supportEmail = settings?.supportEmail || '';
+    const { isAuthenticated, user, token } = useAuth();
+    const isLoggedIn = Boolean(isAuthenticated && (token || user));
+
+    const rawPhone = settings?.supportPhone || '+91 98765 43210';
+    const supportPhoneShort = rawPhone.length > 13 ? rawPhone.slice(0, 13) + '...' : rawPhone;
+
+    const supportEmail = settings?.supportEmail || 'support@appzeto.com';
     const supportEmailShort = supportEmail ? (supportEmail.length > 12 ? supportEmail.slice(0, 12) + '...' : supportEmail) : 'support@...';
+
     const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
     const [ticketLoading, setTicketLoading] = useState(false);
     const [ticketData, setTicketData] = useState({
@@ -27,6 +35,39 @@ const SupportPage = () => {
         priority: 'medium'
     });
     const [faqs, setFaqs] = useState([]);
+
+    const handleChatClick = () => {
+        if (!isLoggedIn) {
+            navigate('/login', { state: { from: '/chat' } });
+            return;
+        }
+        navigate('/chat');
+    };
+
+    const handleRaiseTicketClick = () => {
+        if (!isLoggedIn) {
+            navigate('/login', { state: { from: '/support' } });
+            return;
+        }
+        setIsTicketModalOpen(true);
+    };
+
+    const handleCallClick = () => {
+        if (!isLoggedIn) {
+            navigate('/login', { state: { from: '/support' } });
+            return;
+        }
+        const cleanedPhone = rawPhone.replace(/[^\d+]/g, '') || '+919876543210';
+        window.location.href = `tel:${cleanedPhone}`;
+    };
+
+    const handleEmailClick = () => {
+        if (!isLoggedIn) {
+            navigate('/login', { state: { from: '/support' } });
+            return;
+        }
+        window.location.href = `mailto:${supportEmail}`;
+    };
 
     useEffect(() => {
         const fetchFaqs = async () => {
@@ -91,16 +132,34 @@ const SupportPage = () => {
             <div className="max-w-2xl mx-auto px-4 pt-1 relative z-20 space-y-5">
                 {/* Contact Channels */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <ContactCard emoji="💬" badgeBg="bg-emerald-50/80 border-emerald-100 text-emerald-700" label="Chat Us" sub="Instant Support" to="/chat" />
+                    <ContactCard
+                        emoji="💬"
+                        badgeBg="bg-emerald-50/80 border-emerald-100 text-emerald-700"
+                        label="Chat Us"
+                        sub="Instant Support"
+                        onClick={handleChatClick}
+                    />
                     <ContactCard
                         emoji="🎫"
                         badgeBg="bg-amber-50/80 border-amber-100 text-amber-700"
                         label="Raise Ticket"
                         sub="Formal Request"
-                        onClick={() => setIsTicketModalOpen(true)}
+                        onClick={handleRaiseTicketClick}
                     />
-                    <ContactCard emoji="📞" badgeBg="bg-orange-50/80 border-orange-100 text-orange-600" label="Call Us" sub="+91 98765..." />
-                    <ContactCard emoji="✉️" badgeBg="bg-purple-50/80 border-purple-100 text-purple-700" label="Email Us" sub={supportEmailShort} />
+                    <ContactCard
+                        emoji="📞"
+                        badgeBg="bg-rose-50/80 border-rose-100 text-rose-600"
+                        label="Call Us"
+                        sub={supportPhoneShort}
+                        onClick={handleCallClick}
+                    />
+                    <ContactCard
+                        emoji="✉️"
+                        badgeBg="bg-purple-50/80 border-purple-100 text-purple-700"
+                        label="Email Us"
+                        sub={supportEmailShort}
+                        onClick={handleEmailClick}
+                    />
                 </div>
 
                 {/* FAQ Section */}
@@ -127,7 +186,7 @@ const SupportPage = () => {
                 <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
                     <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">Legal & Policy</h3>
                     <div className="space-y-3">
-                        <Link to="/support" className="flex items-center gap-3 text-slate-700 hover:text-slate-900 font-bold text-sm">
+                        <Link to="/terms-and-conditions" className="flex items-center gap-3 text-slate-700 hover:text-slate-900 font-bold text-sm">
                             <div className="w-8 h-8 rounded-full bg-indigo-50/80 border border-indigo-100 flex items-center justify-center text-indigo-700 shrink-0">
                                 <span className="text-xs">📜</span>
                             </div>
@@ -242,14 +301,22 @@ const ContactCard = ({ emoji, badgeBg, label, sub, to, onClick }) => {
     const CardContent = (
         <div
             onClick={onClick}
-            className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-2 hover:bg-slate-50/80 transition-colors cursor-pointer group h-full"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onClick?.();
+                }
+            }}
+            className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center gap-2 hover:bg-slate-50/80 transition-all cursor-pointer group h-full select-none active:scale-[0.98]"
         >
-            <div className={cn("w-12 h-12 rounded-full border flex items-center justify-center shadow-2xs group-hover:scale-108 transition-transform", badgeBg)}>
+            <div className={cn("w-12 h-12 rounded-full border flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform", badgeBg)}>
                 <span className="text-xl">{emoji}</span>
             </div>
             <div>
                 <h3 className="font-bold text-slate-800 text-sm whitespace-nowrap">{label}</h3>
-                <p className="text-[10px] text-slate-500 font-semibold">{sub}</p>
+                <p className="text-[10px] text-slate-500 font-semibold truncate max-w-[120px]">{sub}</p>
             </div>
         </div>
     );

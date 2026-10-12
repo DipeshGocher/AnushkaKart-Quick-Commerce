@@ -147,16 +147,22 @@ const StockManagement = () => {
             return;
         }
 
+        const currentStock = Number(selectedItem?.stock || 0);
+        if (adjustType === 'Remove' && value > currentStock) {
+            toast.error(`Cannot remove more than current stock (${currentStock} units)`);
+            return;
+        }
+
         try {
             const res = await warehouseApi.adjustStock({
                 productId: selectedItem.id,
                 type: adjustType === 'Restock' ? 'Restock' : 'Correction',
-                quantity: adjustType === 'Restock' ? value : -value,
+                quantity: value,
                 note: adjustNote
             });
 
             if (res.data.success) {
-                toast.success("Stock adjusted successfully");
+                toast.success(adjustType === 'Restock' ? `Restocked ${value} units successfully` : `Removed ${value} units successfully`);
                 setIsAdjustModalOpen(false);
                 fetchInventory(true);
             }

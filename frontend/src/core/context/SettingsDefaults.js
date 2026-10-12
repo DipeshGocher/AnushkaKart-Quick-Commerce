@@ -65,7 +65,7 @@ export const DEFAULT_SETTINGS = {
   footerContactTitle: "Contact Us",
   footerCopyright: "",
   footerPrivacyUrl: "/privacy",
-  footerTermsUrl: "/support",
+  footerTermsUrl: "/terms-and-conditions",
   footerBgColor: "",
   footerEnabled: true,
   deliveryBadgeText: "30 min",
