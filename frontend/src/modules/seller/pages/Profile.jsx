@@ -142,97 +142,97 @@ const SellerProfile = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-4 md:p-8 font-['Outfit']">
+    <div className="max-w-5xl mx-auto p-3 sm:p-6 md:p-8 font-['Outfit']">
       {/* Header Section */}
-      <div className="relative mb-24 px-4">
-        {/* Banner Background */}
-        <div className="bg-gradient-to-r from-[#0B132B] via-[#1C2541] to-[#6666FF] h-64 rounded-3xl shadow-2xl relative overflow-hidden border border-white/10">
-          <div className="absolute inset-0 opacity-40">
+      <div className="relative mb-6 sm:mb-8 md:mb-12">
+        {/* Banner Background & Content */}
+        <div className="bg-gradient-to-r from-[#0B132B] via-[#1C2541] to-[#6666FF] rounded-3xl shadow-2xl relative overflow-hidden border border-white/10 p-5 sm:p-8 md:p-10 md:min-h-[260px] flex flex-col justify-end">
+          <div className="absolute inset-0 opacity-40 pointer-events-none">
             <div className="absolute top-0 left-0 w-80 h-80 bg-[#6666FF]/30 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
             <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#0047AB]/40 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
             <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-amber-500/20 rounded-full blur-2xl -translate-x-1/2 -translate-y-1/2" />
           </div>
-        </div>
 
-        {/* Profile Info Row */}
-        <div className="absolute bottom-8 left-4 right-4 md:left-8 md:right-8 lg:left-12 lg:right-12 grid grid-cols-1 md:grid-cols-[176px_minmax(0,1fr)_auto] items-center md:items-end gap-6 md:gap-8">
-          {/* Avatar Container */}
-          <div className="h-44 w-44 rounded-full p-[4px] bg-gradient-to-tr from-[#7777FF] via-[#6666FF] to-[#5555EE] shadow-[0_20px_50px_rgba(102,102,255,0.35)] flex-shrink-0 mx-auto md:mx-0">
-            <div className="h-full w-full rounded-full bg-white flex items-center justify-center border-4 border-white shadow-inner overflow-hidden">
-              <span className="text-7xl font-black bg-gradient-to-br from-[#7777FF] via-[#6666FF] to-[#0B132B] bg-clip-text text-transparent">
-                {profile?.name?.charAt(0)}
-              </span>
-            </div>
-          </div>
-
-          {/* Info Block */}
-          <div className="min-w-0 pb-2 md:pb-4 text-center md:text-left">
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-3">
-              <span className="px-4 py-1.5 bg-[#6666FF]/20 backdrop-blur-xl text-brand-200 text-[10px] font-black uppercase tracking-[2px] rounded-full border border-[#6666FF]/40 shadow-sm flex items-center gap-1.5">
-                <Store size={12} className="text-[#6666FF]" /> {profile?.role}
-              </span>
-              <button
-                onClick={toggleStatus}
-                className={`group flex items-center gap-2 px-4 py-1.5 text-[10px] font-black uppercase tracking-[2px] rounded-full border transition-all hover:scale-105 active:scale-95 ${
-                  profile?.isActive
-                    ? "bg-emerald-500 text-white border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.4)]"
-                    : "bg-rose-500 text-white border-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.4)]"
-                }`}>
-                <div
-                  className={`w-2 h-2 rounded-full animate-pulse ${
-                    profile?.isActive ? "bg-emerald-200" : "bg-rose-200"
-                  }`}
-                />
-                {profile?.isActive ? "Active Store" : "Inactive"}
-              </button>
-            </div>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tighter drop-shadow-md mb-2 break-words">
-              {profile?.name}
-            </h1>
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 text-white font-bold tracking-[0.5px] text-base shadow-sm">
-              <Store size={18} className="text-[#6666FF]" />
-              <span className="text-brand-200 font-extrabold">{profile?.shopName || "Harsh's Hub"}</span>
-            </div>
-          </div>
-
-          {/* Action Button */}
-          <div className="pb-2 md:pb-4 w-full md:w-auto">
-            {!isEditing ? (
-              <Button
-                onClick={() => setIsEditing(true)}
-                className="w-full md:w-auto bg-gradient-to-r from-[#7777FF] to-[#6666FF] hover:from-[#6666FF] hover:to-[#4F4FDD] text-white border border-[#6666FF]/40 transition-all rounded-xl px-6 lg:px-10 py-4 md:py-5 flex items-center justify-center gap-3 md:gap-4 font-black tracking-[2px] md:tracking-[3px] text-xs shadow-[0_15px_35px_rgba(102,102,255,0.4)] hover:scale-[1.03] active:scale-[0.95] whitespace-nowrap">
-                <Edit2 size={18} /> EDIT PROFILE
-              </Button>
-            ) : (
-              <div className="w-full md:w-auto flex gap-3 md:gap-4 justify-center md:justify-end">
-                <Button
-                  onClick={() => setIsEditing(false)}
-                  variant="outline"
-                  className="h-[64px] w-[64px] flex items-center justify-center bg-white/10 text-white border border-white/30 hover:bg-white hover:text-slate-900 rounded-xl shadow-lg transition-all backdrop-blur-md">
-                  <X size={24} className="stroke-[2.5]" />
-                </Button>
-                <Button
-                  onClick={handleSubmit}
-                  disabled={isSaving}
-                  className="min-w-0 max-w-full bg-gradient-to-r from-[#7777FF] to-[#6666FF] text-white hover:from-[#6666FF] hover:to-[#4F4FDD] rounded-xl px-5 md:px-8 lg:px-10 py-4 md:py-5 font-black tracking-[2px] md:tracking-[3px] text-xs flex items-center gap-3 md:gap-4 shadow-[0_20px_40px_rgba(102,102,255,0.35)] h-[64px] whitespace-nowrap">
-                  {isSaving ? (
-                    "UPDATING..."
-                  ) : (
-                    <>
-                      <Save size={20} /> SAVE CHANGES
-                    </>
-                  )}
-                </Button>
+          {/* Profile Info Row */}
+          <div className="relative z-10 grid grid-cols-1 md:grid-cols-[140px_minmax(0,1fr)_auto] lg:grid-cols-[176px_minmax(0,1fr)_auto] items-center md:items-end gap-5 md:gap-8">
+            {/* Avatar Container */}
+            <div className="h-28 w-28 sm:h-36 sm:w-36 md:h-36 md:w-36 lg:h-44 lg:w-44 rounded-full p-[3px] md:p-[4px] bg-gradient-to-tr from-[#7777FF] via-[#6666FF] to-[#5555EE] shadow-[0_20px_50px_rgba(102,102,255,0.35)] shrink-0 mx-auto md:mx-0">
+              <div className="h-full w-full rounded-full bg-white flex items-center justify-center border-4 border-white shadow-inner overflow-hidden">
+                <span className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black bg-gradient-to-br from-[#7777FF] via-[#6666FF] to-[#0B132B] bg-clip-text text-transparent">
+                  {profile?.name?.charAt(0)}
+                </span>
               </div>
-            )}
+            </div>
+
+            {/* Info Block */}
+            <div className="min-w-0 text-center md:text-left">
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 sm:gap-3 mb-2 sm:mb-3">
+                <span className="px-3 sm:px-4 py-1 sm:py-1.5 bg-[#6666FF]/20 backdrop-blur-xl text-brand-200 text-[10px] font-black uppercase tracking-[2px] rounded-full border border-[#6666FF]/40 shadow-sm flex items-center gap-1.5">
+                  <Store size={12} className="text-[#6666FF]" /> {profile?.role}
+                </span>
+                <button
+                  onClick={toggleStatus}
+                  className={`group flex items-center gap-2 px-3 sm:px-4 py-1 sm:py-1.5 text-[10px] font-black uppercase tracking-[2px] rounded-full border transition-all hover:scale-105 active:scale-95 ${
+                    profile?.isActive
+                      ? "bg-emerald-500 text-white border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.4)]"
+                      : "bg-rose-500 text-white border-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.4)]"
+                  }`}>
+                  <div
+                    className={`w-2 h-2 rounded-full animate-pulse ${
+                      profile?.isActive ? "bg-emerald-200" : "bg-rose-200"
+                    }`}
+                  />
+                  {profile?.isActive ? "Active Store" : "Inactive"}
+                </button>
+              </div>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tight drop-shadow-md mb-2 break-words">
+                {profile?.name}
+              </h1>
+              <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 text-white font-bold tracking-[0.5px] text-xs sm:text-sm md:text-base shadow-sm">
+                <Store size={16} className="text-[#6666FF]" />
+                <span className="text-brand-200 font-extrabold">{profile?.shopName || "Harsh's Hub"}</span>
+              </div>
+            </div>
+
+            {/* Action Button */}
+            <div className="w-full md:w-auto shrink-0 flex justify-center md:justify-end">
+              {!isEditing ? (
+                <Button
+                  onClick={() => setIsEditing(true)}
+                  className="w-full md:w-auto bg-gradient-to-r from-[#7777FF] to-[#6666FF] hover:from-[#6666FF] hover:to-[#4F4FDD] text-white border border-[#6666FF]/40 transition-all rounded-xl px-6 lg:px-8 py-3.5 md:py-4 flex items-center justify-center gap-2.5 font-black tracking-[2px] text-xs shadow-[0_15px_35px_rgba(102,102,255,0.4)] hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap">
+                  <Edit2 size={16} /> EDIT PROFILE
+                </Button>
+              ) : (
+                <div className="w-full md:w-auto flex gap-2 sm:gap-3 justify-center md:justify-end">
+                  <Button
+                    onClick={() => setIsEditing(false)}
+                    variant="outline"
+                    className="h-12 w-12 sm:h-14 sm:w-14 flex items-center justify-center bg-white/10 text-white border border-white/30 hover:bg-white hover:text-slate-900 rounded-xl shadow-lg transition-all backdrop-blur-md">
+                    <X size={20} className="stroke-[2.5]" />
+                  </Button>
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={isSaving}
+                    className="flex-1 md:flex-none bg-gradient-to-r from-[#7777FF] to-[#6666FF] text-white hover:from-[#6666FF] hover:to-[#4F4FDD] rounded-xl px-5 sm:px-8 py-3.5 sm:py-4 font-black tracking-[2px] text-xs flex items-center justify-center gap-2.5 shadow-[0_20px_40px_rgba(102,102,255,0.35)] h-12 sm:h-14 whitespace-nowrap">
+                    {isSaving ? (
+                      "UPDATING..."
+                    ) : (
+                      <>
+                        <Save size={18} /> SAVE CHANGES
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
         {/* Main Info Card */}
-        <div className="md:col-span-2 space-y-8">
-          <Card className="p-8 border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] rounded-2xl border-t-4 border-t-[#6666FF]">
+        <div className="md:col-span-2 space-y-6 md:space-y-8">
+          <Card className="p-5 sm:p-8 border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] rounded-2xl border-t-4 border-t-[#6666FF]">
             <div className="flex items-center gap-3 mb-8 border-b border-slate-100 pb-4">
               <div className="w-10 h-10 rounded-xl bg-brand-100 text-[#6666FF] flex items-center justify-center font-bold shadow-sm">
                 <Store size={20} />
@@ -329,44 +329,44 @@ const SellerProfile = () => {
           </Card>
 
           {/* Location & Radius Settings Card */}
-          <Card className="p-8 border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] rounded-2xl border-t-4 border-t-[#0047AB]">
-            <div className="flex justify-between items-center mb-8 border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-100 text-[#0047AB] flex items-center justify-center font-bold shadow-sm">
+          <Card className="p-5 sm:p-8 border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] rounded-2xl border-t-4 border-t-[#0047AB]">
+            <div className="flex flex-wrap justify-between items-center gap-3 mb-6 sm:mb-8 border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 text-[#0047AB] flex items-center justify-center font-bold shadow-sm shrink-0">
                   <MapPin size={20} />
                 </div>
-                <h3 className="text-xl font-black text-slate-900">
+                <h3 className="text-lg sm:text-xl font-black text-slate-900 truncate">
                   Location & Service Settings
                 </h3>
               </div>
               {!isEditing && (
                 <Button
                   onClick={() => setIsEditing(true)}
-                  className="bg-slate-900 text-white hover:bg-black rounded-lg px-6 py-2 text-[10px] font-black tracking-[2px]">
+                  className="bg-slate-900 text-white hover:bg-black rounded-lg px-5 sm:px-6 py-2 text-[10px] font-black tracking-[2px] shrink-0">
                   MANAGE
                 </Button>
               )}
             </div>
 
             <div className="space-y-6">
-              <div className="bg-gradient-to-r from-brand-50/80 to-blue-50/50 p-6 rounded-2xl border-2 border-brand-100/70 space-y-6">
-                <div className="flex items-center justify-between gap-6">
-                  <div className="flex items-center gap-4">
+              <div className="bg-gradient-to-r from-brand-50/80 to-blue-50/50 p-4 sm:p-6 rounded-2xl border-2 border-brand-100/70 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6">
+                  <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
                     <div
-                      className={`h-12 w-12 rounded-xl flex items-center justify-center transition-all ${
+                      className={`h-11 w-11 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center transition-all shrink-0 ${
                         formData.lat
                           ? "bg-gradient-to-tr from-[#7777FF] to-[#6666FF] text-white shadow-lg shadow-[#6666FF]/25"
                           : "bg-white text-slate-400 shadow-sm"
                       }`}>
-                      <MapPin size={24} />
+                      <MapPin size={22} />
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0">
                       <p className="text-sm font-black text-slate-900">
                         {formData.lat
                           ? "Store Location Pin"
                           : "Location Not Defined"}
                       </p>
-                      <p className="text-xs text-slate-500 font-medium max-w-[400px] leading-relaxed">
+                      <p className="text-xs text-slate-500 font-medium max-w-[400px] leading-relaxed break-words">
                         {formData.address ||
                           "Click change to precisely mark your shop location on the map for delivery accuracy."}
                       </p>
@@ -376,7 +376,7 @@ const SellerProfile = () => {
                     <Button
                       type="button"
                       onClick={() => setIsMapOpen(true)}
-                      className="bg-white text-[#6666FF] border-2 border-[#6666FF]/30 hover:border-[#6666FF] rounded-xl px-8 py-3 text-[10px] font-black tracking-[2px] shadow-sm hover:shadow-md transition-all whitespace-nowrap">
+                      className="w-full sm:w-auto bg-white text-[#6666FF] border-2 border-[#6666FF]/30 hover:border-[#6666FF] rounded-xl px-6 sm:px-8 py-3 text-[10px] font-black tracking-[2px] shadow-sm hover:shadow-md transition-all whitespace-nowrap shrink-0">
                       CHANGE PIN
                     </Button>
                   )}

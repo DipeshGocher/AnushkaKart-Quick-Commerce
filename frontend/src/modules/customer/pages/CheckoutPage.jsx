@@ -180,7 +180,6 @@ const CheckoutPage = () => {
   // State management
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("now");
   const [selectedPayment, setSelectedPayment] = useState("cash");
-  const [selectedTip, setSelectedTip] = useState(0);
   const [showAllCartItems, setShowAllCartItems] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [selectedCoupon, setSelectedCoupon] = useState(null);
@@ -303,13 +302,6 @@ const CheckoutPage = () => {
             sublabel: "Pay after delivery",
           },
         ]),
-  ];
-
-  const tipAmounts = [
-    { value: 0, label: "No Tip" },
-    { value: 10, label: "Rs.10" },
-    { value: 20, label: "Rs.20" },
-    { value: 30, label: "Rs.30" },
   ];
 
   const discountAmount = selectedCoupon
@@ -794,7 +786,7 @@ const CheckoutPage = () => {
       address: buildAddressForOrder(),
       discountTotal: discountAmount,
       taxTotal: 0,
-      tipAmount: selectedTip,
+      tipAmount: 0,
       paymentMode: selectedPayment === "online" ? "ONLINE" : "COD",
       timeSlot: selectedTimeSlot,
     });
@@ -842,7 +834,6 @@ const CheckoutPage = () => {
     isAuthenticated,
     cart,
     selectedPayment,
-    selectedTip,
     selectedTimeSlot,
     discountAmount,
     savedRecipient,
@@ -898,7 +889,7 @@ const CheckoutPage = () => {
         paymentMode: selectedPayment === "online" ? "ONLINE" : "COD",
         discountTotal: discountAmount,
         taxTotal: taxAmount,
-        tipAmount: selectedTip,
+        tipAmount: 0,
         timeSlot: selectedTimeSlot,
         walletAmount: walletAmountToUse,
         items: cart.map((item) => ({
@@ -1317,9 +1308,6 @@ const CheckoutPage = () => {
               pricingPreview={pricingPreview}
               isPreviewLoading={isPreviewLoading}
               previewError={previewError}
-              selectedTip={selectedTip}
-              onSelectTip={setSelectedTip}
-              tipAmounts={tipAmounts}
               walletAmountToUse={walletAmountToUse}
               finalAmountToPay={finalAmountToPay}
               cartTotal={cartTotal}

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import LocalPincode from "../../models/localPincode.js";
 
 const DEFAULT_SEEDED_PINCODES = [
@@ -8,6 +9,7 @@ const DEFAULT_SEEDED_PINCODES = [
     state: "Uttar Pradesh",
     deliveryTimeEstimate: "20-35 mins",
     isActive: true,
+    riderRadiusKm: 10,
     notes: "Primary In-House Hyperlocal Delivery Zone",
   },
   {
@@ -17,6 +19,7 @@ const DEFAULT_SEEDED_PINCODES = [
     state: "Uttar Pradesh",
     deliveryTimeEstimate: "20-35 mins",
     isActive: true,
+    riderRadiusKm: 10,
     notes: "Secondary In-House Hyperlocal Delivery Zone",
   },
 ];
@@ -95,8 +98,18 @@ export async function listLocalPincodes({ search = "", status = "all", page = 1,
     LocalPincode.countDocuments(query),
   ]);
 
+  const sanitizedItems = (items || []).map((item) => ({
+    ...item,
+    riderRadiusKm:
+      item.riderRadiusKm !== undefined &&
+      item.riderRadiusKm !== null &&
+      Number.isFinite(Number(item.riderRadiusKm))
+        ? Number(item.riderRadiusKm)
+        : 10,
+  }));
+
   return {
-    items,
+    items: sanitizedItems,
     total,
     page: Number(page),
     limit: parsedLimit,
@@ -156,13 +169,35 @@ export async function updateLocalPincode(id, data) {
   }
   if (data.notes !== undefined) updateData.notes = String(data.notes).trim();
 
-  const updated = await LocalPincode.findByIdAndUpdate(id, updateData, { new: true }).lean();
+  let updated = null;
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    updated = await LocalPincode.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).lean();
+  }
+  if (!updated) {
+    updated = await LocalPincode.findOneAndUpdate(
+      { $or: [{ _id: id }, { pincode: String(id) }] },
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).lean();
+  }
   if (!updated) {
     const err = new Error("Pincode record not found");
     err.statusCode = 404;
     throw err;
   }
-  return updated;
+  return {
+    ...updated,
+    riderRadiusKm:
+      updated.riderRadiusKm !== undefined &&
+      updated.riderRadiusKm !== null &&
+      Number.isFinite(Number(updated.riderRadiusKm))
+        ? Number(updated.riderRadiusKm)
+        : 10,
+  };
 }
 
 /**

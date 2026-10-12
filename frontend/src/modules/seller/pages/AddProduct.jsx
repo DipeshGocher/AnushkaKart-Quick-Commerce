@@ -365,24 +365,24 @@ const AddProduct = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-12">
+    <div className="max-w-6xl mx-auto space-y-6 pb-12 px-1 sm:px-0 overflow-x-hidden">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <Button
           variant="ghost"
-          className="pl-0 hover:bg-transparent hover:text-primary-600"
+          className="pl-0 hover:bg-transparent hover:text-primary-600 shrink-0"
           onClick={() => navigate(-1)}>
           <HiOutlineArrowLeft className="mr-2 h-5 w-5" />
           Back to Products
         </Button>
-        <div className="flex gap-3">
-          <Button variant="outline" onClick={() => navigate(-1)}>
+        <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
+          <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => navigate(-1)}>
             Cancel
           </Button>
           <Button
             onClick={handleSave}
             disabled={isSaving}
-            className="min-w-[140px]">
+            className="flex-1 sm:flex-none min-w-[120px] sm:min-w-[140px]">
             {isSaving ? (
               <>
                 <HiOutlineArrowPath className="mr-2 h-5 w-5 animate-spin" />
@@ -396,8 +396,8 @@ const AddProduct = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-xl overflow-hidden flex flex-col md:flex-row min-h-[600px] border border-slate-100">
-        {/* Sidebar Tabs */}
-        <div className="md:w-64 bg-slate-50/50 border-r border-slate-100 p-4 space-y-1 overflow-y-auto">
+        {/* Sidebar / Mobile Tab Strip */}
+        <div className="flex flex-row overflow-x-auto gap-1.5 p-2 sm:p-3 border-b border-slate-100 md:border-b-0 md:flex-col md:w-64 md:border-r md:space-y-1 md:p-4 md:overflow-y-auto shrink-0 bg-slate-50/70">
           {[
             { id: "general", label: "General Info", icon: HiOutlineTag },
             { id: "media", label: "Images & Media", icon: HiOutlinePhoto },
@@ -409,17 +409,18 @@ const AddProduct = () => {
               key={tab.id}
               onClick={() => setModalTab(tab.id)}
               className={cn(
-                "w-full flex items-center space-x-3 px-4 py-3 rounded-md text-xs font-bold transition-all text-left",
+                "flex items-center space-x-2 px-3 py-2 sm:px-3.5 sm:py-2.5 md:w-full md:px-4 md:py-3 rounded-xl text-xs font-bold transition-all text-left whitespace-nowrap shrink-0",
                 modalTab === tab.id
-                  ? "bg-white text-primary shadow-sm ring-1 ring-slate-100"
+                  ? "bg-white text-primary shadow-sm ring-1 ring-slate-200/80"
                   : "text-slate-600 hover:bg-slate-100",
               )}>
-              <tab.icon className="h-4 w-4" />
+              <tab.icon className="h-4 w-4 shrink-0" />
               <span>{tab.label}</span>
             </button>
           ))}
 
-          <div className="pt-8 px-4">
+          {/* Status selector – hidden on mobile (inline in content header instead) */}
+          <div className="hidden md:block pt-8 px-4">
             <div className="p-4 bg-brand-50 rounded-md border border-brand-100">
               <p className="text-[9px] font-bold text-brand-600 uppercase tracking-widest mb-1">
                 Status
@@ -438,7 +439,7 @@ const AddProduct = () => {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 p-8 overflow-y-auto">
+        <div className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto pb-24 sm:pb-16">
           {modalTab === "general" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
               <div className="space-y-1.5 flex flex-col">
@@ -1058,22 +1059,22 @@ const AddProduct = () => {
               </div>
 
               {/* Delivery Mode Override */}
-              <div className="space-y-1.5 flex flex-col p-4 rounded-xl bg-slate-50 border border-slate-200">
-                <label className="text-[10px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between">
-                  <span>Delivery Mode Override</span>
-                  <span className="text-[9px] text-brand-600 font-semibold bg-brand-50 px-2 py-0.5 rounded border border-brand-200 uppercase">Hybrid Rules Engine</span>
+              <div className="space-y-2 flex flex-col p-3 sm:p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <label className="text-[10px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider flex flex-wrap items-center justify-between gap-2">
+                  <span>Delivery Mode</span>
+                  <span className="text-[9px] text-brand-600 font-semibold bg-brand-50 px-2 py-0.5 rounded border border-brand-200 uppercase whitespace-nowrap">Hybrid Rules Engine</span>
                 </label>
                 <select
                   value={formData.deliveryMode || "inherit"}
                   onChange={(e) => setFormData({ ...formData, deliveryMode: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-md text-sm font-semibold outline-none cursor-pointer focus:ring-2 focus:ring-primary/5 transition-all"
+                  className="w-full px-3 sm:px-4 py-2.5 bg-white border border-slate-200 rounded-md text-xs sm:text-sm font-semibold outline-none cursor-pointer focus:ring-2 focus:ring-primary/5 transition-all"
                 >
-                  <option value="inherit">📁 Follow Category Default (Inherit)</option>
-                  <option value="quick_only">⚡ Quick Delivery Only (Local Pincodes - 15 Mins)</option>
-                  <option value="both">🔄 Both (Local 15 Mins + Shiprocket Pan-India)</option>
+                  <option value="inherit">📁 Follow Category Default</option>
+                  <option value="quick_only">⚡ Quick Only (Local – 15 Mins)</option>
+                  <option value="both">🔄 Both (Local + Shiprocket)</option>
                 </select>
-                <p className="text-[11px] text-slate-500">
-                  'Follow Category' category ki default delivery setting use karega. Doodh/Sabzi jaise items ko 'Quick Delivery Only' aur Electronics/Fashion ko 'Both' set karein.
+                <p className="text-[11px] text-slate-500 break-words">
+                  'Follow Category' uses the category's default delivery rule. Set 'Quick Only' for perishables (milk/veggies) and 'Both' for electronics/fashion.
                 </p>
               </div>
             </div>

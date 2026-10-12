@@ -107,10 +107,30 @@ const DeliveryPincodes = () => {
     try {
       setIsSubmitting(true);
       if (editingItem) {
-        await adminShippingApi.updatePincode(editingItem._id, formData);
+        const res = await adminShippingApi.updatePincode(editingItem._id, formData);
+        const updatedDoc = res.data?.result || res.data?.results;
+        setPincodes((prev) =>
+          prev.map((p) =>
+            p._id === editingItem._id
+              ? {
+                  ...p,
+                  ...formData,
+                  ...(updatedDoc && typeof updatedDoc === "object" ? updatedDoc : {}),
+                  riderRadiusKm:
+                    updatedDoc?.riderRadiusKm !== undefined
+                      ? Number(updatedDoc.riderRadiusKm)
+                      : Number(formData.riderRadiusKm),
+                }
+              : p
+          )
+        );
         showToast(`Pincode ${formData.pincode} updated successfully`, "success");
       } else {
-        await adminShippingApi.createPincode(formData);
+        const res = await adminShippingApi.createPincode(formData);
+        const newDoc = res.data?.result || res.data?.results;
+        if (newDoc && typeof newDoc === "object") {
+          setPincodes((prev) => [...prev, newDoc]);
+        }
         showToast(`Pincode ${formData.pincode} added to Local Delivery Zone`, "success");
       }
       setIsModalOpen(false);
@@ -372,8 +392,9 @@ const DeliveryPincodes = () => {
                     </td>
                     <td className="py-3.5 px-4">
                       {item.isActive ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50/70 px-2.5 py-1 rounded-lg">
-                          <Bike size={13} /> Local Riders (≤ {item.riderRadiusKm || 10} km)
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/60">
+                          <Bike size={13} className="text-emerald-600" />
+                          <span>Local Riders (≤ {item.riderRadiusKm !== undefined && item.riderRadiusKm !== null ? item.riderRadiusKm : 10} km)</span>
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-lg">
@@ -499,16 +520,28 @@ const DeliveryPincodes = () => {
                   <label className="block text-xs font-bold text-slate-700 uppercase">
                     Delivery Boys Alert Radius (Max 30 km)
                   </label>
-                  <span className="text-xs font-black text-primary px-2.5 py-0.5 bg-primary/10 rounded-md">
-                    {formData.riderRadiusKm || 10} km
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      min="1"
+                      max="30"
+                      value={formData.riderRadiusKm ?? 10}
+                      onChange={(e) => {
+                        const parsed = parseInt(e.target.value, 10);
+                        const val = isNaN(parsed) ? 1 : Math.min(Math.max(parsed, 1), 30);
+                        setFormData({ ...formData, riderRadiusKm: val });
+                      }}
+                      className="w-14 px-2 py-0.5 text-center text-xs font-black text-primary bg-primary/10 border border-primary/20 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <span className="text-xs font-bold text-slate-600">km</span>
+                  </div>
                 </div>
                 <input
                   type="range"
                   min="1"
                   max="30"
                   step="1"
-                  value={formData.riderRadiusKm || 10}
+                  value={formData.riderRadiusKm ?? 10}
                   onChange={(e) => setFormData({ ...formData, riderRadiusKm: Number(e.target.value) })}
                   className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary"
                 />
@@ -518,7 +551,7 @@ const DeliveryPincodes = () => {
                   <span>30 km (Max Limit)</span>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  Store orders in this pincode will alert local delivery riders within {formData.riderRadiusKm || 10} km radius.
+                  Store orders in this pincode will alert local delivery riders within {formData.riderRadiusKm ?? 10} km radius.
                 </p>
               </div>
 

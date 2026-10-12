@@ -715,12 +715,12 @@ const ProductManagement = () => {
               className="w-full pl-10 pr-4 py-2.5 bg-slate-100/50 border-none rounded-xl text-xs font-semibold text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary/5 transition-all outline-none"
             />
           </div>
-          <div className="flex flex-wrap sm:flex-nowrap gap-2 shrink-0 w-full lg:w-auto">
-            <div className="relative flex-1 sm:flex-none">
+          <div className="grid grid-cols-2 sm:flex sm:flex-nowrap gap-2 shrink-0 w-full lg:w-auto">
+            <div className="relative col-span-2 sm:col-auto sm:flex-none">
               <select
                 value={filterCategory}
                 onChange={(e) => setFilterCategory(e.target.value)}
-                className="w-full sm:w-auto pl-3.5 pr-9 py-2.5 bg-white ring-1 ring-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-primary/20 outline-none appearance-none cursor-pointer"
+                className="w-full sm:w-auto pl-3.5 pr-9 py-2.5 bg-white ring-1 ring-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-primary/20 outline-none appearance-none cursor-pointer truncate"
               >
                 <option value="all">All Categories</option>
                 {categories.map((h) => (
@@ -737,21 +737,19 @@ const ProductManagement = () => {
               <HiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
             </div>
 
-
-
             <button
               onClick={() => setIsFilterOpen((prev) => !prev)}
-              className="flex items-center space-x-2 px-4 py-2.5 bg-white ring-1 ring-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer"
+              className="flex items-center justify-center space-x-2 px-4 py-2.5 bg-white ring-1 ring-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer"
             >
-              <HiOutlineFunnel className="h-4 w-4" />
+              <HiOutlineFunnel className="h-4 w-4 shrink-0" />
               <span>Filters</span>
             </button>
 
-            <div className="relative flex-1 sm:flex-none">
+            <div className="relative sm:flex-none">
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="w-full sm:w-auto pl-3.5 pr-9 py-2.5 bg-white ring-1 ring-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-primary/20 outline-none appearance-none cursor-pointer"
+                className="w-full sm:w-auto pl-3.5 pr-9 py-2.5 bg-white ring-1 ring-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-primary/20 outline-none appearance-none cursor-pointer truncate"
               >
                 <option value="newest">Newest first</option>
                 <option value="oldest">Oldest first</option>
@@ -996,7 +994,7 @@ const ProductManagement = () => {
       {/* Edit Modal (Copy from Admin) */}
       <AnimatePresence>
         {isProductModalOpen && (
-          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 lg:p-12 overflow-y-auto">
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-2 sm:p-4 lg:p-12 overflow-y-auto">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -1008,41 +1006,53 @@ const ProductManagement = () => {
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="w-full max-w-5xl relative z-10 bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)]">
+              className="w-full max-w-5xl relative z-10 bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[calc(100vh-2rem)]">
               {/* Modal Header */}
-              <div className="flex items-center justify-between p-6 border-b border-slate-100">
-                <div className="flex items-center space-x-3">
-                  <div className="h-10 w-10 bg-slate-900 text-white rounded-xl flex items-center justify-center">
+              <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-100 shrink-0">
+                <div className="flex items-center space-x-3 min-w-0">
+                  <div className="h-9 w-9 sm:h-10 sm:w-10 bg-slate-900 text-white rounded-xl flex items-center justify-center shrink-0">
                     <HiOutlineCube className="h-5 w-5" />
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900">
+                  <div className="min-w-0">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
                       Edit Product
                     </h3>
-                    <div className="flex items-center space-x-2 mt-0.5">
+                    <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 mt-0.5">
                       <Badge
                         variant="primary"
                         className="text-[7px] font-bold uppercase tracking-widest px-1 bg-brand-100 text-brand-700">
                         SELLER
                       </Badge>
-                      <HiOutlineChevronRight className="h-2.5 w-2.5 text-slate-300" />
-                      <span className="text-xs font-bold text-slate-600 uppercase tracking-widest">
+                      <HiOutlineChevronRight className="h-2.5 w-2.5 text-slate-300 shrink-0" />
+                      <span className="text-xs font-bold text-slate-600 uppercase tracking-widest truncate max-w-[110px] sm:max-w-none">
                         {formData.sku || "PENDING SKU"}
                       </span>
+                      {/* Mobile-only compact Status pill */}
+                      <div className="lg:hidden">
+                        <select
+                          value={formData.status}
+                          onChange={(e) =>
+                            setFormData({ ...formData, status: e.target.value })
+                          }
+                          className="bg-brand-50 text-[10px] font-extrabold text-brand-700 px-2 py-0.5 rounded-md border border-brand-200 outline-none cursor-pointer">
+                          <option value="active">PUBLISHED</option>
+                          <option value="inactive">DRAFT</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                 </div>
                 <button
                   onClick={closeProductModal}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600">
+                  className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600 shrink-0 ml-2">
                   <HiOutlineXMark className="h-5 w-5" />
                 </button>
               </div>
 
               <div className="flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden">
-                {/* Modal Sidebar Tabs */}
+                {/* Modal Sidebar / Mobile Tab Strip */}
                 <div
-                  className="lg:w-1/4 bg-slate-50/50 border-r border-slate-100 p-4 space-y-1 overflow-y-auto min-h-0"
+                  className="flex flex-row overflow-x-auto gap-1.5 p-2 sm:p-3 border-b border-slate-100 lg:border-b-0 lg:flex-col lg:w-1/4 lg:border-r lg:space-y-1 lg:p-4 lg:overflow-y-auto shrink-0 bg-slate-50/70"
                   onWheel={handleModalScrollWheel}>
                   {[
                     {
@@ -1075,17 +1085,17 @@ const ProductManagement = () => {
                       key={tab.id}
                       onClick={() => setModalTab(tab.id)}
                       className={cn(
-                        "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold transition-all text-left",
+                        "flex items-center space-x-2 px-3 py-2 sm:px-3.5 sm:py-2.5 lg:w-full lg:px-4 lg:py-3 rounded-xl text-xs font-bold transition-all text-left whitespace-nowrap shrink-0",
                         modalTab === tab.id
-                          ? "bg-white text-primary shadow-sm ring-1 ring-slate-100"
+                          ? "bg-white text-primary shadow-sm ring-1 ring-slate-200/80"
                           : "text-slate-600 hover:bg-slate-100",
                       )}>
-                      <tab.icon className="h-4 w-4" />
+                      <tab.icon className="h-4 w-4 shrink-0" />
                       <span>{tab.label}</span>
                     </button>
                   ))}
 
-                  <div className="pt-8 px-4">
+                  <div className="hidden lg:block pt-8 px-4">
                     <div className="p-4 bg-brand-50 rounded-2xl border border-brand-100">
                       <p className="text-[9px] font-bold text-brand-600 uppercase tracking-widest mb-1">
                         Status
@@ -1105,7 +1115,7 @@ const ProductManagement = () => {
 
                 {/* Modal Content Area */}
                 <div
-                  className="flex-1 p-8 overflow-y-auto min-h-0 overscroll-contain custom-scrollbar"
+                  className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto min-h-0 overscroll-contain custom-scrollbar pb-32 sm:pb-16"
                   onWheel={handleModalScrollWheel}>
                   {modalTab === "general" && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
@@ -1856,15 +1866,15 @@ const ProductManagement = () => {
               </div>
 
               {/* Modal Footer */}
-              <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-3">
+              <div className="p-3.5 sm:p-6 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-2 sm:gap-3">
                 <button
                   onClick={closeProductModal}
-                  className="px-6 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100">
+                  className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-200 sm:border-0 text-center">
                   CLOSE
                 </button>
                 <button
                   onClick={handleSave}
-                  className="bg-slate-900 text-white px-10 py-2.5 rounded-xl text-xs font-bold shadow-xl hover:-translate-y-0.5 transition-all">
+                  className="flex-1 sm:flex-none bg-slate-900 text-white px-5 sm:px-10 py-2.5 rounded-xl text-xs font-bold shadow-xl hover:-translate-y-0.5 transition-all text-center">
                   SAVE CHANGES
                 </button>
               </div>

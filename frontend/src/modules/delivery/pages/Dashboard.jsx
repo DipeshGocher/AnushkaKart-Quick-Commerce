@@ -385,22 +385,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Incentive Zone (Tips) */}
-        <div className="bg-gradient-to-r from-[#F5F5FF]/90 via-[#EEEEFF]/60 to-[#F5F5FF]/90 rounded-[20px] p-4 border border-[#6666FF]/20 shadow-sm flex items-center justify-between overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/40 rounded-full -mr-16 -mt-16 blur-xl"></div>
-          
-          <div className="relative z-10 pl-2">
-            <h3 className="text-[#6666FF] font-black text-sm mb-1 uppercase tracking-tight">Customer Tips</h3>
-            <p className="text-[11px] text-gray-600 font-medium leading-tight max-w-[140px]">
-              You have earned an extra <br/><span className="font-extrabold text-[#6666FF] text-sm">₹{earnings.incentiveData?.tipsReceived || 0}</span> in tips today
-            </p>
-          </div>
-          
-          <div className="relative z-10 w-[100px] h-[90px] shrink-0 flex items-center justify-center -mr-2">
-            <img src="/tip image.png" alt="Tips Received" className="w-full h-full object-contain drop-shadow-sm" />
-          </div>
-        </div>
-
         {/* Active Order / Status */}
         <AnimatePresence mode="wait">
           {!isOnline ? (

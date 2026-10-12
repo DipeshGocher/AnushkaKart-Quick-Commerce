@@ -465,7 +465,7 @@ export async function generateOrderPaymentBreakdown({
 
   const normalizedDiscount = roundCurrency(discountTotal || 0);
   const normalizedTax = roundCurrency(taxTotal || 0);
-  const normalizedTip = roundCurrency(tipTotal || 0);
+  const normalizedTip = 0; // Tip feature disabled
   const normalizedWallet = roundCurrency(walletAmount || 0);
 
   const grossTotal = roundCurrency(

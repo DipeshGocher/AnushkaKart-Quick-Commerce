@@ -196,7 +196,7 @@ const Topbar = ({ onMenuClick }) => {
                 )}
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-1.5 sm:space-x-3">
                 <div className="relative" ref={notificationRef}>
                     <button
                         onClick={() => setShowNotifications(!showNotifications)}
@@ -204,6 +204,7 @@ const Topbar = ({ onMenuClick }) => {
                             "p-2 hover:bg-primary/5 text-gray-500 hover:text-primary rounded-xl transition-all duration-300 relative group",
                             showNotifications && "bg-primary/5 text-primary"
                         )}
+                        title="Notifications"
                     >
                         <HiOutlineBell className="h-5 w-5" />
                         {unreadCount > 0 && (
@@ -223,7 +224,7 @@ const Topbar = ({ onMenuClick }) => {
                     </AnimatePresence>
                 </div>
 
-                <div className="h-8 w-px bg-gray-100 mx-1"></div>
+                <div className="h-6 w-px bg-gray-200/60 mx-0.5"></div>
                 <button
                     onClick={() => {
                         if (location.pathname.startsWith('/admin')) {
@@ -238,22 +239,24 @@ const Topbar = ({ onMenuClick }) => {
                             navigate('/profile');
                         }
                     }}
-                    className="flex items-center space-x-2.5 p-1 pr-3 hover:bg-gray-50 rounded-xl transition-all duration-300 group ring-1 ring-transparent hover:ring-gray-100 shadow-sm hover:shadow-md"
+                    className="flex items-center space-x-2 p-1 sm:pr-3 hover:bg-gray-50 rounded-xl transition-all duration-300 group ring-1 ring-transparent hover:ring-gray-100 shadow-xs"
+                    title="View Profile"
                 >
-                    <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-xs shadow-md group-hover:scale-105 transition-transform">
+                    <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-xs shadow-sm group-hover:scale-105 transition-transform shrink-0">
                         {user?.name?.[0] || 'A'}
                     </div>
-                    <div>
-                        <p className="text-xs font-bold text-gray-900 leading-tight">{user?.name || 'Demo User'}</p>
+                    <div className="hidden sm:block text-left">
+                        <p className="text-xs font-bold text-gray-900 leading-tight truncate max-w-[120px]">{user?.name || 'Demo User'}</p>
                         <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">{user?.role || 'Member'}</p>
                     </div>
                 </button>
                 <button
                     onClick={handleLogout}
-                    className="flex items-center space-x-1.5 px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-all duration-300 font-bold text-xs shadow-sm hover:shadow-rose-100/50"
+                    className="flex items-center justify-center p-2 sm:px-3 sm:py-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-all duration-300 font-bold text-xs shadow-xs"
+                    title="Sign Out"
                 >
-                    <HiOutlineLogout className="h-4 w-4" />
-                    <span className="hidden lg:block">Sign Out</span>
+                    <HiOutlineLogout className="h-4 w-4 shrink-0" />
+                    <span className="hidden lg:inline ml-1.5">Sign Out</span>
                 </button>
             </div>
         </header>

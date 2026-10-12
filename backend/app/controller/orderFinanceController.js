@@ -25,7 +25,7 @@ export const previewCheckoutFinance = async (req, res) => {
     const pricingSnapshot = await buildCheckoutPricingSnapshot({
       orderItems: payload.items,
       address: payload.address,
-      tipAmount: payload.tipAmount,
+      tipAmount: 0,
       discountTotal: payload.discountTotal || 0,
       // Audit Phase 4 (C-1): forward walletAmount so the preview's
       // aggregate breakdown exposes a `payableAmount` (post-wallet) the
@@ -90,7 +90,7 @@ export const createOrderWithFinancialSnapshot = async (req, res) => {
       address: validated.address,
       paymentMode: validated.paymentMode,
       timeSlot: validated.timeSlot || "now",
-      tipAmount: validated.tipAmount || 0,
+      tipAmount: 0,
       walletAmount: validated.walletAmount || 0,
       couponId: validated.couponId || null,
       // Audit Phase 5 (C-2 + H-7): forward couponCode so the placement

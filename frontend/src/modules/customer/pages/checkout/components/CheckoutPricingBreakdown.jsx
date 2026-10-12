@@ -1,5 +1,4 @@
-import React from "react";
-import { Clipboard, Tag, Heart, Wallet } from "lucide-react";
+import { Clipboard, Tag, Wallet } from "lucide-react";
 import { motion } from "framer-motion";
 
 /**
@@ -9,9 +8,6 @@ import { motion } from "framer-motion";
  *   pricingPreview    – breakdown object from the preview API (or null)
  *   isPreviewLoading  – boolean
  *   previewError      – string | null when preview failed
- *   selectedTip       – number
- *   onSelectTip       – (value) => void
- *   tipAmounts        – array of { value, label }
  *   walletAmountToUse – number
  *   finalAmountToPay  – number
  *   cartTotal         – number (fallback when preview is loading)
@@ -22,9 +18,6 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
   pricingPreview,
   isPreviewLoading,
   previewError,
-  selectedTip,
-  onSelectTip,
-  tipAmounts,
   walletAmountToUse,
   finalAmountToPay,
   cartTotal,
@@ -33,36 +26,12 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
 }) {
   const deliveryFee = pricingPreview?.deliveryFeeCharged || 0;
   const handlingFee = pricingPreview?.handlingFeeCharged || 0;
-  const tipAmount = pricingPreview?.tipTotal || selectedTip || 0;
   const taxAmount = pricingPreview?.taxTotal || 0;
   const isWalletCovered =
     !!pricingPreview && walletAmountToUse > 0 && finalAmountToPay === 0;
 
   return (
     <>
-      {/* Tip for Partner */}
-      <motion.div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl p-4 lg:p-3 border border-orange-100">
-        <div className="flex items-center gap-2 mb-2 lg:mb-1.5">
-          <Heart size={18} className="text-orange-500 fill-orange-500 lg:w-4 lg:h-4" />
-          <h3 className="font-black text-slate-800 text-sm lg:text-xs">Tip your delivery partner</h3>
-        </div>
-        <p className="text-xs lg:text-[11px] text-slate-600 mb-2.5 lg:mb-2">100% of the tip goes to them</p>
-        <div className="grid grid-cols-4 gap-2">
-          {tipAmounts.map((tip) => (
-            <button
-              key={tip.value}
-              onClick={() => onSelectTip(tip.value)}
-              className={`py-2 lg:py-1.5 rounded-xl border-2 transition-all font-bold text-sm lg:text-xs ${
-                selectedTip === tip.value
-                  ? "border-orange-500 bg-orange-100 text-orange-700"
-                  : "border-orange-200 bg-white text-slate-700 hover:border-orange-300"
-              }`}>
-              {tip.label}
-            </button>
-          ))}
-        </div>
-      </motion.div>
-
       {/* Bill Details */}
       <motion.div className="bg-white rounded-[2rem] lg:rounded-2xl p-6 lg:p-4 shadow-xl shadow-gray-200/50 lg:shadow-xs border border-slate-100">
         <div className="flex items-center gap-2 mb-6 lg:mb-3">
@@ -156,16 +125,6 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
               </span>
               <span className="font-black text-primary">-₹{discountAmount}</span>
             </motion.div>
-          )}
-
-          {tipAmount > 0 && (
-            <div className="flex justify-between items-center px-3 py-2 bg-orange-50 rounded-xl border border-orange-100 italic">
-              <span className="text-orange-600 font-bold text-xs flex items-center gap-2">
-                <Heart size={14} className="fill-orange-500" />
-                Partner Support
-              </span>
-              <span className="font-black text-orange-600">₹{tipAmount}</span>
-            </div>
           )}
 
           {walletAmountToUse > 0 && (
