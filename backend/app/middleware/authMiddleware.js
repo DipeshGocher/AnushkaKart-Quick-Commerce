@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import handleResponse from "../utils/helper.js";
 import Seller from "../models/seller.js";
+import Delivery from "../models/delivery.js";
 
 function extractJwtFromHeaders(req) {
   const authHeader = String(req.headers.authorization || "").trim();
@@ -122,5 +123,36 @@ export const requireApprovedSeller = async (req, res, next) => {
     next();
   } catch (error) {
     return handleResponse(res, 500, "Unable to validate seller approval status");
+  }
+};
+
+/* ===============================
+   Ensure delivery partner is active (not deactivated or deleted)
+================================ */
+export const requireActiveDelivery = async (req, res, next) => {
+  try {
+    if (req.user?.role !== "delivery") {
+      return next();
+    }
+
+    const rider = await Delivery.findById(req.user.id)
+      .select("isActive isVerified")
+      .lean();
+
+    if (!rider) {
+      return handleResponse(res, 401, "Delivery partner account not found");
+    }
+
+    if (rider.isActive === false) {
+      return handleResponse(
+        res,
+        401,
+        "Aapka account admin dwara deactivate kar diya gaya hai. Kripya admin se sampark karein."
+      );
+    }
+
+    next();
+  } catch (error) {
+    return handleResponse(res, 500, "Unable to validate delivery partner status");
   }
 };

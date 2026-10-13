@@ -2,6 +2,37 @@ import Review from "../models/review.js";
 import Order from "../models/order.js";
 import handleResponse from "../utils/helper.js";
 import getPagination from "../utils/pagination.js";
+import { uploadToCloudinary } from "../utils/cloudinary.js";
+
+// Check if customer is eligible to review a product
+export const checkReviewEligibility = async (req, res) => {
+    try {
+        const { productId } = req.params;
+        const userId = req.user.id;
+
+        const [hasPurchased, existingReview] = await Promise.all([
+            Order.findOne({
+                customer: userId,
+                "items.product": productId,
+                $or: [
+                    { orderStatus: { $regex: /^delivered$/i } },
+                    { status: { $regex: /^delivered$/i } },
+                    { workflowStatus: "DELIVERED" }
+                ]
+            }).select("_id deliveredAt createdAt"),
+            Review.findOne({ userId, productId }).select("_id rating comment images status createdAt")
+        ]);
+
+        return handleResponse(res, 200, "Eligibility checked", {
+            canReview: !!hasPurchased && !existingReview,
+            hasPurchased: !!hasPurchased,
+            hasReviewed: !!existingReview,
+            existingReview: existingReview || null
+        });
+    } catch (error) {
+        return handleResponse(res, 500, error.message);
+    }
+};
 
 // Submit a review (Customer)
 export const submitReview = async (req, res) => {
@@ -9,13 +40,18 @@ export const submitReview = async (req, res) => {
         const { productId, rating, comment } = req.body;
         const userId = req.user.id;
 
+        if (!productId) {
+            return handleResponse(res, 400, "Product ID is required");
+        }
+
         // Check if the user has purchased and received the product
         const hasPurchased = await Order.findOne({
             customer: userId,
             "items.product": productId,
             $or: [
                 { orderStatus: { $regex: /^delivered$/i } },
-                { status: { $regex: /^delivered$/i } }
+                { status: { $regex: /^delivered$/i } },
+                { workflowStatus: "DELIVERED" }
             ]
         });
 
@@ -29,11 +65,53 @@ export const submitReview = async (req, res) => {
             return handleResponse(res, 400, "You have already reviewed this product");
         }
 
+        const uploadedImageUrls = [];
+
+        // 1. Process files uploaded through multipart form
+        if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+            for (const file of req.files) {
+                try {
+                    const url = await uploadToCloudinary(file.buffer, 'reviews', {
+                        mimeType: file.mimetype,
+                        resourceType: 'image'
+                    });
+                    if (url) uploadedImageUrls.push(url);
+                } catch (uploadErr) {
+                    console.error("Cloudinary upload failed for review image, using data URI fallback:", uploadErr.message);
+                    const fallbackUrl = `data:${file.mimetype || 'image/jpeg'};base64,${file.buffer.toString('base64')}`;
+                    uploadedImageUrls.push(fallbackUrl);
+                }
+            }
+        }
+
+        // 2. Also support image URLs or base64 passed via req.body.images
+        if (req.body.images) {
+            let bodyImages = req.body.images;
+            if (typeof bodyImages === 'string') {
+                try {
+                    bodyImages = JSON.parse(bodyImages);
+                } catch {
+                    bodyImages = [bodyImages];
+                }
+            }
+            if (Array.isArray(bodyImages)) {
+                bodyImages.forEach(img => {
+                    if (typeof img === 'string' && img.trim()) {
+                        uploadedImageUrls.push(img.trim());
+                    }
+                });
+            }
+        }
+
+        const parsedRating = Number(rating) || 5;
+
         const newReview = new Review({
             userId,
             productId,
-            rating,
-            comment,
+            orderId: hasPurchased._id,
+            rating: Math.min(5, Math.max(1, parsedRating)),
+            comment: String(comment || '').trim(),
+            images: uploadedImageUrls,
             status: "pending", // Always pending until admin approves
         });
 
@@ -76,8 +154,8 @@ export const getPendingReviews = async (req, res) => {
 
         const [reviews, total] = await Promise.all([
             Review.find(query)
-                .populate("userId", "name email")
-                .populate("productId", "name images")
+                .populate("userId", "name email image")
+                .populate("productId", "name images price")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)

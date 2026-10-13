@@ -105,9 +105,14 @@ export const customerApi = {
   // Support & Reviews
   getProductReviews: (productId) =>
     getWithDedupe(`/reviews/product/${productId}`),
+  checkReviewEligibility: (productId) =>
+    axiosInstance.get(`/reviews/check-eligibility/${productId}`),
   submitReview: (data) => {
     invalidateCache("/reviews/product");
-    return axiosInstance.post("/reviews/submit", data);
+    const isFormData = typeof FormData !== "undefined" && data instanceof FormData;
+    return axiosInstance.post("/reviews/submit", data, {
+      headers: isFormData ? { "Content-Type": "multipart/form-data" } : {}
+    });
   },
   createTicket: (data) => axiosInstance.post("/tickets/create", data),
   getMyTickets: () => getWithDedupe("/tickets/my-tickets"),
@@ -163,11 +168,6 @@ export const customerApi = {
   // Notifications
   getNotifications: (params) => axiosInstance.get("/notifications", { params }),
   markNotificationsRead: () => axiosInstance.patch("/notifications/read"),
-
-  // Kits
-  getKitHomeData: (params) => getWithDedupe("/kits/home-data", params),
-  getKitById: (id, params) => getWithDedupe(`/kits/${id}`, params),
-  getKitAddons: (params) => getWithDedupe("/kits/addons", params),
 
   // Shipping & Hyperlocal Pincodes
   checkShippingServiceability: (params) =>

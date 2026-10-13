@@ -12,6 +12,10 @@ const reviewSchema = new mongoose.Schema(
             ref: "Product",
             required: true,
         },
+        orderId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Order",
+        },
         rating: {
             type: Number,
             required: true,
@@ -23,6 +27,11 @@ const reviewSchema = new mongoose.Schema(
             required: true,
             trim: true,
         },
+        images: [
+            {
+                type: String,
+            },
+        ],
         status: {
             type: String,
             enum: ["pending", "approved", "rejected"],

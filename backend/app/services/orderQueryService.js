@@ -107,6 +107,10 @@ export async function fetchSellerOrdersPage({
     endDate,
   });
 
+  const targetId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
+  const baseScope = role === "admin" ? {} : role === "warehouse" ? { warehouseId: targetId } : { seller: targetId };
+  const summaryQuery = appendDateRange({ ...baseScope }, { startDate, endDate });
+
   const sortMap = {
     newest: { createdAt: -1, _id: -1 },
     oldest: { createdAt: 1, _id: 1 },
@@ -127,12 +131,29 @@ export async function fetchSellerOrdersPage({
       .lean(),
     Order.countDocuments(query),
     Order.aggregate([
-      { $match: query },
+      { $match: summaryQuery },
       {
         $group: {
           _id: null,
           totalOrders: { $sum: 1 },
-          totalAmount: { $sum: { $ifNull: ["$pricing.total", 0] } },
+          totalAmount: {
+            $sum: {
+              $cond: [
+                { $eq: ["$status", "delivered"] },
+                { $ifNull: ["$pricing.total", 0] },
+                0,
+              ],
+            },
+          },
+          totalOrderValue: {
+            $sum: {
+              $cond: [
+                { $ne: ["$status", "cancelled"] },
+                { $ifNull: ["$pricing.total", 0] },
+                0,
+              ],
+            },
+          },
           pending: {
             $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] },
           },
@@ -155,10 +176,15 @@ export async function fetchSellerOrdersPage({
             $sum: {
               $cond: [
                 {
-                  $and: [
-                    { $ne: ["$returnStatus", null] },
-                    { $ne: ["$returnStatus", ""] },
-                    { $ne: ["$returnStatus", "none"] },
+                  $or: [
+                    { $eq: ["$status", "returned"] },
+                    {
+                      $and: [
+                        { $ne: ["$returnStatus", null] },
+                        { $ne: ["$returnStatus", ""] },
+                        { $ne: ["$returnStatus", "none"] },
+                      ],
+                    },
                   ],
                 },
                 1,
@@ -175,6 +201,7 @@ export async function fetchSellerOrdersPage({
   const summary = {
     totalOrders: Number(rawSummary.totalOrders || 0),
     totalAmount: Number(rawSummary.totalAmount || 0),
+    totalOrderValue: Number(rawSummary.totalOrderValue || 0),
     pending: Number(rawSummary.pending || 0),
     confirmed: Number(rawSummary.confirmed || 0),
     packed: Number(rawSummary.packed || 0),

@@ -97,6 +97,9 @@ export const getCustomerProfile = async (req, res) => {
         if (!customer) {
             return handleResponse(res, 404, "Customer not found");
         }
+        if (customer.isActive === false) {
+            return handleResponse(res, 403, "Your account has been blocked. Please contact support.");
+        }
         return handleResponse(res, 200, "Profile fetched successfully", customer);
     } catch (error) {
         return handleResponse(res, 500, error.message);

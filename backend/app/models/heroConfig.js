@@ -24,7 +24,7 @@ const heroConfigSchema = new mongoose.Schema(
   {
     pageType: {
       type: String,
-      enum: ["home", "header", "monthly_basket"],
+      enum: ["home", "header"],
       required: true,
     },
     headerId: {

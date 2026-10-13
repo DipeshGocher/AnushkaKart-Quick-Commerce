@@ -122,7 +122,7 @@ export async function issueCustomerOtp({
   }
 
   if (customer && customer.isActive === false) {
-    const err = new Error("Account has been deleted");
+    const err = new Error("Your account has been blocked. Please contact support.");
     err.statusCode = 403;
     throw err;
   }
@@ -227,6 +227,12 @@ export async function verifyCustomerOtpCode({
   if (!customer) {
     const err = new Error("Invalid or expired OTP");
     err.statusCode = 400;
+    throw err;
+  }
+
+  if (customer.isActive === false) {
+    const err = new Error("Your account has been blocked. Please contact support.");
+    err.statusCode = 403;
     throw err;
   }
 

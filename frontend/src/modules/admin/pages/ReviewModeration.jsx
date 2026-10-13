@@ -47,6 +47,7 @@ const ReviewModeration = () => {
                     user: r.userId?.name || "Anonymous",
                     item: r.productId?.name || "Deleted Product",
                     itemImage: r.productId?.images?.[0],
+                    images: r.images || [],
                     date: new Date(r.createdAt).toLocaleString(),
                     tags: [] // Tags can be empty or logic-based
                 })));
@@ -170,6 +171,31 @@ const ReviewModeration = () => {
                                 <blockquote className="text-sm font-medium text-slate-700 leading-relaxed bg-slate-50/50 p-5 rounded-2xl italic italic border-l-4 border-slate-100">
                                     "{r.comment}"
                                 </blockquote>
+
+                                {Array.isArray(r.images) && r.images.length > 0 && (
+                                    <div className="space-y-1.5 pt-1">
+                                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                            Attached Customer Photos ({r.images.length})
+                                        </p>
+                                        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-1">
+                                            {r.images.map((imgUrl, imgIdx) => (
+                                                <a
+                                                    key={imgIdx}
+                                                    href={imgUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="relative group/img block w-20 h-20 rounded-2xl overflow-hidden border border-slate-200 shadow-sm shrink-0 bg-slate-50"
+                                                >
+                                                    <img
+                                                        src={imgUrl}
+                                                        alt="Customer attached review photo"
+                                                        className="w-full h-full object-cover group-hover/img:scale-110 transition-transform"
+                                                    />
+                                                </a>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Actions */}

@@ -22,7 +22,7 @@ import mapsRoute from "./mapsRoutes.js";
 import mediaRoute from "./mediaRoutes.js";
 import healthRoute from "./healthRoutes.js";
 import metricsRoute from "./metricsRoutes.js";
-import kitRoute from "./kitRoutes.js";
+
 import bestsellerRoute from "./bestsellerRoutes.js";
 import authOtpRoute from "../modules/otp/otp.routes.js";
 import employeeRoute from "./employeeRoutes.js";
@@ -40,7 +40,7 @@ const setupRoutes = (app) => {
     // Health and metrics endpoints (no /api prefix for standard paths)
     app.use("/api/health", healthRoute);
     app.use("/api/metrics", metricsRoute);
-    app.use("/api/kits", kitRoute);
+
     app.use("/api/bestsellers", bestsellerRoute);
 
     router.use("/customer", customerRoute);
@@ -80,7 +80,7 @@ const setupRoutes = (app) => {
     router.use("/reviews", reviewRoute);
     router.use("/admin/faqs", faqRoute);
     router.use("/public/faqs", faqRoute); // For public access without admin prefix
-    router.use("/kits", kitRoute);
+
     router.use("/employees", employeeRoute);
     router.use("/translate", translationRoute);
     router.use("/legal", legalPageRoute);

@@ -1,14 +1,11 @@
 import handleResponse from "../../utils/helper.js";
 import getPagination from "../../utils/pagination.js";
 import {
-  bulkSettleDeliveryTransactions,
   getAdminWalletOverview,
-  getDeliveryTransactionsData,
   getDeliveryWithdrawalsData,
   getSellerTransactionsData,
   getSellerWithdrawalsData,
   getWarehouseWithdrawalsData,
-  settleDeliveryTransactionById,
   updateWithdrawalStatusById,
 } from "../../services/admin/walletAdminService.js";
 
@@ -29,19 +26,6 @@ export const getAdminWalletData = async (req, res) => {
   }
 };
 
-export const getDeliveryTransactions = async (req, res) => {
-  try {
-    const { page, limit, skip } = getPagination(req, {
-      defaultLimit: 25,
-      maxLimit: 200,
-    });
-
-    const data = await getDeliveryTransactionsData({ page, limit, skip });
-    return handleResponse(res, 200, "Delivery transactions fetched", data);
-  } catch (error) {
-    return handleResponse(res, 500, error.message);
-  }
-};
 
 export const getSellerWithdrawals = async (req, res) => {
   try {
@@ -116,36 +100,4 @@ export const updateWithdrawalStatus = async (req, res) => {
   }
 };
 
-export const settleTransaction = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const transaction = await settleDeliveryTransactionById(id);
 
-    if (!transaction) {
-      return handleResponse(res, 404, "Transaction not found");
-    }
-
-    return handleResponse(
-      res,
-      200,
-      "Transaction settled successfully",
-      transaction,
-    );
-  } catch (error) {
-    return handleResponse(res, 500, error.message);
-  }
-};
-
-export const bulkSettleDelivery = async (req, res) => {
-  try {
-    const result = await bulkSettleDeliveryTransactions();
-
-    return handleResponse(
-      res,
-      200,
-      `${result.modifiedCount} transactions settled successfully`,
-    );
-  } catch (error) {
-    return handleResponse(res, 500, error.message);
-  }
-};

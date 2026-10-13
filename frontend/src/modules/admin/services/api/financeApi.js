@@ -21,14 +21,6 @@ export const adminFinanceApi = {
             responseType: 'blob',
         }),
 
-    // Delivery payouts / funds
-    getDeliveryTransactions: (params) =>
-        axiosInstance.get('/admin/delivery-transactions', { params }),
-    settleTransaction: (id) =>
-        axiosInstance.put(`/admin/transactions/${id}/settle`),
-    bulkSettleDelivery: () =>
-        axiosInstance.put('/admin/transactions/bulk-settle-delivery'),
-
     // Seller / Delivery withdrawals
     getSellerWithdrawals: (params) =>
         axiosInstance.get('/admin/seller-withdrawals', { params }),

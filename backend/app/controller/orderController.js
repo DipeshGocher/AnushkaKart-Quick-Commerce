@@ -1323,7 +1323,33 @@ export const updateReturnStatus = async (req, res) => {
 export const getSellerOrders = async (req, res) => {
   try {
     const { id: userId, role } = req.user;
-    const { startDate, endDate, status: statusParam, sort } = req.query;
+    let { startDate, endDate, status: statusParam, sort, dateFilter } = req.query;
+
+    if (dateFilter && !startDate && !endDate) {
+      const now = new Date();
+      if (dateFilter === "today") {
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        startDate = start.toISOString();
+      } else if (dateFilter === "yesterday") {
+        const start = new Date(now);
+        start.setDate(start.getDate() - 1);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(now);
+        end.setDate(end.getDate() - 1);
+        end.setHours(23, 59, 59, 999);
+        startDate = start.toISOString();
+        endDate = end.toISOString();
+      } else if (dateFilter === "last_7_days") {
+        const start = new Date(now);
+        start.setDate(start.getDate() - 7);
+        start.setHours(0, 0, 0, 0);
+        startDate = start.toISOString();
+      } else if (dateFilter === "this_month") {
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        startDate = start.toISOString();
+      }
+    }
 
     const { page, limit, skip } = getPagination(req, {
       defaultLimit: 25,

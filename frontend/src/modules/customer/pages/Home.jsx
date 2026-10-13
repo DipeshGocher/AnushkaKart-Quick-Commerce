@@ -45,7 +45,6 @@ import QuickCategorySlider from "../components/home/QuickCategorySlider";
 import LowestPriceSection from "../components/home/LowestPriceSection";
 import OfferSections from "../components/home/OfferSections";
 import BestsellersSection from "../components/home/BestsellersSection";
-import MonthlyBasketSection from "../components/home/MonthlyBasketSection";
 import CategoryShowcase from "../components/home/CategoryShowcase";
 import FestivalDealsSection from "../components/home/FestivalDealsSection";
 import AllCategoriesGreeting from "../components/home/AllCategoriesGreeting";

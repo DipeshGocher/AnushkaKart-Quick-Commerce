@@ -18,7 +18,6 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { adminApi } from "../../services/adminApi";
 import { toast } from "sonner";
-import TrustBadgesManager from "../../components/categories/TrustBadgesManager";
 import { invalidateCache } from "@core/api/dedupe";
 
 const makeSlug = (value) =>
@@ -55,7 +54,6 @@ const SubCategories = () => {
     type: "subcategory",
     parentId: "",
     isFeatured: false,
-    trustBadges: [],
   });
 
   const [imageFile, setImageFile] = useState(null);
@@ -206,9 +204,7 @@ const SubCategories = () => {
       const data = new FormData();
       data.append("type", "subcategory");
       Object.keys(formData).forEach((key) => {
-        if (key === "trustBadges") {
-          data.append("trustBadges", JSON.stringify(formData.trustBadges || []));
-        } else if (key !== "type") {
+        if (key !== "type") {
           data.append(key, formData[key]);
         }
       });
@@ -286,7 +282,6 @@ const SubCategories = () => {
       type: "subcategory",
       parentId: "",
       isFeatured: false,
-      trustBadges: [],
     });
     setImageFile(null);
     setPreviewUrl(null);
@@ -746,12 +741,6 @@ const SubCategories = () => {
                     className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
                   />
                 </div>
-
-                <TrustBadgesManager
-                  value={formData.trustBadges || []}
-                  onChange={(newBadges) => setFormData({ ...formData, trustBadges: newBadges })}
-                  maxBadges={3}
-                />
               </div>
 
               {/* Modal Footer */}

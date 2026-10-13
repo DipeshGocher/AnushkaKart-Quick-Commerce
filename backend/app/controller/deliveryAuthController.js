@@ -128,7 +128,7 @@ export const loginDelivery = async (req, res) => {
         }
 
         if (delivery.isActive === false) {
-            return handleResponse(res, 403, "Account has been deleted");
+            return handleResponse(res, 403, "Aapka account admin dwara deactivate kar diya gaya hai. Kripya support se sampark karein.");
         }
 
         let otp = generateOTP();
@@ -170,6 +170,10 @@ export const verifyDeliveryOTP = async (req, res) => {
 
         if (!delivery) {
             return handleResponse(res, 400, "Invalid or expired OTP");
+        }
+
+        if (delivery.isActive === false) {
+            return handleResponse(res, 403, "Aapka account admin dwara deactivate kar diya gaya hai. Kripya support se sampark karein.");
         }
 
         delivery.isVerified = true;

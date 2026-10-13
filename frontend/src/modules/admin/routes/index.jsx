@@ -53,7 +53,6 @@ const ProductManagement = React.lazy(
 );
 const ActiveSellers = React.lazy(() => import("../pages/ActiveSellers"));
 const PendingSellers = React.lazy(() => import("../pages/PendingSellers"));
-const SellerLocations = React.lazy(() => import("../pages/SellerLocations"));
 const ActiveWarehouses = React.lazy(() => import("../pages/ActiveWarehouses"));
 const PendingWarehouses = React.lazy(() => import("../pages/PendingWarehouses"));
 const ActiveDeliveryBoys = React.lazy(
@@ -62,7 +61,6 @@ const ActiveDeliveryBoys = React.lazy(
 const PendingDeliveryBoys = React.lazy(
   () => import("../pages/PendingDeliveryBoys"),
 );
-const DeliveryFunds = React.lazy(() => import("../pages/DeliveryFunds"));
 const AdminWallet = React.lazy(() => import("../pages/AdminWallet"));
 const WithdrawalRequests = React.lazy(
   () => import("../pages/WithdrawalRequests"),
@@ -84,7 +82,6 @@ const Returns = React.lazy(() => import("../pages/Returns"));
 const SellerDetail = React.lazy(() => import("../pages/SellerDetail"));
 const SupportTickets = React.lazy(() => import("../pages/SupportTickets"));
 const ReviewModeration = React.lazy(() => import("../pages/ReviewModeration"));
-const FleetTracking = React.lazy(() => import("../pages/FleetTracking"));
 const CouponManagement = React.lazy(() => import("../pages/CouponManagement"));
 const ContentManager = React.lazy(() => import("../pages/ContentManager"));
 const HeroCategoriesPerPage = React.lazy(() => import("../pages/HeroCategoriesPerPage"));
@@ -100,10 +97,7 @@ const OfferSectionsManagement = React.lazy(
 const AdminSettings = React.lazy(() => import("../pages/AdminSettings"));
 const AdminProfile = React.lazy(() => import("../pages/AdminProfile"));
 
-const MonthlyBasketCategories = React.lazy(() => import("../pages/MonthlyBasketCategories"));
-const MonthlyBasketBanners = React.lazy(() => import("../pages/MonthlyBasketBanners"));
-const MonthlyBasketApprovals = React.lazy(() => import("../pages/MonthlyBasketApprovals"));
-const EditMonthlyKit = React.lazy(() => import("../pages/EditMonthlyKit"));
+
 const BestsellerManagement = React.lazy(() => import("../pages/BestsellerManagement"));
 const FestivalDealsAdmin = React.lazy(() => import("../pages/FestivalDealsAdmin"));
 
@@ -176,19 +170,9 @@ const navItems = [
     children: [
       { label: "Active Sellers", path: "/admin/sellers/active" },
       { label: "Waiting for Review", path: "/admin/sellers/pending" },
-      { label: "Seller Locations", path: "/admin/seller-locations" },
     ],
   },
-  {
-    label: "Monthly Baskets",
-    icon: Box,
-    color: "amber",
-    children: [
-      { label: "Categories", path: "/admin/monthly-baskets/categories" },
-      { label: "Banners", path: "/admin/monthly-baskets/banners" },
-      { label: "Approvals", path: "/admin/monthly-baskets/approvals" },
-    ],
-  },
+
   {
     label: "Delivery Drivers",
     icon: Truck,
@@ -196,8 +180,6 @@ const navItems = [
     children: [
       { label: "Active Drivers", path: "/admin/delivery-boys/active" },
       { label: "Waiting for Review", path: "/admin/delivery-boys/pending" },
-      { label: "Track Drivers", path: "/admin/tracking" },
-      { label: "Send Money", path: "/admin/delivery-funds" },
       { label: "SOS Alerts", path: "/admin/sos-alerts" },
       { label: "Delivery Pincodes", path: "/admin/delivery-pincodes" },
     ],
@@ -314,10 +296,7 @@ export const adminRoutes = [
   { path: "warehouse-queues", element: <WarehouseQueueDashboard /> },
   { path: "support-tickets", element: <SupportTickets /> },
   { path: "moderation", element: <ReviewModeration /> },
-  { path: "monthly-baskets/categories", element: <MonthlyBasketCategories /> },
-  { path: "monthly-baskets/banners", element: <MonthlyBasketBanners /> },
-  { path: "monthly-baskets/approvals", element: <MonthlyBasketApprovals /> },
-  { path: "monthly-baskets/edit/:id", element: <EditMonthlyKit /> },
+  { path: "monthly-baskets/*", element: <Navigate to="/admin/products" replace /> },
   { path: "content/bestsellers", element: <BestsellerManagement /> },
   { path: "content/festival-deals", element: <FestivalDealsAdmin /> },
   { path: "experience-studio", element: <ContentManager /> },
@@ -327,11 +306,11 @@ export const adminRoutes = [
   { path: "offer-sections", element: <OfferSectionsManagement /> },
   { path: "coupons", element: <CouponManagement /> },
   { path: "sellers/pending", element: <PendingSellers /> },
-  { path: "seller-locations", element: <SellerLocations /> },
+  { path: "seller-locations", element: <Navigate to="/admin/sellers/active" replace /> },
   { path: "delivery-boys/active", element: <ActiveDeliveryBoys /> },
   { path: "delivery-boys/pending", element: <PendingDeliveryBoys /> },
-  { path: "tracking", element: <FleetTracking /> },
-  { path: "delivery-funds", element: <DeliveryFunds /> },
+  { path: "tracking", element: <Navigate to="/admin/delivery-boys/active" replace /> },
+  { path: "delivery-funds", element: <Navigate to="/admin/withdrawals" replace /> },
   { path: "sos-alerts", element: <SOSAlerts /> },
   { path: "wallet", element: <AdminWallet /> },
   { path: "withdrawals", element: <WithdrawalRequests /> },

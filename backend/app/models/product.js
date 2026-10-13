@@ -122,12 +122,12 @@ const productSchema = new mongoose.Schema(
         sellerId: {
             type: mongoose.Schema?.Types?.ObjectId || String,
             ref: "Seller",
-            required: function () { return !this.isMonthlyKit && !this.warehouseId; }
+            required: function () { return !this.warehouseId; }
         },
         warehouseId: {
             type: mongoose.Schema?.Types?.ObjectId || String,
             ref: "Warehouse",
-            required: function () { return this.isMonthlyKit; }
+            default: null,
         },
         isMonthlyKit: {
             type: Boolean,

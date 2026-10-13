@@ -17,7 +17,6 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { adminApi } from "../../services/adminApi";
 import { toast } from "sonner";
-import TrustBadgesManager from "../../components/categories/TrustBadgesManager";
 
 const makeSlug = (value) =>
   String(value || "")
@@ -52,8 +51,6 @@ const Level2Categories = () => {
     type: "category",
     parentId: "",
     sortOrder: 0,
-    trustBadges: [],
-    deliveryMode: "both",
   });
 
   const [imageFile, setImageFile] = useState(null);
@@ -179,9 +176,7 @@ const Level2Categories = () => {
       // Only append fields that have actual values to avoid sending empty objects/junk
       Object.keys(formData).forEach((key) => {
         const val = formData[key];
-        if (key === "trustBadges") {
-          data.append("trustBadges", JSON.stringify(formData.trustBadges || []));
-        } else if (key !== "type" && val !== undefined && val !== null && val !== "") {
+        if (key !== "type" && val !== undefined && val !== null && val !== "") {
           data.append(key, val);
         }
       });
@@ -237,8 +232,6 @@ const Level2Categories = () => {
       type: "category",
       parentId: "",
       sortOrder: 0,
-      trustBadges: [],
-      deliveryMode: "both",
     });
     setImageFile(null);
     setPreviewUrl(null);
@@ -255,8 +248,6 @@ const Level2Categories = () => {
       type: "category",
       parentId: item.parentId?._id || item.parentId || "",
       sortOrder: item.sortOrder || 0,
-      trustBadges: Array.isArray(item.trustBadges) ? item.trustBadges : [],
-      deliveryMode: item.deliveryMode || "both",
     });
     setPreviewUrl(item.image || null);
     setIsAddModalOpen(true);
@@ -685,41 +676,6 @@ const Level2Categories = () => {
                     </select>
                   </div>
                 </div>
-
-                {/* Delivery Mode (Rules Engine) */}
-                <div className="space-y-1.5 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                  <label className="text-xs font-semibold text-gray-800 flex items-center justify-between">
-                    <span>Delivery Fulfillment Mode</span>
-                    <span className="text-[10px] font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded border border-brand-200 uppercase">
-                      Rules Engine
-                    </span>
-                  </label>
-                  <select
-                    value={formData.deliveryMode || "both"}
-                    onChange={(e) =>
-                      setFormData({ ...formData, deliveryMode: e.target.value })
-                    }
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-                  >
-                    <option value="quick_only">
-                      ⚡ Quick Delivery Only (Local Pincodes - 15 Mins)
-                    </option>
-                    <option value="both">
-                      🔄 Both (Local 15 Mins + Shiprocket Pan-India)
-                    </option>
-                  </select>
-                  <p className="text-[11px] text-gray-500">
-                    {formData.deliveryMode === "quick_only"
-                      ? "Sirf Jhansi Local pincodes par deliver hoga. Bahar out-of-reach dikhega."
-                      : "Local Jhansi me rider aur outside Jhansi Shiprocket courier se deliver hoga."}
-                  </p>
-                </div>
-
-                <TrustBadgesManager
-                  value={formData.trustBadges || []}
-                  onChange={(newBadges) => setFormData({ ...formData, trustBadges: newBadges })}
-                  maxBadges={3}
-                />
               </div>
 
               {/* Modal Footer */}

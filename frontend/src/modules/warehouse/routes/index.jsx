@@ -27,21 +27,14 @@ const Transactions = React.lazy(() => import("../pages/Transactions"));
 const DeliveryTracking = React.lazy(() => import("../pages/DeliveryTracking"));
 const Profile = React.lazy(() => import("../pages/Profile"));
 const Withdrawals = React.lazy(() => import("../pages/Withdrawals"));
-
-const AddMonthlyKit = React.lazy(() => import("../pages/AddMonthlyKit"));
-const MonthlyKits = React.lazy(() => import("../pages/MonthlyKits"));
 const QRManager = React.lazy(() => import("../pages/QRManager"));
 const QueueMonitor = React.lazy(() => import("../pages/QueueMonitor"));
-const KitAddonSummary = React.lazy(() => import("../pages/KitAddonSummary"));
-const KitAddonManagement = React.lazy(() => import("../pages/KitAddonManagement"));
 
 const navItems = [
   { label: "Dashboard", path: "/warehouse", icon: HiOutlineSquares2X2, end: true },
   { label: "Products", path: "/warehouse/products", icon: HiOutlineCube },
   { label: "Stock", path: "/warehouse/inventory", icon: HiOutlineArchiveBox },
-  { label: "Monthly Kits", path: "/warehouse/monthly-kits", icon: HiOutlineCube },
-  { label: "Kit Add-On Items", path: "/warehouse/monthly-kits/addons", icon: HiOutlineArchiveBox },
-  { label: "Add-On Summary", path: "/warehouse/addon-summary", icon: HiOutlineArchiveBox },
+
   { label: "Orders", path: "/warehouse/orders", icon: HiOutlineTruck },
   { label: "Returns", path: "/warehouse/returns", icon: HiOutlineArchiveBox },
   { label: "Track Orders", path: "/warehouse/tracking", icon: HiOutlineMapPin },
@@ -65,11 +58,7 @@ const WarehouseRoutes = () => {
         <Route path="/" element={<Dashboard />} />
         <Route path="/products" element={<ProductManagement />} />
         <Route path="/products/add" element={<AddProduct />} />
-        <Route path="/monthly-kits" element={<MonthlyKits />} />
-        <Route path="/monthly-kits/add" element={<AddMonthlyKit />} />
-        <Route path="/monthly-kits/edit/:id" element={<AddMonthlyKit />} />
-        <Route path="/monthly-kits/addons" element={<KitAddonManagement />} />
-        <Route path="/addon-summary" element={<KitAddonSummary />} />
+
         <Route path="/inventory" element={<StockManagement />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/returns" element={<Returns />} />

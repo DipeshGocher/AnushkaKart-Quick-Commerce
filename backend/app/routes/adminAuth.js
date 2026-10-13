@@ -10,13 +10,11 @@ import {
     updateAdminPassword,
     getAdminStats,
     getDeliveryPartners,
+    updateDeliveryPartnerStatus,
+    deleteDeliveryPartner,
     approveDeliveryPartner,
     rejectDeliveryPartner,
-    getActiveFleet,
     getAdminWalletData,
-    getDeliveryTransactions,
-    settleTransaction,
-    bulkSettleDelivery,
     getActiveSellers,
     getPendingSellers,
     approveSellerApplication,
@@ -36,6 +34,8 @@ import {
     getCashSettlementHistory,
     getUsers,
     getUserById,
+    updateUserStatus,
+    sendUserNotification,
     getSellers,
     getSellerLocations,
     getPlatformSettings,
@@ -162,6 +162,8 @@ router.put(
 );
 router.get("/users", verifyToken, allowRoles("admin"), getUsers);
 router.get("/users/:id", verifyToken, allowRoles("admin"), getUserById);
+router.patch("/users/:id/status", verifyToken, allowRoles("admin"), updateUserStatus);
+router.post("/users/:id/notify", verifyToken, allowRoles("admin"), sendUserNotification);
 router.get("/sellers", verifyToken, allowRoles("admin"), getSellers);
 router.get("/sellers/locations", verifyToken, allowRoles("admin"), getSellerLocations);
 router.get("/sellers/active", verifyToken, allowRoles("admin"), getActiveSellers);
@@ -226,6 +228,20 @@ router.patch(
     approveDeliveryPartner
 );
 
+router.patch(
+    "/delivery-partners/:id/status",
+    verifyToken,
+    allowRoles("admin"),
+    updateDeliveryPartnerStatus
+);
+
+router.delete(
+    "/delivery-partners/:id",
+    verifyToken,
+    allowRoles("admin"),
+    deleteDeliveryPartner
+);
+
 router.delete(
     "/delivery-partners/reject/:id",
     verifyToken,
@@ -233,13 +249,8 @@ router.delete(
     rejectDeliveryPartner
 );
 
-router.get("/active-fleet", verifyToken, allowRoles("admin"), getActiveFleet);
 router.get("/wallet-data", verifyToken, allowRoles("admin"), getAdminWalletData);
 
-// Delivery Payouts / Funds
-router.get("/delivery-transactions", verifyToken, allowRoles('admin'), getDeliveryTransactions);
-router.put("/transactions/:id/settle", verifyToken, allowRoles("admin"), settleTransaction);
-router.put("/transactions/bulk-settle-delivery", verifyToken, allowRoles("admin"), bulkSettleDelivery);
 
 // Cash Collection Hub
 router.get("/delivery-cash", verifyToken, allowRoles("admin"), getDeliveryCashBalances);

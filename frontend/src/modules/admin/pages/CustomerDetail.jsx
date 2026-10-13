@@ -36,24 +36,22 @@ const CustomerDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { showToast } = useToast();
-    const [isRefreshing, setIsRefreshing] = useState(false);
     const [orderSearch, setOrderSearch] = useState('');
     const [visibleOrders, setVisibleOrders] = useState(3);
 
     // Modal states
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
     const [isRestrictModalOpen, setIsRestrictModalOpen] = useState(false);
 
     // Form states
+    const [notifTitle, setNotifTitle] = useState('');
     const [notifMessage, setNotifMessage] = useState('');
-    const [notes, setNotes] = useState('Prefer morning deliveries. Use the building entrance on the north side.');
+    const [isSendingNotif, setIsSendingNotif] = useState(false);
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
     const [customer, setCustomer] = useState(null);
     const [loading, setLoading] = useState(true);
     const [orders, setOrders] = useState([]);
-
-    const [editForm, setEditForm] = useState({ name: '', email: '', phone: '' });
 
     useEffect(() => {
         const fetchCustomerDetails = async () => {
@@ -64,11 +62,6 @@ const CustomerDetail = () => {
                     const customerData = data.result;
                     setCustomer(customerData);
                     setOrders(customerData.recentOrders || []);
-                    setEditForm({
-                        name: customerData.name,
-                        email: customerData.email,
-                        phone: customerData.phone
-                    });
                 }
             } catch (error) {
                 console.error("Error fetching customer details:", error);
@@ -80,41 +73,46 @@ const CustomerDetail = () => {
         if (id) fetchCustomerDetails();
     }, [id]);
 
-    const handleRefresh = () => {
-        setIsRefreshing(true);
-        setTimeout(() => {
-            setIsRefreshing(false);
-            showToast('Customer data synchronized with main server', 'success');
-        }, 1000);
+    const handleSendNotif = async () => {
+        if (!notifTitle.trim() || !notifMessage.trim()) {
+            showToast('Please enter both title and message', 'error');
+            return;
+        }
+        setIsSendingNotif(true);
+        try {
+            await adminApi.sendUserNotification(customer.id || customer._id, {
+                title: notifTitle.trim(),
+                message: notifMessage.trim(),
+            });
+            showToast('Notification sent to customer successfully', 'success');
+            setIsNotifModalOpen(false);
+            setNotifTitle('');
+            setNotifMessage('');
+        } catch (error) {
+            console.error("Failed to send notification:", error);
+            showToast(error.response?.data?.message || 'Failed to send notification', 'error');
+        } finally {
+            setIsSendingNotif(false);
+        }
     };
 
-    const handleUpdateProfile = (e) => {
-        e.preventDefault();
-        setCustomer({ ...editForm });
-        setIsEditModalOpen(false);
-        showToast('Profile updated successfully', 'success');
-    };
-
-    const handleSendNotif = () => {
-        if (!notifMessage.trim()) return;
-        setIsNotifModalOpen(false);
-        setNotifMessage('');
-        showToast('Notification sent to user', 'success');
-    };
-
-    const handleRestrictAccount = () => {
-        const newStatus = customer.status === 'active' ? 'restricted' : 'active';
-        setCustomer({ ...customer, status: newStatus });
-        setIsRestrictModalOpen(false);
-        showToast(`Account successfully ${newStatus === 'restricted' ? 'restricted' : 'activated'}`, newStatus === 'restricted' ? 'warning' : 'success');
-    };
-
-    const handleSaveNotes = () => {
-        showToast('Internal CRM notes updated', 'info');
-    };
-
-    const handleExportCSV = () => {
-        showToast('Archive export initiated. CSV will be ready shortly.', 'info');
+    const handleRestrictAccount = async () => {
+        setIsUpdatingStatus(true);
+        const nextStatus = customer.status === 'active' ? 'inactive' : 'active';
+        try {
+            await adminApi.updateUserStatus(customer.id || customer._id, { status: nextStatus });
+            setCustomer(prev => ({ ...prev, status: nextStatus }));
+            setIsRestrictModalOpen(false);
+            showToast(
+                `Account successfully ${nextStatus === 'inactive' ? 'blocked' : 'activated'}`,
+                nextStatus === 'inactive' ? 'warning' : 'success'
+            );
+        } catch (error) {
+            console.error("Failed to update account status:", error);
+            showToast(error.response?.data?.message || 'Failed to update account status', 'error');
+        } finally {
+            setIsUpdatingStatus(false);
+        }
     };
 
 
@@ -166,25 +164,6 @@ const CustomerDetail = () => {
                         </div>
                         <p className="ds-description mt-1">Full profile and shopping history for this customer.</p>
                     </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={handleRefresh}
-                        className="flex items-center gap-2 px-5 py-3 bg-white ring-1 ring-slate-200 text-slate-700 rounded-2xl text-xs font-bold hover:bg-slate-50 transition-all shadow-sm"
-                    >
-                        <RotateCw className={cn("h-4 w-4 text-brand-500", isRefreshing && "animate-spin")} />
-                        REFRESH
-                    </button>
-                    <button
-                        onClick={() => {
-                            setEditForm({ ...customer });
-                            setIsEditModalOpen(true);
-                        }}
-                        className="flex items-center gap-2 px-5 py-3 bg-slate-900 text-white rounded-2xl text-xs font-bold hover:bg-slate-800 transition-all shadow-lg active:scale-95 shadow-slate-200"
-                    >
-                        <Edit3 className="h-4 w-4" />
-                        EDIT PROFILE
-                    </button>
                 </div>
             </div>
 
@@ -330,12 +309,6 @@ const CustomerDetail = () => {
                                         className="pl-8 pr-4 py-2 bg-slate-50 border-none rounded-xl text-[10px] font-bold outline-none ring-1 ring-transparent focus:ring-brand-500/20 w-40"
                                     />
                                 </div>
-                                <button
-                                    onClick={handleExportCSV}
-                                    className="text-[10px] font-black text-brand-600 uppercase hover:underline"
-                                >
-                                    Export CSV
-                                </button>
                             </div>
                         </div>
                         <div className="overflow-x-auto">
@@ -397,39 +370,26 @@ const CustomerDetail = () => {
                     </Card>
                 </div>
 
-                {/* Sidebar Notes */}
+                {/* Account Actions */}
                 <div className="space-y-6">
-                    <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-xl p-4">
-                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
-                            <MessageSquare className="h-4 w-4 text-brand-500" />
-                            Internal Notes
-                        </h4>
-                        <textarea
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            className="w-full bg-slate-50 p-6 rounded-2xl min-h-[140px] text-sm font-bold text-slate-600 leading-relaxed italic border border-slate-100 outline-none focus:bg-white focus:ring-2 focus:ring-brand-500/10 transition-all"
-                        />
-                        <button
-                            onClick={handleSaveNotes}
-                            className="w-full mt-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
-                        >
-                            UPDATE NOTES
-                        </button>
-                    </Card>
-
                     <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-slate-900 rounded-xl p-4 text-white">
                         <h4 className="text-xs font-black opacity-40 uppercase tracking-widest mb-6">Account Control</h4>
                         <div className="space-y-4">
                             <button
                                 onClick={() => setIsNotifModalOpen(true)}
-                                className="w-full py-4 bg-black  hover:bg-brand-500 text-primary-foreground rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all shadow-xl shadow-brand-900/20 flex items-center justify-center gap-2"
+                                className="w-full py-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all shadow-xl shadow-brand-900/20 flex items-center justify-center gap-2"
                             >
-                                <MessageSquare className="h-4 w-4" />
+                                <Bell className="h-4 w-4" />
                                 SEND NOTIFICATION
                             </button>
                             <button
                                 onClick={() => setIsRestrictModalOpen(true)}
-                                className="w-full py-4 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-2xl font-black text-[11px] uppercase tracking-widest border border-rose-500/20 transition-all flex items-center justify-center gap-2"
+                                className={cn(
+                                    "w-full py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 border",
+                                    customer.status === 'active'
+                                        ? "bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white border-rose-500/20"
+                                        : "bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border-emerald-500/20"
+                                )}
                             >
                                 <Ban className="h-4 w-4" />
                                 {customer.status === 'active' ? 'BLOCK ACCOUNT' : 'UNBLOCK ACCOUNT'}
@@ -440,41 +400,23 @@ const CustomerDetail = () => {
             </div>
 
             {/* Modals */}
-            <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Edit Profile Details">
-                <form onSubmit={handleUpdateProfile} className="space-y-6">
-                    <div className="space-y-4">
-                        <div>
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Full Name</label>
-                            <input
-                                type="text"
-                                value={editForm.name}
-                                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                                className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Phone Number</label>
-                            <input
-                                type="text"
-                                value={editForm.phone}
-                                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                                className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
-                            />
-                        </div>
-                    </div>
-                    <button type="submit" className="w-full py-4 bg-black  hover:bg-brand-500 text-primary-foreground rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all shadow-lg active:scale-95">
-                        SAVE CHANGES
-                    </button>
-                </form>
-            </Modal>
-
-            <Modal isOpen={isNotifModalOpen} onClose={() => setIsNotifModalOpen(false)} title="Send Notification">
+            <Modal isOpen={isNotifModalOpen} onClose={() => setIsNotifModalOpen(false)} title="Send In-App Notification">
                 <div className="space-y-6">
-                    <div className="p-4 bg-brand-50 rounded-2xl flex items-start gap-3">
-                        <Bell className="h-5 w-5 text-brand-500 shrink-0 mt-0.5" />
-                        <p className="text-xs font-bold text-brand-700 leading-relaxed">
-                            We will send notifications via app and SMS immediately.
+                    <div className="p-4 bg-primary/10 rounded-2xl flex items-start gap-3">
+                        <Bell className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                        <p className="text-xs font-bold text-primary leading-relaxed">
+                            This notification will appear in the customer's bell icon on their homepage and notifications screen.
                         </p>
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Notification Title</label>
+                        <input
+                            type="text"
+                            value={notifTitle}
+                            onChange={(e) => setNotifTitle(e.target.value)}
+                            placeholder="e.g. Account Update / Special Offer"
+                            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
+                        />
                     </div>
                     <div>
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Message</label>
@@ -482,23 +424,37 @@ const CustomerDetail = () => {
                             value={notifMessage}
                             onChange={(e) => setNotifMessage(e.target.value)}
                             placeholder="Type your message here..."
-                            className="w-full px-5 py-5 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm min-h-[120px]"
+                            rows={4}
+                            className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm resize-none"
                         />
                     </div>
                     <button
                         onClick={handleSendNotif}
-                        disabled={!notifMessage.trim()}
-                        className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                        disabled={isSendingNotif || !notifTitle.trim() || !notifMessage.trim()}
+                        className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all shadow-lg active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 hover:bg-slate-800"
                     >
-                        SEND MESSAGE
+                        {isSendingNotif ? (
+                            <>
+                                <RotateCw className="h-4 w-4 animate-spin" />
+                                SENDING...
+                            </>
+                        ) : (
+                            'SEND NOTIFICATION'
+                        )}
                     </button>
                 </div>
             </Modal>
 
             <Modal isOpen={isRestrictModalOpen} onClose={() => setIsRestrictModalOpen(false)} title="Confirm Action">
                 <div className="space-y-6">
-                    <div className="p-6 bg-rose-50 rounded-xl border border-rose-100 flex flex-col items-center text-center gap-4">
-                        <div className="p-3 bg-rose-500 text-white rounded-full">
+                    <div className={cn(
+                        "p-6 rounded-xl border flex flex-col items-center text-center gap-4",
+                        customer.status === 'active' ? "bg-rose-50 border-rose-100" : "bg-emerald-50 border-emerald-100"
+                    )}>
+                        <div className={cn(
+                            "p-3 text-white rounded-full",
+                            customer.status === 'active' ? "bg-rose-500" : "bg-emerald-500"
+                        )}>
                             <Ban className="h-6 w-6" />
                         </div>
                         <h5 className="text-lg font-black text-slate-900 uppercase tracking-tight">
@@ -506,17 +462,37 @@ const CustomerDetail = () => {
                         </h5>
                         <p className="text-sm font-bold text-slate-500 leading-relaxed">
                             {customer.status === 'active'
-                                ? 'This will block the customer from placing orders or logging in.'
-                                : 'This will allow the customer to use all platform features again.'
+                                ? 'This will block the customer from logging in and requesting OTPs.'
+                                : 'This will allow the customer to log in and use all platform features again.'
                             }
                         </p>
                     </div>
                     <div className="flex gap-3">
-                        <button onClick={() => setIsRestrictModalOpen(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all">
+                        <button
+                            onClick={() => setIsRestrictModalOpen(false)}
+                            disabled={isUpdatingStatus}
+                            className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all disabled:opacity-50"
+                        >
                             CANCEL
                         </button>
-                        <button onClick={handleRestrictAccount} className="flex-1 py-4 bg-rose-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-rose-600 shadow-xl shadow-rose-200 transition-all">
-                            CONFIRM
+                        <button
+                            onClick={handleRestrictAccount}
+                            disabled={isUpdatingStatus}
+                            className={cn(
+                                "flex-1 py-4 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2",
+                                customer.status === 'active'
+                                    ? "bg-rose-500 hover:bg-rose-600 shadow-rose-200"
+                                    : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200"
+                            )}
+                        >
+                            {isUpdatingStatus ? (
+                                <>
+                                    <RotateCw className="h-4 w-4 animate-spin" />
+                                    PROCESSING...
+                                </>
+                            ) : (
+                                customer.status === 'active' ? 'BLOCK ACCOUNT' : 'UNBLOCK ACCOUNT'
+                            )}
                         </button>
                     </div>
                 </div>

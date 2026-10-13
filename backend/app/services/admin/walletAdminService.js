@@ -44,25 +44,7 @@ export async function getAdminWalletOverview({ page, limit }) {
   };
 }
 
-export async function getDeliveryTransactionsData({ page, limit, skip }) {
-  const query = { userModel: "Delivery" };
-  const transactions = await Transaction.find(query)
-    .populate("user", "name phone documents")
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit)
-    .lean();
 
-  const total = await Transaction.countDocuments(query);
-
-  return {
-    items: transactions,
-    page,
-    limit,
-    total,
-    totalPages: Math.ceil(total / limit) || 1,
-  };
-}
 
 export async function getSellerWithdrawalsData({ page, limit, skip }) {
   const query = { userModel: "Seller", type: "Withdrawal" };
@@ -177,32 +159,4 @@ export async function updateWithdrawalStatusById({ id, status, reason }) {
   return transaction;
 }
 
-export async function settleDeliveryTransactionById(id) {
-  const transaction = await Transaction.findByIdAndUpdate(
-    id,
-    { status: "Settled" },
-    { new: true },
-  ).populate("user", "name");
 
-  if (!transaction) {
-    return null;
-  }
-
-  await Notification.create({
-    recipient: transaction.user._id,
-    recipientModel: "Delivery",
-    title: "Payment Settled",
-    message: `Your payment of \u20B9${transaction.amount} has been settled.`,
-    type: "payment",
-    data: { transactionId: transaction._id },
-  });
-
-  return transaction;
-}
-
-export async function bulkSettleDeliveryTransactions() {
-  return Transaction.updateMany(
-    { userModel: "Delivery", status: "Pending" },
-    { status: "Settled" },
-  );
-}

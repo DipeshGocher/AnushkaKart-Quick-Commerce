@@ -27,7 +27,9 @@ import {
   Navigation2,
   Camera,
   X,
+  Star,
 } from "lucide-react";
+import ReviewSubmissionModal from "../components/shared/ReviewSubmissionModal";
 import { customerApi } from "../services/customerApi";
 import { toast } from "sonner";
 import { subscribeToOrderLocation, subscribeToOrderTrail, subscribeToOrderRoute } from "@/core/services/trackingClient";
@@ -169,6 +171,8 @@ const OrderDetailPage = () => {
   const [returnImages, setReturnImages] = useState([]);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
+  const [reviewModalProduct, setReviewModalProduct] = useState(null);
+  const [reviewedProductIds, setReviewedProductIds] = useState([]);
   const [liveLocation, setLiveLocation] = useState(null);
   const [trail, setTrail] = useState([]);
   const [routePolyline, setRoutePolyline] = useState(null);
@@ -1212,10 +1216,20 @@ const OrderDetailPage = () => {
                     Qty: {item.quantity}
                   </p>
                 </div>
-                <div className="text-right flex-shrink-0">
+                <div className="text-right flex-shrink-0 flex flex-col items-end">
                   <p className="font-bold text-slate-900">
                     ₹{item.price * item.quantity}
                   </p>
+                  {(status === "delivered" || order?.status === "delivered" || order?.workflowStatus === "DELIVERED") && (
+                    <button
+                      type="button"
+                      onClick={() => setReviewModalProduct(item)}
+                      className="mt-1.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 shadow-2xs transition active:scale-95 cursor-pointer"
+                    >
+                      <Star size={11} className="fill-amber-500 text-amber-500" />
+                      {reviewedProductIds.includes(item.product?._id || item.product || item.id) ? "Reviewed" : "Rate & Review"}
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -1588,6 +1602,14 @@ const OrderDetailPage = () => {
           </motion.div>
         </div>
       )}
+
+      {/* Review & Rating Modal for Delivered Item */}
+      <ReviewSubmissionModal
+        isOpen={Boolean(reviewModalProduct)}
+        onClose={() => setReviewModalProduct(null)}
+        product={reviewModalProduct}
+        onReviewSubmitted={(pid) => setReviewedProductIds((prev) => [...prev, pid])}
+      />
     </div>
   );
 };

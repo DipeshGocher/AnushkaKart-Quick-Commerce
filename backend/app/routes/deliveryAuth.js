@@ -22,7 +22,7 @@ import {
 } from "../controller/sosController.js";
 import { getRiderWalletSummaryController } from "../controller/adminFinanceController.js";
 
-import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
+import { verifyToken, allowRoles, requireActiveDelivery } from "../middleware/authMiddleware.js";
 import multer from "multer";
 import {
   getWarehouseQueueHandler,
@@ -43,6 +43,9 @@ router.post(
 );
 router.post("/send-login-otp", loginDelivery);
 router.post("/verify-otp", verifyDeliveryOTP);
+
+// Enforce token and active status on all subsequent delivery routes
+router.use(verifyToken, requireActiveDelivery);
 
 // Profile routes
 router.get("/profile", verifyToken, getDeliveryProfile);

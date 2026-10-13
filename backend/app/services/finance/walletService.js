@@ -495,8 +495,8 @@ export async function getAdminFinanceSummary() {
         { $group: { _id: null, amount: { $sum: "$paymentBreakdown.codRemittedAmount" } } },
       ]),
       Order.aggregate([
-        // Requirement: Total Admin Earning should not include COD orders.
-        { $match: { status: "delivered", paymentMode: "ONLINE" } },
+        // Total Admin Earning includes delivered orders (both ONLINE and COD)
+        { $match: { status: "delivered" } },
         { $group: { _id: null, amount: { $sum: "$paymentBreakdown.platformTotalEarning" } } },
       ]),
       Payout.aggregate([

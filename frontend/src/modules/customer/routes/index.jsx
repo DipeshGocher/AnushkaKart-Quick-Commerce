@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Home from '../pages/Home';
 import CategoriesPage from '../pages/CategoriesPage';
 import CategoryProductsPage from '../pages/CategoryProductsPage';
@@ -19,7 +19,7 @@ import AboutPage from '../pages/AboutPage';
 import EditProfilePage from '../pages/EditProfilePage';
 import OrderDetailPage from '../pages/OrderDetailPage';
 import ProductDetailPage from '../pages/ProductDetailPage';
-import KitDetailPage from '../pages/KitDetailPage';
+
 import ProductsPage from '../pages/ProductsPage';
 import CheckoutPage from '../pages/CheckoutPage';
 import PaymentStatusPage from '../pages/PaymentStatusPage';
@@ -43,7 +43,7 @@ const CustomerRoutes = () => {
                                 <Route path="categories" element={<CategoriesPage />} />
                                 <Route path="category/:categoryName" element={<CategoryProductsPage />} />
                                 <Route path="product/:id" element={<ProductDetailPage />} />
-                                <Route path="kit/:id" element={<KitDetailPage />} />
+                                <Route path="kit/:id" element={<Navigate to="/" replace />} />
                                 <Route path="terms" element={<TermsPage />} />
                                 <Route path="terms-and-conditions" element={<TermsPage />} />
                                 <Route path="terms-conditions" element={<TermsPage />} />

@@ -95,11 +95,39 @@ const CustomerManagement = () => {
     }, [customers, searchTerm, filterStatus]);
 
     const handleExport = () => {
+        const safeCustomers = Array.isArray(customers) ? customers : [];
+        if (!safeCustomers.length) {
+            toast.error('No customers to export');
+            return;
+        }
         setIsExporting(true);
-        setTimeout(() => {
-            setIsExporting(false);
+        try {
+            const headers = ['ID', 'Name', 'Email', 'Phone', 'Orders', 'Total Spend', 'Status', 'Joined Date'];
+            const rows = safeCustomers.map(c => [
+                c.id || '',
+                `"${(c.name || '').replace(/"/g, '""')}"`,
+                c.email || '',
+                c.phone || '',
+                c.totalOrders || 0,
+                c.totalSpent || 0,
+                c.status || 'active',
+                c.joinedDate ? new Date(c.joinedDate).toLocaleDateString() : ''
+            ]);
+            const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `customers_${new Date().toISOString().slice(0, 10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
             toast.success('Customer database exported successfully!');
-        }, 1500);
+        } catch (err) {
+            toast.error('Failed to export customers');
+        } finally {
+            setIsExporting(false);
+        }
     };
 
     const getTimeAgo = (date) => {
@@ -126,20 +154,14 @@ const CustomerManagement = () => {
                     </div>
                 }
                 actions={
-                    <>
-                        <button
-                            onClick={handleExport}
-                            disabled={isExporting}
-                            className="ds-btn ds-btn-md bg-white ring-1 ring-gray-200 text-gray-700 hover:bg-gray-50"
-                        >
-                            {isExporting ? <RotateCw className="ds-icon-sm animate-spin" /> : <Download className="ds-icon-sm" />}
-                            {isExporting ? 'EXPORTING...' : 'EXPORT'}
-                        </button>
-                        <button className="ds-btn ds-btn-md bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-                            <UserPlus className="ds-icon-sm" />
-                            NEW CUSTOMER
-                        </button>
-                    </>
+                    <button
+                        onClick={handleExport}
+                        disabled={isExporting}
+                        className="ds-btn ds-btn-md bg-white ring-1 ring-gray-200 text-gray-700 hover:bg-gray-50"
+                    >
+                        {isExporting ? <RotateCw className="ds-icon-sm animate-spin" /> : <Download className="ds-icon-sm" />}
+                        {isExporting ? 'EXPORTING...' : 'EXPORT'}
+                    </button>
                 }
             />
 
@@ -285,11 +307,9 @@ const CustomerManagement = () => {
                                                 <button
                                                     onClick={() => navigate(`/admin/customers/${cust.id}`)}
                                                     className="p-2 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-white transition-all"
+                                                    title="View Profile"
                                                 >
                                                     <Eye className="ds-icon-sm" />
-                                                </button>
-                                                <button className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-gray-900 hover:text-white transition-all">
-                                                    <MoreVertical className="ds-icon-sm" />
                                                 </button>
                                             </div>
                                         </td>
