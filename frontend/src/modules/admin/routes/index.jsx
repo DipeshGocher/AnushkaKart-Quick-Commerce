@@ -53,8 +53,6 @@ const ProductManagement = React.lazy(
 );
 const ActiveSellers = React.lazy(() => import("../pages/ActiveSellers"));
 const PendingSellers = React.lazy(() => import("../pages/PendingSellers"));
-const ActiveWarehouses = React.lazy(() => import("../pages/ActiveWarehouses"));
-const PendingWarehouses = React.lazy(() => import("../pages/PendingWarehouses"));
 const ActiveDeliveryBoys = React.lazy(
   () => import("../pages/ActiveDeliveryBoys"),
 );
@@ -105,7 +103,6 @@ const SOSAlerts = React.lazy(() => import("../pages/SOSAlerts"));
 
 const EmployeeManagement = React.lazy(() => import("../pages/EmployeeManagement"));
 const EmployeeDetail = React.lazy(() => import("../pages/EmployeeDetail"));
-const WarehouseQueueDashboard = React.lazy(() => import("../pages/WarehouseQueueDashboard"));
 const LegalPageEditor = React.lazy(() => import("../pages/LegalPageEditor"));
 const DeliveryPincodes = React.lazy(() => import("../pages/DeliveryPincodes"));
 
@@ -194,7 +191,7 @@ const navItems = [
     color: "cyan",
   },
   {
-    label: "Seller Payments",
+    label: "Seller Ledger",
     path: "/admin/seller-transactions",
     icon: Receipt,
     color: "orange",
@@ -291,9 +288,9 @@ export const adminRoutes = [
   { path: "products", element: <ProductManagement /> },
   { path: "sellers/active", element: <ActiveSellers /> },
   { path: "sellers/active/:id", element: <SellerDetail /> },
-  { path: "warehouses/active", element: <ActiveWarehouses /> },
-  { path: "warehouses/pending", element: <PendingWarehouses /> },
-  { path: "warehouse-queues", element: <WarehouseQueueDashboard /> },
+  { path: "warehouses/active", element: <Navigate to="/admin" replace /> },
+  { path: "warehouses/pending", element: <Navigate to="/admin" replace /> },
+  { path: "warehouse-queues", element: <Navigate to="/admin" replace /> },
   { path: "support-tickets", element: <SupportTickets /> },
   { path: "moderation", element: <ReviewModeration /> },
   { path: "monthly-baskets/*", element: <Navigate to="/admin/products" replace /> },

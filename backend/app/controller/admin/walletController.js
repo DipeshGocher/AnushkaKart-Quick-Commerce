@@ -34,7 +34,12 @@ export const getSellerWithdrawals = async (req, res) => {
       maxLimit: 200,
     });
 
-    const data = await getSellerWithdrawalsData({ page, limit, skip });
+    const data = await getSellerWithdrawalsData({
+      page,
+      limit,
+      skip,
+      status: req.query.status,
+    });
     return handleResponse(res, 200, "Seller withdrawals fetched", data);
   } catch (error) {
     return handleResponse(res, 500, error.message);
@@ -62,7 +67,14 @@ export const getSellerTransactions = async (req, res) => {
       maxLimit: 200,
     });
 
-    const data = await getSellerTransactionsData({ page, limit, skip });
+    const data = await getSellerTransactionsData({
+      page,
+      limit,
+      skip,
+      status: req.query.status,
+      type: req.query.type,
+      search: req.query.search,
+    });
     return handleResponse(res, 200, "Seller transactions fetched", data);
   } catch (error) {
     return handleResponse(res, 500, error.message);
@@ -76,7 +88,12 @@ export const getDeliveryWithdrawals = async (req, res) => {
       maxLimit: 200,
     });
 
-    const data = await getDeliveryWithdrawalsData({ page, limit, skip });
+    const data = await getDeliveryWithdrawalsData({
+      page,
+      limit,
+      skip,
+      status: req.query.status,
+    });
     return handleResponse(res, 200, "Delivery withdrawals fetched", data);
   } catch (error) {
     return handleResponse(res, 500, error.message);

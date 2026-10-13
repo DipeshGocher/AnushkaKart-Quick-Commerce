@@ -11,29 +11,23 @@ import {
     Search,
     Filter,
     ArrowUpRight,
-    ArrowDownLeft,
     Building2,
     Calendar,
     Download,
     Eye,
-    ChevronRight,
     TrendingUp,
     CreditCard,
     Percent,
-    ShoppingCart,
-    Undo2,
-    Wallet,
-    Banknote,
-    Info,
-    RotateCw,
-    ExternalLink,
     ShoppingBag,
-    Landmark,
+    Undo2,
+    RotateCw,
     Clock,
-    Lock
+    FileText,
+    Copy,
+    CheckCircle2,
+    XCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
 
 const parseBankDetails = (bank) => {
     if (!bank) return { summary: 'N/A', details: null };
@@ -71,18 +65,11 @@ const SellerTransactions = () => {
     const [selectedTxn, setSelectedTxn] = useState(null);
     const [isExporting, setIsExporting] = useState(false);
     const [transactions, setTransactions] = useState([]);
+    const [serverStats, setServerStats] = useState(null);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            fetchTransactions(1);
-        }, 500);
-        return () => clearTimeout(timer);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pageSize, searchTerm, filterStatus, filterType, selectedSeller]);
 
     const fetchTransactions = async (requestedPage = 1) => {
         try {
@@ -91,15 +78,34 @@ const SellerTransactions = () => {
             if (searchTerm.trim()) params.search = searchTerm.trim();
             if (filterStatus !== 'all') params.status = filterStatus;
             if (filterType !== 'all') params.type = filterType;
-            if (selectedSeller !== 'all') params.sellerId = selectedSeller; // Assuming backend supports seller filter
+            if (selectedSeller !== 'all') params.sellerId = selectedSeller;
             
             const res = await adminApi.getSellerTransactions(params);
             if (res.data.success) {
                 const payload = res.data.result || {};
                 const data = Array.isArray(payload.items) ? payload.items : (res.data.results || []);
                 const mapped = data.map(t => {
-                    const rawBank = t.bankDetails || t.user?.bankDetails || null;
+                    const rawBank = t.bankDetails || t.user?.bankDetails || (t.user?.accountNumber ? {
+                        bankName: t.user?.bankName,
+                        accountNumber: t.user?.accountNumber,
+                        ifscCode: t.user?.ifsc,
+                        accountHolderName: t.user?.accountHolder || t.user?.name
+                    } : null);
                     const parsedBank = parseBankDetails(rawBank);
+
+                    const rawType = String(t.type || '');
+                    const isSale = rawType === 'Order Payment' || rawType === 'Seller Earning' || rawType.toLowerCase() === 'sale';
+                    const isPayout = rawType === 'Withdrawal' || rawType === 'Payout' || rawType.toLowerCase() === 'payout';
+                    const isRefund = rawType === 'Refund' || rawType.toLowerCase() === 'refund';
+
+                    const mappedType = isSale ? 'sale' : isPayout ? 'payout' : isRefund ? 'refund' : rawType.toLowerCase();
+
+                    const grossAmount = Math.abs(Number(t.amount) || 0);
+                    const platformFee = Number(t.order?.pricing?.platformFee ?? t.order?.paymentBreakdown?.platformFee ?? 0);
+                    const netPayable = isSale
+                        ? Number(t.order?.paymentBreakdown?.sellerEarnings ?? Math.max(0, grossAmount - platformFee))
+                        : grossAmount;
+
                     return {
                         id: t.reference || t._id,
                         referenceId: t.reference || t._id,
@@ -111,29 +117,32 @@ const SellerTransactions = () => {
                             hour: '2-digit',
                             minute: '2-digit'
                         }),
-                        seller: String(t.user?.shopName || t.user?.name || 'Unknown'),
-                        type: t.type === 'Seller Earning' ? 'sale' :
-                            (t.type === 'Withdrawal' || t.type === 'Payout') ? 'payout' :
-                                String(t.type || '').toLowerCase(),
+                        seller: String(t.user?.shopName || t.user?.name || 'Unknown Store'),
+                        type: mappedType,
+                        rawType: t.type,
                         amount: t.amount,
-                        commissionRate: t.order?.pricing?.platformFeeRate || 0,
-                        commissionAmount: t.order?.pricing?.platformFee || 0,
-                        taxAmount: t.order?.pricing?.tax || 0,
-                        netPayable: t.amount,
-                        status: String(t.status || '').toLowerCase(),
-                        paymentMethod: String(t.paymentMethod || 'Wallet'),
+                        grossAmount,
+                        commissionRate: t.order?.pricing?.platformFeeRate || (grossAmount > 0 ? Math.round((platformFee / grossAmount) * 100) : 0),
+                        commissionAmount: platformFee,
+                        taxAmount: Number(t.order?.pricing?.gst ?? t.order?.pricing?.tax ?? 0),
+                        netPayable,
+                        status: String(t.status || 'pending').toLowerCase(),
+                        paymentMethod: String(t.order?.paymentMode || t.paymentMethod || 'Wallet'),
                         bankDetails: parsedBank.summary,
                         bankDetailsObj: parsedBank.details,
                         items: t.order?.items?.map(item => ({
-                            name: item.product?.name || 'Unknown Item',
-                            qty: item.quantity,
-                            price: item.price
+                            name: item.product?.name || 'Product Item',
+                            qty: item.quantity || 1,
+                            price: item.price || 0
                         })) || []
                     };
                 });
                 setTransactions(mapped);
                 setTotal(typeof payload.total === 'number' ? payload.total : mapped.length);
                 setPage(typeof payload.page === 'number' ? payload.page : requestedPage);
+                if (payload.stats) {
+                    setServerStats(payload.stats);
+                }
             }
         } catch (error) {
             toast.error("Failed to fetch transactions");
@@ -143,26 +152,53 @@ const SellerTransactions = () => {
         }
     };
 
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            fetchTransactions(1);
+        }, 400);
+        return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pageSize, searchTerm, filterStatus, filterType, selectedSeller]);
+
     const sellers = useMemo(() => {
         const unique = Array.from(new Set(transactions.map(t => t.seller)));
         return unique.map(name => ({ id: name, name }));
     }, [transactions]);
 
+    // Use global database statistics from backend, with local fallback
     const stats = useMemo(() => {
+        if (serverStats) {
+            return {
+                totalGross: serverStats.totalSales || 0,
+                totalCommission: serverStats.totalCommission || 0,
+                totalPayouts: serverStats.totalPaidOut || 0,
+                pendingSettlements: serverStats.pendingTotal || 0
+            };
+        }
+        const validSales = transactions.filter(t => t.type === 'sale' && t.status !== 'failed');
+        const settledPayouts = transactions.filter(t => t.type === 'payout' && (t.status === 'settled' || t.status === 'processed'));
+        const pendingItems = transactions.filter(t => t.status === 'pending' || t.status === 'processing');
+
         return {
-            totalGross: transactions.filter(t => t.type === 'sale').reduce((acc, t) => acc + t.amount, 0),
-            totalCommission: transactions.filter(t => t.type === 'sale').reduce((acc, t) => acc + (t.commissionAmount || 0), 0),
-            totalPayouts: Math.abs(transactions.filter(t => t.type === 'payout').reduce((acc, t) => acc + t.amount, 0)),
-            pendingSettlements: transactions.filter(t => t.status === 'pending').reduce((acc, t) => acc + Math.abs(t.amount), 0)
+            totalGross: validSales.reduce((acc, t) => acc + t.grossAmount, 0),
+            totalCommission: validSales.reduce((acc, t) => acc + (t.commissionAmount || 0), 0),
+            totalPayouts: settledPayouts.reduce((acc, t) => acc + t.grossAmount, 0),
+            pendingSettlements: pendingItems.reduce((acc, t) => acc + t.grossAmount, 0)
         };
-    }, [transactions]);
+    }, [serverStats, transactions]);
 
     const filteredTransactions = useMemo(() => {
         return transactions.filter(t => {
             const matchesSearch = t.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (t.orderId && t.orderId.toLowerCase().includes(searchTerm.toLowerCase())) ||
                 t.seller.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesStatus = filterStatus === 'all' || t.status === filterStatus;
+            
+            const matchesStatus = filterStatus === 'all' ||
+                (filterStatus === 'paid' && (t.status === 'settled' || t.status === 'processed' || t.status === 'completed')) ||
+                (filterStatus === 'pending' && (t.status === 'pending' || t.status === 'processing')) ||
+                (filterStatus === 'failed' && (t.status === 'failed' || t.status === 'cancelled')) ||
+                t.status === filterStatus;
+
             const matchesType = filterType === 'all' || t.type === filterType;
             const matchesSeller = selectedSeller === 'all' || t.seller === selectedSeller;
 
@@ -170,23 +206,72 @@ const SellerTransactions = () => {
         });
     }, [transactions, searchTerm, filterStatus, filterType, selectedSeller]);
 
+    // Real CSV Master Ledger Export
     const handleExport = () => {
+        const rowsToExport = filteredTransactions.length > 0 ? filteredTransactions : transactions;
+        if (!rowsToExport.length) {
+            toast.error('No transactions available to export');
+            return;
+        }
+
         setIsExporting(true);
-        setTimeout(() => {
+        try {
+            const headers = [
+                'Txn Reference',
+                'Order ID',
+                'Date',
+                'Shop / Merchant',
+                'Type',
+                'Gross Amount (₹)',
+                'Platform Fee (₹)',
+                'Merchant Net (₹)',
+                'Status',
+                'Payment Mode',
+                'Bank Details'
+            ];
+
+            const csvRows = [headers.join(',')];
+
+            rowsToExport.forEach(t => {
+                const row = [
+                    `"${t.id}"`,
+                    `"${t.orderId || ''}"`,
+                    `"${t.date}"`,
+                    `"${t.seller.replace(/"/g, '""')}"`,
+                    `"${t.type.toUpperCase()}"`,
+                    t.grossAmount,
+                    t.commissionAmount || 0,
+                    t.netPayable || t.grossAmount,
+                    `"${t.status.toUpperCase()}"`,
+                    `"${t.paymentMethod}"`,
+                    `"${(t.bankDetails || '').replace(/"/g, '""')}"`
+                ];
+                csvRows.push(row.join(','));
+            });
+
+            const csvString = '\uFEFF' + csvRows.join('\n');
+            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `seller-master-ledger-${new Date().toISOString().slice(0, 10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            toast.success(`Exported ${rowsToExport.length} transactions to CSV`);
+        } catch (e) {
+            console.error('Export error:', e);
+            toast.error('Failed to export ledger');
+        } finally {
             setIsExporting(false);
-            alert('Financial ledger exported successfully.');
-        }, 1500);
+        }
     };
 
-    if (loading) {
+    if (loading && transactions.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-                <div className="relative">
-                    <Loader2 className="h-12 w-12 text-primary animate-spin" />
-                    <div className="absolute inset-0 h-12 w-12 text-primary/20 blur-sm animate-pulse">
-                        <Loader2 />
-                    </div>
-                </div>
+                <Loader2 className="h-10 w-10 text-brand-600 animate-spin" />
                 <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Synchronizing Ledger...</p>
             </div>
         );
@@ -198,25 +283,34 @@ const SellerTransactions = () => {
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 px-1">
                 <div>
                     <h1 className="ds-h1 flex items-center gap-3">
-                        Shop Transactions
-                        <div className="p-1.5 bg-brand-50 rounded-lg">
-                            <Receipt className="h-5 w-5 text-brand-600" />
-                        </div>
+                        Seller Ledger / Passbook
+                        <Badge
+                            variant="primary"
+                            className="text-[10px] px-2.5 py-0.5 font-bold uppercase tracking-wider bg-brand-50 text-brand-700 border-none"
+                        >
+                            FINANCIAL STATEMENT
+                        </Badge>
                     </h1>
-                    <p className="ds-description mt-1">Track sales, our share, and payments to shops.</p>
+                    <p className="ds-description mt-1">
+                        Track merchant sales, platform commission deduction, and settlement disbursement history.
+                    </p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button
+                        onClick={() => fetchTransactions(page)}
+                        disabled={loading}
+                        title="Refresh"
+                        className="p-3 bg-white ring-1 ring-slate-200 text-slate-600 rounded-2xl hover:bg-slate-50 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                    >
+                        <RotateCw className={cn("h-4 w-4", loading && "animate-spin")} />
+                    </button>
+                    <button
                         onClick={handleExport}
                         disabled={isExporting}
-                        className="flex items-center gap-2 px-5 py-3 bg-white ring-1 ring-slate-200 text-slate-700 rounded-2xl text-xs font-bold hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50"
+                        className="flex items-center gap-2 px-5 py-3 bg-white ring-1 ring-slate-200 text-slate-700 rounded-2xl text-xs font-bold hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50 active:scale-95"
                     >
-                        {isExporting ? <RotateCw className="h-4 w-4 animate-spin text-primary" /> : <Download className="h-4 w-4" />}
-                        {isExporting ? 'Generating Report...' : 'Download Master Ledger'}
-                    </button>
-                    <button className="flex items-center gap-2 px-5 py-3 bg-slate-900 text-white rounded-2xl text-xs font-bold hover:bg-slate-800 transition-all shadow-lg active:scale-95 group">
-                        <TrendingUp className="h-4 w-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                        Revenue Insights
+                        <Download className="h-4 w-4 text-slate-500" />
+                        {isExporting ? 'Generating CSV...' : 'Download Master Ledger'}
                     </button>
                 </div>
             </div>
@@ -224,47 +318,73 @@ const SellerTransactions = () => {
             {/* Live Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
-                    { label: 'Total Sales', value: `₹${stats.totalGross.toLocaleString()}`, icon: ShoppingBag, bg: 'bg-brand-50', color: 'text-brand-600' },
-                    { label: 'Our Share', value: `₹${stats.totalCommission.toLocaleString()}`, icon: Percent, bg: 'bg-brand-50', color: 'text-brand-600' },
-                    { label: 'Total Paid Out', value: `₹${stats.totalPayouts.toLocaleString()}`, icon: Banknote, bg: 'bg-brand-50', color: 'text-brand-600' },
-                    { label: 'Pending Total', value: `₹${stats.pendingSettlements.toLocaleString()}`, icon: Clock, bg: 'bg-amber-50', color: 'text-amber-600' },
+                    { 
+                        label: 'Merchant Sales', 
+                        value: `₹${stats.totalGross.toLocaleString('en-IN')}`, 
+                        description: 'Products sold by sellers',
+                        icon: ShoppingBag, 
+                        bg: 'bg-emerald-50', 
+                        color: 'text-emerald-600' 
+                    },
+                    { 
+                        label: 'Commission Deducted', 
+                        value: `₹${stats.totalCommission.toLocaleString('en-IN')}`, 
+                        description: 'Platform fee on orders',
+                        icon: Percent, 
+                        bg: 'bg-brand-50', 
+                        color: 'text-brand-600' 
+                    },
+                    { 
+                        label: 'Paid Out to Sellers', 
+                        value: `₹${stats.totalPayouts.toLocaleString('en-IN')}`, 
+                        description: 'Disbursed via bank transfer',
+                        icon: ArrowUpRight, 
+                        bg: 'bg-blue-50', 
+                        color: 'text-blue-600' 
+                    },
+                    { 
+                        label: 'Pending Settlement', 
+                        value: `₹${stats.pendingSettlements.toLocaleString('en-IN')}`, 
+                        description: 'Payable merchant balance',
+                        icon: Clock, 
+                        bg: 'bg-amber-50', 
+                        color: 'text-amber-600' 
+                    },
                 ].map((stat, i) => (
-                    <Card key={i} className="px-5 py-4 border-none shadow-sm ring-1 ring-slate-100 hover:ring-primary/20 transition-all bg-white group overflow-hidden relative">
+                    <Card key={i} className="px-5 py-4 border-none shadow-sm ring-1 ring-slate-100 hover:ring-brand-500/20 transition-all bg-white group overflow-hidden relative rounded-2xl">
                         <div className="relative z-10">
-                            <div className={cn("p-2 rounded-xl w-fit mb-4 transition-transform group-hover:scale-110", stat.bg)}>
+                            <div className={cn("p-2.5 rounded-xl w-fit mb-3 transition-transform group-hover:scale-105", stat.bg)}>
                                 <stat.icon className={cn("h-5 w-5", stat.color)} />
                             </div>
-                            <p className="ds-label mb-1">{stat.label}</p>
-                            <h3 className="ds-stat-medium">{stat.value}</h3>
-                        </div>
-                        <div className="absolute -bottom-4 -right-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
-                            <stat.icon className="h-24 w-24" />
+                            <p className="ds-label mb-0.5 text-slate-400">{stat.label}</p>
+                            <h3 className="ds-stat-medium text-slate-900">{stat.value}</h3>
+                            <p className="text-[11px] font-medium text-slate-400 mt-1">{stat.description}</p>
                         </div>
                     </Card>
                 ))}
             </div>
 
             {/* Filter & Search Bar */}
-            <Card className="p-4 border-none shadow-xl ring-1 ring-slate-100/50 bg-white/80 backdrop-blur-xl rounded-xl">
+            <Card className="p-4 border-none shadow-sm ring-1 ring-slate-100 bg-white rounded-2xl">
                 <div className="flex flex-col lg:flex-row gap-4">
                     <div className="flex-1 relative group">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-brand-600 transition-colors" />
                         <input
                             type="text"
                             placeholder="Filter by Store, Order ID, or Txn Reference..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/10 transition-all"
+                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-xs font-semibold outline-none focus:ring-2 focus:ring-brand-500/20 transition-all placeholder:text-slate-400"
                         />
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
-                        <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl ring-1 ring-slate-100">
+                        <div className="flex items-center gap-2 bg-slate-50 px-3.5 py-2 rounded-xl ring-1 ring-slate-100">
                             <Filter className="h-3.5 w-3.5 text-slate-400" />
                             <select
                                 value={filterType}
                                 onChange={(e) => setFilterType(e.target.value)}
-                                className="bg-transparent text-[10px] font-bold text-slate-600 uppercase outline-none cursor-pointer"
+                                className="bg-transparent text-[11px] font-bold text-slate-600 uppercase outline-none cursor-pointer"
                             >
                                 <option value="all">All Types</option>
                                 <option value="sale">Sales Only</option>
@@ -273,12 +393,12 @@ const SellerTransactions = () => {
                             </select>
                         </div>
 
-                        <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl ring-1 ring-slate-100">
+                        <div className="flex items-center gap-2 bg-slate-50 px-3.5 py-2 rounded-xl ring-1 ring-slate-100">
                             <Building2 className="h-3.5 w-3.5 text-slate-400" />
                             <select
                                 value={selectedSeller}
                                 onChange={(e) => setSelectedSeller(e.target.value)}
-                                className="bg-transparent text-[10px] font-bold text-slate-600 uppercase outline-none cursor-pointer max-w-[150px]"
+                                className="bg-transparent text-[11px] font-bold text-slate-600 uppercase outline-none cursor-pointer max-w-[160px]"
                             >
                                 <option value="all">All Merchants</option>
                                 {sellers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
@@ -286,16 +406,21 @@ const SellerTransactions = () => {
                         </div>
 
                         <div className="flex bg-slate-100 p-1 rounded-xl">
-                            {['all', 'paid', 'pending'].map((status) => (
+                            {[
+                                { key: 'all', label: 'ALL' },
+                                { key: 'paid', label: 'SETTLED' },
+                                { key: 'pending', label: 'PENDING' },
+                                { key: 'failed', label: 'FAILED' }
+                            ].map((status) => (
                                 <button
-                                    key={status}
-                                    onClick={() => setFilterStatus(status)}
+                                    key={status.key}
+                                    onClick={() => setFilterStatus(status.key)}
                                     className={cn(
-                                        "px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-tight transition-all",
-                                        filterStatus === status ? "bg-white text-primary shadow-sm" : "text-slate-400 hover:text-slate-600"
+                                        "px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tight transition-all",
+                                        filterStatus === status.key ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-600"
                                     )}
                                 >
-                                    {status}
+                                    {status.label}
                                 </button>
                             ))}
                         </div>
@@ -304,97 +429,157 @@ const SellerTransactions = () => {
             </Card>
 
             {/* Master Table Area */}
-            <Card className="border-none shadow-2xl ring-1 ring-slate-100 overflow-hidden bg-white rounded-xl">
+            <Card className="border-none shadow-sm ring-1 ring-slate-100 overflow-hidden bg-white rounded-2xl">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-slate-50/80 border-b border-slate-100">
-                                <th className="ds-table-header-cell pl-8 py-5">TXN Details</th>
+                            <tr className="bg-slate-50/70 border-b border-slate-100">
+                                <th className="ds-table-header-cell pl-8 py-4">TXN Details</th>
                                 <th className="ds-table-header-cell">Shop</th>
-                                <th className="ds-table-header-cell">Info</th>
-                                <th className="ds-table-header-cell text-center">Amount</th>
-                                <th className="ds-table-header-cell text-center">Summary</th>
+                                <th className="ds-table-header-cell">Type & Order</th>
+                                <th className="ds-table-header-cell text-center">Gross Amount</th>
+                                <th className="ds-table-header-cell text-center">Net / Katoti</th>
                                 <th className="ds-table-header-cell text-center">Status</th>
                                 <th className="ds-table-header-cell text-right pr-8">Action</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-50">
+                        <tbody className="divide-y divide-slate-100">
                             {filteredTransactions.map((txn) => (
-                                <tr key={txn.id} className="group hover:bg-slate-50/40 transition-all">
-                                    <td className="px-6 py-5 pl-8">
+                                <tr key={txn.id} className="group hover:bg-slate-50/50 transition-colors">
+                                    {/* TXN Details */}
+                                    <td className="px-6 py-4 pl-8">
                                         <div className="flex items-center gap-3">
                                             <div className={cn(
-                                                "h-10 w-10 rounded-xl flex items-center justify-center shadow-sm",
-                                                txn.type === 'sale' ? "bg-brand-50 text-brand-600" : txn.type === 'payout' ? "bg-brand-50 text-brand-600" : "bg-rose-50 text-rose-600"
+                                                "h-10 w-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
+                                                txn.type === 'sale'
+                                                    ? "bg-emerald-50 text-emerald-600"
+                                                    : txn.type === 'payout'
+                                                    ? "bg-blue-50 text-blue-600"
+                                                    : "bg-rose-50 text-rose-600"
                                             )}>
-                                                {txn.type === 'sale' ? <ShoppingCart className="h-5 w-5" /> : txn.type === 'payout' ? <ArrowUpRight className="h-5 w-5" /> : <Undo2 className="h-5 w-5" />}
+                                                {txn.type === 'sale' ? (
+                                                    <ShoppingBag className="h-5 w-5" />
+                                                ) : txn.type === 'payout' ? (
+                                                    <ArrowUpRight className="h-5 w-5" />
+                                                ) : (
+                                                    <Undo2 className="h-5 w-5" />
+                                                )}
                                             </div>
                                             <div>
-                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{txn.id}</p>
-                                                <p className="text-xs font-bold text-slate-900 mt-0.5">{txn.date}</p>
+                                                <p className="text-[11px] font-mono font-bold text-slate-500">{txn.id}</p>
+                                                <p className="text-xs font-semibold text-slate-900 mt-0.5">{txn.date}</p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-5">
+
+                                    {/* Shop */}
+                                    <td className="px-6 py-4">
                                         <div className="flex items-center gap-2">
-                                            <Building2 className="h-3.5 w-3.5 text-slate-300" />
-                                            <p className="text-sm font-bold text-slate-700">{txn.seller}</p>
+                                            <Building2 className="h-3.5 w-3.5 text-slate-400" />
+                                            <p className="text-sm font-bold text-slate-800">{txn.seller}</p>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-5">
+
+                                    {/* Type & Order */}
+                                    <td className="px-6 py-4">
                                         <div className="flex flex-col gap-0.5">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase">{txn.type}</span>
-                                            {txn.orderId && <span className="text-[10px] font-bold text-primary uppercase tracking-widest">{txn.orderId}</span>}
+                                            <span className={cn(
+                                                "text-[10px] font-extrabold uppercase tracking-wide",
+                                                txn.type === 'sale'
+                                                    ? "text-emerald-700"
+                                                    : txn.type === 'payout'
+                                                    ? "text-blue-700"
+                                                    : "text-rose-700"
+                                            )}>
+                                                {txn.type === 'sale' ? 'ORDER SALE' : txn.type === 'payout' ? 'PAYOUT DISBURSEMENT' : 'REFUND ADJUSTMENT'}
+                                            </span>
+                                            {txn.orderId && (
+                                                <span className="text-[11px] font-mono font-bold text-brand-600">
+                                                    {txn.orderId}
+                                                </span>
+                                            )}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-5 text-center">
+
+                                    {/* Amount */}
+                                    <td className="px-6 py-4 text-center">
                                         <p className={cn(
                                             "text-sm font-black",
-                                            txn.amount > 0 ? "text-slate-900" : "text-rose-600"
+                                            txn.type === 'payout' ? "text-blue-600" : txn.status === 'failed' ? "text-slate-400 line-through" : "text-slate-900"
                                         )}>
-                                            ₹{Math.abs(txn.amount).toLocaleString()}
+                                            ₹{txn.grossAmount.toLocaleString('en-IN')}
                                         </p>
                                     </td>
-                                    <td className="px-6 py-5 text-center">
+
+                                    {/* Net / Summary */}
+                                    <td className="px-6 py-4 text-center">
                                         {txn.type === 'sale' ? (
                                             <div className="flex flex-col items-center">
-                                                <span className="text-[9px] font-bold text-rose-500">(-₹{txn.commissionAmount})</span>
-                                                <span className="text-xs font-black text-brand-600 pt-0.5">₹{txn.netPayable.toLocaleString()}</span>
+                                                {txn.commissionAmount > 0 ? (
+                                                    <span className="text-[10px] font-bold text-rose-500">
+                                                        -₹{txn.commissionAmount} (Fee)
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[10px] font-semibold text-slate-400">Zero Fee (0%)</span>
+                                                )}
+                                                <span className="text-xs font-black text-emerald-600 pt-0.5">
+                                                    Net: ₹{txn.netPayable.toLocaleString('en-IN')}
+                                                </span>
                                             </div>
+                                        ) : txn.type === 'payout' ? (
+                                            <span className="text-blue-600 font-bold text-xs">Bank Transfer</span>
                                         ) : (
-                                            <span className="text-slate-300 font-bold text-[10px]">---</span>
+                                            <span className="text-rose-500 font-bold text-xs">Refund Deduction</span>
                                         )}
                                     </td>
-                                    <td className="px-6 py-5 text-center">
+
+                                    {/* Status */}
+                                    <td className="px-6 py-4 text-center">
                                         <Badge
-                                            variant={txn.status === 'settled' || txn.status === 'processed' || txn.status === 'completed' ? 'success' : 'warning'}
-                                            className="text-[8px] font-black px-2 py-0.5 uppercase tracking-widest"
+                                            variant={
+                                                txn.status === 'settled' || txn.status === 'processed' || txn.status === 'completed'
+                                                    ? 'success'
+                                                    : txn.status === 'pending' || txn.status === 'processing'
+                                                    ? 'warning'
+                                                    : 'danger'
+                                            }
+                                            className="text-[10px] font-extrabold uppercase px-2.5 py-0.5"
                                         >
                                             {txn.status}
                                         </Badge>
                                     </td>
-                                    <td className="px-6 py-5 text-right pr-8">
+
+                                    {/* Action */}
+                                    <td className="px-6 py-4 text-right pr-8">
                                         <button
                                             onClick={() => setSelectedTxn(txn)}
-                                            className="p-2 hover:bg-white hover:shadow-md rounded-xl text-slate-400 hover:text-primary transition-all active:scale-90"
+                                            className="p-2 bg-slate-50 text-slate-500 rounded-xl hover:bg-slate-900 hover:text-white transition-all active:scale-95 shadow-sm"
+                                            title="View Details"
                                         >
                                             <Eye className="h-4 w-4" />
                                         </button>
                                     </td>
                                 </tr>
                             ))}
-                            {filteredTransactions.length === 0 && (
+
+                            {filteredTransactions.length === 0 && !loading && (
                                 <tr>
-                                    <td colSpan="7" className="px-6 py-32 text-center text-slate-400 font-bold">
-                                        <Receipt className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                                        No transactions match your current search criteria.
+                                    <td colSpan="7" className="px-6 py-20 text-center">
+                                        <div className="flex flex-col items-center">
+                                            <div className="p-4 bg-slate-50 rounded-full mb-3">
+                                                <FileText className="h-8 w-8 text-slate-300" />
+                                            </div>
+                                            <p className="text-slate-500 font-bold text-sm">No transactions match your current filters.</p>
+                                            <p className="text-slate-400 text-xs mt-1">Try clearing your search term or status selection.</p>
+                                        </div>
                                     </td>
                                 </tr>
                             )}
                         </tbody>
                     </table>
                 </div>
-                <div className="px-6 py-3 border-t border-slate-100">
+
+                <div className="px-6 py-4 border-t border-slate-100">
                     <Pagination
                         page={page}
                         totalPages={Math.ceil(total / pageSize) || 1}
@@ -414,215 +599,113 @@ const SellerTransactions = () => {
             <Modal
                 isOpen={!!selectedTxn}
                 onClose={() => setSelectedTxn(null)}
-                title="Transaction Intelligence"
+                title="Transaction Statement Detail"
                 size="md"
             >
                 {selectedTxn && (
-                    <div className="ds-section-spacing">
-                        <div className="flex flex-col items-center text-center p-6 bg-slate-50 rounded-xl border border-slate-100">
+                    <div className="space-y-6 pt-1">
+                        <div className="flex flex-col items-center text-center p-6 bg-slate-50 rounded-2xl border border-slate-100">
                             <div className={cn(
-                                "h-16 w-16 rounded-2xl flex items-center justify-center shadow-lg mb-4 text-white",
-                                selectedTxn.type === 'sale' ? "bg-primary" : selectedTxn.type === 'payout' ? "bg-brand-500" : "bg-rose-500"
+                                "h-14 w-14 rounded-2xl flex items-center justify-center shadow-md mb-3 text-white",
+                                selectedTxn.type === 'sale'
+                                    ? "bg-emerald-600"
+                                    : selectedTxn.type === 'payout'
+                                    ? "bg-blue-600"
+                                    : "bg-rose-600"
                             )}>
-                                {selectedTxn.type === 'sale' ? <ShoppingCart className="h-8 w-8" /> : selectedTxn.type === 'payout' ? <ArrowUpRight className="h-8 w-8" /> : <Undo2 className="h-8 w-8" />}
+                                {selectedTxn.type === 'sale' ? (
+                                    <ShoppingBag className="h-7 w-7" />
+                                ) : selectedTxn.type === 'payout' ? (
+                                    <ArrowUpRight className="h-7 w-7" />
+                                ) : (
+                                    <Undo2 className="h-7 w-7" />
+                                )}
                             </div>
                             <h2 className="text-3xl font-black text-slate-900 tracking-tight">
-                                {selectedTxn.amount > 0 ? '' : '-'}₹{Math.abs(selectedTxn.amount).toLocaleString()}
+                                {selectedTxn.type === 'payout' ? '-' : ''}₹{selectedTxn.grossAmount.toLocaleString('en-IN')}
                             </h2>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mt-2">{selectedTxn.id}</p>
+                            <p className="text-xs font-mono font-bold text-slate-500 mt-1">{selectedTxn.id}</p>
                         </div>
 
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-2 gap-x-12 gap-y-6 px-4">
-                                <div>
-                                    <p className="ds-label">Chronology</p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <Calendar className="h-4 w-4 text-slate-400" />
-                                        <p className="text-sm font-bold text-slate-700">{selectedTxn.date}</p>
-                                    </div>
-                                </div>
-                                <div>
-                                    <p className="ds-label">Merchant Name</p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <Building2 className="h-4 w-4 text-slate-400" />
-                                        <p className="text-sm font-bold text-slate-700">{selectedTxn.seller}</p>
-                                    </div>
-                                </div>
-                                <div>
-                                    <p className="ds-label">Payment Pathway</p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <CreditCard className="h-4 w-4 text-slate-400" />
-                                        <p className="text-sm font-bold text-slate-700">{selectedTxn.paymentMethod}</p>
-                                    </div>
-                                </div>
-                                <div>
-                                    <p className="ds-label">Gateway Status</p>
-                                    <div className="mt-1">
-                                        <Badge variant={selectedTxn.status === 'settled' ? 'success' : 'warning'}>{selectedTxn.status.toUpperCase()}</Badge>
-                                    </div>
-                                </div>
+                        {selectedTxn.status === 'failed' && (
+                            <div className="p-3 bg-rose-50 rounded-xl border border-rose-100 text-xs text-rose-700 font-medium">
+                                Notice: This order transaction was cancelled/failed prior to settlement. No funds were debited or credited to the merchant.
                             </div>
+                        )}
 
-                            {selectedTxn.type === 'sale' && (
-                                <div className="space-y-4">
-                                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest px-4">Financial Drill-Down</h4>
-                                    <div className="bg-slate-900 rounded-xl p-6 text-white space-y-4">
-                                        <div className="flex justify-between items-center text-sm font-medium">
-                                            <span className="opacity-60">Base Subtotal</span>
-                                            <span>₹{selectedTxn.amount}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-sm font-medium">
-                                            <span className="opacity-60">Admin Fee ({selectedTxn.commissionRate}%)</span>
-                                            <span className="text-orange-400">-₹{selectedTxn.commissionAmount}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-sm font-medium">
-                                            <span className="opacity-60">Tax & Surcharge</span>
-                                            <span className="text-orange-400">-₹{selectedTxn.taxAmount}</span>
-                                        </div>
-                                        <div className="pt-4 border-t border-white/10 flex justify-between items-center">
-                                            <span className="text-xs font-black uppercase tracking-widest">Merchant Net Payable</span>
-                                            <span className="text-lg font-black text-brand-400">₹{selectedTxn.netPayable}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {selectedTxn.type === 'payout' && (
-                                <div className="space-y-4">
-                                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest px-4">Transfer Intel</h4>
-                                    <div className="bg-brand-50 ring-1 ring-brand-100 rounded-[24px] p-6 space-y-4">
-                                        <div className="flex items-center gap-3">
-                                            <Info className="h-5 w-5 text-brand-600" />
-                                            <p className="text-xs font-bold text-brand-800 uppercase tracking-widest">Disbursement & Bank Info</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between">
-                                                <span className="text-[10px] font-bold text-brand-600/60 uppercase">Reference Identifier</span>
-                                                <span className="text-xs font-mono font-black text-brand-900 line-clamp-1">{selectedTxn.referenceId || selectedTxn.id}</span>
-                                            </div>
-                                            {selectedTxn.bankDetailsObj ? (
-                                                <div className="mt-3 pt-3 border-t border-brand-200/50 space-y-2">
-                                                    {selectedTxn.bankDetailsObj.bankName && (
-                                                        <div className="flex justify-between">
-                                                            <span className="text-[10px] font-bold text-brand-600/60 uppercase">Bank Name</span>
-                                                            <span className="text-xs font-black text-brand-900">{selectedTxn.bankDetailsObj.bankName}</span>
-                                                        </div>
-                                                    )}
-                                                    {selectedTxn.bankDetailsObj.accountNumber && (
-                                                        <div className="flex justify-between">
-                                                            <span className="text-[10px] font-bold text-brand-600/60 uppercase">Account Number</span>
-                                                            <span className="text-xs font-mono font-black text-brand-900">{selectedTxn.bankDetailsObj.accountNumber}</span>
-                                                        </div>
-                                                    )}
-                                                    {selectedTxn.bankDetailsObj.ifscCode && (
-                                                        <div className="flex justify-between">
-                                                            <span className="text-[10px] font-bold text-brand-600/60 uppercase">IFSC Code</span>
-                                                            <span className="text-xs font-mono font-black text-brand-900">{selectedTxn.bankDetailsObj.ifscCode}</span>
-                                                        </div>
-                                                    )}
-                                                    {selectedTxn.bankDetailsObj.accountHolderName && (
-                                                        <div className="flex justify-between">
-                                                            <span className="text-[10px] font-bold text-brand-600/60 uppercase">Account Holder</span>
-                                                            <span className="text-xs font-black text-brand-900">{selectedTxn.bankDetailsObj.accountHolderName}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <div className="flex justify-between">
-                                                    <span className="text-[10px] font-bold text-brand-600/60 uppercase">Settlement Target</span>
-                                                    <span className="text-xs font-black text-brand-900">{selectedTxn.bankDetails || 'N/A'}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="pt-4 flex gap-3">
-                                <button
-                                    onClick={async () => {
-                                        try {
-                                            const { default: jsPDF } = await import('jspdf');
-                                            const doc = new jsPDF();
-                                            const safeId = (selectedTxn.id || 'txn').replace(/[/\\?%*:|"<>]/g, '-');
-                                            const margin = 25;
-                                            const pageWidth = doc.internal.pageSize.getWidth();
-                                            let y = 28;
-
-                                            // Title
-                                            doc.setFontSize(22);
-                                            doc.setFont(undefined, 'bold');
-                                            doc.text('Transaction Voucher', margin, y);
-                                            y += 16;
-
-                                            // Separator line
-                                            doc.setDrawColor(200, 200, 200);
-                                            doc.setLineWidth(0.5);
-                                            doc.line(margin, y, pageWidth - margin, y);
-                                            y += 14;
-
-                                            // Transaction Details section
-                                            const typeLabel = selectedTxn.type === 'sale' ? 'ORDER PAYMENT' : selectedTxn.type === 'payout' ? 'PAYOUT' : (selectedTxn.type || '').toUpperCase();
-                                            const row = (label, value, labelBold = false) => {
-                                                doc.setFont(undefined, labelBold ? 'bold' : 'normal');
-                                                doc.setFontSize(10);
-                                                doc.text(label, margin, y);
-                                                doc.setFont(undefined, 'normal');
-                                                doc.text(String(value), margin + 55, y);
-                                                y += 8;
-                                            };
-
-                                            doc.setFont(undefined, 'bold');
-                                            doc.text('Transaction ID:', margin, y);
-                                            doc.setFont(undefined, 'normal');
-                                            doc.text(selectedTxn.id || 'N/A', margin + 55, y);
-                                            y += 10;
-
-                                            row('Amount:', `Rs. ${Math.abs(selectedTxn.amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`);
-                                            row('Date:', selectedTxn.date || 'N/A');
-                                            row('Type:', typeLabel);
-                                            row('Status:', (selectedTxn.status || '').toUpperCase());
-
-                                            y += 8;
-                                            doc.setDrawColor(220, 220, 220);
-                                            doc.line(margin, y, pageWidth - margin, y);
-                                            y += 14;
-
-                                            // Merchant & Payment section
-                                            doc.setFont(undefined, 'bold');
-                                            doc.text('Merchant:', margin, y);
-                                            doc.setFont(undefined, 'normal');
-                                            doc.text(selectedTxn.seller || 'N/A', margin + 55, y);
-                                            y += 10;
-
-                                            row('Payment:', selectedTxn.paymentMethod || 'N/A');
-                                            if (selectedTxn.referenceId) row('Reference:', selectedTxn.referenceId);
-                                            row('Bank:', selectedTxn.bankDetails || 'N/A');
-
-                                            // Footer
-                                            y = doc.internal.pageSize.getHeight() - 20;
-                                            doc.setDrawColor(240, 240, 240);
-                                            doc.line(margin, y - 8, pageWidth - margin, y - 8);
-                                            doc.setFontSize(8);
-                                            doc.setTextColor(120, 120, 120);
-                                            doc.text(`Generated on ${new Date().toLocaleString()} • Voucher ID: ${safeId}`, pageWidth / 2, y, { align: 'center' });
-                                            doc.setTextColor(0, 0, 0);
-
-                                            doc.save(`transaction-voucher-${safeId}.pdf`);
-                                            toast.success('Voucher downloaded as PDF');
-                                        } catch (err) {
-                                            console.error('PDF generation error:', err);
-                                            toast.error('Failed to download voucher');
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                                <p className="text-[11px] font-bold text-slate-400 uppercase">Chronology</p>
+                                <p className="text-xs font-bold text-slate-800 mt-1">{selectedTxn.date}</p>
+                            </div>
+                            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                                <p className="text-[11px] font-bold text-slate-400 uppercase">Merchant</p>
+                                <p className="text-xs font-bold text-slate-800 mt-1 truncate">{selectedTxn.seller}</p>
+                            </div>
+                            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                                <p className="text-[11px] font-bold text-slate-400 uppercase">Payment Mode</p>
+                                <p className="text-xs font-bold text-slate-800 mt-1">{selectedTxn.paymentMethod}</p>
+                            </div>
+                            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                                <p className="text-[11px] font-bold text-slate-400 uppercase">Status</p>
+                                <div className="mt-1">
+                                    <Badge
+                                        variant={
+                                            selectedTxn.status === 'settled' || selectedTxn.status === 'completed'
+                                                ? 'success'
+                                                : selectedTxn.status === 'pending'
+                                                ? 'warning'
+                                                : 'danger'
                                         }
-                                    }}
-                                    className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl active:scale-[0.98] transition-all hover:bg-slate-800"
-                                >
-                                    Download Voucher
-                                </button>
-                                <button className="p-4 bg-slate-100 text-slate-900 rounded-2xl flex items-center justify-center hover:bg-slate-200 transition-all">
-                                    <ExternalLink className="h-5 w-5" />
-                                </button>
+                                        className="text-[9px] font-extrabold uppercase px-2 py-0.5"
+                                    >
+                                        {selectedTxn.status}
+                                    </Badge>
+                                </div>
                             </div>
+                        </div>
+
+                        {selectedTxn.type === 'sale' && (
+                            <div className="bg-slate-900 rounded-2xl p-5 text-white space-y-3">
+                                <div className="flex justify-between items-center text-xs font-medium">
+                                    <span className="opacity-70">Order Gross Total</span>
+                                    <span>₹{selectedTxn.grossAmount.toLocaleString('en-IN')}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs font-medium">
+                                    <span className="opacity-70">Platform Fee / Commission</span>
+                                    {selectedTxn.commissionAmount > 0 ? (
+                                        <span className="text-rose-400">-₹{selectedTxn.commissionAmount.toLocaleString('en-IN')}</span>
+                                    ) : (
+                                        <span className="text-slate-400">₹0 (Zero Fee / 0%)</span>
+                                    )}
+                                </div>
+                                {selectedTxn.taxAmount > 0 && (
+                                    <div className="flex justify-between items-center text-xs font-medium">
+                                        <span className="opacity-70">Tax & Surcharge</span>
+                                        <span className="text-rose-400">-₹{selectedTxn.taxAmount.toLocaleString('en-IN')}</span>
+                                    </div>
+                                )}
+                                <div className="pt-3 border-t border-white/10 flex justify-between items-center">
+                                    <span className="text-xs font-bold uppercase tracking-wider">Merchant Net Earnings</span>
+                                    <span className="text-lg font-black text-emerald-400">₹{selectedTxn.netPayable.toLocaleString('en-IN')}</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {selectedTxn.type === 'payout' && (
+                            <div className="p-4 bg-brand-50 rounded-2xl border border-brand-100 space-y-2">
+                                <p className="text-xs font-bold text-brand-900 uppercase tracking-wider">Beneficiary Account</p>
+                                <p className="text-xs font-medium text-slate-700">{selectedTxn.bankDetails || 'No bank details recorded'}</p>
+                            </div>
+                        )}
+
+                        <div className="pt-2">
+                            <button
+                                onClick={() => setSelectedTxn(null)}
+                                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all"
+                            >
+                                Close Statement
+                            </button>
                         </div>
                     </div>
                 )}

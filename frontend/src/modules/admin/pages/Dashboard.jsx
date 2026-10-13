@@ -111,13 +111,13 @@ const AdminDashboard = () => {
             description: 'Last 30 days'
         },
         {
-            label: 'Revenue',
+            label: 'Total Platform Sales',
             value: `₹${overview.totalRevenue?.toLocaleString() || '0'}`,
             icon: BarChart3,
             color: 'text-brand-600',
             bg: 'bg-brand-50',
             trend: '+8.2%',
-            description: 'Net earnings'
+            description: 'Gross checkout value'
         },
     ];
 

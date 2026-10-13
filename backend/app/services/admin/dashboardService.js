@@ -19,22 +19,46 @@ export async function getAdminDashboardStats() {
   const activeSellers = await Seller.countDocuments({ isVerified: true });
 
   const revenueData = await Order.aggregate([
-    { $match: { status: "delivered" } },
-    { $group: { _id: null, total: { $sum: "$pricing.total" } } },
+    {
+      $match: {
+        status: { $ne: "cancelled" },
+        orderStatus: { $ne: "cancelled" },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        total: {
+          $sum: {
+            $ifNull: ["$paymentBreakdown.grandTotal", "$pricing.total"],
+          },
+        },
+      },
+    },
   ]);
-  const totalRevenue = revenueData[0]?.total || 0;
+  const totalRevenue = Math.round((revenueData[0]?.total || 0) * 100) / 100;
 
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   const historyAggregation = await Order.aggregate([
-    { $match: { createdAt: { $gte: thirtyDaysAgo }, status: "delivered" } },
+    {
+      $match: {
+        createdAt: { $gte: thirtyDaysAgo },
+        status: { $ne: "cancelled" },
+        orderStatus: { $ne: "cancelled" },
+      },
+    },
     {
       $group: {
         _id: {
           $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
         },
-        revenue: { $sum: "$pricing.total" },
+        revenue: {
+          $sum: {
+            $ifNull: ["$paymentBreakdown.grandTotal", "$pricing.total"],
+          },
+        },
       },
     },
     { $sort: { _id: 1 } },

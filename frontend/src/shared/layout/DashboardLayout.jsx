@@ -5,14 +5,12 @@ import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import BottomNav from './BottomNav';
 import { sellerApi } from '@/modules/seller/services/sellerApi';
-import { warehouseApi } from '@/modules/warehouse/services/warehouseApi';
 import { useAuth } from "@core/context/AuthContext";
 import { motion, AnimatePresence } from 'framer-motion';
 import { BellRing, Check, X, Clock, Truck, AlertTriangle, Phone, MapPin, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import SellerOrdersContext from '@/modules/seller/context/SellerOrdersContext';
-import WarehouseOrdersContext from '@/modules/warehouse/context/WarehouseOrdersContext';
 import SellerEarningsContext, { defaultEarnings } from '@/modules/seller/context/SellerEarningsContext';
 import { getOrderSocket, onSellerOrderNew, onOrderStatusUpdate, onReturnDropOtp, onSOSAlert } from '@/core/services/orderSocket';
 import { createSocketTokenReader } from '@core/utils/authStorage';
@@ -574,21 +572,14 @@ const DashboardLayout = ({ children, navItems, title }) => {
                                 ordersLoading: role === 'seller' ? ordersLoading : false,
                                 refreshOrders,
                             }}>
-                            <WarehouseOrdersContext.Provider
+                            <SellerEarningsContext.Provider
                                 value={{
-                                    orders: role === 'warehouse' ? sellerOrders : [],
-                                    ordersLoading: role === 'warehouse' ? ordersLoading : false,
-                                    refreshOrders,
+                                    earningsData: role === 'seller' ? sellerEarningsData : defaultEarnings,
+                                    earningsLoading: role === 'seller' ? earningsLoading : false,
+                                    refreshEarnings,
                                 }}>
-                                <SellerEarningsContext.Provider
-                                    value={{
-                                        earningsData: (role === 'seller' || role === 'warehouse') ? sellerEarningsData : defaultEarnings,
-                                        earningsLoading: (role === 'seller' || role === 'warehouse') ? earningsLoading : false,
-                                        refreshEarnings,
-                                    }}>
-                                    {children}
-                                </SellerEarningsContext.Provider>
-                            </WarehouseOrdersContext.Provider>
+                                {children}
+                            </SellerEarningsContext.Provider>
                         </SellerOrdersContext.Provider>
                     </div>
                 </main>

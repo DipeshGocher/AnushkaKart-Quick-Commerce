@@ -1,22 +1,51 @@
+import mongoose from "mongoose";
 import Delivery from "../../models/delivery.js";
 import Transaction from "../../models/transaction.js";
 import Notification from "../../models/notification.js";
+import Order from "../../models/order.js";
 
 export async function getDeliveryCashBalancesData({ page, limit, skip }) {
   const ridersPipeline = [
     {
       $lookup: {
         from: "transactions",
-        localField: "_id",
-        foreignField: "user",
+        let: { riderId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  {
+                    $or: [
+                      { $eq: ["$user", "$$riderId"] },
+                      { $eq: ["$user", { $toString: "$$riderId" }] },
+                    ],
+                  },
+                  { $eq: ["$userModel", "Delivery"] },
+                ],
+              },
+            },
+          },
+        ],
         as: "allTransactions",
       },
     },
     {
       $lookup: {
         from: "orders",
-        localField: "_id",
-        foreignField: "deliveryBoy",
+        let: { riderId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $or: [
+                  { $eq: ["$deliveryBoy", "$$riderId"] },
+                  { $eq: ["$deliveryBoy", { $toString: "$$riderId" }] },
+                ],
+              },
+            },
+          },
+        ],
         as: "allOrders",
       },
     },
@@ -28,30 +57,40 @@ export async function getDeliveryCashBalancesData({ page, limit, skip }) {
         limit: { $ifNull: ["$limit", 5000] },
         documents: 1,
         currentCash: {
-          $reduce: {
-            input: {
-              $filter: {
-                input: "$allTransactions",
-                as: "transaction",
-                cond: {
-                  $in: [
-                    "$$transaction.type",
-                    ["Cash Collection", "Cash Settlement"],
+          $max: [
+            0,
+            {
+              $reduce: {
+                input: {
+                  $filter: {
+                    input: "$allTransactions",
+                    as: "transaction",
+                    cond: {
+                      $and: [
+                        {
+                          $in: [
+                            "$$transaction.type",
+                            ["Cash Collection", "Cash Settlement"],
+                          ],
+                        },
+                        { $ne: ["$$transaction.status", "Failed"] },
+                      ],
+                    },
+                  },
+                },
+                initialValue: 0,
+                in: {
+                  $cond: [
+                    { $eq: ["$$this.type", "Cash Collection"] },
+                    { $add: ["$$value", { $abs: "$$this.amount" }] },
+                    {
+                      $subtract: ["$$value", { $abs: "$$this.amount" }],
+                    },
                   ],
                 },
               },
             },
-            initialValue: 0,
-            in: {
-              $cond: [
-                { $eq: ["$$this.type", "Cash Collection"] },
-                { $add: ["$$value", "$$this.amount"] },
-                {
-                  $subtract: ["$$value", { $abs: "$$this.amount" }],
-                },
-              ],
-            },
-          },
+          ],
         },
         pendingOrders: {
           $size: {
@@ -63,10 +102,15 @@ export async function getDeliveryCashBalancesData({ page, limit, skip }) {
                   {
                     $in: [
                       "$$order.status",
-                      ["confirmed", "packed", "picked_up", "out_for_delivery"],
+                      ["placed", "confirmed", "processing", "packed", "shipped", "picked_up", "out_for_delivery"],
                     ],
                   },
-                  { $in: ["$$order.payment.method", ["cash", "cod"]] },
+                  {
+                    $or: [
+                      { $in: ["$$order.paymentMode", ["COD", "cod"]] },
+                      { $in: ["$$order.payment.method", ["cash", "cod"]] },
+                    ],
+                  },
                 ],
               },
             },
@@ -81,6 +125,24 @@ export async function getDeliveryCashBalancesData({ page, limit, skip }) {
             },
           },
         },
+        totalSettled: {
+          $reduce: {
+            input: {
+              $filter: {
+                input: "$allTransactions",
+                as: "transaction",
+                cond: {
+                  $and: [
+                    { $eq: ["$$transaction.type", "Cash Settlement"] },
+                    { $ne: ["$$transaction.status", "Failed"] },
+                  ],
+                },
+              },
+            },
+            initialValue: 0,
+            in: { $add: ["$$value", { $abs: "$$this.amount" }] },
+          },
+        },
         lastSettlementTxn: {
           $arrayElemAt: [
             {
@@ -90,7 +152,10 @@ export async function getDeliveryCashBalancesData({ page, limit, skip }) {
                     input: "$allTransactions",
                     as: "transaction",
                     cond: {
-                      $eq: ["$$transaction.type", "Cash Settlement"],
+                      $and: [
+                        { $eq: ["$$transaction.type", "Cash Settlement"] },
+                        { $ne: ["$$transaction.status", "Failed"] },
+                      ],
                     },
                   },
                 },
@@ -120,6 +185,7 @@ export async function getDeliveryCashBalancesData({ page, limit, skip }) {
           ],
         },
         currentCash: 1,
+        totalSettled: 1,
         limit: 1,
         status: {
           $cond: [
@@ -145,22 +211,73 @@ export async function getDeliveryCashBalancesData({ page, limit, skip }) {
       $facet: {
         meta: [{ $count: "total" }],
         items: [{ $skip: skip }, { $limit: limit }],
+        globalStats: [
+          {
+            $group: {
+              _id: null,
+              totalInHand: { $sum: "$currentCash" },
+              totalSettled: { $sum: "$totalSettled" },
+              overLimitCount: {
+                $sum: {
+                  $cond: [{ $gte: ["$currentCash", "$limit"] }, 1, 0],
+                },
+              },
+              totalRiders: { $sum: 1 },
+            },
+          },
+        ],
       },
     },
   ];
 
-  const [aggregateResult] = await Delivery.aggregate(ridersPipeline);
-  const meta = aggregateResult?.meta?.[0];
-  const riders = aggregateResult?.items ?? [];
-  const total = meta?.total ?? 0;
+  const [aggregateResult, inTransitResult] = await Promise.all([
+    Delivery.aggregate(ridersPipeline),
+    Order.aggregate([
+      {
+        $match: {
+          paymentMode: { $in: ["COD", "cod"] },
+          status: {
+            $in: [
+              "placed",
+              "confirmed",
+              "processing",
+              "packed",
+              "shipped",
+              "picked_up",
+              "out_for_delivery",
+            ],
+          },
+          orderStatus: { $ne: "cancelled" },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          count: { $sum: 1 },
+          amount: {
+            $sum: {
+              $ifNull: ["$paymentBreakdown.grandTotal", "$pricing.total"],
+            },
+          },
+        },
+      },
+    ]),
+  ]);
 
-  const totalInHand = riders.reduce(
-    (accumulator, rider) => accumulator + (rider.currentCash || 0),
-    0,
-  );
-  const overLimitCount = riders.filter(
-    (rider) => (rider.currentCash || 0) >= (rider.limit || 5000),
-  ).length;
+  const facetDoc = aggregateResult?.[0] || {};
+  const meta = facetDoc.meta?.[0];
+  const riders = facetDoc.items ?? [];
+  const total = meta?.total ?? riders.length;
+
+  const inTransitCodCount = inTransitResult[0]?.count || 0;
+  const inTransitCodAmount = inTransitResult[0]?.amount || 0;
+
+  const globalStat = facetDoc.globalStats?.[0];
+  const totalInHand = globalStat?.totalInHand ?? 0;
+  const totalSettled = globalStat?.totalSettled ?? 0;
+  const totalRidersCount = globalStat?.totalRiders ?? total;
+  const overLimitCount = globalStat?.overLimitCount ?? 0;
+  const avgBalance = totalRidersCount ? Math.round(totalInHand / totalRidersCount) : 0;
 
   return {
     items: riders,
@@ -170,8 +287,12 @@ export async function getDeliveryCashBalancesData({ page, limit, skip }) {
     totalPages: Math.ceil(total / limit) || 1,
     stats: {
       totalInHand,
+      totalSettled,
+      inTransitCodCount,
+      inTransitCodAmount,
+      totalRiders: totalRidersCount,
       overLimitCount,
-      avgBalance: riders.length ? totalInHand / riders.length : 0,
+      avgBalance,
     },
   };
 }
@@ -209,24 +330,85 @@ export async function settleRiderCashEntry({ riderId, amount, method }) {
 }
 
 export async function getRiderCashDetailsData(riderId) {
-  const transactions = await Transaction.find({
-    user: riderId,
-    userModel: "Delivery",
-    type: "Cash Collection",
-  })
-    .populate("order", "orderId pricing createdAt")
-    .sort({ createdAt: -1 })
-    .limit(20);
+  const riderOid = mongoose.Types.ObjectId.isValid(riderId)
+    ? new mongoose.Types.ObjectId(riderId)
+    : null;
 
-  return transactions.map((transaction) => ({
-    id: transaction.order?.orderId || transaction.reference || "N/A",
+  const userQuery = riderOid
+    ? { $in: [riderOid, String(riderId)] }
+    : riderId;
+
+  const [transactions, pendingOrders, riderDoc] = await Promise.all([
+    Transaction.find({
+      user: userQuery,
+      userModel: "Delivery",
+      type: { $in: ["Cash Collection", "Cash Settlement", "Withdrawal", "Delivery Earning"] },
+    })
+      .populate("order", "orderId pricing paymentBreakdown status createdAt")
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean(),
+
+    Order.find({
+      deliveryBoy: userQuery,
+      paymentMode: { $in: ["COD", "cod"] },
+      status: { $in: ["placed", "confirmed", "processing", "packed", "shipped", "picked_up", "out_for_delivery"] },
+    })
+      .select("orderId paymentBreakdown pricing status createdAt")
+      .sort({ createdAt: -1 })
+      .lean(),
+
+    Delivery.findById(riderId).select("name phone limit documents").lean(),
+  ]);
+
+  const items = transactions.map((transaction) => ({
+    id: transaction.order?.orderId || transaction.reference || String(transaction._id),
+    reference: transaction.reference || "",
+    type: transaction.type,
     amount: transaction.amount,
+    status: transaction.status,
     time: new Date(transaction.createdAt).toLocaleTimeString("en-IN", {
       hour: "2-digit",
       minute: "2-digit",
     }),
+    createdAt: transaction.createdAt,
     date: transaction.createdAt,
   }));
+
+  const pendingFormatted = pendingOrders.map((o) => ({
+    orderId: o.orderId,
+    amount: o.paymentBreakdown?.grandTotal || o.pricing?.total || 0,
+    status: o.status,
+    createdAt: o.createdAt,
+  }));
+
+  const pendingTotal = pendingFormatted.reduce((acc, o) => acc + (o.amount || 0), 0);
+
+  const cashCollected = transactions
+    .filter((t) => t.type === "Cash Collection" && t.status !== "Failed")
+    .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+
+  const cashSettled = transactions
+    .filter((t) => t.type === "Cash Settlement" && t.status !== "Failed")
+    .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+
+  const currentCash = Math.max(cashCollected - cashSettled, 0);
+  const limit = riderDoc?.limit || 5000;
+
+  return {
+    summary: {
+      riderId: String(riderId),
+      name: riderDoc?.name || "Rider",
+      currentCash,
+      limit,
+      safeLimitRemaining: Math.max(limit - currentCash, 0),
+      status: currentCash >= limit ? "critical" : currentCash > 3000 ? "warning" : "safe",
+      pendingCodOrdersCount: pendingOrders.length,
+      pendingCodOrdersTotal: pendingTotal,
+    },
+    pendingOrders: pendingFormatted,
+    items,
+  };
 }
 
 export async function getCashSettlementHistoryData({ page, limit, skip }) {

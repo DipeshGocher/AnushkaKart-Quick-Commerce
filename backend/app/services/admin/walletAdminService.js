@@ -46,12 +46,15 @@ export async function getAdminWalletOverview({ page, limit }) {
 
 
 
-export async function getSellerWithdrawalsData({ page, limit, skip }) {
+export async function getSellerWithdrawalsData({ page, limit, skip, status }) {
   const query = { userModel: "Seller", type: "Withdrawal" };
+  if (status && status !== "all") {
+    query.status = new RegExp(`^${status}$`, "i");
+  }
 
   const [transactions, total] = await Promise.all([
     Transaction.find(query)
-      .populate("user", "name shopName warehouseName phone bankDetails")
+      .populate("user", "name shopName phone bankDetails accountHolder accountNumber ifsc bankName")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -68,46 +71,143 @@ export async function getSellerWithdrawalsData({ page, limit, skip }) {
   };
 }
 
-export async function getWarehouseWithdrawalsData({ page, limit, skip }) {
-  const query = { userModel: "Warehouse", type: "Withdrawal" };
-
-  const [transactions, total] = await Promise.all([
-    Transaction.find(query)
-      .populate("user", "name warehouseName phone bankDetails")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    Transaction.countDocuments(query),
-  ]);
-
+export async function getWarehouseWithdrawalsData({ page = 1, limit = 25 }) {
   return {
-    items: transactions,
+    items: [],
     page,
     limit,
-    total,
-    totalPages: Math.ceil(total / limit) || 1,
+    total: 0,
+    totalPages: 1,
   };
 }
 
-export async function getSellerTransactionsData({ page, limit, skip }) {
-  const query = { userModel: { $in: ["Seller", "Warehouse"] } };
-  const transactions = await Transaction.find(query)
-    .populate("user", "name shopName phone bankDetails")
-    .populate({
-      path: "order",
-      select: "orderId pricing",
-      populate: {
-        path: "items.product",
-        select: "name",
+export async function getSellerTransactionsData({ page, limit, skip, status, type, search }) {
+  const query = { userModel: "Seller" };
+
+  if (status && status !== "all") {
+    if (status === "paid" || status === "settled") {
+      query.status = { $in: ["Settled", "settled", "completed", "processed"] };
+    } else if (status === "pending") {
+      query.status = { $in: ["Pending", "pending", "Processing", "processing"] };
+    } else if (status === "failed") {
+      query.status = { $in: ["Failed", "failed", "Cancelled", "cancelled"] };
+    }
+  }
+
+  if (type && type !== "all") {
+    if (type === "sale") {
+      query.type = { $in: ["Order Payment", "Seller Earning", "sale"] };
+    } else if (type === "payout") {
+      query.type = { $in: ["Withdrawal", "Payout", "payout"] };
+    } else if (type === "refund") {
+      query.type = { $in: ["Refund", "refund"] };
+    }
+  }
+
+  const globalStatsAggPromise = Transaction.aggregate([
+    { $match: { userModel: "Seller" } },
+    {
+      $lookup: {
+        from: "orders",
+        localField: "order",
+        foreignField: "_id",
+        as: "orderDoc",
       },
-    })
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit)
-    .lean();
+    },
+    {
+      $unwind: {
+        path: "$orderDoc",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        totalSales: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $in: ["$type", ["Order Payment", "Seller Earning", "sale"]] },
+                  { $ne: ["$status", "Failed"] },
+                ],
+              },
+              { $abs: "$amount" },
+              0,
+            ],
+          },
+        },
+        totalCommission: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $in: ["$type", ["Order Payment", "Seller Earning", "sale"]] },
+                  { $ne: ["$status", "Failed"] },
+                ],
+              },
+              {
+                $ifNull: [
+                  "$orderDoc.paymentBreakdown.platformFee",
+                  { $ifNull: ["$orderDoc.pricing.platformFee", 0] },
+                ],
+              },
+              0,
+            ],
+          },
+        },
+        totalPaidOut: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $in: ["$type", ["Withdrawal", "Payout", "payout"]] },
+                  { $in: ["$status", ["Settled", "settled", "completed", "processed"]] },
+                ],
+              },
+              { $abs: "$amount" },
+              0,
+            ],
+          },
+        },
+        pendingTotal: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $in: ["$status", ["Pending", "pending", "Processing", "processing"]] },
+                  { $ne: ["$status", "Failed"] },
+                ],
+              },
+              { $abs: "$amount" },
+              0,
+            ],
+          },
+        },
+      },
+    },
+  ]);
 
-  const total = await Transaction.countDocuments(query);
+  const [transactions, total, statsAgg] = await Promise.all([
+    Transaction.find(query)
+      .populate("user", "name shopName phone bankDetails accountHolder accountNumber ifsc bankName")
+      .populate({
+        path: "order",
+        select: "orderId pricing paymentBreakdown paymentMode paymentStatus items status",
+        populate: {
+          path: "items.product",
+          select: "name",
+        },
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Transaction.countDocuments(query),
+    globalStatsAggPromise,
+  ]);
+
+  const globalStats = statsAgg?.[0] || {};
 
   return {
     items: transactions,
@@ -115,11 +215,20 @@ export async function getSellerTransactionsData({ page, limit, skip }) {
     limit,
     total,
     totalPages: Math.ceil(total / limit) || 1,
+    stats: {
+      totalSales: globalStats.totalSales || 0,
+      totalCommission: globalStats.totalCommission || 0,
+      totalPaidOut: globalStats.totalPaidOut || 0,
+      pendingTotal: globalStats.pendingTotal || 0,
+    },
   };
 }
 
-export async function getDeliveryWithdrawalsData({ page, limit, skip }) {
+export async function getDeliveryWithdrawalsData({ page, limit, skip, status }) {
   const query = { userModel: "Delivery", type: "Withdrawal" };
+  if (status && status !== "all") {
+    query.status = new RegExp(`^${status}$`, "i");
+  }
 
   const [transactions, total] = await Promise.all([
     Transaction.find(query)
@@ -153,6 +262,8 @@ export async function updateWithdrawalStatusById({ id, status, reason }) {
   transaction.status = status;
   if (reason) {
     transaction.notes = reason;
+    if (!transaction.meta) transaction.meta = {};
+    transaction.meta.reason = reason;
   }
 
   await transaction.save();
