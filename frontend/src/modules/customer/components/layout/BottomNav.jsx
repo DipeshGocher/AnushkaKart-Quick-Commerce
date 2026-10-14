@@ -8,7 +8,7 @@ const isRouteActive = (itemPath, currentPath) => {
     if (itemPath === '/') {
         if (currentPath === '/' || currentPath === '/offers') return true;
         const segments = currentPath.split('/').filter(Boolean);
-        if (segments.length === 1 && !['categories', 'category', 'products', 'product', 'cart', 'checkout', 'profile', 'orders', 'wishlist', 'addresses', 'settings', 'help', 'search', 'chat', 'notifications', 'shop-by-store'].includes(segments[0])) {
+        if (segments.length === 1 && !['categories', 'category', 'products', 'product', 'cart', 'checkout', 'profile', 'orders', 'wishlist', 'addresses', 'settings', 'help', 'search', 'chat', 'notifications'].includes(segments[0])) {
             return true;
         }
         return false;
@@ -299,7 +299,7 @@ const BottomNav = () => {
         // 1. Tapping Home
         if (item.path === '/') {
             const segments = location.pathname.split('/').filter(Boolean);
-            const isHeaderCategoryRoute = segments.length === 1 && !['categories', 'category', 'products', 'product', 'cart', 'checkout', 'profile', 'orders', 'wishlist', 'addresses', 'settings', 'help', 'search', 'chat', 'notifications', 'shop-by-store'].includes(segments[0]);
+            const isHeaderCategoryRoute = segments.length === 1 && !['categories', 'category', 'products', 'product', 'cart', 'checkout', 'profile', 'orders', 'wishlist', 'addresses', 'settings', 'help', 'search', 'chat', 'notifications'].includes(segments[0]);
 
             if (location.pathname === '/' || isHeaderCategoryRoute) {
                 if (location.pathname !== '/') {

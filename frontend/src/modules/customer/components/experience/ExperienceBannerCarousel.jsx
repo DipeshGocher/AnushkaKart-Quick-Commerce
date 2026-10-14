@@ -182,6 +182,16 @@ const ExperienceBannerCarousel = ({
   }, []);
 
   const handleBannerClick = (banner) => {
+    const directLink = banner.buttonLink || banner.link;
+    if (directLink) {
+      if (directLink.startsWith('http://') || directLink.startsWith('https://')) {
+        window.open(directLink, '_blank', 'noopener,noreferrer');
+      } else {
+        navigate(directLink);
+      }
+      return;
+    }
+
     if (!banner.linkType || banner.linkType === 'none') return;
     
     if (banner.linkType === 'url' && banner.linkValue) {
@@ -341,24 +351,24 @@ const ExperienceBannerCarousel = ({
                     ? "aspect-[2/1] sm:aspect-[2.1/1]"
                     : totalItems === 1
                     ? stretchSingle
-                      ? "w-full aspect-[2.6/1] sm:aspect-[2.85/1]"
-                      : "w-full max-w-[360px] mx-auto aspect-[2.2/1] sm:aspect-[2.5/1]"
+                      ? "w-full aspect-[2.9/1] sm:aspect-[3.2/1]"
+                      : "w-full max-w-[360px] mx-auto aspect-[2.8/1] sm:aspect-[3/1]"
                     : peekNext
-                    ? "w-[84vw] sm:w-[80vw] aspect-[1.95/1] sm:aspect-[2.1/1]"
+                    ? "w-[84vw] sm:w-[80vw] aspect-[2.2/1] sm:aspect-[2.4/1]"
                     : fullWidth
-                    ? "w-[90vw] aspect-[2/1] sm:aspect-[21/9]"
-                    : "w-[85vw] aspect-[2/1] sm:aspect-[21/9]"
+                    ? "w-[90vw] aspect-[2.5/1] sm:aspect-[2.8/1]"
+                    : "w-[85vw] aspect-[2.5/1] sm:aspect-[2.8/1]"
                   : totalItems === 1
                   ? stretchSingle
-                    ? isSectionBanner ? "w-full h-[145px] lg:h-[165px]" : "w-full h-[240px] lg:h-[300px] xl:h-[350px]"
-                    : isSectionBanner ? "h-[145px] max-w-[420px] mx-auto" : "h-[215px] max-w-[420px] mx-auto"
+                    ? isSectionBanner ? "w-full h-[135px] lg:h-[155px]" : "w-full h-[180px] lg:h-[220px] xl:h-[260px]"
+                    : isSectionBanner ? "h-[135px] max-w-[420px] mx-auto" : "h-[180px] max-w-[420px] mx-auto"
                   : totalItems === 2
-                  ? isSectionBanner ? "h-[145px] max-w-[440px]" : "h-[215px] max-w-[480px]"
+                  ? isSectionBanner ? "h-[135px] max-w-[440px]" : "h-[180px] max-w-[480px]"
                   : numVisible >= 4
-                  ? isSectionBanner ? "w-[calc((100%-36px)/4)] h-[140px] lg:h-[145px]" : "w-[calc((100%-36px)/4)] h-[200px] lg:h-[215px]"
+                  ? isSectionBanner ? "w-[calc((100%-36px)/4)] h-[135px] lg:h-[145px]" : "w-[calc((100%-36px)/4)] h-[180px] lg:h-[200px]"
                   : numVisible >= 3
-                  ? isSectionBanner ? "w-[calc((100%-24px)/3)] h-[140px] lg:h-[145px]" : "w-[calc((100%-24px)/3)] h-[200px] lg:h-[215px]"
-                  : isSectionBanner ? "w-[calc((100%-12px)/2)] h-[140px] lg:h-[145px]" : "w-[calc((100%-12px)/2)] h-[200px] lg:h-[215px]"
+                  ? isSectionBanner ? "w-[calc((100%-24px)/3)] h-[135px] lg:h-[145px]" : "w-[calc((100%-24px)/3)] h-[180px] lg:h-[200px]"
+                  : isSectionBanner ? "w-[calc((100%-12px)/2)] h-[135px] lg:h-[145px]" : "w-[calc((100%-12px)/2)] h-[180px] lg:h-[200px]"
               )}
             >
               {banner.isVideo ? (
@@ -373,7 +383,7 @@ const ExperienceBannerCarousel = ({
                   muted
                   playsInline
                   autoPlay={activeIndex === idx}
-                  className="w-full h-full object-contain object-center pointer-events-none"
+                  className="w-full h-full object-cover object-center pointer-events-none"
                   onLoadedMetadata={(event) => {
                     const video = event.currentTarget;
                     if (video.videoHeight > 0) {
@@ -402,7 +412,7 @@ const ExperienceBannerCarousel = ({
                     : "(max-width: 768px) 85vw, 420px"}
                   className={cn(
                     "w-full h-full pointer-events-none",
-                    "object-contain object-center"
+                    "object-cover object-center"
                   )}
                   onLoad={(event) => {
                     if (event.currentTarget.naturalHeight > 0) {

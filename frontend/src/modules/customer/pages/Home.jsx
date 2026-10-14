@@ -24,7 +24,6 @@ import MainLocationHeader from "../components/shared/MainLocationHeader";
 import { useProductDetail } from "../context/ProductDetailContext";
 import { cn } from "@/lib/utils";
 import CardBanner from "@/assets/CardBanner.jpg";
-import SectionRenderer from "../components/experience/SectionRenderer";
 import ExperienceBannerCarousel from "../components/experience/ExperienceBannerCarousel";
 import { useLocation } from "../context/LocationContext";
 import { useSettings } from "@core/context/SettingsContext";
@@ -43,7 +42,6 @@ import {
 import PromoMarquee from "../components/home/PromoMarquee";
 import QuickCategorySlider from "../components/home/QuickCategorySlider";
 import LowestPriceSection from "../components/home/LowestPriceSection";
-import OfferSections from "../components/home/OfferSections";
 import BestsellersSection from "../components/home/BestsellersSection";
 import CategoryShowcase from "../components/home/CategoryShowcase";
 import FestivalDealsSection from "../components/home/FestivalDealsSection";
@@ -57,6 +55,7 @@ import ForYouProductsSection from "../components/home/ForYouProductsSection";
 import HeaderCategoryPageView from "../components/home/HeaderCategoryPageView";
 import PageSkeleton from '@/shared/components/PageSkeleton';
 import { getDefaultHomeHeroBanners, MIN_HOME_HERO_BANNERS } from '@shared/constants/homeHeroDefaults';
+import { clearAllCache, invalidateCache } from "@core/api/dedupe";
 
 const DEFAULT_CATEGORY_THEME = {
   gradient: "linear-gradient(to bottom, var(--primary), var(--brand-400))",
@@ -397,7 +396,6 @@ const Home = () => {
   const [categoryMap, setCategoryMap] = useState(() => cachedHomePageData?.categoryMap || {});
   const [subcategoryMap, setSubcategoryMap] = useState(() => cachedHomePageData?.subcategoryMap || {});
   const [pendingReturn, setPendingReturn] = useState(null);
-  const [offerSections, setOfferSections] = useState(() => cachedHomePageData?.offerSections || []);
   const [bestsellerConfig, setBestsellerConfig] = useState(() => cachedHomePageData?.bestsellerConfig || null);
   const [noServiceData, setNoServiceData] = useState(null);
 
@@ -406,7 +404,6 @@ const Home = () => {
   const [displayQuickCategories, setDisplayQuickCategories] = useState(quickCategories);
   const [displayCategoryMap, setDisplayCategoryMap] = useState(categoryMap);
   const [displaySubcategoryMap, setDisplaySubcategoryMap] = useState(subcategoryMap);
-  const [displayOfferSections, setDisplayOfferSections] = useState(offerSections);
   const [displayExperienceSections, setDisplayExperienceSections] = useState(experienceSections);
   const [displayHeaderSections, setDisplayHeaderSections] = useState(headerSections);
 
@@ -417,7 +414,6 @@ const Home = () => {
       setDisplayQuickCategories(quickCategories);
       setDisplayCategoryMap(categoryMap);
       setDisplaySubcategoryMap(subcategoryMap);
-      setDisplayOfferSections(offerSections);
       setDisplayExperienceSections(experienceSections);
       setDisplayHeaderSections(headerSections);
       return;
@@ -429,7 +425,6 @@ const Home = () => {
         const txCategories = await translateObject(categories, ["name"]);
         const txProducts = await translateObject(products, ["name", "weight", "description"]);
         const txQuickCats = await translateObject(quickCategories, ["name"]);
-        const txOfferSections = await translateObject(offerSections, ["title", "subtitle"]);
         const txExperienceSections = await translateObject(experienceSections, ["title", "subtitle"]);
         const txHeaderSections = await translateObject(headerSections, ["title", "subtitle"]);
 
@@ -450,7 +445,6 @@ const Home = () => {
           setDisplayQuickCategories(txQuickCats);
           setDisplayCategoryMap(txCatMap);
           setDisplaySubcategoryMap(txSubcatMap);
-          setDisplayOfferSections(txOfferSections);
           setDisplayExperienceSections(txExperienceSections);
           setDisplayHeaderSections(txHeaderSections);
         }
@@ -470,7 +464,6 @@ const Home = () => {
     quickCategories,
     categoryMap,
     subcategoryMap,
-    offerSections,
     experienceSections,
     headerSections,
   ]);
@@ -499,7 +492,6 @@ const Home = () => {
     });
     setProducts(data.products || []);
     setExperienceSections(data.experienceSections || []);
-    setOfferSections(data.offerSections || []);
     if (data.heroConfig) setHeroConfig(data.heroConfig);
     setActiveCategory((prev) => {
       if (headerSlug && headerSlug.toLowerCase() !== 'all') {
@@ -553,7 +545,6 @@ const Home = () => {
         products: cached?.products || [],
         quickCategories: cached?.quickCategories || [],
         experienceSections: cached?.experienceSections || [],
-        offerSections: cached?.offerSections || [],
         categoryMap: cached?.categoryMap || {},
         subcategoryMap: cached?.subcategoryMap || {},
         formattedHeaders: cached?.formattedHeaders || [],
@@ -614,18 +605,12 @@ const Home = () => {
       // Priority 1 complete: Unblock UI skeleton immediately so banners and categories display!
       setIsLoading(false);
 
-      // Priority 2: Products & experience sections stream in progressively
-      const [prodRes, expRes, sectionsRes] = await Promise.all([
-        customerApi.getProducts(productParams).catch(() => null),
-        customerApi.getExperienceSections({ pageType: "home" }).catch(() => null),
-        hasValidLocation ? customerApi.getOfferSections({ lat: currentLocation.latitude, lng: currentLocation.longitude }).catch(() => ({ data: {} })) : Promise.resolve({ data: { results: [] } }),
-      ]);
+      // Priority 2: Products stream in progressively
+      const prodRes = await customerApi.getProducts(productParams).catch(() => null);
 
       const nextHomeData = {
         ...partialHomeData,
         products: [],
-        experienceSections: [],
-        offerSections: [],
       };
 
       if (prodRes?.data?.success) {
@@ -633,31 +618,12 @@ const Home = () => {
         const dbProds = Array.isArray(prodRes.data.results) ? prodRes.data.results : Array.isArray(rawResult?.items) ? rawResult.items : Array.isArray(rawResult) ? rawResult : [];
         nextHomeData.products = dbProds.map((p) => ({ ...p, id: p._id, image: p.mainImage || (p.variants?.[0]?.images?.[0]) || p.image || "", price: p.salePrice || p.price, originalPrice: p.price, weight: p.weight || "1 unit", deliveryTime: "8-15 mins" }));
       }
-      if (expRes?.data?.success) nextHomeData.experienceSections = Array.isArray(expRes.data.result || expRes.data.results) ? (expRes.data.result || expRes.data.results) : [];
-      const sectionsList = sectionsRes?.data?.results || sectionsRes?.data?.result || sectionsRes?.data;
-      nextHomeData.offerSections = Array.isArray(sectionsList) ? sectionsList : [];
 
       applyHomePageData(nextHomeData, { cacheKey, persist: true });
     } catch (error) {
       console.error("Error fetching home data:", error);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const hydrateSelectedSectionProducts = async (sections = []) => {
-    const selectedProductIds = Array.from(new Set(sections.flatMap((s) => s?.displayType === "products" ? (s?.config?.products?.productIds || []) : []).map((id) => String(id || "").trim()).filter(Boolean)));
-    if (!selectedProductIds.length) return;
-    const existingIds = new Set(productsRef.current.map((p) => String(p?._id || p?.id || "").trim()));
-    const missingIds = selectedProductIds.filter((id) => !existingIds.has(id));
-    if (!missingIds.length) return;
-    try {
-      const locationParams = Number.isFinite(currentLocation?.latitude) ? { lat: currentLocation.latitude, lng: currentLocation.longitude } : undefined;
-      const missingResults = await Promise.allSettled(missingIds.map((id) => customerApi.getProductById(id, locationParams)));
-      const fetchedMissing = missingResults.filter((r) => r.status === "fulfilled").flatMap((r) => { const p = r.value?.data?.result || r.value?.data?.results; return Array.isArray(p) ? p : (p ? [p] : []); }).map((p) => ({ ...p, id: p._id, image: p.mainImage || (p.variants?.[0]?.images?.[0]) || p.image || "", price: p.salePrice || p.price, originalPrice: p.price, weight: p.weight || "1 unit", deliveryTime: "8-15 mins" }));
-      if (fetchedMissing.length) setProducts((prev) => { const merged = [...prev]; const mergedIds = new Set(merged.map((p) => String(p?._id || p?.id || "").trim())); fetchedMissing.forEach((p) => { const key = String(p?._id || p?.id || "").trim(); if (!mergedIds.has(key)) { merged.push(p); mergedIds.add(key); } }); return merged; });
-    } catch {
-      // Keep the existing catalog visible if optional section hydration fails.
     }
   };
 
@@ -672,36 +638,35 @@ const Home = () => {
       return () => clearTimeout(timer);
     }
   }, [categories.length, isLoading]);
-  const headerSectionsCache = useRef(headerSectionsMemoryCache);
   const heroConfigCache = useRef(heroConfigMemoryCache);
 
   useEffect(() => {
-    const fetchHeaderSections = async () => {
-      if (!activeCategory || activeCategory._id === "all") { setHeaderSections([]); return; }
-      const cacheKey = activeCategory._id;
-      if (headerSectionsCache.current[cacheKey]) { setHeaderSections(headerSectionsCache.current[cacheKey]); return; }
-      try {
-        const res = await customerApi.getExperienceSections({ pageType: "header", headerId: activeCategory._id });
-        if (res.data.success) { const sections = Array.isArray(res.data.result || res.data.results) ? (res.data.result || res.data.results) : []; headerSectionsCache.current[cacheKey] = sections; setHeaderSections(sections); await hydrateSelectedSectionProducts(sections); }
-        else setHeaderSections([]);
-      } catch (e) { setHeaderSections([]); }
-    };
-    fetchHeaderSections();
-  }, [activeCategory]);
-
-  useEffect(() => {
-    const fetchHeroConfig = async () => {
+    const fetchHeroConfig = async (force = false) => {
       try {
         const isHeader = activeCategory && activeCategory._id !== "all";
         const cacheKey = isHeader ? activeCategory._id : "__home__";
-        if (heroConfigCache.current[cacheKey]) { setHeroConfig(heroConfigCache.current[cacheKey]); return; }
-        if (!isHeader && (heroConfigMemoryCache.__home__ || heroConfig?.banners?.items?.length > 0)) {
-          if (heroConfigMemoryCache.__home__) setHeroConfig(heroConfigMemoryCache.__home__);
-          return;
+        if (!force) {
+          if (heroConfigCache.current[cacheKey]) {
+            setHeroConfig(heroConfigCache.current[cacheKey]);
+          } else if (!isHeader && heroConfigMemoryCache.__home__) {
+            setHeroConfig(heroConfigMemoryCache.__home__);
+          }
         }
         let payload = null;
-        if (isHeader) { const res = await customerApi.getHeroConfig({ pageType: "header", headerId: activeCategory._id }); if (res.data?.success && res.data?.result) payload = res.data.result; }
-        if (!payload || (payload.banners?.items?.length === 0 && !payload.categoryIds?.length)) { const homeRes = await customerApi.getHeroConfig({ pageType: "home" }); if (homeRes.data?.success && homeRes.data?.result) payload = homeRes.data.result; }
+        if (isHeader) {
+          const res = await customerApi.getHeroConfig(
+            { pageType: "header", headerId: activeCategory._id },
+            { forceRefresh: force }
+          );
+          if (res.data?.success && res.data?.result) payload = res.data.result;
+        }
+        if (!payload || (payload.banners?.items?.length === 0 && !payload.categoryIds?.length)) {
+          const homeRes = await customerApi.getHeroConfig(
+            { pageType: "home" },
+            { forceRefresh: force }
+          );
+          if (homeRes.data?.success && homeRes.data?.result) payload = homeRes.data.result;
+        }
         const resolved = payload
           ? {
               ...payload,
@@ -710,6 +675,9 @@ const Home = () => {
             }
           : { banners: { items: [] }, categoryIds: [] };
         heroConfigCache.current[cacheKey] = resolved;
+        if (!isHeader) {
+          heroConfigMemoryCache.__home__ = resolved;
+        }
         if (cacheKey === "__home__") {
           const homeCacheKey = getHomePageDataCacheKey(currentLocation);
           const cachedHomeData = homePageDataCache.get(homeCacheKey);
@@ -739,6 +707,49 @@ const Home = () => {
 
     fetchHeroConfig();
     fetchBestsellerConfig();
+
+    const handleCmsUpdate = () => {
+      clearAllCache();
+      invalidateCache("/experience/hero");
+      delete heroConfigMemoryCache.__home__;
+      heroConfigCache.current = {};
+      homePageDataCache.clear();
+      try {
+        localStorage.removeItem(HOME_PAGE_PERSISTENT_CACHE_KEY);
+      } catch (_) {}
+      fetchHeroConfig(true);
+      fetchBestsellerConfig();
+      fetchData({ forceRefresh: true });
+    };
+
+    const handleStorageEvent = (e) => {
+      if (e.key === "anushkakart:cms_version" || e.key === HOME_PAGE_PERSISTENT_CACHE_KEY) {
+        handleCmsUpdate();
+      }
+    };
+
+    window.addEventListener("anushkakart:cms_updated", handleCmsUpdate);
+    window.addEventListener("storage", handleStorageEvent);
+
+    let bc = null;
+    if (typeof BroadcastChannel !== "undefined") {
+      try {
+        bc = new BroadcastChannel("anushkakart_cms");
+        bc.onmessage = (msg) => {
+          if (msg.data?.type === "cms_updated") {
+            handleCmsUpdate();
+          }
+        };
+      } catch (_) {}
+    }
+
+    return () => {
+      window.removeEventListener("anushkakart:cms_updated", handleCmsUpdate);
+      window.removeEventListener("storage", handleStorageEvent);
+      if (bc) {
+        try { bc.close(); } catch (_) {}
+      }
+    };
   }, [activeCategory, currentLocation?.latitude, currentLocation?.longitude]);
 
   useEffect(() => {
@@ -840,24 +851,11 @@ const Home = () => {
     }
   }, [activeCategory, effectiveQuickCategories]);
 
-  const sectionsForRenderer = useMemo(() => {
-    const raw = displayHeaderSections.length ? displayHeaderSections : displayExperienceSections;
-    return raw.filter(
-      (s) => !s.title?.trim().toLowerCase().includes("explore top categories")
-    );
-  }, [displayHeaderSections, displayExperienceSections]);
   const isMobile = useMemo(() => isMobileOrWebView(), []);
   const opacity = useTransform(scrollY, (heroVisible && !isMobile) ? [0, 300] : [0, 0], [1, 0.6]);
   const y = useTransform(scrollY, (heroVisible && !isMobile) ? [0, 300] : [0, 0], [0, 0]);
   const scale = useTransform(scrollY, (heroVisible && !isMobile) ? [0, 300] : [0, 0], [1, 0.95]);
   const pointerEvents = useTransform(scrollY, (heroVisible && !isMobile) ? [0, 100] : [0, 0], ["auto", "none"]);
-
-  useEffect(() => {
-    if (!pendingReturn?.sectionId) return;
-    const allSections = displayHeaderSections.length ? displayHeaderSections : displayExperienceSections;
-    if (!allSections.length) return;
-    if (allSections.some((s) => s._id === pendingReturn.sectionId)) { const el = document.getElementById(`section-${pendingReturn.sectionId}`); if (el) { el.scrollIntoView({ behavior: "instant", block: "start" }); removeStorage(STORAGE_KEYS.EXPERIENCE_RETURN, { storage: "session" }); setPendingReturn(null); } }
-  }, [displayHeaderSections, displayExperienceSections, pendingReturn]);
 
   const renderFloatingElements = (type, isVisible = true) => {
     if (isMobile) return null;
@@ -940,31 +938,54 @@ const Home = () => {
           <CuratedCategoryDealsSection pageType="home" heroConfig={heroConfig} />
         )}
         {isAllCategorySelected && <TopDealsOnProducts latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} />}
-        {isAllCategorySelected && <HeaderCategoryProductsSection latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} />}
+        {isAllCategorySelected && <HeaderCategoryProductsSection latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} heroConfig={heroConfig} />}
         {isAllCategorySelected && (
           <div className="w-full max-w-none px-0 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">
             <NewArrivalsSection latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} />
           </div>
         )}
 
-        {isAllCategorySelected && (
-          <div className="w-full max-w-none px-3.5 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16 my-4">
-            <div
-              className="w-full max-w-[1000px] mx-auto overflow-hidden rounded-2xl md:rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-slate-100/80 bg-white cursor-pointer hover:opacity-95 transition-all"
-              onClick={() => {
-                window.scrollTo({ top: 0, behavior: "smooth" });
-                navigate("/category/all");
-              }}
-            >
-              <img
-                src={quickCommerceBanner}
-                alt="Anushka Store Quick Commerce - Daily Essentials Delivered in Minutes"
-                className="w-full h-auto max-h-[280px] object-contain block"
-                loading="lazy"
-              />
+        {isAllCategorySelected && (() => {
+          const bannerConfig = settings?.categoriesBanner;
+          if (bannerConfig?.isVisible === false) return null;
+
+          const banners = bannerConfig?.banners || [];
+          // Look for banner specifically targeted for 'all' / empty
+          const allBanner = banners.find((b) => {
+            if (!b || !b.image) return false;
+            const target = String(b.headerCategoryId || '').trim().toLowerCase();
+            return !target || target === 'all';
+          });
+
+          const bannerImg = allBanner?.image || quickCommerceBanner;
+          const bannerLink = allBanner?.buttonLink || allBanner?.link || "/category/all";
+
+          const handleBannerClick = () => {
+            if (!bannerLink) return;
+            if (bannerLink.startsWith('http://') || bannerLink.startsWith('https://')) {
+              window.open(bannerLink, '_blank', 'noopener,noreferrer');
+            } else {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+              navigate(bannerLink);
+            }
+          };
+
+          return (
+            <div className="w-full max-w-none px-2.5 sm:px-4 md:px-6 my-2 sm:my-2.5">
+              <div
+                className="w-full max-w-[1000px] mx-auto overflow-hidden rounded-xl md:rounded-2xl shadow-sm border border-slate-100/80 bg-white cursor-pointer hover:opacity-95 transition-all"
+                onClick={handleBannerClick}
+              >
+                <img
+                  src={bannerImg}
+                  alt={allBanner?.title || "Anushka Store Quick Commerce - Daily Essentials Delivered in Minutes"}
+                  className="w-full h-auto max-h-[220px] object-cover block"
+                  loading="lazy"
+                />
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {isAllCategorySelected && (
           <div className="w-full max-w-none px-0 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">

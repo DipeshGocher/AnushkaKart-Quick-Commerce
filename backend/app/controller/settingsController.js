@@ -102,7 +102,9 @@ function flattenForMongoSet(prefix, value, target) {
 const updateSettingsSchema = Joi.object({
   appName: Joi.string().allow("").max(200),
   supportEmail: Joi.string().email().allow("").max(200),
-  supportPhone: Joi.string().allow("").max(50),
+  supportPhone: Joi.string().allow("").pattern(/^[0-9]{10}$/).messages({
+    "string.pattern.base": "Support Phone must be a valid 10-digit number",
+  }),
   currencySymbol: Joi.string().allow("").max(10),
   currencyCode: Joi.string().allow("").max(10),
   timezone: Joi.string().allow("").max(100),
@@ -111,7 +113,7 @@ const updateSettingsSchema = Joi.object({
   primaryColor: Joi.string().allow("").max(50),
   secondaryColor: Joi.string().allow("").max(50),
   companyName: Joi.string().allow("").max(200),
-  taxId: Joi.string().allow("").max(100),
+  taxId: Joi.string().allow("").max(15),
   address: Joi.string().allow("").max(500),
   facebook: Joi.string().allow("").max(500),
   twitter: Joi.string().allow("").max(500),
@@ -130,16 +132,18 @@ const updateSettingsSchema = Joi.object({
   footerQuickLinksTitle: Joi.string().allow("").max(200),
   footerQuickLinks: Joi.array().items(
     Joi.object({
+      _id: Joi.any(),
       label: Joi.string().allow("").max(100),
       url: Joi.string().allow("").max(500),
-    })
+    }).unknown(true)
   ).default([]),
   footerCategoriesTitle: Joi.string().allow("").max(200),
   footerCategoriesLinks: Joi.array().items(
     Joi.object({
+      _id: Joi.any(),
       label: Joi.string().allow("").max(100),
       url: Joi.string().allow("").max(500),
-    })
+    }).unknown(true)
   ).default([]),
   footerContactTitle: Joi.string().allow("").max(200),
   footerCopyright: Joi.string().allow("").max(500),
@@ -168,10 +172,12 @@ const updateSettingsSchema = Joi.object({
   onlineEnabled: Joi.boolean(),
   lowStockAlertsEnabled: Joi.boolean(),
   productApproval: Joi.object({
+    _id: Joi.any(),
     sellerCreateRequiresApproval: Joi.boolean(),
     sellerEditRequiresApproval: Joi.boolean(),
-  }).unknown(false),
+  }).unknown(true),
   categoriesBanner: Joi.object({
+    _id: Joi.any(),
     presetVersion: Joi.number().integer().min(0),
     image: Joi.string().allow("").max(2000),
     badgeText: Joi.string().allow("").max(100),
@@ -181,15 +187,16 @@ const updateSettingsSchema = Joi.object({
     isVisible: Joi.boolean(),
     banners: Joi.array().items(
       Joi.object({
+        _id: Joi.any(),
         image: Joi.string().allow("").max(2000),
         headerCategoryId: Joi.string().allow("").max(100),
         badgeText: Joi.string().allow("").max(100),
         title: Joi.string().allow("").max(500),
         buttonText: Joi.string().allow("").max(100),
         buttonLink: Joi.string().allow("").max(500),
-      })
+      }).unknown(true)
     ).default([]),
-  }).unknown(false),
+  }).unknown(true),
   deliveryBadgeText: Joi.string().allow("").max(100),
   deliveryBadgeImage: Joi.string().allow("").max(2000),
   deliveryBadgeBg: Joi.string().allow("").max(500),
@@ -265,6 +272,11 @@ export const updateSettings = async (req, res) => {
       }
     }
 
+    if (typeof payload.supportPhone === "string" && payload.supportPhone.trim()) {
+      const cleanDigits = payload.supportPhone.replace(/\D/g, "");
+      payload.supportPhone = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
+    }
+
     const { error, value } = updateSettingsSchema.validate(payload, {
       stripUnknown: true,
     });
@@ -280,10 +292,25 @@ export const updateSettings = async (req, res) => {
       ? { tenantId }
       : { $or: [{ tenantId: null }, { tenantId: { $exists: false } }] };
     const toSet = {};
+    const directSetKeys = new Set([
+      "categoriesBanner",
+      "productApproval",
+      "footerQuickLinks",
+      "footerCategoriesLinks",
+      "categoryTopDeals"
+    ]);
+
     for (const [key, v] of Object.entries(value)) {
       if (v === undefined) continue;
-      flattenForMongoSet(key, v, toSet);
+      if (directSetKeys.has(key)) {
+        toSet[key] = v;
+      } else {
+        flattenForMongoSet(key, v, toSet);
+      }
     }
+    // Permanently lock system currency to Indian Rupee (₹ INR)
+    toSet.currencySymbol = "₹";
+    toSet.currencyCode = "INR";
     if (Object.keys(toSet).length === 0) {
       const current = await Setting.findOne(filter).lean();
       const result = current || {};

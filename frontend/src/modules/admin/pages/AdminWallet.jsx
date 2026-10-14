@@ -135,9 +135,9 @@ const AdminWallet = () => {
             actionPath: null
         },
         {
-            label: 'COD Cash with Riders',
+            label: 'Current Cash with Riders',
             value: `₹${(walletData.stats?.systemFloat || 0).toLocaleString()}`,
-            description: 'Uncollected in-hand cash with riders',
+            description: (walletData.stats?.systemFloat || 0) > 0 ? 'Pending to collect from riders' : 'All clear (Zero pending cash)',
             icon: CircleDollarSign,
             bg: 'bg-amber-50',
             iconColor: 'text-amber-600',

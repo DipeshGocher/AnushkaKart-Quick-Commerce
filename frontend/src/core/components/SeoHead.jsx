@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useSettings } from '@core/context/SettingsContext';
+import { applyFavicon } from '@core/context/SettingsDefaults';
 
 /**
  * Updates document title, favicon, and meta description/keywords from global settings.
@@ -46,32 +47,8 @@ export default function SeoHead() {
         }
         metaKw.setAttribute('content', keywordsContent);
 
-        // Update or create dynamic favicon across all icon link tags
-        const activeFavicon = (settings?.faviconUrl && settings.faviconUrl.trim() !== '')
-            ? settings.faviconUrl.trim()
-            : '/logo.png';
-
-        const updateOrCreateLink = (rel, href, type) => {
-            let el = document.querySelector(`link[rel="${rel}"]`);
-            if (!el) {
-                el = document.createElement('link');
-                el.rel = rel;
-                document.head.appendChild(el);
-            }
-            el.href = href;
-            if (type) el.type = type;
-            return el;
-        };
-
-        const iconType = activeFavicon.endsWith('.svg')
-            ? 'image/svg+xml'
-            : activeFavicon.endsWith('.ico')
-                ? 'image/x-icon'
-                : 'image/png';
-
-        updateOrCreateLink('icon', activeFavicon, iconType);
-        updateOrCreateLink('shortcut icon', activeFavicon, iconType);
-        updateOrCreateLink('apple-touch-icon', activeFavicon, iconType);
+        // Update dynamic favicon across all icon link tags
+        applyFavicon(settings?.faviconUrl || settings?.logoUrl || '/logo.png');
     }, [settings]);
 
     return null;

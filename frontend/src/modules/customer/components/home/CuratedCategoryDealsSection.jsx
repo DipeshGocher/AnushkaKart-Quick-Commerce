@@ -77,23 +77,24 @@ export default function CuratedCategoryDealsSection({
   const [loading, setLoading] = useState(!heroConfig);
   const [allFallbackSubcategories, setAllFallbackSubcategories] = useState([]);
 
-  // Fetch heroConfig if not provided directly by parent
+  // React to parent heroConfig updates
   useEffect(() => {
     if (heroConfig) {
       setLoadedConfig(heroConfig);
-      return;
     }
+  }, [heroConfig]);
 
+  // Fetch heroConfig if not provided directly or on real-time CMS updates
+  useEffect(() => {
     let isMounted = true;
-    setLoading(true);
 
-    const fetchConfig = async () => {
+    const fetchConfig = async (force = false) => {
       try {
         const params = { pageType };
         if (pageType === "header" && headerId) {
           params.headerId = headerId;
         }
-        const res = await customerApi.getHeroConfig(params);
+        const res = await customerApi.getHeroConfig(params, { forceRefresh: force });
         if (isMounted) {
           const cfg = res.data?.result || res.data || null;
           setLoadedConfig(cfg);
@@ -105,11 +106,42 @@ export default function CuratedCategoryDealsSection({
       }
     };
 
-    fetchConfig();
+    if (!heroConfig) {
+      setLoading(true);
+      fetchConfig();
+    }
+
+    const handleCmsRefresh = () => {
+      fetchConfig(true);
+    };
+
+    window.addEventListener("anushkakart:cms_updated", handleCmsRefresh);
+    const handleStorage = (e) => {
+      if (e.key === "anushkakart:cms_version") handleCmsRefresh();
+    };
+    window.addEventListener("storage", handleStorage);
+
+    let bc = null;
+    if (typeof BroadcastChannel !== "undefined") {
+      try {
+        bc = new BroadcastChannel("anushkakart_cms");
+        bc.onmessage = (msg) => {
+          if (msg.data?.type === "cms_updated") {
+            handleCmsRefresh();
+          }
+        };
+      } catch (_) {}
+    }
+
     return () => {
       isMounted = false;
+      window.removeEventListener("anushkakart:cms_updated", handleCmsRefresh);
+      window.removeEventListener("storage", handleStorage);
+      if (bc) {
+        try { bc.close(); } catch (_) {}
+      }
     };
-  }, [heroConfig, pageType, headerId]);
+  }, [pageType, headerId]);
 
   const [fallbackRetry, setFallbackRetry] = useState(0);
 

@@ -91,9 +91,8 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
     const hideBottomNavRoutes = ['/checkout', '/search', '/chat'];
     const hideCartRoutes = ['/checkout', '/search', '/chat'];
 
-    // If props are passed, use them. Otherwise, use route-based logic.
     const pathSegments = path.split('/').filter(Boolean);
-    const isHeaderCategoryRoute = pathSegments.length === 1 && !hideHeaderRoutes.includes(path) && !['offers', 'shop-by-store'].includes(pathSegments[0]);
+    const isHeaderCategoryRoute = pathSegments.length === 1 && !hideHeaderRoutes.includes(path) && !['offers'].includes(pathSegments[0]);
     const isHierarchicalProduct = Boolean(new URLSearchParams(location.search).get('id') || (pathSegments.length >= 2 && !['category', 'orders', 'profile', 'seller', 'admin', 'delivery'].includes(pathSegments[0])));
     const showHeader = showHeaderProp !== undefined ? showHeaderProp : (!hideHeaderRoutes.includes(path) && !isHeaderCategoryRoute && !path.startsWith('/category') && !path.startsWith('/orders') && !path.startsWith('/products') && !path.startsWith('/product') && !isHierarchicalProduct);
     const showBottomNav = showBottomNavProp !== undefined ? showBottomNavProp : !hideBottomNavRoutes.includes(path);

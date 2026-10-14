@@ -130,7 +130,7 @@ const PageSkeleton = ({ variant, className = '' }) => {
     : /^\/(product|kit)\//.test(pathname) || /^\/orders\//.test(pathname) ? 'detail'
     : pathname.startsWith('/checkout') || pathname.startsWith('/cart') || pathname.startsWith('/orders') || pathname.startsWith('/transactions') ? 'rows'
     : pathname.startsWith('/profile') || pathname.startsWith('/settings') || pathname.startsWith('/wallet') || pathname.startsWith('/addresses') ? 'profile'
-    : pathname.startsWith('/category') || pathname.startsWith('/search') || pathname.startsWith('/offers') || pathname.startsWith('/shop-by-store') ? 'listing'
+    : pathname.startsWith('/category') || pathname.startsWith('/search') || pathname.startsWith('/offers') ? 'listing'
     : 'rows');
 
   return (

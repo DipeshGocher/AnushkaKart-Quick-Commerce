@@ -2,6 +2,7 @@ import Wallet from "../../models/wallet.js";
 import Payout from "../../models/payout.js";
 import Order from "../../models/order.js";
 import User from "../../models/customer.js";
+import Transaction from "../../models/transaction.js";
 import {
   LEDGER_DIRECTION,
   ORDER_PAYMENT_STATUS,
@@ -503,47 +504,40 @@ export async function getAdminFinanceSummary() {
         { $match: { status: { $in: [PAYOUT_STATUS.PENDING, PAYOUT_STATUS.PROCESSING] } } },
         { $group: { _id: "$payoutType", amount: { $sum: "$amount" } } },
       ]),
-      // System Float (COD) should reflect "cash owed to the system" for COD orders, even before delivery.
-      // - After cash is marked collected, we use the persisted `codPendingAmount` (net of remittances).
-      // - Before collection, we estimate float from the order snapshot as: grandTotal - riderPayoutTotal.
-      // This matches the admin UI expectation: show exposure as soon as a COD order is placed,
-      // and reduce to 0 once the rider remits full amount.
-      Order.aggregate([
+      // Physical Cash with Riders (Pending remittance to admin):
+      // Exact net sum of (Cash Collected by Riders - Cash Settled/Deposited to Admin).
+      Transaction.aggregate([
         {
           $match: {
-            paymentMode: "COD",
-            status: { $ne: "cancelled" },
-            orderStatus: { $ne: "cancelled" },
+            userModel: "Delivery",
+            type: { $in: ["Cash Collection", "Cash Settlement"] },
+            status: { $ne: "Failed" },
+          },
+        },
+        {
+          $group: {
+            _id: "$user",
+            collected: {
+              $sum: {
+                $cond: [{ $eq: ["$type", "Cash Collection"] }, { $abs: "$amount" }, 0],
+              },
+            },
+            settled: {
+              $sum: {
+                $cond: [{ $eq: ["$type", "Cash Settlement"] }, { $abs: "$amount" }, 0],
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            inHand: { $max: [{ $subtract: ["$collected", "$settled"] }, 0] },
           },
         },
         {
           $group: {
             _id: null,
-            amount: {
-              $sum: {
-                $let: {
-                  vars: {
-                    collected: {
-                      $ifNull: ["$financeFlags.codMarkedCollected", false],
-                    },
-                    pending: {
-                      $ifNull: ["$paymentBreakdown.codPendingAmount", 0],
-                    },
-                    gross: { $ifNull: ["$paymentBreakdown.grandTotal", 0] },
-                    rider: { $ifNull: ["$paymentBreakdown.riderPayoutTotal", 0] },
-                  },
-                  in: {
-                    $cond: [
-                      "$$collected",
-                      "$$pending",
-                      {
-                        $max: [{ $subtract: ["$$gross", "$$rider"] }, 0],
-                      },
-                    ],
-                  },
-                },
-              },
-            },
+            amount: { $sum: "$inHand" },
           },
         },
       ]),

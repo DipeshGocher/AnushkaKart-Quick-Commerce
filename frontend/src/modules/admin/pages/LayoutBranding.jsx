@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import Card from '@shared/components/ui/Card';
 import { useToast } from '@shared/components/ui/Toast';
 import { cn } from '@/lib/utils';
 import { useSettings } from '@core/context/SettingsContext';
+import { applyFavicon } from '@core/context/SettingsDefaults';
 import { adminApi } from '../services/adminApi';
 import {
     Palette,
@@ -72,6 +74,9 @@ const BADGE_BG_PRESETS = [
     { name: "Emerald Green", val: "linear-gradient(135deg, #10b981 0%, #059669 100%)" },
     { name: "Neon Purple", val: "linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)" },
     { name: "Sunset Gold", val: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)" },
+    { name: "Crimson Red", val: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)" },
+    { name: "Rose Pink", val: "linear-gradient(135deg, #ec4899 0%, #be185d 100%)" },
+    { name: "Teal Cyan", val: "linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)" },
     { name: "Midnight Dark", val: "#0f172a" },
 ];
 
@@ -88,14 +93,12 @@ export default function LayoutBranding() {
     // File input refs
     const logoInputRef = useRef(null);
     const faviconInputRef = useRef(null);
-    const deliveryBadgeInputRef = useRef(null);
     const bannerFileInputRef = useRef(null);
     const currentUploadIndexRef = useRef(null);
 
     // Upload states
     const [logoUploading, setLogoUploading] = useState(false);
     const [faviconUploading, setFaviconUploading] = useState(false);
-    const [deliveryBadgeUploading, setDeliveryBadgeUploading] = useState(false);
     const [bannerUploadingIndex, setBannerUploadingIndex] = useState(null);
 
     // Emoji picker states
@@ -209,6 +212,9 @@ export default function LayoutBranding() {
             ...prev,
             [field]: value
         }));
+        if (field === 'faviconUrl' && value) {
+            applyFavicon(value);
+        }
     };
 
     // Upload Handlers
@@ -245,6 +251,7 @@ export default function LayoutBranding() {
             const url = res.data?.result?.url || res.data?.url;
             if (url) {
                 handleInputChange('faviconUrl', url);
+                applyFavicon(url);
                 showToast('Favicon uploaded successfully', 'success');
             }
         } catch (err) {
@@ -253,28 +260,6 @@ export default function LayoutBranding() {
         } finally {
             setFaviconUploading(false);
             if (faviconInputRef.current) faviconInputRef.current.value = '';
-        }
-    };
-
-    const handleDeliveryBadgeUpload = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setDeliveryBadgeUploading(true);
-        try {
-            const fd = new FormData();
-            fd.append('image', file);
-            const res = await adminApi.uploadSettingsImage(fd, 'deliverybadge');
-            const url = res.data?.result?.url || res.data?.url;
-            if (url) {
-                handleInputChange('deliveryBadgeImage', url);
-                showToast('Badge icon uploaded successfully', 'success');
-            }
-        } catch (err) {
-            console.error(err);
-            showToast('Failed to upload badge icon', 'error');
-        } finally {
-            setDeliveryBadgeUploading(false);
-            if (deliveryBadgeInputRef.current) deliveryBadgeInputRef.current.value = '';
         }
     };
 
@@ -312,7 +297,7 @@ export default function LayoutBranding() {
                     ...(prev.categoriesBanner?.banners || []),
                     {
                         image: '',
-                        headerCategoryId: headerCategories[0]?._id || '',
+                        headerCategoryId: 'all',
                         badgeText: 'PROMOTION',
                         title: '',
                         buttonText: 'Shop Now',
@@ -367,41 +352,48 @@ export default function LayoutBranding() {
     const handleSave = async () => {
         setIsSaving(true);
         try {
+            const cleanBanners = (settings.categoriesBanner?.banners || []).map(b => ({
+                image: b.image || '',
+                headerCategoryId: b.headerCategoryId || 'all',
+                badgeText: b.badgeText || 'PROMOTION',
+                title: b.title || '',
+                buttonText: b.buttonText || 'Shop Now',
+                buttonLink: b.buttonLink || b.link || '/'
+            }));
+
             const payload = {
                 appName: settings.appName,
                 logoUrl: settings.logoUrl,
                 faviconUrl: settings.faviconUrl,
                 primaryColor: settings.primaryColor,
                 secondaryColor: settings.secondaryColor,
-                footerMessage: settings.footerMessage,
-                footerEmoji: settings.footerEmoji,
                 deliveryBadgeText: settings.deliveryBadgeText,
                 deliveryBadgeImage: settings.deliveryBadgeImage,
                 deliveryBadgeBg: settings.deliveryBadgeBg,
-                deliveryBadgeEnabled: settings.deliveryBadgeEnabled,
-                categoriesBanner: settings.categoriesBanner,
+                deliveryBadgeEnabled: settings.deliveryBadgeEnabled !== false,
+                categoriesBanner: {
+                    isVisible: settings.categoriesBanner?.isVisible !== false,
+                    banners: cleanBanners
+                },
+                footerMessage: settings.footerMessage,
+                footerEmoji: settings.footerEmoji,
                 footerDescription: settings.footerDescription,
                 footerQuickLinksTitle: settings.footerQuickLinksTitle,
-                footerQuickLinks: settings.footerQuickLinks,
+                footerQuickLinks: (settings.footerQuickLinks || []).map(q => ({ label: q.label || '', url: q.url || '' })),
                 footerCategoriesTitle: settings.footerCategoriesTitle,
-                footerCategoriesLinks: settings.footerCategoriesLinks,
+                footerCategoriesLinks: (settings.footerCategoriesLinks || []).map(c => ({ label: c.label || '', url: c.url || '' })),
                 footerContactTitle: settings.footerContactTitle,
-                address: settings.address,
-                supportPhone: settings.supportPhone,
-                supportEmail: settings.supportEmail,
-                facebook: settings.facebook,
-                twitter: settings.twitter,
-                instagram: settings.instagram,
-                youtube: settings.youtube,
-                linkedin: settings.linkedin,
                 footerCopyright: settings.footerCopyright,
                 footerPrivacyUrl: settings.footerPrivacyUrl,
                 footerTermsUrl: settings.footerTermsUrl,
                 footerBgColor: settings.footerBgColor,
-                footerEnabled: settings.footerEnabled
+                footerEnabled: settings.footerEnabled !== false
             };
 
             await adminApi.updateSettings(payload);
+            if (payload.faviconUrl) {
+                applyFavicon(payload.faviconUrl);
+            }
             if (refetchSettings) {
                 await refetchSettings({ forceRefresh: true });
             }
@@ -518,7 +510,6 @@ export default function LayoutBranding() {
             {/* Hidden File Inputs */}
             <input type="file" ref={logoInputRef} accept="image/*" className="hidden" onChange={handleLogoUpload} />
             <input type="file" ref={faviconInputRef} accept="image/*" className="hidden" onChange={handleFaviconUpload} />
-            <input type="file" ref={deliveryBadgeInputRef} accept="image/*" className="hidden" onChange={handleDeliveryBadgeUpload} />
             <input type="file" ref={bannerFileInputRef} accept="image/*" className="hidden" onChange={handleBannerUpload} />
 
             {/* Header Section */}
@@ -691,95 +682,6 @@ export default function LayoutBranding() {
                                 />
                             </div>
                         </div>
-
-                        {/* App Name & Colors */}
-                        <div className="pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Application Name</label>
-                                <input
-                                    type="text"
-                                    value={settings.appName}
-                                    onChange={(e) => handleInputChange('appName', e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500/20"
-                                    placeholder="Anushka Store"
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Primary Theme Color</label>
-                                <div className="flex items-center gap-3">
-                                    <input
-                                        type="color"
-                                        value={settings.primaryColor}
-                                        onChange={(e) => handleInputChange('primaryColor', e.target.value)}
-                                        className="h-11 w-14 rounded-xl cursor-pointer bg-transparent border-0"
-                                    />
-                                    <input
-                                        type="text"
-                                        value={settings.primaryColor}
-                                        onChange={(e) => handleInputChange('primaryColor', e.target.value)}
-                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Secondary Theme Color</label>
-                                <div className="flex items-center gap-3">
-                                    <input
-                                        type="color"
-                                        value={settings.secondaryColor}
-                                        onChange={(e) => handleInputChange('secondaryColor', e.target.value)}
-                                        className="h-11 w-14 rounded-xl cursor-pointer bg-transparent border-0"
-                                    />
-                                    <input
-                                        type="text"
-                                        value={settings.secondaryColor}
-                                        onChange={(e) => handleInputChange('secondaryColor', e.target.value)}
-                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Footer Message & Emoji */}
-                        <div className="pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Customer Footer Tagline</label>
-                                <input
-                                    type="text"
-                                    value={settings.footerMessage}
-                                    onChange={(e) => handleInputChange('footerMessage', e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
-                                    placeholder="Sab kuchh ek basket mein"
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Footer Emoji</label>
-                                    <div className="flex items-center gap-1">
-                                        {COMMON_EMOJIS.slice(0, 6).map((emoji) => (
-                                            <button
-                                                key={emoji}
-                                                type="button"
-                                                onClick={() => handleInputChange('footerEmoji', emoji)}
-                                                className="px-1.5 py-0.5 hover:bg-slate-100 rounded text-sm cursor-pointer"
-                                            >
-                                                {emoji}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                                <input
-                                    type="text"
-                                    value={settings.footerEmoji}
-                                    onChange={(e) => handleInputChange('footerEmoji', e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
-                                    placeholder="❤️"
-                                />
-                            </div>
-                        </div>
                     </Card>
                 </div>
             )}
@@ -843,56 +745,16 @@ export default function LayoutBranding() {
                                     <p className="text-[11px] text-slate-400">Examples: "30 min", "10-15 mins", "Express", "Same Day"</p>
                                 </div>
 
-                                {/* Badge Icon / Image */}
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider">
-                                        Custom Badge Icon / Logo (Optional)
-                                    </label>
-                                    <div className="flex flex-wrap items-center gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={() => !deliveryBadgeUploading && deliveryBadgeInputRef.current?.click()}
-                                            className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
-                                        >
-                                            {deliveryBadgeUploading ? <Loader2 className="h-4 w-4 animate-spin text-indigo-600" /> : <Upload className="h-4 w-4" />}
-                                            {settings.deliveryBadgeImage ? 'Replace Icon / Logo' : 'Upload Icon / Logo'}
-                                        </button>
-                                        {settings.deliveryBadgeImage && (
-                                            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
-                                                <img
-                                                    src={settings.deliveryBadgeImage}
-                                                    alt="Current Badge Icon"
-                                                    className="h-6 w-6 object-contain bg-white rounded p-0.5 border border-slate-200"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        handleInputChange('deliveryBadgeImage', '');
-                                                        if (deliveryBadgeInputRef.current) deliveryBadgeInputRef.current.value = '';
-                                                    }}
-                                                    className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer transition-colors"
-                                                    title="Remove Custom Badge Icon"
-                                                >
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                    Remove Icon
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <input
-                                        type="url"
-                                        value={settings.deliveryBadgeImage}
-                                        onChange={(e) => handleInputChange('deliveryBadgeImage', e.target.value)}
-                                        placeholder="Or paste direct icon image URL (leave empty to use default lightning icon)"
-                                        className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                                    />
-                                </div>
-
                                 {/* Background Presets & Custom Gradient */}
                                 <div className="space-y-3">
-                                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider">
-                                        Background Color / Gradient
-                                    </label>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider">
+                                            Badge Background Color / Gradient
+                                        </label>
+                                        <span className="text-[11px] text-slate-400 font-medium">Click preset or choose custom</span>
+                                    </div>
+
+                                    {/* Presets */}
                                     <div className="flex flex-wrap gap-2">
                                         {BADGE_BG_PRESETS.map((preset) => (
                                             <button
@@ -901,7 +763,7 @@ export default function LayoutBranding() {
                                                 onClick={() => handleInputChange('deliveryBadgeBg', preset.val)}
                                                 className={cn(
                                                     "px-3 py-1.5 rounded-xl text-xs font-bold text-white shadow-xs transition-all cursor-pointer flex items-center gap-1.5",
-                                                    settings.deliveryBadgeBg === preset.val ? "ring-2 ring-indigo-600 scale-105" : "hover:opacity-90"
+                                                    settings.deliveryBadgeBg === preset.val ? "ring-2 ring-indigo-600 ring-offset-2 scale-105" : "hover:opacity-90"
                                                 )}
                                                 style={{ background: preset.val }}
                                             >
@@ -909,13 +771,29 @@ export default function LayoutBranding() {
                                             </button>
                                         ))}
                                     </div>
-                                    <input
-                                        type="text"
-                                        value={settings.deliveryBadgeBg}
-                                        onChange={(e) => handleInputChange('deliveryBadgeBg', e.target.value)}
-                                        className="w-full px-3.5 py-2 text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                                        placeholder="CSS background gradient or hex (e.g. linear-gradient(...) or #ff793f)"
-                                    />
+
+                                    {/* Color Picker + Custom Value */}
+                                    <div className="flex items-center gap-2.5 pt-1">
+                                        <div className="relative flex items-center">
+                                            <input
+                                                type="color"
+                                                value={settings.deliveryBadgeBg?.startsWith('#') && settings.deliveryBadgeBg.length === 7 ? settings.deliveryBadgeBg : '#ff793f'}
+                                                onChange={(e) => handleInputChange('deliveryBadgeBg', e.target.value)}
+                                                className="h-10 w-12 rounded-xl border border-slate-200 cursor-pointer bg-white p-1 shadow-sm"
+                                                title="Pick a solid color"
+                                            />
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={settings.deliveryBadgeBg}
+                                            onChange={(e) => handleInputChange('deliveryBadgeBg', e.target.value)}
+                                            className="flex-1 px-4 py-2.5 text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800"
+                                            placeholder="CSS background gradient or hex (e.g. #ff793f or linear-gradient(...))"
+                                        />
+                                    </div>
+                                    <p className="text-[11px] text-slate-400">
+                                        Select from presets above, pick a custom color with the picker, or paste any CSS gradient.
+                                    </p>
                                 </div>
                             </div>
 
@@ -949,11 +827,7 @@ export default function LayoutBranding() {
                                                 className="px-3 py-1.5 rounded-xl flex items-center gap-1.5 text-white font-black text-xs shadow-sm shrink-0 transition-all select-none animate-in fade-in"
                                                 style={{ background: settings.deliveryBadgeBg || 'linear-gradient(135deg, #ff9f43 0%, #ff793f 100%)' }}
                                             >
-                                                {settings.deliveryBadgeImage ? (
-                                                    <img src={settings.deliveryBadgeImage} alt="Badge" className="h-4 w-4 object-contain" />
-                                                ) : (
-                                                    <Zap className="h-3.5 w-3.5 fill-current" />
-                                                )}
+                                                <Zap className="h-3.5 w-3.5 fill-current" />
                                                 <span>{settings.deliveryBadgeText || '30 min'}</span>
                                             </div>
                                         ) : (
@@ -1098,16 +972,18 @@ export default function LayoutBranding() {
                                                         Target Header Category
                                                     </label>
                                                     <select
-                                                        value={banner.headerCategoryId || ''}
+                                                        value={banner.headerCategoryId || 'all'}
                                                         onChange={(e) => handleBannerItemChange(index, 'headerCategoryId', e.target.value)}
                                                         className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none cursor-pointer"
                                                     >
-                                                        <option value="">Select Category (Appears on this category view)</option>
-                                                        {headerCategories.map((cat) => (
-                                                            <option key={cat._id || cat.id} value={cat._id || cat.id}>
-                                                                {cat.name} ({cat.slug})
-                                                            </option>
-                                                        ))}
+                                                        <option value="all">All (Home Page - Quick Commerce Banner Position)</option>
+                                                        {headerCategories
+                                                            .filter(cat => cat.slug !== 'all' && cat.name?.toLowerCase() !== 'all')
+                                                            .map((cat) => (
+                                                                <option key={cat._id || cat.id} value={cat._id || cat.id}>
+                                                                    {cat.name} - (Between Top Deals & Recommended Items)
+                                                                </option>
+                                                            ))}
                                                     </select>
                                                 </div>
 
@@ -1281,70 +1157,61 @@ export default function LayoutBranding() {
                                 />
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
-                                <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
-                                        <Facebook size={14} className="text-blue-600" /> Facebook URL
-                                    </label>
-                                    <input
-                                        type="url"
-                                        value={settings.facebook || ''}
-                                        onChange={(e) => handleInputChange('facebook', e.target.value)}
-                                        placeholder="https://facebook.com/yourpage"
-                                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
-                                    />
+                            {/* Single Entry: Social Links Auto-Synced from Settings */}
+                            <div className="p-4 bg-gradient-to-br from-slate-50 to-indigo-50/40 rounded-2xl border border-indigo-100/80 space-y-3">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-1.5 bg-indigo-600 text-white rounded-lg">
+                                            <Globe size={14} />
+                                        </div>
+                                        <div>
+                                            <span className="text-xs font-black text-slate-800">Social Media Links</span>
+                                            <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                Auto-Synced from Settings
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <Link
+                                        to="/admin/settings"
+                                        className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"
+                                    >
+                                        <span>Manage in Settings</span>
+                                        <ExternalLink size={12} />
+                                    </Link>
                                 </div>
-
-                                <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
-                                        <Instagram size={14} className="text-pink-600" /> Instagram URL
-                                    </label>
-                                    <input
-                                        type="url"
-                                        value={settings.instagram || ''}
-                                        onChange={(e) => handleInputChange('instagram', e.target.value)}
-                                        placeholder="https://instagram.com/yourprofile"
-                                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
-                                    />
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
-                                        <Twitter size={14} className="text-sky-500" /> Twitter / X URL
-                                    </label>
-                                    <input
-                                        type="url"
-                                        value={settings.twitter || ''}
-                                        onChange={(e) => handleInputChange('twitter', e.target.value)}
-                                        placeholder="https://x.com/yourhandle"
-                                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
-                                    />
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
-                                        <Youtube size={14} className="text-red-600" /> YouTube Channel
-                                    </label>
-                                    <input
-                                        type="url"
-                                        value={settings.youtube || ''}
-                                        onChange={(e) => handleInputChange('youtube', e.target.value)}
-                                        placeholder="https://youtube.com/@yourchannel"
-                                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
-                                    />
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
-                                        <Linkedin size={14} className="text-blue-700" /> LinkedIn URL
-                                    </label>
-                                    <input
-                                        type="url"
-                                        value={settings.linkedin || ''}
-                                        onChange={(e) => handleInputChange('linkedin', e.target.value)}
-                                        placeholder="https://linkedin.com/company/yourpage"
-                                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
-                                    />
+                                <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+                                    Social accounts are configured once in <strong>Settings → Social & Apps</strong> and automatically appear in this footer and throughout the storefront.
+                                </p>
+                                <div className="flex flex-wrap gap-2 pt-1">
+                                    {[
+                                        { name: 'Facebook', url: settings.facebook, icon: Facebook, color: 'text-blue-600 bg-blue-50 border-blue-100' },
+                                        { name: 'Instagram', url: settings.instagram, icon: Instagram, color: 'text-pink-600 bg-pink-50 border-pink-100' },
+                                        { name: 'Twitter / X', url: settings.twitter, icon: Twitter, color: 'text-sky-500 bg-sky-50 border-sky-100' },
+                                        { name: 'YouTube', url: settings.youtube, icon: Youtube, color: 'text-red-600 bg-red-50 border-red-100' },
+                                        { name: 'LinkedIn', url: settings.linkedin, icon: Linkedin, color: 'text-blue-700 bg-blue-50 border-blue-100' },
+                                    ].map((item) => {
+                                        const IconComponent = item.icon;
+                                        const isConfigured = Boolean(item.url);
+                                        return (
+                                            <div
+                                                key={item.name}
+                                                className={cn(
+                                                    "flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all",
+                                                    isConfigured
+                                                        ? item.color
+                                                        : "text-slate-400 bg-slate-100/60 border-slate-200 line-through opacity-60"
+                                                )}
+                                                title={item.url || 'Not configured in Settings'}
+                                            >
+                                                <IconComponent size={13} />
+                                                <span className="font-bold">{item.name}</span>
+                                                <span className="text-[10px] opacity-75">
+                                                    {isConfigured ? '✓ Active' : 'Off'}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
@@ -1519,44 +1386,59 @@ export default function LayoutBranding() {
                                 />
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                                        <MapPin size={14} className="text-indigo-600" /> Physical Address
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={settings.address || ''}
-                                        onChange={(e) => handleInputChange('address', e.target.value)}
-                                        placeholder="Corporate House, RNT Marg"
-                                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
-                                    />
+                            {/* Single Entry: Support Contact Auto-Synced from Settings */}
+                            <div className="p-4 bg-gradient-to-br from-slate-50 to-indigo-50/40 rounded-2xl border border-indigo-100/80 space-y-3">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-1.5 bg-indigo-600 text-white rounded-lg">
+                                            <Phone size={14} />
+                                        </div>
+                                        <div>
+                                            <span className="text-xs font-black text-slate-800">Support & Contact Information</span>
+                                            <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                Auto-Synced from Settings
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <Link
+                                        to="/admin/settings"
+                                        className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"
+                                    >
+                                        <span>Manage in Settings</span>
+                                        <ExternalLink size={12} />
+                                    </Link>
                                 </div>
+                                <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+                                    Customer support contact numbers, emails, and corporate address are managed once in <strong>Settings</strong> and automatically reflected in this footer and across the store.
+                                </p>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                                    <div className="p-3 bg-white rounded-xl border border-slate-200/80 space-y-1 shadow-2xs">
+                                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+                                            <MapPin size={13} className="text-indigo-600" /> Physical Address
+                                        </div>
+                                        <p className="text-xs font-bold text-slate-800 truncate" title={settings.address}>
+                                            {settings.address || <span className="text-slate-400 italic font-normal">Not configured</span>}
+                                        </p>
+                                    </div>
 
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                                        <Phone size={14} className="text-indigo-600" /> Support Phone
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={settings.supportPhone || ''}
-                                        onChange={(e) => handleInputChange('supportPhone', e.target.value)}
-                                        placeholder="+91 98765 43210"
-                                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
-                                    />
-                                </div>
+                                    <div className="p-3 bg-white rounded-xl border border-slate-200/80 space-y-1 shadow-2xs">
+                                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+                                            <Phone size={13} className="text-indigo-600" /> Support Phone
+                                        </div>
+                                        <p className="text-xs font-bold text-slate-800 truncate" title={settings.supportPhone}>
+                                            {settings.supportPhone || <span className="text-slate-400 italic font-normal">Not configured</span>}
+                                        </p>
+                                    </div>
 
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                                        <Mail size={14} className="text-indigo-600" /> Support Email
-                                    </label>
-                                    <input
-                                        type="email"
-                                        value={settings.supportEmail || ''}
-                                        onChange={(e) => handleInputChange('supportEmail', e.target.value)}
-                                        placeholder="support@yourbrand.com"
-                                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
-                                    />
+                                    <div className="p-3 bg-white rounded-xl border border-slate-200/80 space-y-1 shadow-2xs">
+                                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+                                            <Mail size={13} className="text-indigo-600" /> Support Email
+                                        </div>
+                                        <p className="text-xs font-bold text-slate-800 truncate" title={settings.supportEmail}>
+                                            {settings.supportEmail || <span className="text-slate-400 italic font-normal">Not configured</span>}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -15,16 +15,38 @@ const AllCategoriesGreeting = ({ categories, firstName, greetingConfig }) => {
   // Determine categories to display
   const displayCategories = useMemo(() => {
     if (Array.isArray(greetingConfig?.categoryIds) && greetingConfig.categoryIds.length > 0) {
-      return greetingConfig.categoryIds
+      const resolved = greetingConfig.categoryIds
         .filter(Boolean)
-        .map((cat) => ({
-          id: cat._id || cat.id,
-          _id: cat._id || cat.id,
-          name: cat.name || '',
-          image: cat.image || cat.icon || '',
-          slug: cat.slug || '',
-          rawCategory: cat,
-        }));
+        .map((cat) => {
+          if (typeof cat === "object" && cat.name) {
+            return {
+              id: cat._id || cat.id,
+              _id: cat._id || cat.id,
+              name: cat.name,
+              image: cat.image || cat.icon || "",
+              slug: cat.slug || "",
+              rawCategory: cat,
+            };
+          }
+          const catId = String(typeof cat === "object" ? cat._id || cat.id : cat);
+          const found = (categories || []).find(
+            (c) => String(c._id || c.id) === catId
+          );
+          if (found) {
+            return {
+              id: found._id || found.id,
+              _id: found._id || found.id,
+              name: found.name,
+              image: found.image || found.icon || "",
+              slug: found.slug || "",
+              rawCategory: found,
+            };
+          }
+          return null;
+        })
+        .filter(Boolean);
+
+      if (resolved.length > 0) return resolved;
     }
     return categories || [];
   }, [greetingConfig?.categoryIds, categories]);
@@ -176,8 +198,8 @@ const AllCategoriesGreeting = ({ categories, firstName, greetingConfig }) => {
                 style={{ backgroundColor: cardNameBgColor }}
               >
                 <span
-                  className="line-clamp-1 text-center text-[12px] sm:text-[13px] font-bold tracking-tight leading-tight w-full drop-shadow-xs"
-                  style={{ color: cardNameTextColor }}
+                  className="line-clamp-1 text-center text-[12px] sm:text-[13px] font-bold tracking-tight leading-tight w-full"
+                  style={{ color: cardNameTextColor || '#ffffff' }}
                 >
                   {category.name}
                 </span>

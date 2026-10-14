@@ -436,6 +436,10 @@ const HERO_CATEGORY_POPULATE = [
       },
     },
   },
+  {
+    path: "topDealsProductIds",
+    select: "name price salePrice originalPrice images image mainImage isTopDeal status inStock sku brand",
+  },
 ];
 
 export const getPublicHeroConfig = async (req, res) => {
@@ -660,9 +664,15 @@ export const upsertHeroConfig = async (req, res) => {
     // For header category pages: strictly single banner; for home: multiple banners allowed
     const finalBannerItems = pageType === "header" ? bannerItems.slice(0, 1) : bannerItems;
 
-    const ids = Array.isArray(categoryIds) ? categoryIds.filter(Boolean) : [];
-    const topDealIds = Array.isArray(topDealsProductIds) ? topDealsProductIds.filter(Boolean) : [];
-    const bestSellingIds = Array.isArray(bestSellingCategoryIds) ? bestSellingCategoryIds.filter(Boolean) : [];
+    const cleanId = (v) => {
+      if (!v) return null;
+      const str = String(v?._id || v?.id || v).trim();
+      return mongoose.Types.ObjectId.isValid(str) ? str : null;
+    };
+
+    const ids = Array.isArray(categoryIds) ? categoryIds.map(cleanId).filter(Boolean) : [];
+    const topDealIds = Array.isArray(topDealsProductIds) ? topDealsProductIds.map(cleanId).filter(Boolean) : [];
+    const bestSellingIds = Array.isArray(bestSellingCategoryIds) ? bestSellingCategoryIds.map(cleanId).filter(Boolean) : [];
 
     const filter = {
       pageType,
@@ -701,7 +711,7 @@ export const upsertHeroConfig = async (req, res) => {
 
     if (Array.isArray(categorySectionBanners)) {
       update.categorySectionBanners = categorySectionBanners.map((cs) => ({
-        headerId: cs.headerId || null,
+        headerId: cleanId(cs.headerId),
         headerName: cs.headerName || "",
         banners: Array.isArray(cs.banners)
           ? cs.banners
@@ -730,7 +740,7 @@ export const upsertHeroConfig = async (req, res) => {
           ? curatedDeals.items
               .filter((it) => it && (it.categoryId || it.title))
               .map((it, idx) => ({
-                categoryId: it.categoryId?._id || it.categoryId || null,
+                categoryId: cleanId(it.categoryId),
                 title: typeof it.title === "string" ? it.title.trim() : "",
                 offerText: typeof it.offerText === "string" && it.offerText.trim() ? it.offerText.trim() : "Min. 50% Off",
                 imageUrl: typeof it.imageUrl === "string" ? it.imageUrl.trim() : "",
@@ -750,7 +760,7 @@ export const upsertHeroConfig = async (req, res) => {
         cardBgColor: typeof greetingSection.cardBgColor === "string" && greetingSection.cardBgColor.trim() ? greetingSection.cardBgColor.trim() : "#ffffff",
         cardNameBgColor: typeof greetingSection.cardNameBgColor === "string" && greetingSection.cardNameBgColor.trim() ? greetingSection.cardNameBgColor.trim() : "#2563eb",
         cardNameTextColor: typeof greetingSection.cardNameTextColor === "string" && greetingSection.cardNameTextColor.trim() ? greetingSection.cardNameTextColor.trim() : "#FFFFFF",
-        categoryIds: Array.isArray(greetingSection.categoryIds) ? greetingSection.categoryIds.filter(Boolean) : [],
+        categoryIds: Array.isArray(greetingSection.categoryIds) ? greetingSection.categoryIds.map(cleanId).filter(Boolean) : [],
       };
     }
 
@@ -783,7 +793,12 @@ export const upsertHeroConfig = async (req, res) => {
     )
       .populate(HERO_CATEGORY_POPULATE)
       .lean();
-    await invalidate("cache:experience:hero:*");
+    await Promise.allSettled([
+      invalidate(buildKey("experience", "hero", "*")),
+      invalidate("cache:experience:hero:*"),
+      invalidate("cache:experience:*"),
+      invalidate("cache:platform:settings:*"),
+    ]);
 
     return handleResponse(res, 200, "Hero config saved", config);
   } catch (error) {

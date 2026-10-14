@@ -1,12 +1,6 @@
 import express from "express";
 import multer from "multer";
 import {
-  getAdminExperienceSections,
-  createExperienceSection,
-  updateExperienceSection,
-  deleteExperienceSection,
-  reorderExperienceSections,
-  getPublicExperienceSections,
   uploadBannerImage,
   getPublicHeroConfig,
   getAdminHeroConfig,
@@ -17,30 +11,7 @@ import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Admin routes (protected)
-router.get(
-  "/admin/experience",
-  verifyToken,
-  allowRoles("admin"),
-  getAdminExperienceSections
-);
-
-router.post(
-  "/admin/experience",
-  verifyToken,
-  allowRoles("admin"),
-  createExperienceSection
-);
-
-// Specific routes MUST come before generic parameterized route /admin/experience/:id
-router.put(
-  "/admin/experience/reorder",
-  verifyToken,
-  allowRoles("admin"),
-  reorderExperienceSections
-);
-
-// Admin hero config (separate from experience sections) - before :id so "hero" is not matched as id
+// Admin hero config (Used by Hero & Page Banners) - MUST be defined before /admin/experience/:id
 router.get(
   "/admin/experience/hero",
   verifyToken,
@@ -54,20 +25,6 @@ router.put(
   upsertHeroConfig
 );
 
-router.put(
-  "/admin/experience/:id",
-  verifyToken,
-  allowRoles("admin"),
-  updateExperienceSection
-);
-
-router.delete(
-  "/admin/experience/:id",
-  verifyToken,
-  allowRoles("admin"),
-  deleteExperienceSection
-);
-
 router.post(
   "/admin/experience/upload-banner",
   verifyToken,
@@ -76,13 +33,34 @@ router.post(
   uploadBannerImage
 );
 
-// Public routes with fast browser/edge caching and stale-while-revalidate
-const publicCacheHeader = (maxAge = 60, swr = 300) => (req, res, next) => {
-  res.set("Cache-Control", `public, max-age=${maxAge}, stale-while-revalidate=${swr}`);
+// Legacy Experience Studio endpoints - Return empty success to maintain safety
+router.get("/admin/experience", verifyToken, allowRoles("admin"), (req, res) => {
+  res.json({ success: true, results: [], result: [] });
+});
+router.post("/admin/experience", verifyToken, allowRoles("admin"), (req, res) => {
+  res.json({ success: true, message: "Experience sections deprecated" });
+});
+router.put("/admin/experience/reorder", verifyToken, allowRoles("admin"), (req, res) => {
+  res.json({ success: true, message: "Experience sections deprecated" });
+});
+router.put("/admin/experience/:id", verifyToken, allowRoles("admin"), (req, res) => {
+  res.json({ success: true, message: "Experience sections deprecated" });
+});
+router.delete("/admin/experience/:id", verifyToken, allowRoles("admin"), (req, res) => {
+  res.json({ success: true, message: "Experience section deleted" });
+});
+
+// Fast, responsive headers for public experience data (no stale browser caching)
+const instantPublicHeader = (req, res, next) => {
+  res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.set("Pragma", "no-cache");
+  res.set("Expires", "0");
   next();
 };
 
-router.get("/experience", publicCacheHeader(60, 300), getPublicExperienceSections);
-router.get("/experience/hero", publicCacheHeader(60, 300), getPublicHeroConfig);
+router.get("/experience", instantPublicHeader, (req, res) => {
+  res.json({ success: true, results: [], result: [] });
+});
+router.get("/experience/hero", instantPublicHeader, getPublicHeroConfig);
 
 export default router;

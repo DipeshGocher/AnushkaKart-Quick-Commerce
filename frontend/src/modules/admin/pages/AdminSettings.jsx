@@ -1,17 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
 import Card from '@shared/components/ui/Card';
 import {
     Save,
     Settings,
-    Palette,
-    ArrowRight,
-    Globe,
     Building2,
     Share2,
     Smartphone,
     Search,
-    Upload,
     Mail,
     Phone,
     MapPin,
@@ -22,14 +17,39 @@ import {
     Linkedin,
     Youtube,
     Loader2,
-    X,
-    Smile
+    Lock,
+    AlertCircle,
+    CheckCircle2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@shared/components/ui/Toast';
 import { adminApi } from '../services/adminApi';
 import { useSettings } from '@core/context/SettingsContext';
 
+const isValidEmail = (email) => {
+    if (!email || !email.trim()) return true;
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+};
+
+const isValidUrl = (url) => {
+    if (!url || !url.trim()) return true;
+    try {
+        const withProtocol = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
+        const parsed = new URL(withProtocol);
+        return Boolean(parsed.hostname && parsed.hostname.includes('.'));
+    } catch {
+        return false;
+    }
+};
+
+const normalizeUrl = (url) => {
+    if (!url || !url.trim()) return '';
+    const trimmed = url.trim();
+    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+        return `https://${trimmed}`;
+    }
+    return trimmed;
+};
 
 const AdminSettings = () => {
     const normalizeProductApprovalConfig = (raw) => {
@@ -45,58 +65,6 @@ const AdminSettings = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('general');
-    const [logoUploading, setLogoUploading] = useState(false);
-    const [faviconUploading, setFaviconUploading] = useState(false);
-    const [deliveryBadgeUploading, setDeliveryBadgeUploading] = useState(false);
-    const deliveryBadgeInputRef = useRef(null);
-
-    const handleDeliveryBadgeUpload = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        if (!file.type.startsWith('image/')) {
-            showToast('Please select an image file (PNG, JPG, etc.)', 'error');
-            return;
-        }
-        setDeliveryBadgeUploading(true);
-        try {
-            const fd = new FormData();
-            fd.append('image', file);
-            const res = await adminApi.uploadSettingsImage(fd, 'deliverybadge');
-            const url = res.data?.result?.url || res.data?.url;
-            if (url) {
-                handleInputChange('deliveryBadgeImage', url);
-                showToast('Delivery badge image uploaded. Click Save Changes to apply.', 'success');
-            } else throw new Error('No URL returned');
-        } catch (err) {
-            console.error(err);
-            showToast(err.response?.data?.message || 'Failed to upload delivery badge image', 'error');
-        } finally {
-            setDeliveryBadgeUploading(false);
-            e.target.value = '';
-        }
-    };
-    const [bannerHeaderCategories, setBannerHeaderCategories] = useState([]);
-    const logoInputRef = useRef(null);
-    const faviconInputRef = useRef(null);
-
-    useEffect(() => {
-        if (activeTab !== 'categoriesBanner') return;
-        let isCurrent = true;
-        adminApi.getCategories({ type: 'header', catalogType: 'all', page: 1, limit: 100 })
-            .then((res) => {
-                const payload = res.data?.result || {};
-                const items = Array.isArray(payload.items) ? payload.items : (res.data?.results || []);
-                if (isCurrent) setBannerHeaderCategories(items.filter((item) => item.type === 'header'));
-            })
-            .catch((error) => console.error('Failed to load header categories for banners', error));
-        return () => { isCurrent = false; };
-    }, [activeTab]);
-
-    const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
-    const [emojiPickerPos, setEmojiPickerPos] = useState({ top: 0, left: 0 });
-    const emojiBtnRef = useRef(null);
-    const emojiPopoverRef = useRef(null);
-    const emojiInputRef = useRef(null);
 
     /** @type {any} */
     const defaultSettings = {
@@ -106,10 +74,6 @@ const AdminSettings = () => {
         currencySymbol: '₹',
         currencyCode: 'INR',
         timezone: 'Asia/Kolkata',
-        logoUrl: '',
-        faviconUrl: '',
-        primaryColor: 'var(--primary)',
-        secondaryColor: '#64748b',
         companyName: '',
         taxId: '',
         address: '',
@@ -124,48 +88,13 @@ const AdminSettings = () => {
         metaDescription: '',
         metaKeywords: '',
         keywords: [],
-        footerMessage: 'Sab kuchh ek basket mein',
-        footerEmoji: '❤️',
-        returnDeliveryCommission: 0,
         lowStockAlertsEnabled: true,
         productApproval: {
             sellerCreateRequiresApproval: false,
             sellerEditRequiresApproval: false,
         },
-        categoriesBanner: {
-            image: '',
-            presetVersion: 0,
-            banners: [],
-            badgeText: 'KIRANA STORE',
-            title: 'Everything you need, in one place',
-            buttonText: 'Shop Now',
-            buttonLink: '/',
-            isVisible: true,
-        },
-        deliveryBadgeText: '30 min',
-        deliveryBadgeImage: '',
-        deliveryBadgeBg: 'linear-gradient(135deg, #ff9f43 0%, #ff793f 100%)',
-        deliveryBadgeEnabled: true,
-        bestSellingTitle: 'Best Selling Categories',
-        bestSellingCategoryIds: [],
-        categoryTopDeals: {},
     };
     const [settings, setSettings] = useState(defaultSettings);
-
-    useEffect(() => {
-        if (activeTab !== 'categoriesBanner' || isLoading || bannerHeaderCategories.length === 0) return;
-        setSettings((current) => {
-            if (Number(current.categoriesBanner?.presetVersion || 0) >= CATEGORY_BANNER_PRESET_VERSION) return current;
-            return {
-                ...current,
-                categoriesBanner: {
-                    ...current.categoriesBanner,
-                    presetVersion: CATEGORY_BANNER_PRESET_VERSION,
-                    banners: getDefaultCategoryBannerItems(bannerHeaderCategories),
-                },
-            };
-        });
-    }, [activeTab, isLoading, bannerHeaderCategories]);
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -196,10 +125,70 @@ const AdminSettings = () => {
     }, [showToast]);
 
     const handleSave = async () => {
+        // Validation checks
+        const appName = (settings.appName || '').trim();
+        if (!appName || appName.length < 2) {
+            showToast('App Name is required (minimum 2 characters)', 'error');
+            setActiveTab('general');
+            return;
+        }
+
+        const supportEmail = (settings.supportEmail || '').trim();
+        if (supportEmail && !isValidEmail(supportEmail)) {
+            showToast('Please enter a valid support email address (e.g. support@example.com)', 'error');
+            setActiveTab('general');
+            return;
+        }
+
+        const supportPhone = (settings.supportPhone || '').trim();
+        if (supportPhone && supportPhone.length !== 10) {
+            showToast('Support Phone must be exactly 10 digits', 'error');
+            setActiveTab('general');
+            return;
+        }
+
+        const taxId = (settings.taxId || '').trim();
+        if (taxId && taxId.length !== 15) {
+            showToast('Tax ID / GSTIN must be exactly 15 alphanumeric characters', 'error');
+            setActiveTab('legal');
+            return;
+        }
+
+        const urlChecks = [
+            { field: 'facebook', label: 'Facebook URL' },
+            { field: 'twitter', label: 'Twitter / X URL' },
+            { field: 'instagram', label: 'Instagram URL' },
+            { field: 'youtube', label: 'YouTube URL' },
+            { field: 'linkedin', label: 'LinkedIn URL' },
+            { field: 'playStoreLink', label: 'Play Store Link' },
+            { field: 'appStoreLink', label: 'App Store Link' },
+        ];
+        for (const item of urlChecks) {
+            const val = (settings[item.field] || '').trim();
+            if (val && !isValidUrl(val)) {
+                showToast(`Please enter a valid URL for ${item.label}`, 'error');
+                setActiveTab('social');
+                return;
+            }
+        }
+
         try {
             setIsSaving(true);
             const payload = {
                 ...settings,
+                appName,
+                supportEmail,
+                supportPhone,
+                currencySymbol: '₹',
+                currencyCode: 'INR',
+                taxId,
+                facebook: normalizeUrl(settings.facebook),
+                twitter: normalizeUrl(settings.twitter),
+                instagram: normalizeUrl(settings.instagram),
+                youtube: normalizeUrl(settings.youtube),
+                linkedin: normalizeUrl(settings.linkedin),
+                playStoreLink: normalizeUrl(settings.playStoreLink),
+                appStoreLink: normalizeUrl(settings.appStoreLink),
                 keywords: Array.isArray(settings.keywords) ? settings.keywords : (settings.metaKeywords ? settings.metaKeywords.split(',').map(k => k.trim()).filter(Boolean) : []),
             };
             const res = await adminApi.updateSettings(payload);
@@ -209,6 +198,8 @@ const AdminSettings = () => {
                 setSettings(prev => ({
                     ...prev,
                     ...updatedData,
+                    currencySymbol: '₹',
+                    currencyCode: 'INR',
                     productApproval: normalizeProductApprovalConfig(updatedData),
                 }));
             }
@@ -216,7 +207,7 @@ const AdminSettings = () => {
             showToast('Settings updated successfully', 'success');
         } catch (error) {
             console.error("Failed to update settings", error);
-            showToast('Failed to update settings', 'error');
+            showToast(error.response?.data?.message || 'Failed to update settings', 'error');
         } finally {
             setIsSaving(false);
         }
@@ -305,26 +296,6 @@ const AdminSettings = () => {
                         </Card>
                     )}
 
-                                        {/* Callout to Admin CMS Layout & Branding */}
-                    <div className="p-4 bg-gradient-to-r from-indigo-50/90 via-white to-purple-50/90 rounded-2xl border border-indigo-100 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-xs">
-                                <Palette className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <p className="text-xs font-black text-slate-900">App Logo, 30-Min Badge & Banners</p>
-                                <p className="text-[11px] text-slate-500 font-medium">Looking to customize your logo, delivery promise badge, or promotional banners? Manage them in Admin CMS.</p>
-                            </div>
-                        </div>
-                        <Link
-                            to="/admin/layout-branding"
-                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 inline-flex items-center gap-1.5 cursor-pointer"
-                        >
-                            <span>Open Layout & Branding</span>
-                            <ArrowRight className="h-3.5 w-3.5" />
-                        </Link>
-                    </div>
-
                     {/* General Settings */}
                     {activeTab === 'general' && (
                         <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-xl overflow-hidden">
@@ -333,54 +304,163 @@ const AdminSettings = () => {
                                     General Information
                                 </h3>
                             </div>
-                            <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">App Name</label>
+                            <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* App Name */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                            App Name <span className="text-red-500">*</span>
+                                        </label>
+                                        <span className={cn(
+                                            "text-[10px] font-bold",
+                                            !settings.appName?.trim() ? "text-red-500 font-extrabold" : "text-slate-400"
+                                        )}>
+                                            {(settings.appName || '').length}/50
+                                        </span>
+                                    </div>
                                     <input
                                         type="text"
+                                        maxLength={50}
                                         value={settings.appName}
                                         onChange={(e) => handleInputChange('appName', e.target.value)}
-                                        className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                        placeholder="e.g. Anushka Store"
+                                        className={cn(
+                                            "w-full px-5 py-4 bg-slate-50 border rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all",
+                                            !settings.appName?.trim()
+                                                ? "border-red-300 focus:border-red-500 focus:bg-white"
+                                                : "border-slate-200/80 focus:border-indigo-500/40 focus:bg-white"
+                                        )}
                                     />
+                                    {!settings.appName?.trim() && (
+                                        <p className="text-[11px] font-bold text-red-500 flex items-center gap-1">
+                                            <AlertCircle size={12} /> App Name is required
+                                        </p>
+                                    )}
                                 </div>
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Support Email</label>
+
+                                {/* Support Email */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                            Support Email
+                                        </label>
+                                        {settings.supportEmail && !isValidEmail(settings.supportEmail) ? (
+                                            <span className="text-[10px] font-bold text-red-500 flex items-center gap-1">
+                                                <AlertCircle size={10} /> Invalid format
+                                            </span>
+                                        ) : settings.supportEmail ? (
+                                            <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
+                                                <CheckCircle2 size={10} /> Valid email
+                                            </span>
+                                        ) : (
+                                            <span className="text-[10px] font-medium text-slate-400">Optional</span>
+                                        )}
+                                    </div>
                                     <div className="relative group">
                                         <Mail className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                         <input
                                             type="email"
+                                            maxLength={100}
                                             value={settings.supportEmail}
-                                            onChange={(e) => handleInputChange('supportEmail', e.target.value)}
-                                            className="w-full pl-12 pr-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                            onChange={(e) => handleInputChange('supportEmail', e.target.value.trim())}
+                                            placeholder="support@yourbrand.com"
+                                            className={cn(
+                                                "w-full pl-12 pr-5 py-4 bg-slate-50 border rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all",
+                                                settings.supportEmail && !isValidEmail(settings.supportEmail)
+                                                    ? "border-red-300 focus:border-red-500 focus:bg-white"
+                                                    : "border-slate-200/80 focus:border-indigo-500/40 focus:bg-white"
+                                            )}
                                         />
                                     </div>
+                                    {settings.supportEmail && !isValidEmail(settings.supportEmail) && (
+                                        <p className="text-[11px] font-bold text-red-500">
+                                            Please enter a valid email address (e.g. support@example.com)
+                                        </p>
+                                    )}
                                 </div>
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Support Phone</label>
+
+                                {/* Support Phone */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                            Support Phone (10 Digits)
+                                        </label>
+                                        <span className={cn(
+                                            "text-[10px] font-bold",
+                                            !settings.supportPhone ? "text-slate-400" :
+                                            settings.supportPhone.length === 10 ? "text-emerald-600 font-extrabold flex items-center gap-1" : "text-amber-600 flex items-center gap-1"
+                                        )}>
+                                            {settings.supportPhone && settings.supportPhone.length === 10 && <CheckCircle2 size={10} />}
+                                            {settings.supportPhone && settings.supportPhone.length < 10 && <AlertCircle size={10} />}
+                                            {settings.supportPhone ? `${settings.supportPhone.length}/10 digits` : '10 digits required'}
+                                        </span>
+                                    </div>
                                     <div className="relative group">
                                         <Phone className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                        <span className="absolute left-11 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500 border-r border-slate-300 pr-2">
+                                            +91
+                                        </span>
                                         <input
-                                            type="text"
-                                            value={settings.supportPhone}
-                                            onChange={(e) => handleInputChange('supportPhone', e.target.value)}
-                                            className="w-full pl-12 pr-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                            type="tel"
+                                            inputMode="numeric"
+                                            maxLength={10}
+                                            value={settings.supportPhone || ''}
+                                            onChange={(e) => {
+                                                // Strictly digits only, max 10 chars
+                                                const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                                handleInputChange('supportPhone', digitsOnly);
+                                            }}
+                                            placeholder="9876543210"
+                                            className={cn(
+                                                "w-full pl-22 pr-5 py-4 bg-slate-50 border rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all tracking-wider",
+                                                settings.supportPhone && settings.supportPhone.length > 0 && settings.supportPhone.length < 10
+                                                    ? "border-amber-300 focus:border-amber-500 focus:bg-white"
+                                                    : settings.supportPhone && settings.supportPhone.length === 10
+                                                    ? "border-emerald-300 focus:border-emerald-500 focus:bg-white"
+                                                    : "border-slate-200/80 focus:border-indigo-500/40 focus:bg-white"
+                                            )}
                                         />
                                     </div>
+                                    {settings.supportPhone && settings.supportPhone.length > 0 && settings.supportPhone.length < 10 && (
+                                        <p className="text-[11px] font-bold text-amber-600 flex items-center gap-1">
+                                            <AlertCircle size={12} /> Please enter complete 10-digit mobile number ({10 - settings.supportPhone.length} digits left)
+                                        </p>
+                                    )}
                                 </div>
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Currency Symbol</label>
-                                    <input
-                                        type="text"
-                                        value={settings.currencySymbol}
-                                        onChange={(e) => handleInputChange('currencySymbol', e.target.value)}
-                                        className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
-                                    />
+
+                                {/* Currency Symbol - LOCKED */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                            Currency Symbol
+                                        </label>
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-slate-200/80 text-slate-700 border border-slate-300">
+                                            <Lock size={10} /> Locked to INR (₹)
+                                        </span>
+                                    </div>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            readOnly
+                                            disabled
+                                            value="₹ (Indian Rupee - INR)"
+                                            className="w-full px-5 py-4 bg-slate-100/80 border border-slate-200 rounded-2xl text-sm font-extrabold text-slate-600 cursor-not-allowed select-none outline-none shadow-inner"
+                                        />
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                                            <Lock className="h-4 w-4 text-slate-400" />
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] font-medium text-slate-400">
+                                        System currency is fixed to Indian Rupee (₹) and cannot be changed.
+                                    </p>
                                 </div>
+
+                                {/* Auto Low Stock Alerts */}
                                 <div className="md:col-span-2 rounded-2xl bg-slate-50 border border-slate-200 px-5 py-4 flex items-center justify-between gap-4">
                                     <div>
                                         <p className="text-sm font-black text-slate-900">Auto Low Stock Alerts</p>
                                         <p className="text-xs font-bold text-slate-500 mt-1">
-                                            Automatically notify sellers when any product stock drops to its low-stock threshold.
+                                            Automatically notify sellers & admin when product stock reaches threshold level.
                                         </p>
                                     </div>
                                     <button
@@ -389,7 +469,7 @@ const AdminSettings = () => {
                                         aria-checked={settings.lowStockAlertsEnabled}
                                         onClick={() => handleInputChange('lowStockAlertsEnabled', !settings.lowStockAlertsEnabled)}
                                         className={cn(
-                                            "relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-200",
+                                            "relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-200 cursor-pointer",
                                             settings.lowStockAlertsEnabled ? "bg-emerald-500" : "bg-slate-300"
                                         )}
                                     >
@@ -401,7 +481,6 @@ const AdminSettings = () => {
                                         />
                                     </button>
                                 </div>
-
                             </div>
                         </Card>
                     )}
@@ -414,44 +493,96 @@ const AdminSettings = () => {
                                     Legal Entity & Contact
                                 </h3>
                             </div>
-                            <div className="p-8 grid grid-cols-1 gap-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Company Legal Name</label>
+                            <div className="p-8 grid grid-cols-1 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Company Legal Name */}
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                                Company Legal Name
+                                            </label>
+                                            <span className="text-[10px] font-bold text-slate-400">
+                                                {(settings.companyName || '').length}/100
+                                            </span>
+                                        </div>
                                         <input
                                             type="text"
-                                            value={settings.companyName}
+                                            maxLength={100}
+                                            value={settings.companyName || ''}
                                             onChange={(e) => handleInputChange('companyName', e.target.value)}
-                                            className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                            placeholder="e.g. Anushka Retail Private Limited"
+                                            className="w-full px-5 py-4 bg-slate-50 border border-slate-200/80 rounded-2xl text-sm font-bold text-slate-900 outline-none focus:border-indigo-500/40 focus:bg-white transition-all"
                                         />
                                     </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tax ID / GSTIN / VAT</label>
+
+                                    {/* Tax ID / GSTIN */}
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                                Tax ID / GSTIN / VAT
+                                            </label>
+                                            <span className={cn(
+                                                "text-[10px] font-bold",
+                                                !settings.taxId ? "text-slate-400" :
+                                                settings.taxId.length === 15 ? "text-emerald-600 font-extrabold flex items-center gap-1" : "text-amber-600 flex items-center gap-1"
+                                            )}>
+                                                {settings.taxId && settings.taxId.length === 15 && <CheckCircle2 size={10} />}
+                                                {settings.taxId && settings.taxId.length !== 15 && <AlertCircle size={10} />}
+                                                {settings.taxId ? `${settings.taxId.length}/15 chars` : '15 chars (e.g. 23AAAAA0000A1Z5)'}
+                                            </span>
+                                        </div>
                                         <div className="relative group">
                                             <CreditCard className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                             <input
                                                 type="text"
-                                                value={settings.taxId}
-                                                onChange={(e) => handleInputChange('taxId', e.target.value)}
-                                                className="w-full pl-12 pr-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                                maxLength={15}
+                                                value={settings.taxId || ''}
+                                                onChange={(e) => {
+                                                    // Uppercase alphanumeric only, max 15 chars
+                                                    const cleanGSTIN = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15);
+                                                    handleInputChange('taxId', cleanGSTIN);
+                                                }}
+                                                placeholder="23AAAAA0000A1Z5"
+                                                className={cn(
+                                                    "w-full pl-12 pr-5 py-4 bg-slate-50 border rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all tracking-wider uppercase",
+                                                    settings.taxId && settings.taxId.length > 0 && settings.taxId.length !== 15
+                                                        ? "border-amber-300 focus:border-amber-500 focus:bg-white"
+                                                        : settings.taxId && settings.taxId.length === 15
+                                                        ? "border-emerald-300 focus:border-emerald-500 focus:bg-white"
+                                                        : "border-slate-200/80 focus:border-indigo-500/40 focus:bg-white"
+                                                )}
                                             />
                                         </div>
+                                        {settings.taxId && settings.taxId.length > 0 && settings.taxId.length !== 15 && (
+                                            <p className="text-[11px] font-bold text-amber-600 flex items-center gap-1">
+                                                <AlertCircle size={12} /> GSTIN should be 15 alphanumeric characters ({15 - settings.taxId.length} remaining)
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Registered Office Address</label>
+
+                                {/* Registered Office Address */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                            Registered Office Address
+                                        </label>
+                                        <span className="text-[10px] font-bold text-slate-400">
+                                            {(settings.address || '').length}/250
+                                        </span>
+                                    </div>
                                     <div className="relative group">
                                         <MapPin className="absolute left-5 top-6 h-4 w-4 text-slate-400" />
                                         <textarea
                                             rows={3}
-                                            value={settings.address}
+                                            maxLength={250}
+                                            value={settings.address || ''}
                                             onChange={(e) => handleInputChange('address', e.target.value)}
-                                            className="w-full pl-12 pr-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all resize-none"
+                                            placeholder="Corporate House, Plot No. 12, RNT Marg, Indore, MP - 452001"
+                                            className="w-full pl-12 pr-5 py-4 bg-slate-50 border border-slate-200/80 rounded-2xl text-sm font-bold text-slate-900 outline-none focus:border-indigo-500/40 focus:bg-white transition-all resize-none"
                                         />
                                     </div>
                                 </div>
-
-                                {/* Return delivery commission input moved to Fees & Charges → Delivery Fee Settings */}
                             </div>
                         </Card>
                     )}
@@ -465,78 +596,192 @@ const AdminSettings = () => {
                                 </h3>
                             </div>
                             <div className="p-8 space-y-8">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Facebook URL</label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {/* Facebook */}
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Facebook URL</label>
+                                            {settings.facebook && !isValidUrl(settings.facebook) && (
+                                                <span className="text-[10px] font-bold text-red-500">Invalid URL</span>
+                                            )}
+                                        </div>
                                         <div className="relative group">
                                             <Facebook className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-brand-600" />
                                             <input
                                                 type="url"
-                                                value={settings.facebook}
+                                                maxLength={300}
+                                                value={settings.facebook || ''}
                                                 onChange={(e) => handleInputChange('facebook', e.target.value)}
-                                                className="w-full pl-12 pr-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                                onBlur={(e) => handleInputChange('facebook', normalizeUrl(e.target.value))}
+                                                placeholder="https://facebook.com/yourpage"
+                                                className={cn(
+                                                    "w-full pl-12 pr-5 py-4 bg-slate-50 border rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all",
+                                                    settings.facebook && !isValidUrl(settings.facebook)
+                                                        ? "border-red-300 focus:border-red-500"
+                                                        : "border-slate-200/80 focus:border-indigo-500/40 focus:bg-white"
+                                                )}
                                             />
                                         </div>
                                     </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Twitter / X URL</label>
+
+                                    {/* Twitter / X */}
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Twitter / X URL</label>
+                                            {settings.twitter && !isValidUrl(settings.twitter) && (
+                                                <span className="text-[10px] font-bold text-red-500">Invalid URL</span>
+                                            )}
+                                        </div>
                                         <div className="relative group">
                                             <Twitter className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-brand-500" />
                                             <input
                                                 type="url"
-                                                value={settings.twitter}
+                                                maxLength={300}
+                                                value={settings.twitter || ''}
                                                 onChange={(e) => handleInputChange('twitter', e.target.value)}
-                                                className="w-full pl-12 pr-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                                onBlur={(e) => handleInputChange('twitter', normalizeUrl(e.target.value))}
+                                                placeholder="https://x.com/yourhandle"
+                                                className={cn(
+                                                    "w-full pl-12 pr-5 py-4 bg-slate-50 border rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all",
+                                                    settings.twitter && !isValidUrl(settings.twitter)
+                                                        ? "border-red-300 focus:border-red-500"
+                                                        : "border-slate-200/80 focus:border-indigo-500/40 focus:bg-white"
+                                                )}
                                             />
                                         </div>
                                     </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Instagram URL</label>
+
+                                    {/* Instagram */}
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Instagram URL</label>
+                                            {settings.instagram && !isValidUrl(settings.instagram) && (
+                                                <span className="text-[10px] font-bold text-red-500">Invalid URL</span>
+                                            )}
+                                        </div>
                                         <div className="relative group">
                                             <Instagram className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-pink-600" />
                                             <input
                                                 type="url"
-                                                value={settings.instagram}
+                                                maxLength={300}
+                                                value={settings.instagram || ''}
                                                 onChange={(e) => handleInputChange('instagram', e.target.value)}
-                                                className="w-full pl-12 pr-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                                onBlur={(e) => handleInputChange('instagram', normalizeUrl(e.target.value))}
+                                                placeholder="https://instagram.com/yourprofile"
+                                                className={cn(
+                                                    "w-full pl-12 pr-5 py-4 bg-slate-50 border rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all",
+                                                    settings.instagram && !isValidUrl(settings.instagram)
+                                                        ? "border-red-300 focus:border-red-500"
+                                                        : "border-slate-200/80 focus:border-indigo-500/40 focus:bg-white"
+                                                )}
                                             />
                                         </div>
                                     </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">YouTube URL</label>
+
+                                    {/* YouTube */}
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">YouTube URL</label>
+                                            {settings.youtube && !isValidUrl(settings.youtube) && (
+                                                <span className="text-[10px] font-bold text-red-500">Invalid URL</span>
+                                            )}
+                                        </div>
                                         <div className="relative group">
                                             <Youtube className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-red-600" />
                                             <input
                                                 type="url"
-                                                value={settings.youtube}
+                                                maxLength={300}
+                                                value={settings.youtube || ''}
                                                 onChange={(e) => handleInputChange('youtube', e.target.value)}
-                                                className="w-full pl-12 pr-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                                onBlur={(e) => handleInputChange('youtube', normalizeUrl(e.target.value))}
+                                                placeholder="https://youtube.com/@yourchannel"
+                                                className={cn(
+                                                    "w-full pl-12 pr-5 py-4 bg-slate-50 border rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all",
+                                                    settings.youtube && !isValidUrl(settings.youtube)
+                                                        ? "border-red-300 focus:border-red-500"
+                                                        : "border-slate-200/80 focus:border-indigo-500/40 focus:bg-white"
+                                                )}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* LinkedIn */}
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">LinkedIn URL</label>
+                                            {settings.linkedin && !isValidUrl(settings.linkedin) && (
+                                                <span className="text-[10px] font-bold text-red-500">Invalid URL</span>
+                                            )}
+                                        </div>
+                                        <div className="relative group">
+                                            <Linkedin className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-700" />
+                                            <input
+                                                type="url"
+                                                maxLength={300}
+                                                value={settings.linkedin || ''}
+                                                onChange={(e) => handleInputChange('linkedin', e.target.value)}
+                                                onBlur={(e) => handleInputChange('linkedin', normalizeUrl(e.target.value))}
+                                                placeholder="https://linkedin.com/company/yourpage"
+                                                className={cn(
+                                                    "w-full pl-12 pr-5 py-4 bg-slate-50 border rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all",
+                                                    settings.linkedin && !isValidUrl(settings.linkedin)
+                                                        ? "border-red-300 focus:border-red-500"
+                                                        : "border-slate-200/80 focus:border-indigo-500/40 focus:bg-white"
+                                                )}
                                             />
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* App Download Stores */}
                                 <div className="pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Play Store Link (Android)</label>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Play Store Link (Android)</label>
+                                            {settings.playStoreLink && !isValidUrl(settings.playStoreLink) && (
+                                                <span className="text-[10px] font-bold text-red-500">Invalid URL</span>
+                                            )}
+                                        </div>
                                         <div className="relative group">
                                             <Smartphone className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-brand-600" />
                                             <input
                                                 type="url"
-                                                value={settings.playStoreLink}
+                                                maxLength={500}
+                                                value={settings.playStoreLink || ''}
                                                 onChange={(e) => handleInputChange('playStoreLink', e.target.value)}
-                                                className="w-full pl-12 pr-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                                onBlur={(e) => handleInputChange('playStoreLink', normalizeUrl(e.target.value))}
+                                                placeholder="https://play.google.com/store/apps/details?id=..."
+                                                className={cn(
+                                                    "w-full pl-12 pr-5 py-4 bg-slate-50 border rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all",
+                                                    settings.playStoreLink && !isValidUrl(settings.playStoreLink)
+                                                        ? "border-red-300 focus:border-red-500"
+                                                        : "border-slate-200/80 focus:border-indigo-500/40 focus:bg-white"
+                                                )}
                                             />
                                         </div>
                                     </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">App Store Link (iOS)</label>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">App Store Link (iOS)</label>
+                                            {settings.appStoreLink && !isValidUrl(settings.appStoreLink) && (
+                                                <span className="text-[10px] font-bold text-red-500">Invalid URL</span>
+                                            )}
+                                        </div>
                                         <div className="relative group">
                                             <Smartphone className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-800" />
                                             <input
                                                 type="url"
-                                                value={settings.appStoreLink}
+                                                maxLength={500}
+                                                value={settings.appStoreLink || ''}
                                                 onChange={(e) => handleInputChange('appStoreLink', e.target.value)}
-                                                className="w-full pl-12 pr-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                                onBlur={(e) => handleInputChange('appStoreLink', normalizeUrl(e.target.value))}
+                                                placeholder="https://apps.apple.com/app/id..."
+                                                className={cn(
+                                                    "w-full pl-12 pr-5 py-4 bg-slate-50 border rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all",
+                                                    settings.appStoreLink && !isValidUrl(settings.appStoreLink)
+                                                        ? "border-red-300 focus:border-red-500"
+                                                        : "border-slate-200/80 focus:border-indigo-500/40 focus:bg-white"
+                                                )}
                                             />
                                         </div>
                                     </div>
@@ -554,33 +799,64 @@ const AdminSettings = () => {
                                 </h3>
                             </div>
                             <div className="p-8 space-y-6">
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Default Meta Title</label>
+                                {/* Meta Title */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                            Default Meta Title
+                                        </label>
+                                        <span className="text-[10px] font-bold text-slate-400">
+                                            {(settings.metaTitle || '').length}/70 (Optimal: 50-60)
+                                        </span>
+                                    </div>
                                     <input
                                         type="text"
-                                        value={settings.metaTitle}
+                                        maxLength={70}
+                                        value={settings.metaTitle || ''}
                                         onChange={(e) => handleInputChange('metaTitle', e.target.value)}
-                                        className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                        placeholder="e.g. Anushka Store - Fresh Groceries & Quick 30-Min Delivery"
+                                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200/80 rounded-2xl text-sm font-bold text-slate-900 outline-none focus:border-indigo-500/40 focus:bg-white transition-all"
                                     />
                                 </div>
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Default Meta Description</label>
+
+                                {/* Meta Description */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                            Default Meta Description
+                                        </label>
+                                        <span className="text-[10px] font-bold text-slate-400">
+                                            {(settings.metaDescription || '').length}/160 (Optimal: 150-160)
+                                        </span>
+                                    </div>
                                     <textarea
                                         rows={3}
-                                        value={settings.metaDescription}
+                                        maxLength={160}
+                                        value={settings.metaDescription || ''}
                                         onChange={(e) => handleInputChange('metaDescription', e.target.value)}
-                                        className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all resize-none"
+                                        placeholder="Order daily essentials, fruits, vegetables, snacks, and dairy products online at Anushka Store with instant doorstep delivery."
+                                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200/80 rounded-2xl text-sm font-bold text-slate-900 outline-none focus:border-indigo-500/40 focus:bg-white transition-all resize-none"
                                     />
-                                    <p className="text-[10px] font-bold text-slate-400 italic text-right">Recommended length: 150-160 characters</p>
+                                    <p className="text-[10px] font-bold text-slate-400 italic text-right">Recommended length for Google snippets: 150-160 characters</p>
                                 </div>
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Meta Keywords</label>
+
+                                {/* Meta Keywords */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                            Meta Keywords
+                                        </label>
+                                        <span className="text-[10px] font-bold text-slate-400">
+                                            {(settings.metaKeywords || '').length}/250
+                                        </span>
+                                    </div>
                                     <input
                                         type="text"
-                                        value={settings.metaKeywords}
+                                        maxLength={250}
+                                        value={settings.metaKeywords || ''}
                                         onChange={(e) => handleInputChange('metaKeywords', e.target.value)}
-                                        className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
-                                        placeholder="keyword1, keyword2, keyword3"
+                                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200/80 rounded-2xl text-sm font-bold text-slate-900 outline-none focus:border-indigo-500/40 focus:bg-white transition-all"
+                                        placeholder="grocery, anushka store, online store, fast delivery, fresh vegetables"
                                     />
                                     <p className="text-[10px] font-bold text-slate-400 italic text-right">Separate keywords with commas</p>
                                 </div>

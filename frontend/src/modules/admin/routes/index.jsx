@@ -81,16 +81,12 @@ const SellerDetail = React.lazy(() => import("../pages/SellerDetail"));
 const SupportTickets = React.lazy(() => import("../pages/SupportTickets"));
 const ReviewModeration = React.lazy(() => import("../pages/ReviewModeration"));
 const CouponManagement = React.lazy(() => import("../pages/CouponManagement"));
-const ContentManager = React.lazy(() => import("../pages/ContentManager"));
 const HeroCategoriesPerPage = React.lazy(() => import("../pages/HeroCategoriesPerPage"));
 const NotificationComposer = React.lazy(
   () => import("../pages/NotificationComposer"),
 );
 const OffersManagement = React.lazy(
   () => import("../pages/OffersManagement"),
-);
-const OfferSectionsManagement = React.lazy(
-  () => import("../pages/OfferSectionsManagement"),
 );
 const AdminSettings = React.lazy(() => import("../pages/AdminSettings"));
 const AdminProfile = React.lazy(() => import("../pages/AdminProfile"));
@@ -237,18 +233,6 @@ const navItems = [
     color: "violet",
   },
   {
-    label: "Experience Studio",
-    path: "/admin/experience-studio",
-    icon: Sparkles,
-    color: "amber",
-  },
-  {
-    label: "Offer Sections",
-    path: "/admin/offer-sections",
-    icon: Tag,
-    color: "rose",
-  },
-  {
     label: "Home Content",
     icon: Sparkles,
     color: "purple",
@@ -296,11 +280,10 @@ export const adminRoutes = [
   { path: "monthly-baskets/*", element: <Navigate to="/admin/products" replace /> },
   { path: "content/bestsellers", element: <BestsellerManagement /> },
   { path: "content/festival-deals", element: <FestivalDealsAdmin /> },
-  { path: "experience-studio", element: <ContentManager /> },
+  { path: "experience-studio", element: <Navigate to="/admin/hero-categories" replace /> },
   { path: "hero-categories", element: <HeroCategoriesPerPage /> },
   { path: "notifications", element: <NotificationComposer /> },
   { path: "offers", element: <OffersManagement /> },
-  { path: "offer-sections", element: <OfferSectionsManagement /> },
   { path: "coupons", element: <CouponManagement /> },
   { path: "sellers/pending", element: <PendingSellers /> },
   { path: "seller-locations", element: <Navigate to="/admin/sellers/active" replace /> },

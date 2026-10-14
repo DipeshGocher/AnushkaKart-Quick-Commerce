@@ -150,18 +150,41 @@ const BillingCharges = () => {
                     {/* Customer Delivery Fee Settings */}
                     <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-[32px] overflow-hidden">
                         <div className="p-6 border-b border-slate-50 bg-slate-50/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
-                                <Truck className="h-4 w-4 text-brand-500" />
-                                Customer Delivery Charge
-                            </h3>
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                                    <Truck className="h-4 w-4 text-brand-500" />
+                                    Customer Delivery Charge
+                                </h3>
+                                {config.customerPricingType === 'distance' ? (
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        Active: Distance Based
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 text-blue-700 ring-1 ring-blue-200">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
+                                        Active: Fixed Price
+                                    </span>
+                                )}
+                            </div>
                             <div className="flex bg-slate-100 p-1 rounded-xl shrink-0">
                                 <button
                                     onClick={() => setConfig(prev => ({...prev, customerPricingType: 'fixed'}))}
-                                    className={cn("px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all", config.customerPricingType === 'fixed' ? "bg-white text-slate-900 shadow-sm" : "text-slate-400")}
+                                    className={cn(
+                                        "px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                                        config.customerPricingType === 'fixed'
+                                            ? "bg-slate-900 text-white shadow-md"
+                                            : "text-slate-500 hover:text-slate-900"
+                                    )}
                                 >Fixed Price</button>
                                 <button
                                     onClick={() => setConfig(prev => ({...prev, customerPricingType: 'distance'}))}
-                                    className={cn("px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all", config.customerPricingType === 'distance' ? "bg-white text-slate-900 shadow-sm" : "text-slate-400")}
+                                    className={cn(
+                                        "px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                                        config.customerPricingType === 'distance'
+                                            ? "bg-slate-900 text-white shadow-md"
+                                            : "text-slate-500 hover:text-slate-900"
+                                    )}
                                 >Distance Based</button>
                             </div>
                         </div>
@@ -209,24 +232,62 @@ const BillingCharges = () => {
                                     </div>
                                 </div>
                             )}
+
+                            {/* One-Line Live Formula Banner */}
+                            <div className="mt-8 p-4 rounded-2xl bg-slate-50 ring-1 ring-slate-100 flex items-start sm:items-center gap-3">
+                                <div className="p-2 bg-white rounded-xl shadow-xs shrink-0 text-brand-600">
+                                    <Info className="h-4 w-4" />
+                                </div>
+                                <div className="text-xs">
+                                    <span className="font-bold text-slate-400 uppercase text-[10px] tracking-wider block">Live Checkout Calculation:</span>
+                                    <p className="font-bold text-slate-800 mt-0.5">
+                                        {config.customerPricingType === 'distance'
+                                            ? `Customer charge: ${config.customerBaseDistance} km tak ₹${config.customerBaseCharge}, fir ₹${config.customerExtraPerKm}/km extra lagega.`
+                                            : `Customer charge: Flat ₹${config.customerFixedCharge} har order par lagega (chahe distance kitna bhi ho).`}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </Card>
 
                     {/* Delivery Boy Earning Settings */}
                     <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-[32px] overflow-hidden">
                         <div className="p-6 border-b border-slate-50 bg-slate-50/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
-                                <Bike className="h-4 w-4 text-emerald-500" />
-                                Delivery Boy Earning
-                            </h3>
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                                    <Bike className="h-4 w-4 text-emerald-500" />
+                                    Delivery Boy Earning
+                                </h3>
+                                {config.riderEarningType === 'distance' ? (
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        Active: Distance Based
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 text-blue-700 ring-1 ring-blue-200">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
+                                        Active: Fixed Payout
+                                    </span>
+                                )}
+                            </div>
                             <div className="flex bg-slate-100 p-1 rounded-xl shrink-0">
                                 <button
                                     onClick={() => setConfig(prev => ({...prev, riderEarningType: 'fixed'}))}
-                                    className={cn("px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all", config.riderEarningType === 'fixed' ? "bg-white text-slate-900 shadow-sm" : "text-slate-400")}
+                                    className={cn(
+                                        "px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                                        config.riderEarningType === 'fixed'
+                                            ? "bg-slate-900 text-white shadow-md"
+                                            : "text-slate-500 hover:text-slate-900"
+                                    )}
                                 >Fixed Payout</button>
                                 <button
                                     onClick={() => setConfig(prev => ({...prev, riderEarningType: 'distance'}))}
-                                    className={cn("px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all", config.riderEarningType === 'distance' ? "bg-white text-slate-900 shadow-sm" : "text-slate-400")}
+                                    className={cn(
+                                        "px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                                        config.riderEarningType === 'distance'
+                                            ? "bg-slate-900 text-white shadow-md"
+                                            : "text-slate-500 hover:text-slate-900"
+                                    )}
                                 >Distance Based</button>
                             </div>
                         </div>
@@ -274,6 +335,21 @@ const BillingCharges = () => {
                                     </div>
                                 </div>
                             )}
+
+                            {/* One-Line Live Formula Banner */}
+                            <div className="mt-8 p-4 rounded-2xl bg-slate-50 ring-1 ring-slate-100 flex items-start sm:items-center gap-3">
+                                <div className="p-2 bg-white rounded-xl shadow-xs shrink-0 text-emerald-600">
+                                    <Info className="h-4 w-4" />
+                                </div>
+                                <div className="text-xs">
+                                    <span className="font-bold text-slate-400 uppercase text-[10px] tracking-wider block">Live Rider Payout Calculation:</span>
+                                    <p className="font-bold text-slate-800 mt-0.5">
+                                        {config.riderEarningType === 'distance'
+                                            ? `Rider earning: ${config.riderBaseDistance} km tak base ₹${config.riderBaseEarning}, fir ₹${config.riderExtraPerKm}/km extra milega.`
+                                            : `Rider earning: Flat ₹${config.riderFixedEarning} per delivery milega (chahe distance kitna bhi ho).`}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </Card>
 

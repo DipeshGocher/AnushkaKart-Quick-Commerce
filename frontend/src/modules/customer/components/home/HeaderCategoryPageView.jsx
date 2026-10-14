@@ -179,17 +179,50 @@ const HeaderCategoryPageView = ({
   useEffect(() => {
     if (!headerId) return;
     let isMounted = true;
-    customerApi.getHeroConfig({ pageType: 'header', headerId })
-      .then((res) => {
-        if (!isMounted) return;
-        const data = res?.data?.result || res?.data || res;
-        setCategoryHeroConfig(data);
-      })
-      .catch((err) => {
-        console.error('Failed to load category hero config:', err);
-      });
+
+    const loadConfig = (force = false) => {
+      customerApi.getHeroConfig({ pageType: 'header', headerId }, { forceRefresh: force })
+        .then((res) => {
+          if (!isMounted) return;
+          const data = res?.data?.result || res?.data || res;
+          setCategoryHeroConfig(data);
+        })
+        .catch((err) => {
+          console.error('Failed to load category hero config:', err);
+        });
+    };
+
+    loadConfig();
+
+    const handleCmsRefresh = () => {
+      loadConfig(true);
+    };
+
+    window.addEventListener('anushkakart:cms_updated', handleCmsRefresh);
+    const handleStorage = (e) => {
+      if (e.key === 'anushkakart:cms_version') handleCmsRefresh();
+    };
+    window.addEventListener('storage', handleStorage);
+
+    let bc = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        bc = new BroadcastChannel('anushkakart_cms');
+        bc.onmessage = (msg) => {
+          if (msg.data?.type === 'cms_updated') {
+            handleCmsRefresh();
+          }
+        };
+      } catch (_) {}
+    }
+
     return () => {
       isMounted = false;
+      window.removeEventListener('anushkakart:cms_updated', handleCmsRefresh);
+      window.removeEventListener('storage', handleStorage);
+      if (bc) {
+        try { bc.close(); } catch (_) {}
+      }
     };
   }, [headerId]);
 
@@ -452,11 +485,21 @@ const HeaderCategoryPageView = ({
         : settings?.categoryTopDeals?.[headerCategory?.slug]?.productIds ||
           settings?.categoryTopDeals?.[headerId]?.productIds ||
           []
-    ).map(String);
+    ).map((p) => String(p?._id || p?.id || p));
 
     let explicitMatches = [];
     if (configuredIds.length > 0) {
       const prodMap = new Map(products.map((p) => [String(p._id || p.id), p]));
+      if (Array.isArray(categoryHeroConfig?.topDealsProductIds)) {
+        categoryHeroConfig.topDealsProductIds.forEach((p) => {
+          if (p && typeof p === "object" && (p._id || p.id)) {
+            const pid = String(p._id || p.id);
+            if (!prodMap.has(pid)) {
+              prodMap.set(pid, p);
+            }
+          }
+        });
+      }
       explicitMatches = configuredIds.map((id) => prodMap.get(id)).filter(Boolean);
     }
 
@@ -514,7 +557,7 @@ const HeaderCategoryPageView = ({
     return items;
   }, [subCategories, topDealsProducts.length]);
 
-  // Dynamic category hero banner from CMS HeroConfig, Settings, or single default category banner
+  // Dynamic category hero banner from CMS HeroConfig or single default category banner
   const categoryBanners = useMemo(() => {
     // 1. From CMS HeroConfig (single banner only)
     const cmsBanners = (categoryHeroConfig?.banners?.items || []).filter(
@@ -522,18 +565,7 @@ const HeaderCategoryPageView = ({
     );
     if (cmsBanners.length > 0) return [cmsBanners[0]];
 
-    // 2. From Settings
-    const settingsBanners = (settings?.categoriesBanner?.banners || []).filter(
-      (b) => String(b.headerCategoryId) === headerId && b.image
-    );
-    if (settingsBanners.length > 0) {
-      return [{
-        imageUrl: settingsBanners[0].image,
-        title: settingsBanners[0].title || headerCategory?.name || '',
-      }];
-    }
-
-    // 3. Single default banner for each category page
+    // 2. Single default banner for each category page
     const text = `${headerCategory?.name || ''} ${headerCategory?.slug || ''}`.toLowerCase();
     if (/grocer/i.test(text)) {
       return [{ imageUrl: freshGroceryAllBanner, title: 'Fresh Groceries' }];
@@ -556,7 +588,37 @@ const HeaderCategoryPageView = ({
 
     const singleFallback = getCategoryBanner(headerCategory?.name, headerCategory?.slug);
     return singleFallback ? [{ imageUrl: singleFallback, title: headerCategory?.name || '' }] : [];
-  }, [categoryHeroConfig, settings?.categoriesBanner?.banners, headerId, headerCategory]);
+  }, [categoryHeroConfig, headerCategory]);
+
+  // Category Promotional Banner from Layout & Branding (targeted specifically for this header category)
+  const categoryPromotionalBanner = useMemo(() => {
+    if (settings?.categoriesBanner?.isVisible === false) return null;
+
+    const curId = String(headerCategory?._id || headerCategory?.id || headerId || '').trim().toLowerCase();
+    const curSlug = String(headerCategory?.slug || '').trim().toLowerCase();
+    const curName = String(headerCategory?.name || '').trim().toLowerCase();
+
+    const matched = (settings?.categoriesBanner?.banners || []).find((b) => {
+      if (!b || !b.image) return false;
+      const target = String(b.headerCategoryId || '').trim().toLowerCase();
+      // Only match category-specific target; 'all' is reserved for Home Page Quick Commerce banner
+      if (!target || target === 'all') return false;
+      return target === curId || target === curSlug || target === curName;
+    });
+
+    return matched || null;
+  }, [settings?.categoriesBanner, headerCategory, headerId]);
+
+  const handlePromoBannerClick = (banner) => {
+    const link = banner?.buttonLink || banner?.link;
+    if (!link) return;
+    if (link.startsWith('http://') || link.startsWith('https://')) {
+      window.open(link, '_blank', 'noopener,noreferrer');
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      navigate(link);
+    }
+  };
 
   const isTwoRows = displayCategoriesList.length >= 8;
 
@@ -564,7 +626,7 @@ const HeaderCategoryPageView = ({
     <div className="w-full flex flex-col pb-20 select-none animate-in fade-in duration-300">
       {/* ── 1. HEADER CATEGORY BANNER (SINGLE STATIC BANNER ONLY) ── */}
       {categoryBanners.length > 0 && (
-        <div className="w-full relative overflow-hidden select-none mt-2.5 sm:mt-3 mb-2 px-4 md:px-0">
+        <div className="w-full relative overflow-hidden select-none mt-1 mb-1 px-2.5 sm:px-3 md:px-0">
           <ExperienceBannerCarousel
             section={{ title: "" }}
             items={categoryBanners.slice(0, 1)}
@@ -581,7 +643,7 @@ const HeaderCategoryPageView = ({
 
       {/* ── 2. TOP CATEGORIES (PLACED DIRECTLY BELOW THE BANNER AS REQUESTED) ── */}
       {displayCategoriesList.length > 0 && (
-        <section className="mt-3.5 mb-2">
+        <section className="mt-2 mb-2">
           {/* Section Header */}
           <div className="px-4 md:px-0 pb-2.5 flex items-center justify-between">
             <h2 className="text-[17px] sm:text-[18px] font-bold text-slate-900 tracking-tight leading-none">
@@ -890,6 +952,32 @@ const HeaderCategoryPageView = ({
                 })}
               </div>
             </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── 2.8 CATEGORY PROMOTIONAL BANNER (BETWEEN TOP DEALS & RECOMMENDED ITEMS) ── */}
+      {categoryPromotionalBanner && (
+        <section className="w-full my-2.5 sm:my-3.5 px-3 sm:px-4 md:px-0">
+          <div
+            onClick={() => handlePromoBannerClick(categoryPromotionalBanner)}
+            className={cn(
+              "w-full overflow-hidden rounded-xl sm:rounded-2xl shadow-xs border border-slate-200/90 bg-white transition-all duration-200",
+              (categoryPromotionalBanner.buttonLink || categoryPromotionalBanner.link) &&
+                "cursor-pointer hover:shadow-md hover:border-slate-300 active:scale-[0.99]"
+            )}
+          >
+            <img
+              src={applyCloudinaryTransform(categoryPromotionalBanner.image, 'f_auto,q_auto,w_1200')}
+              alt={categoryPromotionalBanner.title || `${headerCategory?.name || 'Category'} Promotional Banner`}
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.classList.add("opacity-40");
+              }}
+              className="w-full h-auto max-h-[160px] sm:max-h-[200px] md:max-h-[240px] lg:max-h-[260px] object-cover block"
+            />
           </div>
         </section>
       )}

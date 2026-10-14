@@ -142,7 +142,7 @@ const writeHeaderProductsCache = (data) => {
 
 let memoryHeaderProductsCache = null;
 
-const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
+const HeaderCategoryProductsSection = ({ latitude, longitude, heroConfig = null }) => {
   const { openProduct } = useProductDetail();
   const cachedInitial = memoryHeaderProductsCache || readHeaderProductsCache() || [];
   const [sections, setSections] = useState(cachedInitial);
@@ -152,6 +152,45 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
   const { translateObject } = useDynamicTranslation();
   const [displaySections, setDisplaySections] = useState(cachedInitial);
   const [retryCount, setRetryCount] = useState(0);
+
+  useEffect(() => {
+    const handleCmsRefresh = () => {
+      memoryHeaderProductsCache = null;
+      try {
+        sessionStorage.removeItem(HEADER_PRODUCTS_CACHE_KEY);
+      } catch (_) {}
+      const params = { limit: 16 };
+      if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+        params.lat = latitude;
+        params.lng = longitude;
+      }
+      customerApi.getHeaderProducts(params).then((res) => {
+        const data = res?.data || res;
+        const items = Array.isArray(data?.results) ? data.results : Array.isArray(data?.result) ? data.result : [];
+        const valid = items.filter((s) => s?.header).map((s) => ({
+          ...s,
+          products: Array.isArray(s.products) ? s.products.slice(0, 16) : [],
+        }));
+        if (valid.length > 0) {
+          memoryHeaderProductsCache = valid;
+          writeHeaderProductsCache(valid);
+          setSections(valid);
+          setDisplaySections(valid);
+        }
+      }).catch(() => {});
+    };
+
+    window.addEventListener("anushkakart:cms_updated", handleCmsRefresh);
+    const handleStorageEvent = (e) => {
+      if (e.key === "anushkakart:cms_version") handleCmsRefresh();
+    };
+    window.addEventListener("storage", handleStorageEvent);
+
+    return () => {
+      window.removeEventListener("anushkakart:cms_updated", handleCmsRefresh);
+      window.removeEventListener("storage", handleStorageEvent);
+    };
+  }, [latitude, longitude]);
 
   useEffect(() => {
     let cancelled = false;
@@ -317,11 +356,25 @@ const HeaderCategoryProductsSection = ({ latitude, longitude }) => {
         const displayProducts = products.slice(0, 16);
 
         // Compute active single banner for this section (strictly single banner on All page)
+        const customSectionConfig = (heroConfig?.categorySectionBanners || []).find(
+          (cs) => String(cs.headerId) === String(headerId)
+        );
+        const customCmsBanner = customSectionConfig?.banners?.[0];
+
         const activeCmsBanners = (Array.isArray(header?.banners) ? header.banners : []).filter(
           (b) => b && b.imageUrl && b.status !== "inactive"
         );
         let sectionBanners = [];
-        if (activeCmsBanners.length > 0) {
+        if (customCmsBanner && customCmsBanner.imageUrl) {
+          sectionBanners = [
+            {
+              imageUrl: customCmsBanner.imageUrl,
+              title: customCmsBanner.title || headerName,
+              linkType: customCmsBanner.linkType || "header",
+              linkValue: customCmsBanner.linkValue || headerId,
+            },
+          ];
+        } else if (activeCmsBanners.length > 0) {
           sectionBanners = [
             {
               ...activeCmsBanners[0],

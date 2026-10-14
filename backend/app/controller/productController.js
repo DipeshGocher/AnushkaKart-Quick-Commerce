@@ -1279,7 +1279,6 @@ export const createProduct = async (req, res) => {
     try {
       await invalidate(buildKey("catalog", "productList", "*"));
       await invalidate(buildKey("catalog", "categories", "*"));
-      await invalidate("cache:offersections:public:*");
     } catch (cacheErr) {
       logger.error("Cache invalidation error", {
         scope: "createProduct",
@@ -1581,7 +1580,6 @@ export const updateProduct = async (req, res) => {
     try {
       await invalidate(buildKey("catalog", "productList", "*"));
       await invalidate(buildKey("catalog", "categories", "*"));
-      await invalidate("cache:offersections:public:*");
     } catch (cacheErr) {
       logger.error("Cache invalidation error", {
         scope: "updateProduct",
@@ -1639,7 +1637,6 @@ export const deleteProduct = async (req, res) => {
     try {
       await invalidate(buildKey("catalog", "productList", "*"));
       await invalidate(buildKey("catalog", "categories", "*"));
-      await invalidate("cache:offersections:public:*");
     } catch (cacheErr) {
       logger.error("Cache invalidation error", {
         scope: "deleteProduct",
@@ -1949,7 +1946,6 @@ export const approveProduct = async (req, res) => {
     await enqueueProductIndex(id);
     await invalidate(buildKey("catalog", "product", id));
     await invalidate(buildKey("catalog", "productList", "*"));
-    await invalidate("cache:offersections:public:*");
 
     return handleResponse(
       res,
@@ -1990,7 +1986,6 @@ export const rejectProduct = async (req, res) => {
     await enqueueProductIndex(id);
     await invalidate(buildKey("catalog", "product", id));
     await invalidate(buildKey("catalog", "productList", "*"));
-    await invalidate("cache:offersections:public:*");
 
     return handleResponse(
       res,

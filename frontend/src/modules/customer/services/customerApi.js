@@ -136,13 +136,13 @@ export const customerApi = {
   getExperienceSections: (params) => getWithDedupe("/experience", params),
 
   // Hero config (separate hero banners + categories per page; fallback to home)
-  getHeroConfig: (params) =>
-    getWithDedupe("/experience/hero", params, { ttl: 60 * 1000 }),
+  getHeroConfig: (params, options = {}) => {
+    const qParams = options.forceRefresh ? { ...params, _t: Date.now() } : params;
+    return getWithDedupe("/experience/hero", qParams, { ttl: 10 * 1000, ...options });
+  },
 
   // Public offers
   getOffers: () => getWithDedupe("/offers"),
-  // Offer sections (category → products, banner + side image)
-  getOfferSections: (params) => getWithDedupe("/offer-sections", params),
 
   // Bestsellers Config
   getBestsellerConfig: (headerId) => getWithDedupe(`/bestsellers/customer/${headerId}`),

@@ -6,13 +6,15 @@ import {
   X, 
   ArrowUpRight, 
   History, 
-  Clock
+  Clock,
+  Mic
 } from 'lucide-react';
 import { customerApi } from '../services/customerApi';
 import { useProductDetail } from '../context/ProductDetailContext';
 import { getJSON, setJSON, STORAGE_KEYS } from '@core/utils/storage';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 import { cn } from '@/lib/utils';
+import VoiceSearchModal from '../components/shared/VoiceSearchModal';
 
 const MAX_RECENT_SEARCHES = 12;
 
@@ -27,6 +29,7 @@ const SearchPage = () => {
   const [liveProducts, setLiveProducts] = useState([]);
   const [liveCategories, setLiveCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
   // Recent Searches from LocalStorage (max 12)
   const [pastSearches, setPastSearches] = useState(() => {
@@ -36,10 +39,21 @@ const SearchPage = () => {
       : [];
   });
 
-  // Focus input on mount
+  // Focus input on mount & sync url query
   useEffect(() => {
     inputRef.current?.focus();
+    if (initialQuery.trim()) {
+      saveSearch(initialQuery.trim());
+    }
   }, []);
+
+  useEffect(() => {
+    const incomingQuery = location.state?.query || new URLSearchParams(location.search).get('q');
+    if (incomingQuery && incomingQuery.trim() && incomingQuery.trim() !== query) {
+      setQuery(incomingQuery.trim());
+      saveSearch(incomingQuery.trim());
+    }
+  }, [location.search, location.state]);
 
   // Save to history helper (stores up to 12)
   const saveSearch = (term) => {
@@ -206,7 +220,7 @@ const SearchPage = () => {
               placeholder="Search for products, categories..."
               className="w-full bg-transparent text-[14px] font-medium text-slate-900 placeholder:text-slate-400 outline-none"
             />
-            {query && (
+            {query ? (
               <button
                 type="button"
                 onClick={() => {
@@ -217,6 +231,16 @@ const SearchPage = () => {
                 aria-label="Clear"
               >
                 <X size={16} strokeWidth={2.5} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsVoiceModalOpen(true)}
+                className="p-1 text-slate-500 hover:text-indigo-600 rounded-full cursor-pointer hover:bg-slate-200/60 transition-colors"
+                title="Search by voice"
+                aria-label="Search by voice"
+              >
+                <Mic size={17} strokeWidth={2.2} />
               </button>
             )}
           </div>
@@ -333,6 +357,16 @@ const SearchPage = () => {
           );
         })}
       </main>
+
+      {/* Voice Search Modal */}
+      <VoiceSearchModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        onQuerySubmit={(text) => {
+          setQuery(text);
+          saveSearch(text);
+        }}
+      />
     </div>
   );
 };

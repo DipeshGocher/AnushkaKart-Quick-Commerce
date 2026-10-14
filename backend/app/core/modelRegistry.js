@@ -60,7 +60,6 @@ import "../models/experienceSection.js";
 import "../models/faq.js";
 import "../models/heroConfig.js";
 import "../models/offer.js";
-import "../models/offerSection.js";
 import "../models/setting.js";
 
 // Read-optimized / cache models
@@ -95,7 +94,6 @@ export const REQUIRED_MODELS = Object.freeze([
   "Category",
   "Coupon",
   "Offer",
-  "OfferSection",
   "ExperienceSection",
   "HeroConfig",
 

@@ -11,6 +11,7 @@ import { customerApi } from "../../services/customerApi";
 import CategoryIcon from "@shared/components/CategoryIcon";
 import { MapPin, Home, ChevronRight, LayoutGrid, ShoppingBag, Zap } from 'lucide-react';
 import { getCustomerHeaderColor, buildMiniCartColor, isBrightColor, getCategoryHeaderColor, getCategoryHeaderTextColor } from "../../utils/headerTheme";
+import VoiceSearchModal from "./VoiceSearchModal";
 
 
 // MUI Icons
@@ -39,7 +40,6 @@ function DeliveryBadge({ settings, className }) {
   if (settings?.deliveryBadgeEnabled === false) return null;
 
   const bg = settings?.deliveryBadgeBg || 'linear-gradient(135deg, #ff9f43 0%, #ff793f 100%)';
-  const img = settings?.deliveryBadgeImage;
   const rawText = settings?.deliveryBadgeText;
   const text = (typeof rawText === 'string' && rawText.trim() !== '') ? rawText.trim() : '30 min';
 
@@ -54,11 +54,7 @@ function DeliveryBadge({ settings, className }) {
         color: '#ffffff'
       }}
     >
-      {img ? (
-        <img src={img} alt={text || "Fast Delivery"} className="h-4 w-4 object-contain shrink-0" />
-      ) : (
-        <Zap className="h-3.5 w-3.5 fill-current shrink-0" />
-      )}
+      <Zap className="h-3.5 w-3.5 fill-current shrink-0" />
       <span 
         className="text-[12px] font-black leading-none tracking-tight whitespace-nowrap"
         style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
@@ -192,6 +188,7 @@ const MainLocationHeader = ({
 
   const isMobileView = typeof window !== "undefined" && window.innerWidth < 768;
   const [isLocationOpen, setIsLocationOpen] = useState(false);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [internalScrolled, setInternalScrolled] = useState(false);
   const isScrolled = isScrolledProp !== undefined ? isScrolledProp : internalScrolled;
   const { currentLocation, refreshLocation, isFetchingLocation } =
@@ -585,7 +582,7 @@ const MainLocationHeader = ({
               </button>
 
               {/* Delivery Time Badge / Logo */}
-              <DeliveryBadge settings={settings} className="hidden 2xl:flex" />
+              <DeliveryBadge settings={settings} className="hidden md:flex" />
             </div>
 
             {/* Center Section: Highly Visible Search Bar */}
@@ -607,9 +604,18 @@ const MainLocationHeader = ({
                   className="min-w-0 flex-1 bg-transparent border-0 ring-0 outline-none focus:outline-none focus:ring-0 focus:border-0 focus-visible:outline-none focus-visible:ring-0 pl-2 text-slate-900 font-bold placeholder:text-slate-500 text-[13px] cursor-pointer pointer-events-none select-none shadow-none truncate"
                   style={{ outline: "none", border: "none", boxShadow: "none", WebkitTapHighlightColor: "transparent" }}
                 />
-                <div className="flex items-center gap-1.5 border-l border-slate-200 pl-2">
-                  <MicIcon sx={{ color: "#0f172a", fontSize: 18 }} />
-                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsVoiceModalOpen(true);
+                  }}
+                  className="flex items-center justify-center border-l border-slate-200 pl-2 text-slate-700 hover:text-indigo-600 transition-colors cursor-pointer"
+                  title="Voice Search"
+                  aria-label="Voice Search"
+                >
+                  <MicIcon sx={{ color: "currentColor", fontSize: 18 }} />
+                </button>
               </motion.div>
             </div>
 
@@ -767,9 +773,18 @@ const MainLocationHeader = ({
                 className="flex-1 bg-transparent border-0 ring-0 outline-none focus:outline-none focus:ring-0 focus:border-0 focus-visible:outline-none focus-visible:ring-0 pl-2 text-slate-900 font-bold placeholder:text-slate-600 text-[13.5px] cursor-pointer pointer-events-none select-none shadow-none"
                 style={{ outline: "none", border: "none", boxShadow: "none", WebkitTapHighlightColor: "transparent" }}
               />
-              <div className="flex items-center gap-3.5 shrink-0 ml-1 border-l border-slate-200 pl-3">
-                <MicIcon sx={{ color: "#0f172a", fontSize: 20 }} className="cursor-pointer" />
-              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsVoiceModalOpen(true);
+                }}
+                className="flex items-center justify-center shrink-0 ml-1 border-l border-slate-200 pl-3 text-slate-800 hover:text-indigo-600 transition-colors cursor-pointer active:scale-95"
+                title="Voice Search"
+                aria-label="Voice Search"
+              >
+                <MicIcon sx={{ color: "currentColor", fontSize: 20 }} />
+              </button>
             </div>
           </div>
 
@@ -880,6 +895,11 @@ const MainLocationHeader = ({
       <LocationDrawer
         isOpen={isLocationOpen}
         onClose={() => setIsLocationOpen(false)}
+      />
+
+      <VoiceSearchModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
       />
     </>
   );

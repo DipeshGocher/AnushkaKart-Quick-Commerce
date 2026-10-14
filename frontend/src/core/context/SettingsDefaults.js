@@ -99,5 +99,45 @@ export function applyThemeVariables(settings) {
     const contrastColor = yiq >= 160 ? "#000000" : "#FFFFFF";
     root.style.setProperty("--primary-foreground", contrastColor);
   }
+
+  // Update browser favicon dynamically
+  if (settings.faviconUrl || settings.logoUrl) {
+    applyFavicon(settings.faviconUrl || settings.logoUrl);
+  }
 }
+
+/**
+ * Updates dynamic browser favicon across all icon link tags.
+ * Replaces tags and adds cache-buster so browsers immediately refresh tab icon.
+ */
+export function applyFavicon(faviconUrl) {
+  if (typeof document === 'undefined') return;
+  const url = (faviconUrl && String(faviconUrl).trim()) || '/logo.png';
+  if (!url) return;
+
+  try {
+    const existingLinks = document.querySelectorAll("link[rel*='icon'], link[rel='apple-touch-icon']");
+    existingLinks.forEach(el => el.remove());
+
+    const cacheBuster = url.startsWith('data:') ? url : `${url}${url.includes('?') ? '&' : '?'}v=${Date.now()}`;
+
+    const link = document.createElement('link');
+    link.rel = 'icon';
+    link.href = cacheBuster;
+    document.head.appendChild(link);
+
+    const shortcut = document.createElement('link');
+    shortcut.rel = 'shortcut icon';
+    shortcut.href = cacheBuster;
+    document.head.appendChild(shortcut);
+
+    const apple = document.createElement('link');
+    apple.rel = 'apple-touch-icon';
+    apple.href = cacheBuster;
+    document.head.appendChild(apple);
+  } catch (e) {
+    console.error("Failed to apply favicon:", e);
+  }
+}
+
 

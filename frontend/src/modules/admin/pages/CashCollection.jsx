@@ -278,7 +278,7 @@ const CashCollection = () => {
             </div>
 
             {/* Insight Stats Grid - Clear & Intuitive */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {[
                     { 
                         label: 'Cash Received by Admin', 
@@ -295,14 +295,6 @@ const CashCollection = () => {
                         bg: 'bg-amber-50', 
                         iconColor: 'text-amber-600', 
                         sub: (stats.totalInHand > 0 ? 'Pending to collect from riders' : 'All clear (Zero pending cash)') 
-                    },
-                    { 
-                        label: 'In-Transit COD Deliveries', 
-                        value: `₹${(stats.inTransitCodAmount || 0).toLocaleString('en-IN')}`, 
-                        icon: Truck, 
-                        bg: 'bg-blue-50', 
-                        iconColor: 'text-blue-600', 
-                        sub: `${stats.inTransitCodCount || 0} active COD orders in market` 
                     },
                     { 
                         label: 'Active Delivery Fleet', 
@@ -374,7 +366,6 @@ const CashCollection = () => {
                                 <tr className="bg-slate-50/50 border-b border-slate-100">
                                     <th className="ds-table-header-cell pl-8 py-5">Delivery Partner</th>
                                     <th className="ds-table-header-cell">Cash In Hand (Pending Collect)</th>
-                                    <th className="ds-table-header-cell text-center">In-Transit COD Orders</th>
                                     <th className="ds-table-header-cell text-center">Lifetime Deposited</th>
                                     <th className="ds-table-header-cell">Last Settle Date</th>
                                     <th className="ds-table-header-cell text-right pr-8">Action</th>
@@ -416,11 +407,6 @@ const CashCollection = () => {
                                                     ₹0 (All Cleared)
                                                 </span>
                                             )}
-                                        </td>
-                                        <td className="px-6 py-6 text-center">
-                                            <span className="text-xs font-bold text-slate-700 bg-slate-50 ring-1 ring-slate-100 px-3 py-1.5 rounded-xl">
-                                                {rider.pendingOrders || 0} Orders
-                                            </span>
                                         </td>
                                         <td className="px-6 py-6 text-center font-black text-slate-900 text-sm">
                                             ₹{(rider.totalSettled || 0).toLocaleString('en-IN')}
@@ -566,18 +552,17 @@ const CashCollection = () => {
 
                             <div className="p-6 bg-slate-50 ring-1 ring-slate-100 rounded-2xl flex flex-col justify-between">
                                 <div>
-                                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">In-Transit COD Deliveries</p>
+                                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Lifetime Deposited to Admin</p>
                                     <h4 className="text-3xl font-black text-slate-900 tracking-tight">
-                                        {(riderIntel?.summary?.pendingCodOrdersCount ?? selectedRider.pendingOrders ?? 0)}
-                                        <span className="text-xs font-bold text-slate-400 ml-1.5 uppercase font-sans">Orders</span>
+                                        ₹{(selectedRider.totalSettled || 0).toLocaleString('en-IN')}
                                     </h4>
                                 </div>
                                 <div className="mt-4 pt-3 border-t border-slate-200/60">
                                     <p className="text-[11px] font-bold text-slate-600">
-                                        Expected to collect: <span className="font-black text-slate-900">₹{(riderIntel?.summary?.pendingCodOrdersTotal ?? 0).toLocaleString('en-IN')}</span>
+                                        Total Cash Cleared
                                     </p>
-                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
-                                        {(riderIntel?.summary?.pendingCodOrdersCount ?? selectedRider.pendingOrders ?? 0) > 0 ? "Awaiting customer delivery" : "No pending COD assigned"}
+                                    <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider mt-0.5">
+                                        Safely received in company account
                                     </p>
                                 </div>
                             </div>
