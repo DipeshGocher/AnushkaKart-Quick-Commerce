@@ -88,6 +88,7 @@ const FlipkartCatalogCard = ({ product, onProductClick }) => {
                     src={applyCloudinaryTransform(rawImage, 'f_auto,q_auto,w_300')}
                     alt={product.name}
                     loading="lazy"
+                    decoding="async"
                     referrerPolicy="no-referrer"
                     onError={(e) => {
                         e.currentTarget.style.display = 'none';
@@ -136,4 +137,4 @@ const FlipkartCatalogCard = ({ product, onProductClick }) => {
     );
 };
 
-export default FlipkartCatalogCard;
+export default React.memo(FlipkartCatalogCard);

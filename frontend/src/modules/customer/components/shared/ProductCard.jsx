@@ -179,6 +179,7 @@ const ProductCard = ({ product, className, priority = false }) => {
             src={applyCloudinaryTransform(rawImg, "f_auto,q_auto,w_400")}
             alt={product?.name || "Product"}
             loading={priority ? "eager" : "lazy"}
+            decoding="async"
             referrerPolicy="no-referrer"
             onError={(e) => {
               e.currentTarget.onerror = null;

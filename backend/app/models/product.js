@@ -249,24 +249,41 @@ const productSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-// Optimize performance for common queries on home/search pages
-productSchema.index({ status: 1, isFeatured: 1, createdAt: -1 });
-productSchema.index({ status: 1, createdAt: -1, _id: -1 });
-productSchema.index({ approvalStatus: 1, status: 1, createdAt: -1 });
-productSchema.index({ status: 1, approvalStatus: 1, categoryId: 1 });
-productSchema.index({ status: 1, conditionType: 1, createdAt: -1 });
-productSchema.index({ headerId: 1, status: 1 });
-productSchema.index({ categoryId: 1, status: 1 });
-productSchema.index({ subcategoryId: 1, status: 1 });
-productSchema.index({ sellerId: 1, status: 1 });
-productSchema.index({ sellerId: 1, approvalStatus: 1, createdAt: -1 });
+// ─── MongoDB Indexes — performance-critical for homepage + search ────────────
+// Rule: compound indexes listed in ESR (Equality → Sort → Range) order.
+
+// Home/search listing queries
+productSchema.index({ status: 1, approvalStatus: 1, createdAt: -1, _id: -1 }); // default listing
+productSchema.index({ status: 1, isFeatured: 1, createdAt: -1 });               // featured section
+productSchema.index({ status: 1, conditionType: 1, createdAt: -1 });            // new vs refurbished
+
+// Category-scoped listing (most frequent customer queries)
+productSchema.index({ headerId: 1, status: 1, approvalStatus: 1, createdAt: -1 });
+productSchema.index({ categoryId: 1, status: 1, approvalStatus: 1, createdAt: -1 });
+productSchema.index({ subcategoryId: 1, status: 1, approvalStatus: 1, createdAt: -1 });
+productSchema.index({ categoryId: 1, subcategoryId: 1, status: 1, approvalStatus: 1 });
+
+// Top deals + Bestseller sections
+productSchema.index({ headerId: 1, status: 1, approvalStatus: 1, isTopDeal: 1 });
+productSchema.index({ headerId: 1, status: 1, approvalStatus: 1, isBestseller: 1 });
+productSchema.index({ status: 1, approvalStatus: 1, isTopDeal: 1 });
+productSchema.index({ status: 1, approvalStatus: 1, isBestseller: 1 });
+
+// Seller dashboard queries
+productSchema.index({ sellerId: 1, status: 1, approvalStatus: 1, createdAt: -1 });
 productSchema.index({ sellerId: 1, createdAt: -1, _id: -1 });
-productSchema.index({ headerId: 1, status: 1, isTopDeal: 1 });
-productSchema.index({ headerId: 1, status: 1, isBestseller: 1 });
-productSchema.index({ headerId: 1, status: 1, createdAt: -1 });
-productSchema.index({ categoryId: 1, subcategoryId: 1, status: 1 });
-productSchema.index({ status: 1, isTopDeal: 1 });
-productSchema.index({ status: 1, isBestseller: 1 });
-productSchema.index({ name: "text", tags: "text" }); // For better search if regex is too slow
+
+// Warehouse fulfillment queries
+productSchema.index({ warehouseId: 1, status: 1, approvalStatus: 1 });
+
+// Admin approval queue
+productSchema.index({ approvalStatus: 1, lastSubmittedByRole: 1, approvalRequestedAt: -1 });
+
+// Full-text search (fallback for slower regex queries on name/tags)
+productSchema.index({ name: "text", tags: "text", brand: "text" });
+
+// Sparse indexes to only index products where the field exists
+productSchema.index({ warehouseId: 1, status: 1 }, { sparse: true });
+productSchema.index({ subcategoryId: 1, status: 1 }, { sparse: true });
 
 export default mongoose.model("Product", productSchema);

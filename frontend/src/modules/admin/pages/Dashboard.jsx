@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Card from '@shared/components/ui/Card';
 import PageHeader from '@shared/components/ui/PageHeader';
 import StatCard from '@shared/components/ui/StatCard';
@@ -30,6 +31,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 const AdminDashboard = () => {
+    const navigate = useNavigate();
     const [statsData, setStatsData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
@@ -279,7 +281,12 @@ const AdminDashboard = () => {
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
                                     {recentOrders.map((order) => (
-                                        <tr key={order.id} className="group hover:bg-gray-50/50 transition-all">
+                                        <tr
+                                            key={order.id}
+                                            onClick={() => navigate(`/admin/orders/view/${String(order.id).replace('#', '')}`)}
+                                            className="group hover:bg-gray-50/50 transition-all cursor-pointer"
+                                            title="View Order Details"
+                                        >
                                             <td className="py-4 text-sm font-semibold text-primary">{order.id}</td>
                                             <td className="py-4">
                                                 <div className="flex items-center space-x-2">
@@ -301,7 +308,11 @@ const AdminDashboard = () => {
                                 </tbody>
                             </table>
                         </div>
-                        <button className="w-full mt-6 py-3 rounded-xl bg-gray-50 text-xs font-bold text-gray-500 hover:bg-primary hover:text-white transition-all">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/admin/orders/all')}
+                            className="w-full mt-6 py-3 rounded-xl bg-gray-50 text-xs font-bold text-gray-500 hover:bg-primary hover:text-white transition-all cursor-pointer"
+                        >
                             VIEW ALL ORDERS
                         </button>
                     </Card>
@@ -316,7 +327,12 @@ const AdminDashboard = () => {
                     >
                         <div className="space-y-4">
                             {topProducts.length > 0 ? topProducts.map((product, i) => (
-                                <div key={i} className="flex items-center justify-between p-3 rounded-2xl hover:bg-gray-50 transition-all border border-transparent hover:border-gray-100 group">
+                                <div
+                                    key={i}
+                                    onClick={() => navigate('/admin/products')}
+                                    className="flex items-center justify-between p-3 rounded-2xl hover:bg-gray-50 transition-all border border-transparent hover:border-gray-100 group cursor-pointer"
+                                    title="View in Products"
+                                >
                                     <div className="flex items-center space-x-3">
                                         <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform overflow-hidden", !product.image ? (product.color + " text-2xl") : "bg-gray-50")}>
                                             {product.image ? (
@@ -339,7 +355,11 @@ const AdminDashboard = () => {
                                 <div className="py-12 text-center text-slate-300 italic text-xs">No sales data yet</div>
                             )}
                         </div>
-                        <button className="w-full mt-6 py-3 border-2 border-dashed border-gray-100 rounded-xl text-xs font-bold text-gray-400 hover:border-primary hover:text-primary transition-all">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/admin/products')}
+                            className="w-full mt-6 py-3 border-2 border-dashed border-gray-100 rounded-xl text-xs font-bold text-gray-400 hover:border-primary hover:text-primary transition-all cursor-pointer"
+                        >
                             VIEW ALL PRODUCTS
                         </button>
                     </Card>

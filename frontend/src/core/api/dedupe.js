@@ -1,6 +1,19 @@
 import axiosInstance from './axios';
 
-const DEFAULT_CACHE_TTL_MS = 30 * 1000; // 30 seconds
+// ── TTL tiers ──────────────────────────────────────────────────────────────
+// Products/home data: 2 min  (stable, but freshness matters)
+// Categories/settings: 5 min (very stable, change rarely)
+// Hero/CMS: 30 s (admin can change at any time)
+export const TTL = {
+    SHORT: 30 * 1000,        // 30 s  — hero/CMS config
+    MEDIUM: 2 * 60 * 1000,   // 2 min — product lists
+    LONG: 5 * 60 * 1000,     // 5 min — categories, settings
+};
+const DEFAULT_CACHE_TTL_MS = TTL.MEDIUM;
+
+// Prevent unbounded memory growth: evict oldest entry when cache exceeds this.
+const MAX_CACHE_ENTRIES = 80;
+
 const apiCache = new Map();
 const inFlightRequests = new Map();
 
@@ -9,11 +22,25 @@ const buildCacheKey = (url, params = {}) => {
     return `${url}?${JSON.stringify(entries)}`;
 };
 
+/** Evict the oldest entry when the cache is too large (simple LRU approximation). */
+function maybeEvict() {
+    if (apiCache.size <= MAX_CACHE_ENTRIES) return;
+    // Map iteration order is insertion order — delete the first (oldest) key.
+    const firstKey = apiCache.keys().next().value;
+    if (firstKey) apiCache.delete(firstKey);
+}
+
 /**
- * Generic helper to deduplicate and cache GET requests across the whole app
+ * Generic helper to deduplicate and cache GET requests across the whole app.
+ *
+ * @param {string}  url
+ * @param {object}  params        — query params
+ * @param {object}  options
+ * @param {number}  options.ttl         — cache TTL in ms (default: TTL.MEDIUM = 2 min)
+ * @param {boolean} options.forceRefresh — bypass cache
  */
 export const getWithDedupe = async (url, params = {}, options = {}) => {
-    const ttl = options.ttl || DEFAULT_CACHE_TTL_MS;
+    const ttl = options.ttl ?? DEFAULT_CACHE_TTL_MS;
     const forceRefresh = options.forceRefresh || false;
     const key = buildCacheKey(url, params);
     const now = Date.now();
@@ -32,6 +59,7 @@ export const getWithDedupe = async (url, params = {}, options = {}) => {
 
     const request = axiosInstance.get(url, { params })
         .then((response) => {
+            maybeEvict();
             apiCache.set(key, { ts: Date.now(), response });
             return response;
         })
@@ -44,7 +72,8 @@ export const getWithDedupe = async (url, params = {}, options = {}) => {
 };
 
 /**
- * Helper to invalidate cache entries by key or prefix
+ * Invalidate cache entries whose key starts with `pattern` (string prefix)
+ * or matches `pattern` (RegExp).
  */
 export const invalidateCache = (pattern) => {
     if (typeof pattern === 'string') {
@@ -58,6 +87,7 @@ export const invalidateCache = (pattern) => {
     }
 };
 
+/** Wipe the entire in-memory cache (e.g. after CMS update broadcast). */
 export const clearAllCache = () => {
     apiCache.clear();
 };

@@ -53,7 +53,7 @@ function firebaseMessagingSwPlugin() {
 }
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react(), firebaseMessagingSwPlugin()],
   resolve: {
     alias: {
@@ -63,28 +63,64 @@ export default defineConfig({
       '@modules': path.resolve(__dirname, './src/modules'),
     },
   },
+  esbuild: {
+    drop: mode === 'production' ? ['console', 'debugger'] : [],
+    legalComments: 'none',
+  },
   build: {
     minify: 'esbuild',
     sourcemap: false,
+    // Warn when a chunk exceeds 600KB (before gzip) so we can act on it
+    chunkSizeWarningLimit: 600,
+    // Inline tiny assets (≤4KB) directly into JS/CSS to save round trips
+    assetsInlineLimit: 4096,
     rollupOptions: {
       output: {
+        // Deterministic chunk filenames for better CDN caching
+        chunkFileNames: 'assets/js/[name]-[hash].js',
+        entryFileNames: 'assets/js/[name]-[hash].js',
+        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',
         manualChunks(id) {
-          if (!id.includes('node_modules')) return
+          if (!id.includes('node_modules')) return;
 
+          // ── MUI (large) ──────────────────────────────────────────────────
           if (
             id.includes('@mui/material') ||
             id.includes('@mui/icons-material') ||
             id.includes('@emotion/react') ||
             id.includes('@emotion/styled')
-          ) {
-            return 'vendor-mui'
-          }
+          ) return 'vendor-mui';
 
-          if (id.includes('framer-motion')) return 'vendor-motion'
-          if (id.includes('firebase')) return 'vendor-firebase'
-          if (id.includes('recharts')) return 'vendor-charts'
+          // ── Animation ────────────────────────────────────────────────────
+          if (id.includes('framer-motion')) return 'vendor-motion';
+          if (id.includes('lottie-react') || id.includes('lottie-web')) return 'vendor-lottie';
+
+          // ── Firebase (heavy — defer until needed) ─────────────────────────
+          if (id.includes('firebase')) return 'vendor-firebase';
+
+          // ── Charts ───────────────────────────────────────────────────────
+          if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
+
+          // ── React core + router (tiny, stays in main) ────────────────────
+          if (id.includes('react-dom') || id.includes('react-router')) return 'vendor-react';
+
+          // ── Capacitor (mobile bridge) ─────────────────────────────────────
+          if (id.includes('@capacitor')) return 'vendor-capacitor';
+
+          // ── Icons & UI utilities ─────────────────────────────────────────
+          if (id.includes('lucide-react')) return 'vendor-icons';
         },
       },
     },
   },
-})
+  // Dev server proxy to avoid CORS in local dev
+  server: {
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_URL || 'http://localhost:7000',
+        changeOrigin: true,
+      },
+    },
+  },
+}))
+

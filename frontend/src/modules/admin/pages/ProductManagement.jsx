@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
 import { adminApi } from '../services/adminApi';
@@ -28,6 +28,140 @@ import Modal from '@shared/components/ui/Modal';
 import Pagination from '@shared/components/ui/Pagination';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+
+const StatusBadge = React.memo(({ status, stock }) => {
+    if (stock === 0) return <Badge variant="error" className="text-[10px] px-1.5 py-0">Out of Stock</Badge>;
+    if (stock <= 10) return <Badge variant="warning" className="text-[10px] px-1.5 py-0">Low Stock</Badge>;
+    if (status === 'active') return <Badge variant="success" className="text-[10px] px-1.5 py-0">Active</Badge>;
+    return <Badge variant="gray" className="text-[10px] px-1.5 py-0">Draft</Badge>;
+});
+
+const ProductTableRow = React.memo(({ p, onEdit, onDelete, onViewVariants }) => {
+    const mainImg = p.mainImage || p.variants?.[0]?.images?.[0] || p.images?.[0];
+    const transformedImg = useMemo(() => {
+        return mainImg ? applyCloudinaryTransform(mainImg, 'f_auto,q_auto,w_90,h_90,c_fill') : null;
+    }, [mainImg]);
+
+    return (
+        <tr className="group transition-colors hover:bg-slate-50/60">
+            {/* Product Column */}
+            <td className="px-6 py-5 align-middle">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-11 w-11 shrink-0 rounded-xl overflow-hidden bg-slate-100 ring-1 ring-slate-200 shadow-sm flex items-center justify-center">
+                        {transformedImg ? (
+                            <img 
+                                src={transformedImg} 
+                                alt={p.name} 
+                                loading="lazy"
+                                decoding="async"
+                                className="h-full w-full object-cover transform-gpu" 
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                        ) : (
+                            <HiOutlineCube className="h-5 w-5 text-slate-400" />
+                        )}
+                    </div>
+                    <div className="min-w-0">
+                        <p className="truncate text-[13px] font-semibold leading-5 text-slate-900" title={p.name}>{p.name}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                            <p className="truncate text-[10px] font-medium uppercase tracking-widest text-slate-400" title={p.unit}>{p.unit}</p>
+                            {p.isFeatured && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 ring-1 ring-amber-200">Featured</span>
+                            )}
+                            {p.isTopDeal && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-50 text-rose-700 ring-1 ring-rose-200">Top Deal</span>
+                            )}
+                            {p.deliveryMode === 'quick_only' && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 ring-1 ring-amber-200">⚡ Quick Only</span>
+                            )}
+                            {p.deliveryMode === 'both' && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">🔄 Both</span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </td>
+
+            {/* Seller Column */}
+            <td className="px-6 py-5 align-middle">
+                <div className="flex items-center gap-2 min-w-0">
+                    <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-brand-500 shadow-[0_0_0_4px_rgba(59,130,246,0.12)]" />
+                    <span className="truncate text-[13px] font-medium text-slate-700" title={p.sellerId?.shopName || 'Admin'}>
+                        {p.sellerId?.shopName || 'Admin'}
+                    </span>
+                </div>
+            </td>
+
+            {/* Variant Column */}
+            <td
+                className="px-6 py-5 cursor-pointer align-middle transition-colors group/variant hover:bg-purple-50/60"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onViewVariants(p);
+                }}
+            >
+                {p.variants && p.variants.length > 0 ? (
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 px-2.5 py-1 text-purple-700 ring-1 ring-purple-100 transition-transform group-hover/variant:-translate-y-0.5">
+                        <HiOutlineSwatch className="h-3.5 w-3.5 shrink-0 text-purple-500" />
+                        <span className="text-[12px] font-medium whitespace-nowrap">
+                            {p.variants.length} Variant{p.variants.length > 1 ? 's' : ''}
+                        </span>
+                    </div>
+                ) : (
+                    <span className="text-[12px] font-medium text-slate-400">No variants</span>
+                )}
+            </td>
+
+            {/* Category Column */}
+            <td className="px-6 py-5 align-middle">
+                <span
+                    className="inline-block max-w-full rounded-full bg-slate-100 px-3 py-1 text-[12px] font-medium text-slate-700 ring-1 ring-slate-200 truncate"
+                    title={p.categoryId?.name || 'N/A'}
+                >
+                    {p.categoryId?.name || 'N/A'}
+                </span>
+            </td>
+
+            {/* Subcategory Column */}
+            <td className="px-6 py-5 align-middle">
+                <span
+                    className="inline-block max-w-full rounded-full bg-slate-50 px-3 py-1 text-[12px] font-medium text-slate-600 ring-1 ring-slate-100 truncate"
+                    title={p.subcategoryId?.name || 'N/A'}
+                >
+                    {p.subcategoryId?.name || 'N/A'}
+                </span>
+            </td>
+
+            {/* Status Column */}
+            <td className="px-4 py-5 text-center align-middle whitespace-nowrap">
+                <div className="flex flex-col items-center justify-center">
+                    <StatusBadge status={p.status} stock={p.stock} />
+                </div>
+            </td>
+
+            {/* Actions Column */}
+            <td className="px-4 py-5 text-center align-middle">
+                <div className="flex items-center justify-center gap-2">
+                    <button
+                        onClick={() => onEdit(p)}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center hover:bg-white hover:text-primary rounded-xl transition-all text-slate-400 shadow-sm ring-1 ring-slate-100"
+                        title="Edit product"
+                    >
+                        <HiOutlinePencilSquare className="h-4 w-4" />
+                    </button>
+                    <button
+                        onClick={() => onDelete(p)}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center hover:bg-rose-50 hover:text-rose-600 rounded-xl transition-all text-slate-400 shadow-sm ring-1 ring-slate-100"
+                        title="Delete product"
+                    >
+                        <HiOutlineTrash className="h-4 w-4" />
+                    </button>
+                </div>
+            </td>
+        </tr>
+    );
+});
 
 const ProductManagement = () => {
     const [products, setProducts] = useState([]);
@@ -416,12 +550,19 @@ const ProductManagement = () => {
         active: productsList.filter(p => p.status === 'active').length
     }), [productsList, total]);
 
-    const StatusBadge = ({ status, stock }) => {
-        if (stock === 0) return <Badge variant="error" className="text-[10px] px-1.5 py-0">Out of Stock</Badge>;
-        if (stock <= 10) return <Badge variant="warning" className="text-[10px] px-1.5 py-0">Low Stock</Badge>;
-        if (status === 'active') return <Badge variant="success" className="text-[10px] px-1.5 py-0">Active</Badge>;
-        return <Badge variant="gray" className="text-[10px] px-1.5 py-0">Draft</Badge>;
-    };
+    const handleEdit = useCallback((p) => {
+        openModal(p);
+    }, []);
+
+    const handleDelete = useCallback((p) => {
+        setItemToDelete(p);
+        setIsDeleteModalOpen(true);
+    }, []);
+
+    const handleViewVariants = useCallback((p) => {
+        setViewingVariants(p);
+        setIsVariantsViewModalOpen(true);
+    }, []);
 
 
 
@@ -530,8 +671,8 @@ const ProductManagement = () => {
             </Card>
 
             {/* Product Table */}
-            <Card className="border-none shadow-xl ring-1 ring-slate-100 overflow-hidden rounded-xl">
-                <div className="overflow-x-auto">
+            <Card className="border-none shadow-xl ring-1 ring-slate-100 overflow-hidden rounded-xl [contain:paint]">
+                <div className="overflow-x-auto will-change-scroll">
                     <table className="w-full min-w-[1180px] table-fixed text-left border-collapse">
                         <colgroup>
                             <col className="w-[24%]" />
@@ -543,7 +684,7 @@ const ProductManagement = () => {
                             <col className="w-[15%]" />
                         </colgroup>
                         <thead>
-                            <tr className="bg-slate-50/50 border-b border-slate-100">
+                            <tr className="bg-slate-50/90 backdrop-blur-sm sticky top-0 z-10 border-b border-slate-100">
                                 <th className="px-6 py-3 text-left text-[10px] font-medium text-slate-500 uppercase tracking-[0.18em]">Product</th>
                                 <th className="px-6 py-3 text-left text-[10px] font-medium text-slate-500 uppercase tracking-[0.18em]">Seller</th>
                                 <th className="px-6 py-3 text-left text-[10px] font-medium text-slate-500 uppercase tracking-[0.18em]">Variant</th>
@@ -567,125 +708,17 @@ const ProductManagement = () => {
                                 <tr>
                                     <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-bold text-xs uppercase tracking-widest">No products found</td>
                                 </tr>
-                            ) : productsList.map((p) => (
-                                <tr
-                                    key={p._id}
-                                    className="group transition-colors hover:bg-slate-50/60"
-                                >
-                                    {/* Product Column */}
-                                    <td className="px-6 py-5 align-middle">
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <div className="h-11 w-11 shrink-0 rounded-xl overflow-hidden bg-slate-100 ring-1 ring-slate-200 shadow-sm flex items-center justify-center">
-                                                {p.mainImage || p.variants?.[0]?.images?.[0] || p.images?.[0] ? (
-                                                    <img 
-                                                        src={p.mainImage || p.variants?.[0]?.images?.[0] || p.images?.[0]} 
-                                                        alt={p.name} 
-                                                        className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                                                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                                    />
-                                                ) : (
-                                                    <HiOutlineCube className="h-5 w-5 text-slate-400" />
-                                                )}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="truncate text-[13px] font-semibold leading-5 text-slate-900" title={p.name}>{p.name}</p>
-                                                <div className="flex items-center gap-1.5 mt-0.5">
-                                                    <p className="truncate text-[10px] font-medium uppercase tracking-widest text-slate-400" title={p.unit}>{p.unit}</p>
-                                                    {p.isFeatured && (
-                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 ring-1 ring-amber-200">Featured</span>
-                                                    )}
-                                                    {p.isTopDeal && (
-                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-50 text-rose-700 ring-1 ring-rose-200">Top Deal</span>
-                                                    )}
-                                                    {p.deliveryMode === 'quick_only' && (
-                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 ring-1 ring-amber-200">⚡ Quick Only</span>
-                                                    )}
-                                                    {p.deliveryMode === 'both' && (
-                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">🔄 Both</span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </td>
-
-                                    {/* Seller Column */}
-                                    <td className="px-6 py-5 align-middle">
-                                        <div className="flex items-center gap-2 min-w-0">
-                                            <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-brand-500 shadow-[0_0_0_4px_rgba(59,130,246,0.12)]" />
-                                            <span className="truncate text-[13px] font-medium text-slate-700" title={p.sellerId?.shopName || 'Admin'}>
-                                                {p.sellerId?.shopName || 'Admin'}
-                                            </span>
-                                        </div>
-                                    </td>
-
-                                    {/* Variant Column */}
-                                    <td
-                                        className="px-6 py-5 cursor-pointer align-middle transition-colors group/variant hover:bg-purple-50/60"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setViewingVariants(p);
-                                            setIsVariantsViewModalOpen(true);
-                                        }}
-                                    >
-                                        {p.variants && p.variants.length > 0 ? (
-                                            <div className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 px-2.5 py-1 text-purple-700 ring-1 ring-purple-100 transition-transform group-hover/variant:-translate-y-0.5">
-                                                <HiOutlineSwatch className="h-3.5 w-3.5 shrink-0 text-purple-500" />
-                                                <span className="text-[12px] font-medium whitespace-nowrap">
-                                                    {p.variants.length} Variant{p.variants.length > 1 ? 's' : ''}
-                                                </span>
-                                            </div>
-                                        ) : (
-                                            <span className="text-[12px] font-medium text-slate-400">No variants</span>
-                                        )}
-                                    </td>
-
-                                    {/* Category Column */}
-                                    <td className="px-6 py-5 align-middle">
-                                        <span
-                                            className="inline-block max-w-full rounded-full bg-slate-100 px-3 py-1 text-[12px] font-medium text-slate-700 ring-1 ring-slate-200 truncate"
-                                            title={p.categoryId?.name || 'N/A'}
-                                        >
-                                            {p.categoryId?.name || 'N/A'}
-                                        </span>
-                                    </td>
-
-                                    {/* Subcategory Column */}
-                                    <td className="px-6 py-5 align-middle">
-                                        <span
-                                            className="inline-block max-w-full rounded-full bg-slate-50 px-3 py-1 text-[12px] font-medium text-slate-600 ring-1 ring-slate-100 truncate"
-                                            title={p.subcategoryId?.name || 'N/A'}
-                                        >
-                                            {p.subcategoryId?.name || 'N/A'}
-                                        </span>
-                                    </td>
-
-
-                                    {/* Status Column */}
-                                    <td className="px-4 py-5 text-center align-middle whitespace-nowrap">
-                                        <div className="flex flex-col items-center justify-center">
-                                            <StatusBadge status={p.status} stock={p.stock} />
-                                        </div>
-                                    </td>
-
-                                    {/* Actions Column */}
-                                    <td className="px-4 py-5 text-center align-middle">
-                                        <div className="flex items-center justify-center gap-2">
-                                            <button
-                                                onClick={() => openModal(p)}
-                                                className="flex h-9 w-9 shrink-0 items-center justify-center hover:bg-white hover:text-primary rounded-xl transition-all text-slate-400 shadow-sm ring-1 ring-slate-100"
-                                            >
-                                                <HiOutlinePencilSquare className="h-4 w-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => (setItemToDelete(p), setIsDeleteModalOpen(true))}
-                                                className="flex h-9 w-9 shrink-0 items-center justify-center hover:bg-rose-50 hover:text-rose-600 rounded-xl transition-all text-slate-400 shadow-sm ring-1 ring-slate-100"
-                                            >
-                                                <HiOutlineTrash className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                            ) : (
+                                productsList.map((p) => (
+                                    <ProductTableRow
+                                        key={p._id || p.id}
+                                        p={p}
+                                        onEdit={handleEdit}
+                                        onDelete={handleDelete}
+                                        onViewVariants={handleViewVariants}
+                                    />
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </div>

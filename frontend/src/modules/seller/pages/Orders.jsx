@@ -581,17 +581,11 @@ const Orders = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
-                                        <AnimatePresence mode="popLayout">
-                                            {filteredOrders
-                                                .map((order) => (
-                                                <motion.tr
-                                                    layout
-                                                    initial={{ opacity: 0, y: 10 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    exit={{ opacity: 0, scale: 0.95 }}
-                                                    key={order.id}
-                                                    className="hover:bg-slate-50/50 transition-colors group"
-                                                >
+                                        {filteredOrders.map((order) => (
+                                            <tr
+                                                key={order.id}
+                                                className="hover:bg-slate-50/50 transition-colors group"
+                                            >
                                                     <td className="px-4 lg:px-6 py-3 lg:py-4">
                                                         <div>
                                                             <div className="flex items-center gap-1.5 flex-wrap">
@@ -760,9 +754,8 @@ const Orders = () => {
                                                             )}
                                                         </div>
                                                     </td>
-                                                </motion.tr>
+                                                </tr>
                                             ))}
-                                        </AnimatePresence>
                                     </tbody>
                                 </table>
                                 {filteredOrders.length === 0 && (

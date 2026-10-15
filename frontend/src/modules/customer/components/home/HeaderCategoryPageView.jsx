@@ -152,6 +152,15 @@ const getTopDealsSectionTheme = (headerCategory) => {
   };
 };
 
+const categoryProductsMemoryCache = new Map();
+const categoryHeroConfigMemoryCache = new Map();
+
+const getCategoryProductsCacheKey = (hId, loc) => {
+  const lat = loc?.latitude;
+  const lng = loc?.longitude;
+  return `${hId}:${Number.isFinite(lat) ? lat.toFixed(4) : 'no'}:${Number.isFinite(lng) ? lng.toFixed(4) : 'no'}`;
+};
+
 const HeaderCategoryPageView = ({
   headerCategory,
   categoryMap = {},
@@ -167,25 +176,34 @@ const HeaderCategoryPageView = ({
   const { openProduct } = useProductDetail();
   const { settings } = useSettings();
 
+  const headerId = String(headerCategory?._id || headerCategory?.id || '');
+  const reqIdRef = useRef(0);
+
+  const initialCacheKey = getCategoryProductsCacheKey(headerId, currentLocation);
   const [selectedMainCatId, setSelectedMainCatId] = useState('all');
   const [selectedSubCatId, setSelectedSubCatId] = useState('all');
-  const [products, setProducts] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [categoryHeroConfig, setCategoryHeroConfig] = useState(null);
-
-  const headerId = String(headerCategory?._id || headerCategory?.id || '');
+  const [products, setProducts] = useState(() => categoryProductsMemoryCache.get(initialCacheKey) || []);
+  const [isLoading, setIsLoading] = useState(() => !categoryProductsMemoryCache.has(initialCacheKey));
+  const [categoryHeroConfig, setCategoryHeroConfig] = useState(() => categoryHeroConfigMemoryCache.get(headerId) || null);
 
   // Fetch hero & top deals configuration for this category page from Admin CMS
   useEffect(() => {
     if (!headerId) return;
     let isMounted = true;
 
+    if (categoryHeroConfigMemoryCache.has(headerId)) {
+      setCategoryHeroConfig(categoryHeroConfigMemoryCache.get(headerId));
+    }
+
     const loadConfig = (force = false) => {
       customerApi.getHeroConfig({ pageType: 'header', headerId }, { forceRefresh: force })
         .then((res) => {
           if (!isMounted) return;
           const data = res?.data?.result || res?.data || res;
-          setCategoryHeroConfig(data);
+          if (data) {
+            categoryHeroConfigMemoryCache.set(headerId, data);
+            setCategoryHeroConfig(data);
+          }
         })
         .catch((err) => {
           console.error('Failed to load category hero config:', err);
@@ -195,6 +213,8 @@ const HeaderCategoryPageView = ({
     loadConfig();
 
     const handleCmsRefresh = () => {
+      categoryHeroConfigMemoryCache.delete(headerId);
+      categoryProductsMemoryCache.clear();
       loadConfig(true);
     };
 
@@ -383,13 +403,23 @@ const HeaderCategoryPageView = ({
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // 3. Fetch all products of this header category
+  // 3. Fetch all products of this header category with instant cache display & race-condition protection
   useEffect(() => {
     if (!headerId) return;
-    let isMounted = true;
+
+    const cacheKey = getCategoryProductsCacheKey(headerId, currentLocation);
+    const cachedItems = categoryProductsMemoryCache.get(cacheKey);
+
+    if (cachedItems && Array.isArray(cachedItems) && cachedItems.length > 0) {
+      setProducts(cachedItems);
+      setIsLoading(false);
+    } else {
+      setIsLoading(true);
+    }
+
+    const currentReqId = ++reqIdRef.current;
 
     const fetchProducts = async () => {
-      setIsLoading(true);
       try {
         const params = { headerId, limit: 120, allProducts: 'true' };
         if (
@@ -401,37 +431,44 @@ const HeaderCategoryPageView = ({
         }
 
         const res = await customerApi.getProducts(params);
-        if (isMounted) {
-          const data = res?.data || res;
-          const rawResult = data?.result;
-          const items = Array.isArray(data?.results)
-            ? data.results
-            : Array.isArray(rawResult?.items)
-            ? rawResult.items
-            : Array.isArray(rawResult?.products)
-            ? rawResult.products
-            : Array.isArray(rawResult)
-            ? rawResult
-            : Array.isArray(data?.products)
-            ? data.products
-            : Array.isArray(data?.items)
-            ? data.items
-            : Array.isArray(data)
-            ? data
-            : [];
-          setProducts(items);
-        }
+        if (reqIdRef.current !== currentReqId) return; // Stale request protection!
+
+        const data = res?.data || res;
+        const rawResult = data?.result;
+        const items = Array.isArray(data?.results)
+          ? data.results
+          : Array.isArray(rawResult?.items)
+          ? rawResult.items
+          : Array.isArray(rawResult?.products)
+          ? rawResult.products
+          : Array.isArray(rawResult)
+          ? rawResult
+          : Array.isArray(data?.products)
+          ? data.products
+          : Array.isArray(data?.items)
+          ? data.items
+          : Array.isArray(data)
+          ? data
+          : [];
+
+        categoryProductsMemoryCache.set(cacheKey, items);
+        setProducts(items);
       } catch (err) {
+        if (reqIdRef.current !== currentReqId) return;
         console.error('Failed to load category products:', err);
-        if (isMounted) setProducts([]);
+        if (!categoryProductsMemoryCache.has(cacheKey)) {
+          setProducts([]);
+        }
       } finally {
-        if (isMounted) setIsLoading(false);
+        if (reqIdRef.current === currentReqId) {
+          setIsLoading(false);
+        }
       }
     };
 
     fetchProducts();
     return () => {
-      isMounted = false;
+      // Nothing needed on unmount as currentReqId will invalidate if re-triggered
     };
   }, [headerId, currentLocation?.latitude, currentLocation?.longitude]);
 
@@ -655,6 +692,8 @@ const HeaderCategoryPageView = ({
           <div
             ref={scrollRef}
             onScroll={handleScroll}
+            data-lenis-prevent
+            style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}
             className="w-full overflow-x-auto no-scrollbar scroll-smooth px-4 md:px-0"
           >
             <div
@@ -693,15 +732,16 @@ const HeaderCategoryPageView = ({
                       }}
                     >
                       <img
-                        src={applyCloudinaryTransform(imageSrc, 'f_auto,q_auto,w_300')}
+                        src={applyCloudinaryTransform(imageSrc, 'f_auto,q_auto,w_220,h_220,c_fill')}
                         alt={cat.name}
                         loading="lazy"
+                        decoding="async"
                         referrerPolicy="no-referrer"
                         onError={(e) => {
                           e.currentTarget.onerror = null;
                           e.currentTarget.classList.add("opacity-40");
                         }}
-                        className="w-full h-full object-contain p-1 group-hover:scale-105 transition-transform duration-200"
+                        className="w-full h-full object-contain p-1 transform-gpu group-hover:scale-105 transition-transform duration-200"
                       />
                     </div>
 

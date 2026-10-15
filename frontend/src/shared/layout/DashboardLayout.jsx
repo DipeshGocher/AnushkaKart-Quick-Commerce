@@ -552,9 +552,9 @@ const DashboardLayout = ({ children, navItems, title }) => {
 
     return (
         <div className="min-h-screen mesh-gradient-light relative bg-[#f1f4f8]">
-            {/* Background Blobs for depth */}
-            <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px] -z-10 animate-pulse pointer-events-none"></div>
-            <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-brand-500/5 rounded-full blur-[120px] -z-10 animate-pulse pointer-events-none" style={{ animationDelay: '2s' }}></div>
+            {/* Background Blobs for depth (optimized for 60fps smooth scrolling) */}
+            <div className="fixed top-[-10%] left-[-10%] w-[35%] h-[35%] bg-primary/4 rounded-full blur-[60px] -z-10 pointer-events-none transform-gpu"></div>
+            <div className="fixed bottom-[-10%] right-[-10%] w-[35%] h-[35%] bg-brand-500/4 rounded-full blur-[60px] -z-10 pointer-events-none transform-gpu"></div>
 
             <Sidebar
                 items={navItems}
@@ -562,7 +562,7 @@ const DashboardLayout = ({ children, navItems, title }) => {
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
             />
-            <div className="transition-all duration-300 pl-0 md:pl-72">
+            <div className="pl-0 md:pl-72">
                 <Topbar onMenuClick={() => setIsSidebarOpen(true)} />
                 <main className="p-4 md:p-6 min-h-screen pt-20 md:pt-24 pb-24 md:pb-6">
                     <div className="w-full pb-12">

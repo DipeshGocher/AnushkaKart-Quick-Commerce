@@ -11,20 +11,19 @@ const LenisScroll = () => {
         }
 
         const lenis = new Lenis({
-            duration: 1.2,
-            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            duration: 0.85,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -8 * t)),
             direction: 'vertical',
             gestureDirection: 'vertical',
             smooth: true,
             mouseMultiplier: 1,
             smoothTouch: false,
-            touchMultiplier: 2,
-            // Allow native scrolling inside nested scroll containers.
-            // Add `data-lenis-prevent` to any element that should keep its own scroll.
+            touchMultiplier: 1.5,
+            // Allow native scrolling inside nested scroll containers and horizontal category/product sliders
             prevent: (node) => {
                 if (!node || typeof node.closest !== 'function') return false;
                 return Boolean(
-                    node.closest('[data-lenis-prevent], [data-lenis-prevent-wheel], [data-lenis-prevent-touch]')
+                    node.closest('.overflow-x-auto, [data-lenis-prevent], [data-lenis-prevent-wheel], [data-lenis-prevent-touch]')
                 );
             },
         });

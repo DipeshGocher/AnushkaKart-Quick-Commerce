@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import Card from "@shared/components/ui/Card";
 import Badge from "@shared/components/ui/Badge";
 import {
@@ -31,6 +31,117 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { sellerApi } from "../services/sellerApi";
 import { toast } from "sonner";
 import Pagination from "@shared/components/ui/Pagination";
+import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+
+const SellerStatusBadge = React.memo(({ status, stock }) => {
+  if (stock === 0) return <Badge variant="rose" className="text-[10px] px-2 py-0.5">Out of Stock</Badge>;
+  if (status === "active") return <Badge variant="success" className="text-[10px] px-2 py-0.5">Active</Badge>;
+  return <Badge variant="gray" className="text-[10px] px-2 py-0.5">Inactive</Badge>;
+});
+
+const SellerProductTableRow = React.memo(({ p, onEdit, onDelete, onViewVariants, skuText }) => {
+  const mainImg = p.mainImage || p.variants?.[0]?.images?.[0] || p.image;
+  const transformedImg = useMemo(() => {
+    return mainImg ? applyCloudinaryTransform(mainImg, 'f_auto,q_auto,w_100,h_100,c_fill') : null;
+  }, [mainImg]);
+
+  return (
+    <tr className="hover:bg-gray-50/50 transition-colors group border-b border-gray-100 last:border-b-0">
+      <td className="px-6 py-4">
+        <div className="flex items-center gap-4">
+          <div className="h-14 w-14 shrink-0 rounded-lg overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center">
+            {transformedImg ? (
+              <img
+                src={transformedImg}
+                alt={p.name}
+                loading="lazy"
+                decoding="async"
+                className="h-full w-full object-cover transform-gpu"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+            ) : (
+              <HiOutlineCube className="h-6 w-6 text-slate-400" />
+            )}
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="text-sm font-medium text-slate-900">
+                {p.name}
+              </p>
+            </div>
+          </div>
+        </div>
+      </td>
+      <td className="px-6 py-4">
+        <span className="text-sm font-medium text-slate-900">
+          {skuText}
+        </span>
+      </td>
+      <td className="px-6 py-4 text-left">
+        <div className="flex flex-col">
+          <span className="text-xs font-medium text-slate-900 uppercase tracking-tight bg-slate-100 px-3 py-0.5 rounded-full w-fit">
+            {p.headerId?.name || "N/A"}
+          </span>
+        </div>
+      </td>
+      <td className="px-6 py-4">
+        <span className="text-sm font-medium text-slate-900">
+          {p.categoryId?.name || "N/A"}
+        </span>
+      </td>
+      <td className="px-6 py-4">
+        <span className="text-sm font-medium text-slate-900">
+          {p.subcategoryId?.name || "N/A"}
+        </span>
+      </td>
+      <td className="px-6 py-4 text-center">
+        {p.variants?.length > 0 ? (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewVariants(p);
+            }}
+            className="flex flex-col items-center cursor-pointer hover:bg-slate-50 p-1.5 rounded-xl transition-all active:scale-95 group"
+          >
+            <Badge
+              variant="indigo"
+              className="text-xs font-medium px-3 py-0.5 group-hover:shadow-sm transition-all"
+            >
+              {p.variants.length} VARIANTS
+            </Badge>
+          </div>
+        ) : (
+          <span className="text-xs font-medium text-slate-400 bg-slate-50 border border-slate-100 px-2 py-1 rounded italic">
+            None
+          </span>
+        )}
+      </td>
+      <td className="px-6 py-4 text-center">
+        <div className="flex flex-col items-center justify-center">
+          <SellerStatusBadge status={p.status} stock={p.stock} />
+        </div>
+      </td>
+      <td className="px-6 py-4 text-right">
+        <div className="flex items-center justify-end space-x-2">
+          <button
+            onClick={() => onEdit(p)}
+            className="p-1 hover:text-brand-600 rounded-lg transition-all text-slate-500"
+            title="Edit product"
+          >
+            <HiOutlinePencilSquare className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => onDelete(p)}
+            className="p-1 hover:text-rose-600 rounded-lg transition-all text-slate-500"
+            title="Delete product"
+          >
+            <HiOutlineTrash className="h-4 w-4" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+});
 
 const ProductManagement = () => {
   const navigate = useNavigate();
@@ -307,11 +418,18 @@ const ProductManagement = () => {
     [safeProducts, summaryStats, total],
   );
 
-  const StatusBadge = ({ status, stock }) => {
-    if (stock === 0) return <Badge variant="rose" className="text-[10px] px-2 py-0.5">Out of Stock</Badge>;
-    if (status === "active") return <Badge variant="success" className="text-[10px] px-2 py-0.5">Active</Badge>;
-    return <Badge variant="gray" className="text-[10px] px-2 py-0.5">Inactive</Badge>;
-  };
+  const handleEdit = useCallback((p) => {
+    openEditModal(p);
+  }, []);
+
+  const handleDelete = useCallback((p) => {
+    handleDeleteClick(p);
+  }, []);
+
+  const handleViewVariants = useCallback((p) => {
+    setViewingVariants(p);
+    setIsVariantsViewModalOpen(true);
+  }, []);
 
   const handleSave = async () => {
     try {
@@ -769,11 +887,11 @@ const ProductManagement = () => {
 
       {/* Product Table */}
 
-      <Card className="border-none shadow-xl ring-1 ring-slate-100 overflow-hidden rounded-xl">
-        <div className="overflow-x-auto">
+      <Card className="border-none shadow-xl ring-1 ring-slate-100 overflow-hidden rounded-xl [contain:paint]">
+        <div className="overflow-x-auto will-change-scroll">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50/50 border-b border-slate-100">
+              <tr className="bg-slate-50/90 backdrop-blur-sm sticky top-0 z-10 border-b border-slate-100">
                 <th className="px-6 py-3 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
                   Product
                 </th>
@@ -802,100 +920,14 @@ const ProductManagement = () => {
             </thead>
             <tbody>
               {filteredProducts.map((p) => (
-                <tr
+                <SellerProductTableRow
                   key={p._id || p.id}
-                  className="hover:bg-gray-50/50 transition-colors group border-b border-gray-100 last:border-b-0">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-4">
-                      <div className="h-14 w-14 rounded-lg overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center">
-                        {p.mainImage || p.variants?.[0]?.images?.[0] || p.image ? (
-                          <img
-                            src={
-                              p.mainImage ||
-                              p.variants?.[0]?.images?.[0] ||
-                              p.image
-                            }
-                            alt={p.name}
-                            className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-500"
-                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                          />
-                        ) : (
-                          <HiOutlineCube className="h-6 w-6 text-slate-400" />
-                        )}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="text-sm font-medium text-slate-900">
-                            {p.name}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-sm font-medium text-slate-900">
-                      {displaySku(p)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-left">
-                    <div className="flex flex-col">
-                      <span className="text-xs font-medium text-slate-900 uppercase tracking-tight bg-slate-100 px-3 py-0.5 rounded-full w-fit">
-                        {p.headerId?.name || "N/A"}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-sm font-medium text-slate-900">
-                      {p.categoryId?.name || "N/A"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-sm font-medium text-slate-900">
-                      {p.subcategoryId?.name || "N/A"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    {p.variants?.length > 0 ? (
-                      <div
-                        onClick={() => {
-                          setViewingVariants(p);
-                          setIsVariantsViewModalOpen(true);
-                        }}
-                        className="flex flex-col items-center cursor-pointer hover:bg-slate-50 p-1.5 rounded-xl transition-all active:scale-95 group"
-                      >
-                        <Badge
-                          variant="indigo"
-                          className="text-xs font-medium px-3 py-0.5 group-hover:shadow-sm transition-all"
-                        >
-                          {p.variants.length} VARIANTS
-                        </Badge>
-                      </div>
-                    ) : (
-                      <span className="text-xs font-medium text-slate-400 bg-slate-50 border border-slate-100 px-2 py-1 rounded italic">
-                        None
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex flex-col items-center justify-center">
-                      <StatusBadge status={p.status} stock={p.stock} />
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end space-x-2">
-                      <button
-                        onClick={() => openEditModal(p)}
-                        className="p-1 hover:text-brand-600 rounded-lg transition-all text-slate-500">
-                        <HiOutlinePencilSquare className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteClick(p)}
-                        className="p-1 hover:text-rose-600 rounded-lg transition-all text-slate-500">
-                        <HiOutlineTrash className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                  p={p}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onViewVariants={handleViewVariants}
+                  skuText={displaySku(p)}
+                />
               ))}
             </tbody>
           </table>

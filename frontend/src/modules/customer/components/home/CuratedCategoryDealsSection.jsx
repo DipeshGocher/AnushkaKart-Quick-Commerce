@@ -63,7 +63,7 @@ const DEFAULT_OFFERS = [
   "Min. 25% Off",
 ];
 
-export default function CuratedCategoryDealsSection({
+function CuratedCategoryDealsSection({
   pageType = "home",
   headerId = null,
   headerCategory = null,
@@ -443,3 +443,5 @@ export default function CuratedCategoryDealsSection({
     </section>
   );
 }
+
+export default React.memo(CuratedCategoryDealsSection);

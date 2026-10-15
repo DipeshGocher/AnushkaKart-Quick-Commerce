@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { adminApi } from "../../services/adminApi";
 import { toast } from "sonner";
 import { invalidateCache } from "@core/api/dedupe";
+import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
 
 const makeSlug = (value) =>
   String(value || "")
@@ -483,9 +484,11 @@ const SubCategories = () => {
                         <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center border border-gray-200">
                           {cat.image ? (
                             <img
-                              src={typeof cat.image === 'string' ? cat.image : (cat.image.url || cat.image.secure_url || cat.image)}
+                              src={applyCloudinaryTransform(typeof cat.image === 'string' ? cat.image : (cat.image.url || cat.image.secure_url || cat.image), 'f_auto,q_auto,w_80,h_80,c_fill')}
                               alt={cat.name}
-                              className="w-full h-full object-cover"
+                              loading="lazy"
+                              decoding="async"
+                              className="w-full h-full object-cover transform-gpu"
                             />
                           ) : (
                             <Image className="w-5 h-5 text-gray-400" />

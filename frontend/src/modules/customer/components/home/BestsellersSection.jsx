@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 
@@ -48,10 +48,10 @@ const BestsellersSection = ({ config, categoryMap, subcategoryMap }) => {
 
   if (displayItems.length === 0) return null;
 
-  const handleCardClick = (categoryId) => {
+  const handleCardClick = useCallback((categoryId) => {
     window.scrollTo(0, 0);
     navigate(`/category/${categoryId}`);
-  };
+  }, [navigate]);
 
   return (
     <div className="w-full bg-white pb-6 pt-4">
@@ -104,4 +104,4 @@ const BestsellersSection = ({ config, categoryMap, subcategoryMap }) => {
   );
 };
 
-export default BestsellersSection;
+export default React.memo(BestsellersSection);

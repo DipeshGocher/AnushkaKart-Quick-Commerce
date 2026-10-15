@@ -591,4 +591,4 @@ const HeaderCategoryProductsSection = ({ latitude, longitude, heroConfig = null 
   );
 };
 
-export default HeaderCategoryProductsSection;
+export default React.memo(HeaderCategoryProductsSection);

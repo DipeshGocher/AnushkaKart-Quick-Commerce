@@ -159,7 +159,7 @@ const Topbar = ({ onMenuClick }) => {
     };
 
     return (
-        <header className="bg-white/70 backdrop-blur-xl border-b border-gray-100/50 flex items-center justify-between shadow-[0_4px_30px_rgba(0,0,0,0.02)] transition-all duration-300 fixed top-0 left-0 right-0 z-[200] h-14 px-4 md:left-72 md:h-16 md:px-6">
+        <header className="bg-white/95 backdrop-blur-md border-b border-gray-100 flex items-center justify-between shadow-sm transform-gpu fixed top-0 left-0 right-0 z-[200] h-14 px-4 md:left-72 md:h-16 md:px-6">
             <div className="flex items-center flex-1 mr-4 overflow-hidden">
                 <button
                     onClick={onMenuClick}

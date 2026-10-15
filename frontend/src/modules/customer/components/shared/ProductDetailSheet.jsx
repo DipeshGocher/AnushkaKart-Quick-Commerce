@@ -22,6 +22,10 @@ import ProductCard from './ProductCard';
 
 
 
+const extendedProductMemoryCache = new Map();
+const reviewsMemoryCache = new Map();
+const similarProductsMemoryCache = new Map();
+
 const ProductDetailSheet = () => {
     const { selectedProduct, isOpen, closeProduct } = useProductDetail();
     const { 
@@ -60,6 +64,17 @@ const ProductDetailSheet = () => {
     const [selectedVariant, setSelectedVariant] = useState(null);
     const [activeImageIndex, setActiveImageIndex] = useState(0);
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const [isMobileDevice, setIsMobileDevice] = useState(() =>
+        typeof window !== 'undefined' ? window.innerWidth < 768 : false
+    );
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobileDevice(window.innerWidth < 768);
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     const isRefurbishedProduct = useMemo(() => {
         if (!selectedProduct) return false;
@@ -165,50 +180,12 @@ const ProductDetailSheet = () => {
 
 
 
-    const fetchSimilarProducts = async (catId, currentProdId) => {
-        if (!catId) return;
-        try {
-            setSimilarLoading(true);
-            const params = { limit: 15 };
-            params.categoryId = catId;
-            if (currentLocation?.latitude && currentLocation?.longitude) {
-                params.lat = currentLocation.latitude;
-                params.lng = currentLocation.longitude;
-            }
-            const res = await customerApi.getProducts(params);
-            let items = [];
-            if (res.data?.success) {
-                const raw = res.data.results || res.data.result?.items || res.data.result || [];
-                items = (Array.isArray(raw) ? raw : []).filter(p => (p._id || p.id) !== currentProdId);
-            }
-            
-            // If fewer than 2 items found by categoryId, fall back to headerId
-            if (items.length < 2 && selectedProduct?.headerId) {
-                const hId = selectedProduct.headerId?._id || selectedProduct.headerId;
-                const hRes = await customerApi.getProducts({ headerId: hId, limit: 15 });
-                if (hRes.data?.success) {
-                    const hRaw = hRes.data.results || hRes.data.result?.items || hRes.data.result || [];
-                    const hItems = (Array.isArray(hRaw) ? hRaw : []).filter(p => (p._id || p.id) !== currentProdId);
-                    if (hItems.length > items.length) {
-                        items = hItems;
-                    }
-                }
-            }
-
-            setSimilarProducts(items.slice(0, 10));
-        } catch (err) {
-            console.error("Error fetching similar products:", err);
-            setSimilarProducts([]);
-        } finally {
-            setSimilarLoading(false);
-        }
-    };
+    const activePidRef = useRef(null);
 
     // Update variant when product changes
     useEffect(() => {
         setNewReview({ rating: 5, comment: '' });
         setLocalHasReviewed(false);
-        setReviews([]);
         setIsDescriptionOpen(true);
 
         if (selectedProduct && selectedProduct.variants && selectedProduct.variants.length > 0) {
@@ -219,24 +196,50 @@ const ProductDetailSheet = () => {
         setActiveImageIndex(0);
 
         if (desktopContentRef.current) {
-            desktopContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+            desktopContentRef.current.scrollTo({ top: 0, behavior: 'instant' });
         }
         if (mobileContentRef.current) {
-            mobileContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+            mobileContentRef.current.scrollTo({ top: 0, behavior: 'instant' });
         }
 
-        if (selectedProduct?.id || selectedProduct?._id) {
-            const pid = selectedProduct.id || selectedProduct._id;
+        const pid = selectedProduct?.id || selectedProduct?._id;
+        activePidRef.current = pid || null;
+
+        if (pid) {
+            // CRITICAL FIX: Load from cache if available; otherwise reset to null so previous product's data never flashes!
+            if (extendedProductMemoryCache.has(pid)) {
+                setExtendedProduct(extendedProductMemoryCache.get(pid));
+            } else {
+                setExtendedProduct(null);
+            }
+
+            if (reviewsMemoryCache.has(pid)) {
+                setReviews(reviewsMemoryCache.get(pid));
+                setReviewLoading(false);
+            } else {
+                setReviews([]);
+                setReviewLoading(true);
+            }
+
             fetchReviews(pid);
             fetchExtendedProduct(pid);
 
-
             const catId = selectedProduct.categoryId?._id || selectedProduct.categoryId || selectedProduct.headerId?._id || selectedProduct.headerId;
-            fetchSimilarProducts(catId, pid);
+            const simKey = `${catId || 'all'}:${pid}`;
+            if (similarProductsMemoryCache.has(simKey)) {
+                setSimilarProducts(similarProductsMemoryCache.get(simKey));
+                setSimilarLoading(false);
+            } else {
+                setSimilarProducts([]);
+                setSimilarLoading(true);
+            }
+            fetchSimilarProducts(catId, pid, simKey);
+        } else {
+            setExtendedProduct(null);
+            setReviews([]);
+            setSimilarProducts([]);
         }
     }, [selectedProduct]);
-
-
 
     const fetchExtendedProduct = async (productId) => {
         try {
@@ -250,27 +253,80 @@ const ProductDetailSheet = () => {
             } : {};
 
             const res = await customerApi.getProductById(productId, params);
-            if (res.data.success) {
+            if (activePidRef.current !== productId) return; // Stale check!
+            if (res.data?.success && res.data.result) {
+                extendedProductMemoryCache.set(productId, res.data.result);
                 setExtendedProduct(res.data.result);
             }
         } catch (error) {
+            if (activePidRef.current !== productId) return;
             console.error("Fetch extended product error:", error);
         }
     };
 
     const fetchReviews = async (productId) => {
         try {
-            setReviewLoading(true);
             const res = await customerApi.getProductReviews(productId);
+            if (activePidRef.current !== productId) return; // Stale check!
             if (res.data?.success) {
                 const list = res.data.results || res.data.result || [];
-                setReviews(Array.isArray(list) ? list : []);
+                const arr = Array.isArray(list) ? list : [];
+                reviewsMemoryCache.set(productId, arr);
+                setReviews(arr);
             }
         } catch (error) {
+            if (activePidRef.current !== productId) return;
             console.error("Fetch reviews error:", error);
-            setReviews([]);
+            if (!reviewsMemoryCache.has(productId)) setReviews([]);
         } finally {
-            setReviewLoading(false);
+            if (activePidRef.current === productId) {
+                setReviewLoading(false);
+            }
+        }
+    };
+
+    const fetchSimilarProducts = async (catId, currentProdId, simKey) => {
+        if (!catId) return;
+        try {
+            const params = { limit: 15 };
+            params.categoryId = catId;
+            if (currentLocation?.latitude && currentLocation?.longitude) {
+                params.lat = currentLocation.latitude;
+                params.lng = currentLocation.longitude;
+            }
+            const res = await customerApi.getProducts(params);
+            if (activePidRef.current !== currentProdId) return; // Stale check!
+            let items = [];
+            if (res.data?.success) {
+                const raw = res.data.results || res.data.result?.items || res.data.result || [];
+                items = (Array.isArray(raw) ? raw : []).filter(p => (p._id || p.id) !== currentProdId);
+            }
+            
+            // If fewer than 2 items found by categoryId, fall back to headerId
+            if (items.length < 2 && selectedProduct?.headerId) {
+                const hId = selectedProduct.headerId?._id || selectedProduct.headerId;
+                const hRes = await customerApi.getProducts({ headerId: hId, limit: 15 });
+                if (activePidRef.current !== currentProdId) return;
+                if (hRes.data?.success) {
+                    const hRaw = hRes.data.results || hRes.data.result?.items || hRes.data.result || [];
+                    const hItems = (Array.isArray(hRaw) ? hRaw : []).filter(p => (p._id || p.id) !== currentProdId);
+                    if (hItems.length > items.length) {
+                        items = hItems;
+                    }
+                }
+            }
+
+            const finalItems = items.slice(0, 10);
+            if (simKey) similarProductsMemoryCache.set(simKey, finalItems);
+            setSimilarProducts(finalItems);
+        } catch (err) {
+            if (activePidRef.current !== currentProdId) return;
+            console.error("Error fetching similar products:", err);
+            if (simKey && !similarProductsMemoryCache.has(simKey)) setSimilarProducts([]);
+        } finally {
+            if (activePidRef.current === currentProdId) {
+                setSimilarLoading(false);
+            }
         }
     };
 
@@ -949,12 +1005,13 @@ const ProductDetailSheet = () => {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={closeProduct}
-                        className="fixed inset-0 bg-black/60 z-[580] backdrop-blur-sm"
+                        className="fixed inset-0 bg-black/60 z-[580]"
                     />
 
                     {/* ============================================================ */}
                     {/* DESKTOP LAYOUT: Wide 2-column modal (hidden on mobile) */}
                     {/* ============================================================ */}
+                    {!isMobileDevice && (
                     <motion.div
                         initial={{ opacity: 0, scale: 0.96, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1059,6 +1116,7 @@ const ProductDetailSheet = () => {
                                                 animate={{ opacity: 1 }}
                                                 exit={{ opacity: 0 }}
                                                 transition={{ duration: 0.15 }}
+                                                decoding="async"
                                                 src={applyCloudinaryTransform(allImages[activeImageIndex], "c_limit,w_1200,f_auto,q_auto:good")}
                                                 alt={`${selectedProduct.name} ${activeImageIndex + 1}`}
                                                 onClick={() => setIsLightboxOpen(true)}
@@ -1344,10 +1402,12 @@ const ProductDetailSheet = () => {
                             </div>
                         </div>
                     </motion.div>
+                    )}
 
                     {/* ============================================================ */}
                     {/* MOBILE LAYOUT: Full Screen Sheet (hidden on desktop md+) */}
                     {/* ============================================================ */}
+                    {isMobileDevice && (
                     <motion.div
                         drag="y"
                         dragConstraints={{ top: 0, bottom: 0 }}
@@ -1431,6 +1491,7 @@ const ProductDetailSheet = () => {
                                             <img
                                                 src={applyCloudinaryTransform(img, "f_auto,q_auto:best,w_1000,dpr_auto")}
                                                 alt={`${selectedProduct.name} ${i + 1}`}
+                                                decoding="async"
                                                 className="w-full h-full object-contain mix-blend-multiply drop-shadow-xl scale-110"
                                             />
                                         </div>
@@ -1643,6 +1704,7 @@ const ProductDetailSheet = () => {
                         </div>
 
                     </motion.div>
+                    )}
 
                     {/* Lightbox */}
                     <AnimatePresence>

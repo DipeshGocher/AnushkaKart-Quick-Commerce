@@ -388,8 +388,6 @@ const Home = () => {
   const [experienceSections, setExperienceSections] = useState(() => cachedHomePageData?.experienceSections || []);
   const [headerSections, setHeaderSections] = useState([]);
   const [heroConfig, setHeroConfig] = useState(() => cachedHomePageData?.heroConfig || heroConfigMemoryCache.__home__ || EMPTY_HERO_CONFIG);
-  const [mobileBannerIndex, setMobileBannerIndex] = useState(0);
-  const [isInstantBannerJump, setIsInstantBannerJump] = useState(false);
   const [expandedCategoryId, setExpandedCategoryId] = useState(() => {
     return cachedHomePageData?.quickCategories?.[0]?.id || cachedHomePageData?.quickCategories?.[0]?._id || null;
   });
@@ -760,15 +758,6 @@ const Home = () => {
     link.setAttribute("fetchpriority", "high"); document.head.appendChild(link);
     return () => { if (link.parentNode) link.parentNode.removeChild(link); };
   }, [heroConfig?.banners?.items?.[0]?.imageUrl]);
-
-  useEffect(() => {
-    const totalSlides = 3;
-    const intervalId = setInterval(() => { setMobileBannerIndex((prev) => prev >= totalSlides - 1 ? prev : prev + 1); }, 3500);
-    return () => clearInterval(intervalId);
-  }, []);
-
-  const handleBannerTransitionEnd = () => { if (mobileBannerIndex === 2) { setIsInstantBannerJump(true); setMobileBannerIndex(0); } };
-  useEffect(() => { if (!isInstantBannerJump) return; const id = requestAnimationFrame(() => setIsInstantBannerJump(false)); return () => cancelAnimationFrame(id); }, [isInstantBannerJump]);
 
   const productsById = useMemo(() => { const map = {}; displayProducts.forEach((p) => { map[p._id || p.id] = p; }); return map; }, [displayProducts]);
   const isAllCategorySelected = !activeCategory || activeCategory._id === "all" || activeCategory.id === "all";

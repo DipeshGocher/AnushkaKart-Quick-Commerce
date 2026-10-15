@@ -694,6 +694,31 @@ orderSchema.index({ customer: 1, createdAt: -1, _id: -1 });
 orderSchema.index({ seller: 1, createdAt: -1, _id: -1 });
 orderSchema.index({ warehouseId: 1, status: 1, createdAt: -1 });
 
+// ─── Additional performance-critical indexes ──────────────────────────────
+
+// Admin dashboard: all orders sorted by date (most expensive query)
+orderSchema.index({ status: 1, createdAt: -1, _id: -1 });
+orderSchema.index({ createdAt: -1, _id: -1 });
+
+// Delivery partner: active orders assigned to them
+orderSchema.index({ deliveryBoy: 1, status: 1, createdAt: -1 });
+orderSchema.index({ deliveryPartner: 1, status: 1, createdAt: -1 });
+
+// Payment/settlement queue
+orderSchema.index({ paymentStatus: 1, createdAt: -1 });
+orderSchema.index({ paymentMode: 1, paymentStatus: 1, createdAt: -1 });
+orderSchema.index({ "settlementStatus.overall": 1, createdAt: -1 });
+
+// Return/refund workflow
+orderSchema.index({ returnStatus: 1, returnRequestedAt: -1 });
+orderSchema.index({ customer: 1, returnStatus: 1, createdAt: -1 });
+
+// Auto-cancel job: pending orders expiring soon
+orderSchema.index({ status: 1, expiresAt: 1 }, { partialFilterExpression: { status: "pending" } });
+
+// Seller dashboard with status filter
+orderSchema.index({ seller: 1, status: 1, createdAt: -1 });
+
 orderSchema.pre('save', function(next) {
   if (!this.orderStatus) {
     this.orderStatus = this.status || "pending";

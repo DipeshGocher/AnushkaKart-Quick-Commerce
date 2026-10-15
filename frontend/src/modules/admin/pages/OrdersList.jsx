@@ -1,5 +1,5 @@
 // Comprehensive Order Management System
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
@@ -27,6 +27,156 @@ import {
     getLegacyStatusFromOrder,
     adminRouteMatchesOrder,
 } from '@/shared/utils/orderStatus';
+
+const getStatusStyles = (status) => {
+    switch (String(status || '').toLowerCase()) {
+        case 'pending': return 'bg-amber-100 text-amber-600 border-amber-200';
+        case 'confirmed': return 'bg-brand-100 text-brand-600 border-brand-200';
+        case 'packed': return 'bg-brand-100 text-brand-600 border-brand-200';
+        case 'out_for_delivery': return 'bg-purple-100 text-purple-600 border-purple-200';
+        case 'delivered': return 'bg-brand-100 text-brand-600 border-brand-200';
+        case 'cancelled': return 'bg-rose-100 text-rose-600 border-rose-200';
+        case 'returned': return 'bg-slate-100 text-slate-600 border-slate-200';
+        default: return 'bg-gray-100 text-gray-600 border-gray-200';
+    }
+};
+
+const AdminOrderTableRow = React.memo(({ order, status, onNavigate, onStatusUpdate }) => {
+    return (
+        <tr className="group hover:bg-slate-50/30 transition-colors cursor-pointer" onClick={() => onNavigate(order.id)}>
+            <td className="px-4 py-5">
+                <div className="flex items-center gap-4">
+                    <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-white group-hover:shadow-sm transition-all text-slate-400 group-hover:text-fuchsia-500 font-bold text-xs shrink-0">
+                        <Package className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                            #{order.id}
+                            {order.fulfillmentType === 'SHIPROCKET' ? (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                                    Shiprocket
+                                </span>
+                            ) : (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    Local
+                                </span>
+                            )}
+                            <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-all text-slate-400" />
+                        </h4>
+                        <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="outline" className="text-[9px] font-bold border-slate-200 text-slate-400 py-0.5">
+                                {order.items} {order.items > 1 ? 'Items' : 'Item'}
+                            </Badge>
+                            <span className="text-[10px] font-bold text-slate-300">•</span>
+                            <span className="text-[10px] font-bold text-slate-400">{order.date}</span>
+                        </div>
+                    </div>
+                </div>
+            </td>
+            <td className="px-4 py-5">
+                <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-brand-500 shrink-0" />
+                    <span className="text-xs font-black text-slate-700 truncate">{order.customer}</span>
+                </div>
+            </td>
+            <td className="px-4 py-5">
+                <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-brand-500 shrink-0" />
+                    <span className="text-xs font-black text-slate-700 truncate">{order.seller}</span>
+                </div>
+            </td>
+            <td className="px-4 py-5" onClick={(e) => e.stopPropagation()}>
+                <div className="relative inline-block w-40">
+                    <select
+                        value={order.status}
+                        disabled={order.status === 'delivered' || order.status === 'cancelled'}
+                        onChange={(e) => onStatusUpdate(order._id, e.target.value)}
+                        className={cn(
+                            "w-full text-[10px] pl-3 pr-8 py-2 rounded-xl font-black uppercase tracking-wider border appearance-none transition-all outline-none shadow-sm",
+                            (order.status === 'delivered' || order.status === 'cancelled') ? "cursor-default opacity-80" : "cursor-pointer focus:ring-2 focus:ring-offset-1",
+                            getStatusStyles(order.status)
+                        )}
+                    >
+                        {order.status === 'pending' && (
+                            <>
+                                <option value="pending">Pending</option>
+                                <option value="confirmed">Confirm</option>
+                                <option value="cancelled">Cancel Order</option>
+                            </>
+                        )}
+                        {order.status === 'confirmed' && (
+                            <>
+                                <option value="confirmed">Confirmed</option>
+                                <option value="packed">Mark Packed</option>
+                                <option value="out_for_delivery">Out for Delivery</option>
+                                <option value="cancelled">Cancel Order</option>
+                            </>
+                        )}
+                        {order.status === 'packed' && (
+                            <>
+                                <option value="packed">Packed</option>
+                                <option value="out_for_delivery">Out for Delivery</option>
+                                <option value="cancelled">Cancel Order</option>
+                            </>
+                        )}
+                        {order.status === 'out_for_delivery' && (
+                            <>
+                                <option value="out_for_delivery">Out for Delivery</option>
+                                <option value="delivered">Mark Delivered</option>
+                                <option value="cancelled">Cancel Order</option>
+                            </>
+                        )}
+                        {order.status === 'delivered' && (
+                            <option value="delivered">Delivered</option>
+                        )}
+                        {order.status === 'cancelled' && (
+                            <option value="cancelled">Cancelled</option>
+                        )}
+                        {order.status === 'returned' && (
+                            <option value="returned">Returned</option>
+                        )}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-50" />
+                </div>
+            </td>
+            <td className="px-4 py-5 text-right font-black text-slate-900 text-sm">
+                <div className="flex flex-col items-end">
+                    <span>₹{order.amount.toLocaleString()}</span>
+                    <span className="text-[10px] font-bold text-slate-400 mt-0.5">{order.payment}</span>
+                </div>
+            </td>
+            <td className="px-4 py-5 text-right" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-end gap-2">
+                    {status === 'processed' && order.status === 'confirmed' && (
+                        <button
+                            onClick={() => onStatusUpdate(order._id, 'packed')}
+                            className="flex items-center gap-2 px-4 py-2 bg-black text-primary-foreground rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-brand-700 transition-all shadow-lg shadow-brand-100"
+                        >
+                            <Package className="h-3.5 w-3.5" />
+                            MARK PACKED
+                        </button>
+                    )}
+                    {status === 'processed' && order.status === 'packed' && (
+                        <button
+                            onClick={() => onStatusUpdate(order._id, 'out_for_delivery')}
+                            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-purple-700 transition-all shadow-lg shadow-purple-100"
+                        >
+                            <Truck className="h-3.5 w-3.5" />
+                            DISPATCH
+                        </button>
+                    )}
+                    <button
+                        onClick={() => onNavigate(order.id)}
+                        className="p-2.5 bg-slate-50 text-slate-400 hover:text-fuchsia-600 hover:bg-fuchsia-100 rounded-xl transition-all"
+                        title="View Details"
+                    >
+                        <Eye className="h-4 w-4" />
+                    </button>
+                </div>
+            </td>
+        </tr>
+    );
+});
 
 const OrdersList = () => {
     const { status = 'all' } = useParams();
@@ -148,7 +298,11 @@ const OrdersList = () => {
         }
     };
 
-    const handleStatusUpdate = async (orderId, newStatus) => {
+    const handleNavigate = useCallback((orderId) => {
+        navigate(`/admin/orders/view/${orderId}`);
+    }, [navigate]);
+
+    const handleStatusUpdate = useCallback(async (orderId, newStatus) => {
         try {
             await adminApi.updateOrderStatus(orderId, { status: newStatus });
             showToast(`Order status updated to ${newStatus}`, "success");
@@ -157,7 +311,7 @@ const OrdersList = () => {
             console.error("Failed to update status:", error);
             showToast(error.response?.data?.message || error.message || "Failed to update status", "error");
         }
-    };
+    }, [fetchOrders, showToast]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -197,19 +351,6 @@ const OrdersList = () => {
             return matchesSearch && matchesStatus;
         });
     }, [safeOrders, searchTerm, status]);
-
-    const getStatusStyles = (status) => {
-        switch (String(status || '').toLowerCase()) {
-            case 'pending': return 'bg-amber-100 text-amber-600 border-amber-200';
-            case 'confirmed': return 'bg-brand-100 text-brand-600 border-brand-200';
-            case 'packed': return 'bg-brand-100 text-brand-600 border-brand-200';
-            case 'out_for_delivery': return 'bg-purple-100 text-purple-600 border-purple-200';
-            case 'delivered': return 'bg-brand-100 text-brand-600 border-brand-200';
-            case 'cancelled': return 'bg-rose-100 text-rose-600 border-rose-200';
-            case 'returned': return 'bg-slate-100 text-slate-600 border-slate-200';
-            default: return 'bg-gray-100 text-gray-600 border-gray-200';
-        }
-    };
 
     const handleExport = () => {
         if (safeOrders.length === 0) {
@@ -373,10 +514,10 @@ const OrdersList = () => {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto [contain:paint] will-change-scroll">
                     <table className="w-full text-left">
                         <thead>
-                            <tr className="bg-slate-50/50">
+                            <tr className="bg-slate-50/90 backdrop-blur-sm sticky top-0 z-10">
                                 <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Order Details</th>
                                 <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Customer</th>
                                 <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Seller</th>
@@ -395,146 +536,17 @@ const OrdersList = () => {
                                         </div>
                                     </td>
                                 </tr>
-                            ) : filteredOrders.length > 0 ? filteredOrders.map((order) => (
-                                <tr key={order.id} className="group hover:bg-slate-50/30 transition-all cursor-pointer" onClick={() => navigate(`/admin/orders/view/${order.id}`)}>
-                                    <td className="px-4 py-5">
-                                        <div className="flex items-center gap-4">
-                                            <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-white group-hover:shadow-sm transition-all text-slate-400 group-hover:text-fuchsia-500 font-bold text-xs">
-                                                <Package className="h-5 w-5" />
-                                            </div>
-                                            <div>
-                                                <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                                                    #{order.id}
-                                                    {order.fulfillmentType === 'SHIPROCKET' ? (
-                                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
-                                                            Shiprocket
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                            Local
-                                                        </span>
-                                                    )}
-                                                    <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-all text-slate-400" />
-                                                </h4>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <Badge variant="outline" className="text-[9px] font-bold border-slate-200 text-slate-400 py-0.5">
-                                                        {order.items} {order.items > 1 ? 'Items' : 'Item'}
-                                                    </Badge>
-                                                    <span className="text-[10px] font-bold text-slate-300">•</span>
-                                                    <span className="text-[10px] font-bold text-slate-400">{order.date}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-5">
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-2 w-2 rounded-full bg-brand-500" />
-                                            <span className="text-xs font-black text-slate-700">{order.customer}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-5">
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-2 w-2 rounded-full bg-brand-500" />
-                                            <span className="text-xs font-black text-slate-700">{order.seller}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-5" onClick={(e) => e.stopPropagation()}>
-                                        <div className="relative inline-block w-40">
-                                            <select
-                                                value={order.status}
-                                                disabled={order.status === 'delivered' || order.status === 'cancelled'}
-                                                onChange={(e) => handleStatusUpdate(order._id, e.target.value)}
-                                                className={cn(
-                                                    "w-full text-[10px] pl-3 pr-8 py-2 rounded-xl font-black uppercase tracking-wider border appearance-none transition-all outline-none shadow-sm",
-                                                    (order.status === 'delivered' || order.status === 'cancelled') ? "cursor-default opacity-80" : "cursor-pointer focus:ring-2 focus:ring-offset-1",
-                                                    getStatusStyles(order.status)
-                                                )}
-                                            >
-                                                {order.status === 'pending' && (
-                                                    <>
-                                                        <option value="pending">Pending</option>
-                                                        <option value="confirmed">Confirm</option>
-                                                        <option value="cancelled">Cancel Order</option>
-                                                    </>
-                                                )}
-                                                {order.status === 'confirmed' && (
-                                                    <>
-                                                        <option value="confirmed">Confirmed</option>
-                                                        <option value="packed">Mark Packed</option>
-                                                        <option value="out_for_delivery">Out for Delivery</option>
-                                                        <option value="cancelled">Cancel Order</option>
-                                                    </>
-                                                )}
-                                                {order.status === 'packed' && (
-                                                    <>
-                                                        <option value="packed">Packed</option>
-                                                        <option value="out_for_delivery">Out for Delivery</option>
-                                                        <option value="cancelled">Cancel Order</option>
-                                                    </>
-                                                )}
-                                                {order.status === 'out_for_delivery' && (
-                                                    <>
-                                                        <option value="out_for_delivery">Out for Delivery</option>
-                                                        <option value="delivered">Delivered</option>
-                                                        <option value="cancelled">Cancel Order</option>
-                                                    </>
-                                                )}
-                                                {order.status === 'delivered' && (
-                                                    <option value="delivered">Delivered</option>
-                                                )}
-                                                {order.status === 'cancelled' && (
-                                                    <option value="cancelled">Cancelled</option>
-                                                )}
-                                            </select>
-                                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none opacity-60" />
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-5 text-right">
-                                        <div className="flex flex-col items-end">
-                                            <span className="text-sm font-black text-slate-900">₹{order.amount.toLocaleString()}</span>
-                                            <span className="text-[10px] font-bold text-slate-400 mt-0.5">{order.payment}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-5 text-right">
-                                        <div className="flex items-center justify-end gap-2">
-                                            {status === 'processed' && order.status === 'confirmed' && (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleStatusUpdate(order._id, 'packed');
-                                                    }}
-                                                    className="flex items-center gap-2 px-4 py-2 bg-black  text-primary-foreground rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-brand-700 transition-all shadow-lg shadow-brand-100"
-                                                >
-                                                    <Package className="h-3.5 w-3.5" />
-                                                    MARK PACKED
-                                                </button>
-                                            )}
-                                            {status === 'processed' && order.status === 'packed' && (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleStatusUpdate(order._id, 'out_for_delivery');
-                                                    }}
-                                                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-purple-700 transition-all shadow-lg shadow-purple-100"
-                                                >
-                                                    <Truck className="h-3.5 w-3.5" />
-                                                    DISPATCH
-                                                </button>
-                                            )}
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    navigate(`/admin/orders/view/${order.id}`);
-                                                }}
-                                                className="p-2.5 bg-slate-50 text-slate-400 hover:text-fuchsia-600 hover:bg-fuchsia-100 rounded-xl transition-all"
-                                                title="View Details"
-                                            >
-                                                <Eye className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            )) : (
+                            ) : filteredOrders.length > 0 ? (
+                                filteredOrders.map((order) => (
+                                    <AdminOrderTableRow
+                                        key={order.id}
+                                        order={order}
+                                        status={status}
+                                        onNavigate={handleNavigate}
+                                        onStatusUpdate={handleStatusUpdate}
+                                    />
+                                ))
+                            ) : (
                                 <tr>
                                     <td colSpan="6" className="px-4 py-20 text-center">
                                         <div className="flex flex-col items-center gap-4">

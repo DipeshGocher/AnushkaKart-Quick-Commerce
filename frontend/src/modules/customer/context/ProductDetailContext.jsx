@@ -20,6 +20,8 @@ export const useProductDetail = () => {
     return context;
 };
 
+const productSummaryCache = new Map();
+
 export const ProductDetailProvider = ({ children }) => {
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [isOpen, setIsOpen] = useState(false);
@@ -34,22 +36,33 @@ export const ProductDetailProvider = ({ children }) => {
         if (productParam) {
             const currentIdOrSlug = selectedProduct?.slug || selectedProduct?._id || selectedProduct?.id;
             if (currentIdOrSlug !== productParam) {
+                // Check if already in cache for instant display
+                if (productSummaryCache.has(productParam)) {
+                    setSelectedProduct(productSummaryCache.get(productParam));
+                    setIsOpen(true);
+                }
+
                 const params = {};
                 if (currentLocation?.latitude && currentLocation?.longitude) {
                     params.lat = currentLocation.latitude;
                     params.lng = currentLocation.longitude;
                 }
 
-                setIsLoading(true);
+                setIsLoading(!productSummaryCache.has(productParam));
                 setError(null);
 
                 customerApi.getProductById(productParam, params)
                     .then(res => {
                         if (res.data?.success) {
                             const p = res.data.result || res.data.results || res.data.data || res.data;
-                            setSelectedProduct(p);
-                            setIsOpen(true);
-                            setError(null);
+                            if (p) {
+                                const pid = p._id || p.id;
+                                if (pid) productSummaryCache.set(String(pid), p);
+                                if (p.slug) productSummaryCache.set(String(p.slug), p);
+                                setSelectedProduct(p);
+                                setIsOpen(true);
+                                setError(null);
+                            }
                         }
                     })
                     .catch(err => {
@@ -71,9 +84,14 @@ export const ProductDetailProvider = ({ children }) => {
 
     const openProduct = (product) => {
         if (!product) return;
+        const pid = product._id || product.id;
+        const slug = product.slug;
+        if (pid) productSummaryCache.set(String(pid), product);
+        if (slug) productSummaryCache.set(String(slug), product);
+
         setSelectedProduct(product);
         setIsOpen(true);
-        const idOrSlug = product.slug || product._id || product.id;
+        const idOrSlug = slug || pid;
         if (idOrSlug) {
             setSearchParams((prev) => {
                 const next = new URLSearchParams(prev);

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import Card from "@shared/components/ui/Card";
 import Badge from "@shared/components/ui/Badge";
 import Input from "@shared/components/ui/Input";
@@ -26,6 +26,97 @@ import { toast } from "sonner";
 import { exportToCSV } from "@/lib/exportUtils";
 import { useSellerEarnings } from "../context/SellerEarningsContext";
 import Pagination from "@shared/components/ui/Pagination";
+
+const TransactionTableRow = React.memo(({ txn, onSelect, onDownloadReceipt }) => {
+  return (
+    <tr
+      onClick={() => onSelect(txn)}
+      className="group hover:bg-slate-50/50 transition-colors cursor-pointer"
+    >
+      <td className="px-6 py-5">
+        <div className="flex items-center gap-4">
+          <div
+            className={cn(
+              "h-10 w-10 rounded-lg flex items-center justify-center font-black transition-all group-hover:scale-110",
+              txn.amount > 0
+                ? "bg-brand-50 text-brand-600"
+                : "bg-rose-50 text-rose-600",
+            )}>
+            {txn.amount > 0 ? (
+              <HiOutlineArrowDownLeft className="h-5 w-5" />
+            ) : (
+              <HiOutlineArrowUpRight className="h-5 w-5" />
+            )}
+          </div>
+          <div>
+            <p className="text-sm font-black text-slate-900 group-hover:text-primary transition-colors">
+              {txn.id ?? txn.ref ?? "—"}
+            </p>
+            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+              {txn.type ?? "—"}
+            </p>
+          </div>
+        </div>
+      </td>
+      <td className="px-6 py-5">
+        <p className="text-xs font-bold text-slate-900">
+          {txn.customer ?? "—"}
+        </p>
+        <div className="flex items-center gap-1.5 mt-1">
+          <Badge className="text-[10px] sm:text-xs px-1 py-0 bg-slate-100 text-slate-600 font-bold border-none">
+            {txn.ref ?? "—"}
+          </Badge>
+          <span className="text-[10px] sm:text-xs text-slate-600 font-bold uppercase tracking-tighter">
+            {txn.date ?? (txn.createdAt ? new Date(txn.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : "—")} • {txn.time ?? (txn.createdAt ? new Date(txn.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—")}
+          </span>
+        </div>
+      </td>
+      <td className="px-6 py-5">
+        <p
+          className={cn(
+            "text-sm font-black tracking-tight",
+            Number(txn.amount ?? 0) > 0
+              ? "text-brand-600"
+              : "text-rose-600",
+          )}>
+          {Number(txn.amount ?? 0) > 0 ? "+" : ""}₹
+          {Math.abs(Number(txn.amount ?? 0)).toLocaleString()}
+        </p>
+        <p className="text-[10px] sm:text-xs font-bold text-slate-600 mt-0.5">
+          Settlement: {(txn.status ?? "") === "Settled" ? "Complete" : "T+2"}
+        </p>
+      </td>
+      <td className="px-6 py-5">
+        <Badge
+          variant={
+            txn.status === "Settled"
+              ? "success"
+              : txn.status === "Pending" || txn.status === "Processing"
+                ? "warning"
+                : "default"
+          }
+          className="text-[10px] sm:text-xs font-black uppercase tracking-widest px-2-5 py-0.5 rounded-lg">
+          {txn.status === "Settled" ? (
+            <HiOutlineCheckCircle className="mr-1 h-3 w-3" />
+          ) : (
+            <HiOutlineClock className="mr-1 h-3 w-3" />
+          )}
+          {txn.status}
+        </Badge>
+      </td>
+      <td className="px-6 py-5 text-right">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDownloadReceipt(txn);
+          }}
+          className="h-9 w-9 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all ml-auto">
+          <HiOutlineArrowDownTray className="h-5 w-5" />
+        </button>
+      </td>
+    </tr>
+  );
+});
 
 const Transactions = () => {
   const { earningsData: data, earningsLoading: loading } = useSellerEarnings();
@@ -97,7 +188,12 @@ const Transactions = () => {
     return filteredTransactions.slice(start, end);
   }, [filteredTransactions, page, pageSize]);
 
-  const handleDownloadReceipt = (txn) => {
+  const handleSelectTxn = useCallback((txn) => {
+    setSelectedTxn(txn);
+    setIsDetailModalOpen(true);
+  }, []);
+
+  const handleDownloadReceipt = useCallback((txn) => {
     try {
       const record = {
         id: txn.id ?? txn.ref ?? "",
@@ -135,7 +231,7 @@ const Transactions = () => {
       console.error("Receipt download error:", error);
       toast.error("Failed to download receipt");
     }
-  };
+  }, []);
 
   if (loading) {
     return <div className="flex items-center justify-center h-screen font-black text-slate-600">LOADING TRANSACTIONS...</div>;
@@ -263,10 +359,10 @@ const Transactions = () => {
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto [contain:paint] will-change-scroll">
             <table className="w-full text-left min-w-[720px]">
               <thead>
-                <tr className="bg-slate-50/50 border-b border-slate-100">
+                <tr className="bg-slate-50/90 backdrop-blur-sm sticky top-0 z-10 border-b border-slate-100">
                   <th className="px-6 py-4 text-xs font-black text-slate-600 uppercase tracking-widest">
                     Transaction Details
                   </th>
@@ -285,108 +381,22 @@ const Transactions = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                <AnimatePresence>
-                  {filteredTransactions.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-slate-600 text-sm font-medium">
-                        {ledger.length === 0 ? "No transactions yet." : "No matches for your search or filter."}
-                      </td>
-                    </tr>
-                  ) : paginatedTransactions.map((txn, idx) => (
-                    <motion.tr
+                {filteredTransactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-slate-600 text-sm font-medium">
+                      {ledger.length === 0 ? "No transactions yet." : "No matches for your search or filter."}
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedTransactions.map((txn, idx) => (
+                    <TransactionTableRow
                       key={txn.id || txn.ref || txn.reference || `txn-${idx}`}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      onClick={() => {
-                        setSelectedTxn(txn);
-                        setIsDetailModalOpen(true);
-                      }}
-                      className="group hover:bg-slate-50/50 transition-all cursor-pointer">
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-4">
-                          <div
-                            className={cn(
-                              "h-10 w-10 rounded-lg flex items-center justify-center font-black transition-all group-hover:scale-110",
-                              txn.amount > 0
-                                ? "bg-brand-50 text-brand-600"
-                                : "bg-rose-50 text-rose-600",
-                            )}>
-                            {txn.amount > 0 ? (
-                              <HiOutlineArrowDownLeft className="h-5 w-5" />
-                            ) : (
-                              <HiOutlineArrowUpRight className="h-5 w-5" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-sm font-black text-slate-900 group-hover:text-primary transition-colors">
-                              {txn.id ?? txn.ref ?? "—"}
-                            </p>
-                            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-                              {txn.type ?? "—"}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <p className="text-xs font-bold text-slate-900">
-                          {txn.customer ?? "—"}
-                        </p>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <Badge className="text-[10px] sm:text-xs px-1 py-0 bg-slate-100 text-slate-600 font-bold border-none">
-                            {txn.ref ?? "—"}
-                          </Badge>
-                          <span className="text-[10px] sm:text-xs text-slate-600 font-bold uppercase tracking-tighter">
-                            {txn.date ?? (txn.createdAt ? new Date(txn.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : "—")} • {txn.time ?? (txn.createdAt ? new Date(txn.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—")}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <p
-                          className={cn(
-                            "text-sm font-black tracking-tight",
-                            Number(txn.amount ?? 0) > 0
-                              ? "text-brand-600"
-                              : "text-rose-600",
-                          )}>
-                          {Number(txn.amount ?? 0) > 0 ? "+" : ""}₹
-                          {Math.abs(Number(txn.amount ?? 0)).toLocaleString()}
-                        </p>
-                        <p className="text-[10px] sm:text-xs font-bold text-slate-600 mt-0.5">
-                          Settlement: {(txn.status ?? "") === "Settled" ? "Complete" : "T+2"}
-                        </p>
-                      </td>
-                      <td className="px-6 py-5">
-                        <Badge
-                          variant={
-                            txn.status === "Settled"
-                              ? "success"
-                              : txn.status === "Pending" || txn.status === "Processing"
-                                ? "warning"
-                                : "default"
-                          }
-                          className="text-[10px] sm:text-xs font-black uppercase tracking-widest px-2-5 py-0.5 rounded-lg">
-                          {txn.status === "Settled" ? (
-                            <HiOutlineCheckCircle className="mr-1 h-3 w-3" />
-                          ) : (
-                            <HiOutlineClock className="mr-1 h-3 w-3" />
-                          )}
-                          {txn.status}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-5 text-right">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDownloadReceipt(txn);
-                          }}
-                          className="h-9 w-9 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all ml-auto">
-                          <HiOutlineArrowDownTray className="h-5 w-5" />
-                        </button>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
+                      txn={txn}
+                      onSelect={handleSelectTxn}
+                      onDownloadReceipt={handleDownloadReceipt}
+                    />
+                  ))
+                )}
               </tbody>
             </table>
           </div>

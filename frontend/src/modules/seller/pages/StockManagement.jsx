@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '@shared/components/ui/Card';
 import Button from '@shared/components/ui/Button';
@@ -28,6 +28,77 @@ import { MagicCard } from '@/components/ui/magic-card';
 import { sellerApi } from '../services/sellerApi';
 import { toast } from 'sonner';
 
+const StockTableRow = React.memo(({ item, onAdjust }) => {
+    return (
+        <tr className="group hover:bg-slate-50/80 transition-colors cursor-default">
+            <td className="px-6 py-5">
+                <div className="flex items-center gap-4 group">
+                    <div className="h-12 w-12 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 group-hover:scale-105 transition-transform overflow-hidden shrink-0">
+                        {item.mainImage ? (
+                            <img 
+                                src={item.mainImage} 
+                                alt={item.name} 
+                                loading="lazy"
+                                decoding="async"
+                                className="h-full w-full object-cover transform-gpu" 
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                        ) : (
+                            <HiOutlineCube className="h-6 w-6" />
+                        )}
+                    </div>
+                    <div className="min-w-0">
+                        <h4 className="text-sm font-black text-slate-900 group-hover:text-primary transition-colors truncate">
+                            {item.name}
+                        </h4>
+                        <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest truncate">
+                            Product Code: {item.sku || 'N/A'}
+                        </p>
+                    </div>
+                </div>
+            </td>
+            <td className="px-6 py-5">
+                <div className="flex items-center gap-2">
+                    <div className="flex flex-col">
+                        <span
+                            className={cn(
+                                "text-sm font-black",
+                                item.stock <= item.threshold ? "text-rose-600" : "text-slate-900"
+                            )}
+                        >
+                            {item.stock} units
+                        </span>
+                        {item.stock <= item.threshold && (
+                            <span className="text-[9px] font-bold text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded w-fit mt-0.5">
+                                Low Stock
+                            </span>
+                        )}
+                    </div>
+                </div>
+            </td>
+            <td className="px-6 py-5">
+                <Badge
+                    variant={item.status === 'In Stock' ? 'success' : 'destructive'}
+                    className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg"
+                >
+                    {item.status}
+                </Badge>
+            </td>
+            <td className="px-6 py-5">
+                <p className="text-sm font-black text-slate-900">₹{item.price}</p>
+            </td>
+            <td className="px-6 py-5 text-right">
+                <button
+                    onClick={() => onAdjust(item)}
+                    className="px-4 py-2 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold hover:bg-slate-200 transition-colors"
+                >
+                    Adjust Stock
+                </button>
+            </td>
+        </tr>
+    );
+});
+
 const StockManagement = () => {
     const navigate = useNavigate();
     const [activeView, setActiveView] = useState('inventory'); // 'inventory' or 'history'
@@ -49,41 +120,45 @@ const StockManagement = () => {
     const fetchInventory = async (silent = false, stockStatus) => {
         if (!silent) setIsLoading(true);
         try {
-            const requestLimit = 100;
-            const maxPages = 50;
-            let requestedPage = 1;
-            let totalPages = 1;
-            const collected = [];
+            const params = { page: 1, limit: 500 };
+            if (stockStatus === 'in') params.stockStatus = 'in';
+            if (stockStatus === 'out') params.stockStatus = 'out';
 
-            while (requestedPage <= totalPages && requestedPage <= maxPages) {
-                const params = { page: requestedPage, limit: requestLimit };
-                if (stockStatus === 'in') params.stockStatus = 'in';
-                if (stockStatus === 'out') params.stockStatus = 'out';
+            const res = await sellerApi.getProducts(params);
+            if (!res.data.success) return;
 
-                const res = await sellerApi.getProducts(params);
-                if (!res.data.success) break;
+            const payload = res.data.result || {};
+            let rawProducts = Array.isArray(payload.items)
+                ? payload.items
+                : (res.data.results || []);
 
-                // Backend returns handleResponse(..., { items, page, limit, total, totalPages })
-                const payload = res.data.result || {};
-                const rawProducts = Array.isArray(payload.items)
-                    ? payload.items
-                    : (res.data.results || []);
+            const totalPages = Number(payload.totalPages || 1);
 
-                collected.push(...rawProducts);
-                totalPages = Number(payload.totalPages || 1);
-
-                if (!rawProducts.length || requestedPage >= totalPages) {
-                    break;
+            // If there are more items beyond 500, fetch remaining pages in parallel (up to 2000 items max)
+            if (totalPages > 1) {
+                const remainingPageNumbers = [];
+                for (let p = 2; p <= Math.min(totalPages, 4); p++) {
+                    remainingPageNumbers.push(p);
                 }
-                requestedPage += 1;
+                const additionalResults = await Promise.allSettled(
+                    remainingPageNumbers.map(p => sellerApi.getProducts({ ...params, page: p }))
+                );
+                additionalResults.forEach(r => {
+                    if (r.status === 'fulfilled' && r.value.data?.success) {
+                        const moreItems = Array.isArray(r.value.data.result?.items)
+                            ? r.value.data.result.items
+                            : (r.value.data.results || []);
+                        rawProducts = rawProducts.concat(moreItems);
+                    }
+                });
             }
 
-            const safeProducts = Array.isArray(collected) ? collected : [];
+            const safeProducts = Array.isArray(rawProducts) ? rawProducts : [];
 
             setInventory(
                 safeProducts.map(p => ({
                     ...p,
-                    id: p._id,
+                    id: p._id || p.id,
                     threshold: p.lowStockAlert || 5,
                     status:
                         p.stock === 0
@@ -179,12 +254,12 @@ const StockManagement = () => {
         }
     };
 
-    const openAdjustModal = (item) => {
+    const openAdjustModal = useCallback((item) => {
         setSelectedItem(item);
         setAdjustValue('');
         setAdjustNote('');
         setIsAdjustModalOpen(true);
-    };
+    }, []);
 
     if (isLoading && inventory.length === 0 && history.length === 0) {
         return <div className="flex items-center justify-center h-screen font-black text-slate-600">LOADING STOCK DATA...</div>;
@@ -297,10 +372,10 @@ const StockManagement = () => {
                             </div>
 
                             {/* Stock Table */}
-                            <div className="overflow-x-auto">
+                            <div className="overflow-x-auto will-change-scroll [contain:paint]">
                                 <table className="w-full text-left">
                                     <thead>
-                                        <tr className="bg-slate-50/50 border-b border-slate-100">
+                                        <tr className="bg-slate-50/90 backdrop-blur-sm sticky top-0 z-10 border-b border-slate-100">
                                             <th className="px-6 py-4 text-xs font-black text-slate-600 uppercase tracking-widest">Product Information</th>
                                             <th className="px-6 py-4 text-xs font-black text-slate-600 uppercase tracking-widest">Inventory Capacity</th>
                                             <th className="px-6 py-4 text-xs font-black text-slate-600 uppercase tracking-widest">Stock Health</th>
@@ -319,77 +394,15 @@ const StockManagement = () => {
                                                 </td>
                                             </tr>
                                         ) : (
-                                            <AnimatePresence>
-                                                {filteredInventory
-                                                    .slice((page - 1) * pageSize, page * pageSize)
-                                                    .map((item) => (
-                                                        <motion.tr
-                                                            key={item.id}
-                                                            initial={{ opacity: 0 }}
-                                                            animate={{ opacity: 1 }}
-                                                            exit={{ opacity: 0 }}
-                                                            className="group hover:bg-slate-50/80 transition-all cursor-default"
-                                                        >
-                                                            <td className="px-6 py-5">
-                                                                <div className="flex items-center gap-4 group">
-                                                                    <div className="h-12 w-12 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 group-hover:scale-105 transition-transform overflow-hidden">
-                                                                        {item.mainImage ? (
-                                                                            <img src={item.mainImage} alt={item.name} className="h-full w-full object-cover" />
-                                                                        ) : (
-                                                                            <HiOutlineCube className="h-6 w-6" />
-                                                                        )}
-                                                                    </div>
-                                                                    <div>
-                                                                        <h4 className="text-sm font-black text-slate-900 group-hover:text-primary transition-colors">
-                                                                            {item.name}
-                                                                        </h4>
-                                                                        <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">
-                                                                            Product Code: {item.sku || 'N/A'}
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-6 py-5">
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className="flex flex-col">
-                                                                        <span
-                                                                            className={cn(
-                                                                                "text-sm font-black",
-                                                                                item.stock <= item.threshold ? "text-rose-600" : "text-slate-900"
-                                                                            )}
-                                                                        >
-                                                                            {item.stock} units
-                                                                        </span>
-                                                                        {item.stock <= item.threshold && (
-                                                                            <span className="text-[9px] font-bold text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded w-fit mt-0.5">
-                                                                                Low Stock
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-6 py-5">
-                                                                <Badge
-                                                                    variant={item.status === 'In Stock' ? 'success' : 'destructive'}
-                                                                    className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg"
-                                                                >
-                                                                    {item.status}
-                                                                </Badge>
-                                                            </td>
-                                                            <td className="px-6 py-5">
-                                                                <p className="text-sm font-black text-slate-900">₹{item.price}</p>
-                                                            </td>
-                                                            <td className="px-6 py-5 text-right">
-                                                                <button
-                                                                    onClick={() => openAdjustModal(item)}
-                                                                    className="px-4 py-2 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold hover:bg-slate-200 transition-colors"
-                                                                >
-                                                                    Adjust Stock
-                                                                </button>
-                                                            </td>
-                                                        </motion.tr>
-                                                    ))}
-                                            </AnimatePresence>
+                                            filteredInventory
+                                                .slice((page - 1) * pageSize, page * pageSize)
+                                                .map((item) => (
+                                                    <StockTableRow
+                                                        key={item.id}
+                                                        item={item}
+                                                        onAdjust={openAdjustModal}
+                                                    />
+                                                ))
                                         )}
                                     </tbody>
                                 </table>

@@ -36,7 +36,7 @@ const getItems = (response) => {
  * 3. Variant (below name)
  * 4. Price (below variant)
  */
-const NewArrivalProductCard = ({ product }) => {
+const NewArrivalProductCard = React.memo(({ product }) => {
   const { openProduct } = useProductDetail();
   const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
   const { openVariantSelection } = useVariantSelection();
@@ -136,6 +136,7 @@ const NewArrivalProductCard = ({ product }) => {
             src={applyCloudinaryTransform(image, "f_auto,q_auto,w_300")}
             alt={product.name}
             loading="lazy"
+            decoding="async"
             className="w-full h-full object-contain p-1 transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
@@ -212,7 +213,7 @@ const NewArrivalProductCard = ({ product }) => {
       </div>
     </div>
   );
-};
+});
 
 const NewArrivalsSection = ({ latitude, longitude }) => {
   const [products, setProducts] = useState([]);

@@ -31,6 +31,8 @@ const QuickCategorySlider = ({ categories, onCategoryClick }) => {
 
         <div
           ref={scrollRef}
+          data-lenis-prevent
+          style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}
           className="relative z-10 flex items-start gap-4 md:gap-5 overflow-x-auto no-scrollbar px-4 pb-3 pt-2 snap-x scroll-smooth">
           {categories.map((cat, index) => {
             return (
@@ -42,9 +44,10 @@ const QuickCategorySlider = ({ categories, onCategoryClick }) => {
                 <div
                   className="w-[84px] h-[84px] md:w-[100px] md:h-[100px] bg-[#f4f4f4] border border-[#e5e7eb] rounded-2xl overflow-hidden flex items-center justify-center shadow-2xs transition-all duration-300 group-hover/item:-translate-y-1 group-hover/item:bg-[#eaeaea] group-hover/item:shadow-sm p-0">
                   <img
-                    src={applyCloudinaryTransform(cat.image, "f_auto,q_auto,w_300,dpr_auto")}
+                    src={applyCloudinaryTransform(cat.image, "f_auto,q_auto,w_200,h_200,c_fill")}
                     alt={cat.name}
                     loading={index < 5 ? "eager" : "lazy"}
+                    decoding="async"
                     fetchPriority={index < 5 ? "high" : "auto"}
                     className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-300"
                   />

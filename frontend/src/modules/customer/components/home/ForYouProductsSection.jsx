@@ -35,7 +35,7 @@ const truncateCategoryName = (name, maxLength = 12) => {
 
 
 
-const ForYouProductsSection = ({ categories: propCategories, latitude, longitude }) => {
+const ForYouProductsSection = React.memo(({ categories: propCategories, latitude, longitude }) => {
   const { openProduct } = useProductDetail();
   const { language } = useTranslation();
   const { translateObject } = useDynamicTranslation();
@@ -236,7 +236,7 @@ const ForYouProductsSection = ({ categories: propCategories, latitude, longitude
     return () => observer.disconnect();
   }, [hasMore, isLoading, isLoadingMore, activeTab, fetchProducts]);
 
-  const handleTabSelect = (tabId, element) => {
+  const handleTabSelect = useCallback((tabId, element) => {
     if (tabId === activeTab) return;
     setActiveTab(tabId);
 
@@ -248,7 +248,7 @@ const ForYouProductsSection = ({ categories: propCategories, latitude, longitude
         inline: "center",
       });
     }
-  };
+  }, [activeTab]);
 
   return (
     <section className="w-full mt-2 mb-4">
@@ -415,6 +415,6 @@ const ForYouProductsSection = ({ categories: propCategories, latitude, longitude
       </div>
     </section>
   );
-};
+});
 
 export default ForYouProductsSection;

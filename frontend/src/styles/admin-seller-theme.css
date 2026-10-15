@@ -44,3 +44,60 @@
 .seller-primary-btn:active {
   background-color: #4F4FDD;
 }
+
+/* ==========================================================================
+   Smooth Scrolling & Table Performance Optimizations (Admin & Seller Panels)
+   ========================================================================== */
+
+/* Enable hardware momentum smooth scroll on all panels and overflow containers */
+html,
+body,
+#root {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Table scroll wrapper optimization */
+.overflow-x-auto,
+.overflow-y-auto,
+.overflow-auto {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;
+}
+
+/* Lightweight row hover transitions to eliminate FPS drop during scroll */
+table tr {
+  transition: background-color 0.12s ease;
+  contain: paint;
+}
+
+/* Async image decode & rendering isolation for table thumbnails */
+table img {
+  image-rendering: auto;
+  content-visibility: auto;
+  transform: translateZ(0);
+}
+
+/* Custom modern smooth scrollbar */
+.overflow-x-auto::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-track,
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb,
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb:hover,
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
+}

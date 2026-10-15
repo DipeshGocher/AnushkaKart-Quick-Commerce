@@ -7,14 +7,33 @@
   <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
   <link rel="apple-touch-icon" href="/logo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#ffffff" />
+
+  <!-- ── Critical preconnects: DNS + TLS handshake before JS runs ── -->
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Cloudinary CDN (product images load instantly) -->
   <link rel="preconnect" href="https://res.cloudinary.com" crossorigin>
-  <link rel="preconnect" href="https://images.unsplash.com" crossorigin>
+
+  <!-- Razorpay payment SDK (checkout) -->
+  <link rel="preconnect" href="https://api.razorpay.com" crossorigin>
+  <link rel="dns-prefetch" href="https://checkout.razorpay.com">
+
+  <!-- Firebase FCM (push notifications) -->
+  <link rel="dns-prefetch" href="https://fcm.googleapis.com">
+  <link rel="dns-prefetch" href="https://firebaseinstallations.googleapis.com">
+
+  <!-- Google Maps (geocoding/serviceability) -->
+  <link rel="dns-prefetch" href="https://maps.googleapis.com">
+
+  <!-- ── Google Fonts: display=swap prevents invisible text (FOIT) ── -->
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet">
-  <title>Anushka Store - Fresh Grocery Delivery</title>
+
+  <title>AnushkaKart - Quick Commerce & E-Commerce</title>
 </head>
 
 <body>
@@ -23,3 +42,4 @@
 </body>
 
 </html>
+

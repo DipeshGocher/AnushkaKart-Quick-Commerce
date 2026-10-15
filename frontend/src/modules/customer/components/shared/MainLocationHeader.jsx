@@ -74,6 +74,7 @@ function CategoryNavColumn({
   onItemClick,
   isScrolled = false,
   headerTextColor = null,
+  layoutIdPrefix = "desktop",
 }) {
   const isTextOnlyMode = !isAllCategory || isScrolled;
   const displayName = truncateCategoryName(cat.name, 12);
@@ -149,7 +150,7 @@ function CategoryNavColumn({
       {/* Full underline bar directly matching the reference image */}
       {isActive && (
         <motion.span
-          layoutId="category-nav-indicator"
+          layoutId={`category-nav-indicator-${layoutIdPrefix}`}
           className="customer-category-nav-indicator absolute bottom-0 inset-x-1.5 h-[2.5px] rounded-full pointer-events-none"
           style={{
             backgroundColor: indicatorColor,
@@ -160,6 +161,89 @@ function CategoryNavColumn({
     </div>
   );
 }
+
+const SearchPlaceholderTypewriter = React.memo(() => {
+  const [searchPlaceholder, setSearchPlaceholder] = useState("Search ");
+  const [typingState, setTypingState] = useState({
+    textIndex: 0,
+    charIndex: 0,
+    isDeleting: false,
+    isPaused: false,
+  });
+
+  const staticText = "Search ";
+  const typingPhrases = [
+    '"bread"',
+    '"milk"',
+    '"chocolate"',
+    '"eggs"',
+    '"chips"',
+  ];
+
+  useEffect(() => {
+    const { textIndex, charIndex, isDeleting, isPaused } = typingState;
+    const currentPhrase = typingPhrases[textIndex];
+
+    if (isPaused) {
+      const timeout = setTimeout(() => {
+        setTypingState((prev) => ({
+          ...prev,
+          isPaused: false,
+          isDeleting: true,
+        }));
+      }, 2000);
+      return () => clearTimeout(timeout);
+    }
+
+    const timeout = setTimeout(
+      () => {
+        if (!isDeleting) {
+          if (charIndex < currentPhrase.length) {
+            setSearchPlaceholder(
+              staticText + currentPhrase.substring(0, charIndex + 1),
+            );
+            setTypingState((prev) => ({
+              ...prev,
+              charIndex: prev.charIndex + 1,
+            }));
+          } else {
+            setTypingState((prev) => ({ ...prev, isPaused: true }));
+          }
+        } else {
+          if (charIndex > 0) {
+            setSearchPlaceholder(
+              staticText + currentPhrase.substring(0, charIndex - 1),
+            );
+            setTypingState((prev) => ({
+              ...prev,
+              charIndex: prev.charIndex - 1,
+            }));
+          } else {
+            setTypingState((prev) => ({
+              ...prev,
+              isDeleting: false,
+              textIndex: (prev.textIndex + 1) % typingPhrases.length,
+            }));
+          }
+        }
+      },
+      isDeleting ? 50 : 100,
+    );
+
+    return () => clearTimeout(timeout);
+  }, [typingState]);
+
+  return (
+    <input
+      type="text"
+      placeholder={searchPlaceholder || "Search Products..."}
+      readOnly
+      tabIndex={-1}
+      className="min-w-0 flex-1 bg-transparent border-0 ring-0 outline-none focus:outline-none focus:ring-0 focus:border-0 focus-visible:outline-none focus-visible:ring-0 pl-2 text-slate-900 font-bold placeholder:text-slate-500 text-[13px] cursor-pointer pointer-events-none select-none shadow-none truncate"
+      style={{ outline: "none", border: "none", boxShadow: "none", WebkitTapHighlightColor: "transparent" }}
+    />
+  );
+});
 
 const MainLocationHeader = ({
   categories = [],
@@ -366,80 +450,6 @@ const MainLocationHeader = ({
     }
   };
 
-  // Search placeholder animation
-  const [searchPlaceholder, setSearchPlaceholder] = useState("Search ");
-  const [typingState, setTypingState] = useState({
-    textIndex: 0,
-    charIndex: 0,
-    isDeleting: false,
-    isPaused: false,
-  });
-
-  const staticText = "Search ";
-  const typingPhrases = [
-    '"bread"',
-    '"milk"',
-    '"chocolate"',
-    '"eggs"',
-    '"chips"',
-  ];
-
-  useEffect(() => {
-    const { textIndex, charIndex, isDeleting, isPaused } = typingState;
-    const currentPhrase = typingPhrases[textIndex];
-
-    if (isPaused) {
-      const timeout = setTimeout(() => {
-        setTypingState((prev) => ({
-          ...prev,
-          isPaused: false,
-          isDeleting: true,
-        }));
-      }, 2000); // Pause after full phrase
-      return () => clearTimeout(timeout);
-    }
-
-    const timeout = setTimeout(
-      () => {
-        if (!isDeleting) {
-          // Typing
-          if (charIndex < currentPhrase.length) {
-            setSearchPlaceholder(
-              staticText + currentPhrase.substring(0, charIndex + 1),
-            );
-            setTypingState((prev) => ({
-              ...prev,
-              charIndex: prev.charIndex + 1,
-            }));
-          } else {
-            // Finished typing
-            setTypingState((prev) => ({ ...prev, isPaused: true }));
-          }
-        } else {
-          // Deleting
-          if (charIndex > 0) {
-            setSearchPlaceholder(
-              staticText + currentPhrase.substring(0, charIndex - 1),
-            );
-            setTypingState((prev) => ({
-              ...prev,
-              charIndex: prev.charIndex - 1,
-            }));
-          } else {
-            // Finished deleting
-            setTypingState((prev) => ({
-              ...prev,
-              isDeleting: false,
-              textIndex: (prev.textIndex + 1) % typingPhrases.length,
-            }));
-          }
-        }
-      },
-      isDeleting ? 50 : 100,
-    ); // 50ms deleting speed, 100ms typing speed
-
-    return () => clearTimeout(timeout);
-  }, [typingState]);
 
   // Smooth scroll interpolations
   const headerTopPadding = useTransform(scrollY, [0, 160], [16, 16]);
@@ -529,7 +539,7 @@ const MainLocationHeader = ({
             "--category-header-indicator": targetTextColor,
           }}
           className={cn(
-            "customer-location-header pointer-events-auto w-full max-w-full min-w-0 px-4 lg:px-6 xl:px-8 2xl:px-10 overflow-hidden transform-gpu will-change-[transform,background-color] backdrop-blur-xl transition-[padding,background-color] duration-200 ease-out",
+            "customer-location-header pointer-events-auto w-full max-w-full min-w-0 px-4 lg:px-6 xl:px-8 2xl:px-10 overflow-hidden transform-gpu will-change-[transform,background-color] backdrop-blur-md transition-[padding] duration-150 ease-out",
             "rounded-b-[24px] shadow-[0_8px_24px_rgba(0,0,0,0.12)] border-b",
             !isAllCategory && "is-category-mode",
             isAllCategory && isScrolled && "is-scrolled-compact",
@@ -596,14 +606,7 @@ const MainLocationHeader = ({
                 style={{ WebkitTapHighlightColor: "transparent" }}
               >
                 <SearchIcon sx={{ color: "#0f172a", fontSize: 19 }} />
-                <input
-                  type="text"
-                  placeholder={searchPlaceholder || "Search Products..."}
-                  readOnly
-                  tabIndex={-1}
-                  className="min-w-0 flex-1 bg-transparent border-0 ring-0 outline-none focus:outline-none focus:ring-0 focus:border-0 focus-visible:outline-none focus-visible:ring-0 pl-2 text-slate-900 font-bold placeholder:text-slate-500 text-[13px] cursor-pointer pointer-events-none select-none shadow-none truncate"
-                  style={{ outline: "none", border: "none", boxShadow: "none", WebkitTapHighlightColor: "transparent" }}
-                />
+                <SearchPlaceholderTypewriter />
                 <button
                   type="button"
                   onClick={(e) => {
@@ -808,6 +811,7 @@ const MainLocationHeader = ({
             >
               <div
                 ref={mobileNavRef}
+                data-lenis-prevent
                 className={cn(
                   "overflow-x-auto no-scrollbar scroll-smooth",
                   (isAllCategory && !isScrolled)
@@ -841,6 +845,7 @@ const MainLocationHeader = ({
                       onItemClick={scrollCategoryIntoView}
                       isScrolled={isScrolled}
                       headerTextColor={categoryModeTextColor}
+                      layoutIdPrefix="mobile"
                     />
                   ))}
                 </div>
@@ -850,6 +855,7 @@ const MainLocationHeader = ({
             {/* Desktop wrapper: centered scrollable row */}
             <motion.div
               ref={navRef}
+              data-lenis-prevent
               style={{ height: (isAllCategory && !isScrolled) ? "48px" : "40px", opacity: 1, marginTop: 2 }}
               className="relative z-10 w-full hidden md:flex overflow-x-auto overflow-y-visible px-4 lg:px-8 xl:px-12 no-scrollbar scroll-smooth"
             >
@@ -871,6 +877,7 @@ const MainLocationHeader = ({
                     isAllCategory={isAllCategory}
                     onItemClick={scrollCategoryIntoView}
                     headerTextColor={categoryModeTextColor}
+                    layoutIdPrefix="desktop"
                   />
                 ))}
               </div>

@@ -1,5 +1,5 @@
 import axiosInstance from "@core/api/axios";
-import { getWithDedupe, invalidateCache } from "@core/api/dedupe";
+import { getWithDedupe, invalidateCache, TTL } from "@core/api/dedupe";
 
 export const customerApi = {
   sendLoginOtp: (data) => axiosInstance.post("/customer/send-login-otp", data),
@@ -15,9 +15,9 @@ export const customerApi = {
   getWalletTransactions: (params) =>
     getWithDedupe("/customer/transactions", params),
   getCategories: (params) =>
-    getWithDedupe("/categories", params, { ttl: 60 * 1000 }), // 1 min for categories
-  getProducts: (params) => getWithDedupe("/products", params, { forceRefresh: true }),
-  getHeaderProducts: (params) => getWithDedupe("/products/header-products", params, { ttl: 30 * 1000 }),
+    getWithDedupe("/categories", params, { ttl: TTL.LONG }),  // 5 min — categories rarely change
+  getProducts: (params) => getWithDedupe("/products", params, { ttl: TTL.MEDIUM }),
+  getHeaderProducts: (params) => getWithDedupe("/products/header-products", params, { ttl: TTL.MEDIUM }),
   getProductById: (id, params) => getWithDedupe(`/products/${id}`, params),
 
   // Sellers & Location
@@ -133,19 +133,19 @@ export const customerApi = {
   },
 
   // Experience sections (home / header pages)
-  getExperienceSections: (params) => getWithDedupe("/experience", params),
+  getExperienceSections: (params) => getWithDedupe("/experience", params, { ttl: TTL.MEDIUM }),
 
   // Hero config (separate hero banners + categories per page; fallback to home)
   getHeroConfig: (params, options = {}) => {
     const qParams = options.forceRefresh ? { ...params, _t: Date.now() } : params;
-    return getWithDedupe("/experience/hero", qParams, { ttl: 10 * 1000, ...options });
+    return getWithDedupe("/experience/hero", qParams, { ttl: TTL.SHORT, ...options }); // 30 s — CMS can update any time
   },
 
   // Public offers
   getOffers: () => getWithDedupe("/offers"),
 
   // Bestsellers Config
-  getBestsellerConfig: (headerId) => getWithDedupe(`/bestsellers/customer/${headerId}`),
+  getBestsellerConfig: (headerId) => getWithDedupe(`/bestsellers/customer/${headerId}`, {}, { ttl: TTL.MEDIUM }),
 
   // Festival Deals
   getFestivalDeals: () => getWithDedupe("/festival-deals"),

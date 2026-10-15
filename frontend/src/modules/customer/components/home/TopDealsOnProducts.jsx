@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ImageOff, ChevronLeft, ChevronRight } from 'lucide-react';
 import { customerApi } from '../../services/customerApi';
@@ -16,7 +16,8 @@ const TopDealsOnProducts = () => {
   const [retryCount, setRetryCount] = useState(0);
   const scrollRef = useRef(null);
   const [canScroll, setCanScroll] = useState(false);
-  const [scrollProgress, setScrollProgress] = useState(0);
+  const pillRef = useRef(null);
+  const rafRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -112,18 +113,30 @@ const TopDealsOnProducts = () => {
     return cols;
   }, [subcategories]);
 
-  // Track horizontal scroll progress to move the pill indicator and show/hide arrows
+  // Track horizontal scroll progress to move the pill indicator via RAF (zero React re-renders on swipe)
   const handleScroll = () => {
     if (!scrollRef.current) return;
     const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
     const maxScroll = scrollWidth - clientWidth;
     if (maxScroll > 6) {
       setCanScroll(true);
-      setScrollProgress(Math.min(1, Math.max(0, scrollLeft / maxScroll)));
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => {
+        const progress = Math.min(1, Math.max(0, scrollLeft / maxScroll));
+        if (pillRef.current) {
+          pillRef.current.style.transform = `translateX(${progress * 28}px)`;
+        }
+      });
     } else {
       setCanScroll(false);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     handleScroll();
@@ -239,6 +252,7 @@ const TopDealsOnProducts = () => {
                               src={applyCloudinaryTransform(image, 'f_auto,q_auto,w_300')}
                               alt={sub.name}
                               loading="lazy"
+                              decoding="async"
                               referrerPolicy="no-referrer"
                               onError={(e) => {
                                 e.currentTarget.onerror = null;
@@ -268,10 +282,8 @@ const TopDealsOnProducts = () => {
             {canScroll && (
               <div className="w-12 h-1 bg-black/10 rounded-full mx-auto mt-3 overflow-hidden relative">
                 <div
-                  className="h-full w-5 bg-black/40 rounded-full transition-all duration-75 ease-out"
-                  style={{
-                    transform: `translateX(${scrollProgress * 28}px)`,
-                  }}
+                  ref={pillRef}
+                  className="h-full w-5 bg-black/40 rounded-full transition-transform duration-75 ease-out will-change-transform"
                 />
               </div>
             )}
@@ -282,4 +294,4 @@ const TopDealsOnProducts = () => {
   );
 };
 
-export default TopDealsOnProducts;
+export default React.memo(TopDealsOnProducts);

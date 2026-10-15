@@ -112,7 +112,7 @@ const VariantSelectionSheet = () => {
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.3 }}
                         onClick={closeVariantSelection}
-                        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[250]"
+                        className="fixed inset-0 bg-black/50 z-[250]"
                     />
 
                     {/* Sheet */}
@@ -126,8 +126,8 @@ const VariantSelectionSheet = () => {
                         initial={{ y: "100%" }}
                         animate={{ y: 0 }}
                         exit={{ y: "100%" }}
-                        transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                        className="fixed inset-x-0 bottom-0 z-[300] bg-white rounded-t-[32px] shadow-2xl flex flex-col overflow-hidden max-h-[90dvh]"
+                        transition={{ type: "spring", damping: 28, stiffness: 280 }}
+                        className="fixed inset-x-0 bottom-0 z-[300] bg-white rounded-t-[32px] shadow-2xl flex flex-col overflow-hidden max-h-[90dvh] transform-gpu will-change-transform"
                     >
                         {/* Drag Handle */}
                         <div

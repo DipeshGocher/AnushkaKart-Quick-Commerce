@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { ShoppingBag, Sun, ChevronLeft, ChevronRight } from 'lucide-react';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
@@ -115,6 +115,8 @@ const AllCategoriesGreeting = ({ categories, firstName, greetingConfig }) => {
         {/* Horizontal Carousel of Category Cards matching Furnishing Deals layout */}
         <div
           ref={scrollRef}
+          data-lenis-prevent
+          style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}
           className="mt-4 flex snap-x snap-proximity gap-3 sm:gap-3.5 overflow-x-auto px-4 sm:px-6 pb-2 no-scrollbar scroll-smooth"
           aria-label="Main categories"
         >
@@ -178,14 +180,15 @@ const AllCategoriesGreeting = ({ categories, firstName, greetingConfig }) => {
               >
                 {category.image ? (
                   <img
-                    src={applyCloudinaryTransform(category.image, 'f_auto,q_auto,w_300')}
+                    src={applyCloudinaryTransform(category.image, 'f_auto,q_auto,w_240,h_240,c_fill')}
                     alt={category.name}
                     loading="lazy"
+                    decoding="async"
                     referrerPolicy="no-referrer"
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';
                     }}
-                    className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+                    className="h-full w-full object-contain transform-gpu transition-transform duration-200 group-hover:scale-105"
                   />
                 ) : (
                   <ShoppingBag size={32} className="text-slate-400" aria-hidden="true" />
@@ -213,4 +216,4 @@ const AllCategoriesGreeting = ({ categories, firstName, greetingConfig }) => {
   );
 };
 
-export default AllCategoriesGreeting;
+export default memo(AllCategoriesGreeting);

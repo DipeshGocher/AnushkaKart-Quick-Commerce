@@ -20,6 +20,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { adminApi } from "../../services/adminApi";
 import { toast } from "sonner";
+import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
 import IconSelector from "@shared/components/IconSelector";
 import CategoryIcon from "@shared/components/CategoryIcon";
 import Pagination from "@shared/components/ui/Pagination";
@@ -583,9 +584,11 @@ const HeaderCategories = () => {
                         <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center border border-gray-200">
                           {imgUrl ? (
                             <img
-                              src={imgUrl}
+                              src={applyCloudinaryTransform(imgUrl, "f_auto,q_auto,w_90,h_90,c_fill")}
                               alt={cat.name}
-                              className="w-full h-full object-cover"
+                              loading="lazy"
+                              decoding="async"
+                              className="w-full h-full object-cover transform-gpu"
                               onError={(e) => {
                                 e.target.style.display = "none";
                                 e.target.nextSibling.style.display = "flex";
