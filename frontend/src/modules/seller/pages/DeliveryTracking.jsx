@@ -377,7 +377,7 @@ const DeliveryTracking = () => {
               </div>
 
               {/* Delivery List */}
-              <div className="p-4 sm:p-6 space-y-4 [contain:paint]">
+              <div className="p-4 sm:p-6 space-y-4">
                 {paginatedDeliveries.map((dlv) => (
                   <DeliveryCard key={dlv.id} dlv={dlv} />
                 ))}

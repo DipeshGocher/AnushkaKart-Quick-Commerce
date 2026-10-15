@@ -372,7 +372,7 @@ const StockManagement = () => {
                             </div>
 
                             {/* Stock Table */}
-                            <div className="overflow-x-auto will-change-scroll [contain:paint]">
+                            <div className="overflow-x-auto">
                                 <table className="w-full text-left">
                                     <thead>
                                         <tr className="bg-slate-50/90 backdrop-blur-sm sticky top-0 z-10 border-b border-slate-100">

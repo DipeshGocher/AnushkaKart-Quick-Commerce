@@ -671,8 +671,8 @@ const ProductManagement = () => {
             </Card>
 
             {/* Product Table */}
-            <Card className="border-none shadow-xl ring-1 ring-slate-100 overflow-hidden rounded-xl [contain:paint]">
-                <div className="overflow-x-auto will-change-scroll">
+            <Card className="border-none shadow-xl ring-1 ring-slate-100 overflow-hidden rounded-xl">
+                <div className="overflow-x-auto">
                     <table className="w-full min-w-[1180px] table-fixed text-left border-collapse">
                         <colgroup>
                             <col className="w-[24%]" />

@@ -1,38 +1,32 @@
 @import "./customer-typography.css";
 
-/* Keep storefront carousels scrollable without making the document pan sideways, with smooth scrolling */
+/* Keep storefront carousels scrollable without making the document pan sideways, with responsive scrolling */
 html:has(.customer-app),
 body:has(.customer-app),
 #root:has(.customer-app) {
   width: 100%;
   max-width: 100%;
   overflow-x: clip;
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
   -webkit-overflow-scrolling: touch;
 }
 
-/* Storefront smooth horizontal and vertical containers */
+/* Storefront responsive horizontal and vertical containers */
 .customer-app .overflow-x-auto,
 .customer-app .overflow-y-auto,
 .customer-app .overflow-auto {
   -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
   overscroll-behavior-x: contain;
 }
 
-/* Category cards, product cards and thumbnails hardware acceleration */
+/* Category cards, product cards and thumbnails smooth rendering */
 .customer-app .customer-product-card,
 .customer-app [data-category-id],
 .customer-app .snap-start,
 .customer-app .fk-catalog-card {
-  transform: translateZ(0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-}
-
-/* Image decode performance during fast scrolling */
-.customer-app img {
-  content-visibility: auto;
 }
 
 /* Customer storefront theme. Scoped to CustomerLayout so operational portals keep their own UI. */

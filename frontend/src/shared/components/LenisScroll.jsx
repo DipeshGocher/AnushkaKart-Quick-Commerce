@@ -1,48 +1,10 @@
-import { useEffect } from 'react';
-import Lenis from 'lenis';
-import 'lenis/dist/lenis.css';
-import { isMobileOrWebView } from '@/core/utils/deviceUtils';
-
+/**
+ * LenisScroll
+ * Disabled to enable 100% native hardware-accelerated scrolling across Customer,
+ * Admin, and Seller panels. Native scrolling provides 1:1 instantaneous response
+ * for laptop touchpads/mousepads and mouse wheels without easing lag or visual glitches.
+ */
 const LenisScroll = () => {
-    useEffect(() => {
-        // Disable Lenis on mobile devices and Flutter WebViews to use native hardware-accelerated scrolling
-        if (isMobileOrWebView()) {
-            return;
-        }
-
-        const lenis = new Lenis({
-            duration: 0.85,
-            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -8 * t)),
-            direction: 'vertical',
-            gestureDirection: 'vertical',
-            smooth: true,
-            mouseMultiplier: 1,
-            smoothTouch: false,
-            touchMultiplier: 1.5,
-            // Allow native scrolling inside nested scroll containers and horizontal category/product sliders
-            prevent: (node) => {
-                if (!node || typeof node.closest !== 'function') return false;
-                return Boolean(
-                    node.closest('.overflow-x-auto, [data-lenis-prevent], [data-lenis-prevent-wheel], [data-lenis-prevent-touch]')
-                );
-            },
-        });
-
-        let rafId;
-
-        function raf(time) {
-            lenis.raf(time);
-            rafId = requestAnimationFrame(raf);
-        }
-
-        rafId = requestAnimationFrame(raf);
-
-        return () => {
-            cancelAnimationFrame(rafId);
-            lenis.destroy();
-        };
-    }, []);
-
     return null;
 };
 

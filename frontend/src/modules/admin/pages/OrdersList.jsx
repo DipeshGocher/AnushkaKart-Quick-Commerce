@@ -514,7 +514,7 @@ const OrdersList = () => {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto [contain:paint] will-change-scroll">
+                <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead>
                             <tr className="bg-slate-50/90 backdrop-blur-sm sticky top-0 z-10">

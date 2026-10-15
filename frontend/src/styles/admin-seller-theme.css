@@ -49,11 +49,11 @@
    Smooth Scrolling & Table Performance Optimizations (Admin & Seller Panels)
    ========================================================================== */
 
-/* Enable hardware momentum smooth scroll on all panels and overflow containers */
+/* Enable native responsive 1:1 scroll on all panels and overflow containers */
 html,
 body,
 #root {
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -62,21 +62,18 @@ body,
 .overflow-y-auto,
 .overflow-auto {
   -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
   overscroll-behavior-x: contain;
 }
 
 /* Lightweight row hover transitions to eliminate FPS drop during scroll */
 table tr {
   transition: background-color 0.12s ease;
-  contain: paint;
 }
 
-/* Async image decode & rendering isolation for table thumbnails */
+/* Stable rendering for table thumbnails without layout shifts */
 table img {
   image-rendering: auto;
-  content-visibility: auto;
-  transform: translateZ(0);
 }
 
 /* Custom modern smooth scrollbar */
