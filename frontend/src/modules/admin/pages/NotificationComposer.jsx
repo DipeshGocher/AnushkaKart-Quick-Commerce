@@ -6,12 +6,10 @@ import { useToast } from '@shared/components/ui/Toast';
 import {
     HiOutlinePaperAirplane,
     HiOutlineBars3BottomLeft,
-    HiOutlineLink,
     HiOutlineUsers,
     HiOutlineBuildingStorefront,
     HiOutlineMapPin,
     HiOutlineClock,
-    HiOutlinePhoto,
     HiOutlineDevicePhoneMobile,
     HiOutlineSparkles,
     HiOutlineTruck,
@@ -24,7 +22,6 @@ import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { useSettings } from '@core/context/SettingsContext';
 import { Smile } from 'lucide-react';
-import axiosInstance from '@core/api/axios';
 import { adminApi } from '../services/adminApi';
 
 import { EMOJIS } from '@shared/utils/emojis';
@@ -36,9 +33,6 @@ const NotificationComposer = () => {
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
     const [selectedSegment, setSelectedSegment] = useState('customers');
-    const [deepLink, setDeepLink] = useState('');
-    const [imageFile, setImageFile] = useState(null);
-    const [imagePreview, setImagePreview] = useState('');
     const [isSending, setIsSending] = useState(false);
     const [location, setLocation] = useState('all');
     const [lastOrder, setLastOrder] = useState('any');
@@ -51,7 +45,6 @@ const NotificationComposer = () => {
     const titleEmojiBtnRef = useRef(null);
     const messageEmojiBtnRef = useRef(null);
     const emojiPopoverRef = useRef(null);
-    const imageInputRef = useRef(null);
 
     const [audienceStats, setAudienceStats] = useState({
         all: 0,
@@ -102,29 +95,10 @@ const NotificationComposer = () => {
             const targetCount = Number(segments.find((s) => s.id === selectedSegment)?.count || 0);
             showToast(`Broadcasting to ${targetCount.toLocaleString('en-IN')} users...`, 'info');
 
-            let uploadedImageUrl = '';
-            if (imageFile) {
-                const uploadForm = new FormData();
-                uploadForm.append('file', imageFile);
-                const uploadRes = await axiosInstance.post('/media/upload', uploadForm, {
-                    headers: { 'Content-Type': 'multipart/form-data' },
-                });
-                uploadedImageUrl =
-                    uploadRes.data?.result?.url ||
-                    uploadRes.data?.data?.url ||
-                    uploadRes.data?.url ||
-                    '';
-                if (!uploadedImageUrl) {
-                    throw new Error('Failed to upload image');
-                }
-            }
-
             const broadcastRes = await adminApi.broadcastNotification({
                 audience: selectedSegment,
                 title,
                 message,
-                deepLink: deepLink || '',
-                imageUrl: uploadedImageUrl || '',
             });
 
             const result = broadcastRes?.data?.result || {};
@@ -136,9 +110,6 @@ const NotificationComposer = () => {
             );
             setTitle('');
             setMessage('');
-            setDeepLink('');
-            setImageFile(null);
-            setImagePreview('');
         } catch (error) {
             const errorMessage =
                 error?.response?.data?.message ||
@@ -148,26 +119,6 @@ const NotificationComposer = () => {
         } finally {
             setIsSending(false);
         }
-    };
-
-    const handleImageSelect = (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        if (!String(file.type || '').startsWith('image/')) {
-            showToast('Please select an image file', 'warning');
-            if (e.target) e.target.value = '';
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-            setImageFile(file);
-            setImagePreview(String(evt?.target?.result || ''));
-        };
-        reader.readAsDataURL(file);
-
-        // Reset input so the same file can be re-selected.
-        if (e.target) e.target.value = '';
     };
 
     const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -341,63 +292,6 @@ const NotificationComposer = () => {
                                     />
                                     <p className="ds-caption text-slate-400 text-right">{message.length}/200</p>
                                 </div>
-
-                                {/* Deep Link & Image */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <label className="ds-label">Deep Link (Optional)</label>
-                                        <div className="relative">
-                                            <HiOutlineLink className="absolute left-3 top-1/2 -translate-y-1/2 ds-icon-sm text-slate-400" />
-                                            <input
-                                                value={deepLink}
-                                                onChange={(e) => setDeepLink(e.target.value)}
-                                                className="ds-input w-full pl-9"
-                                                placeholder="/deals/category"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="ds-label flex items-center gap-2">Image (Optional) <span className="text-[10px] font-semibold text-slate-400 font-normal normal-case">(Recommended: 800 × 400 px, 2:1)</span></label>
-                                        <input
-                                            ref={imageInputRef}
-                                            type="file"
-                                            accept="image/*"
-                                            className="hidden"
-                                            onChange={handleImageSelect}
-                                        />
-
-                                        <button
-                                            type="button"
-                                            onClick={() => imageInputRef.current?.click?.()}
-                                            className="ds-input w-full flex items-center gap-2 justify-start text-left hover:bg-slate-50 transition-colors"
-                                        >
-                                            <HiOutlinePhoto className="ds-icon-sm text-slate-400" />
-                                            <span className="text-xs font-bold text-slate-600 truncate">
-                                                {imageFile?.name || 'Choose an image file...'}
-                                            </span>
-                                        </button>
-
-                                        {imagePreview ? (
-                                            <div className="flex items-center gap-3 pt-1">
-                                                <img
-                                                    src={imagePreview}
-                                                    alt="Selected notification"
-                                                    className="h-10 w-10 rounded-xl object-cover ring-1 ring-slate-200"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setImageFile(null);
-                                                        setImagePreview('');
-                                                    }}
-                                                    className="text-[10px] font-black uppercase tracking-widest text-rose-600 hover:text-rose-700"
-                                                >
-                                                    Remove
-                                                </button>
-                                            </div>
-                                        ) : null}
-                                    </div>
-                                </div>
                             </div>
 
                             {/* Send Button */}
@@ -502,14 +396,6 @@ const NotificationComposer = () => {
                                         <h4 className="text-sm font-bold text-white mb-1.5 truncate">
                                             {title || 'Hot Deals are back! 🔥'}
                                         </h4>
-                                        {imagePreview ? (
-                                            <img
-                                                src={imagePreview}
-                                                alt="Notification attachment"
-                                                className="w-full h-32 object-cover rounded-xl border border-white/10 mb-2"
-                                                loading="lazy"
-                                            />
-                                        ) : null}
                                         <p className="text-xs font-medium text-white/95 line-clamp-3 leading-relaxed">
                                             {message || 'Type your message to see it reflect here in real-time...'}
                                         </p>
