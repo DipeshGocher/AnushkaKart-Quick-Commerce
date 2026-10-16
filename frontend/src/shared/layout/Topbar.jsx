@@ -159,11 +159,11 @@ const Topbar = ({ onMenuClick }) => {
     };
 
     return (
-        <header className="bg-white/95 backdrop-blur-md border-b border-gray-100 flex items-center justify-between shadow-sm transform-gpu fixed top-0 left-0 right-0 z-[200] h-14 px-4 md:left-72 md:h-16 md:px-6">
+        <header className="bg-[#FFFDD0]/95 backdrop-blur-md border-b border-[#060606]/10 flex items-center justify-between shadow-xs transform-gpu fixed top-0 left-0 right-0 z-[200] h-14 px-4 md:left-72 md:h-16 md:px-6">
             <div className="flex items-center flex-1 mr-4 overflow-hidden">
                 <button
                     onClick={onMenuClick}
-                    className="p-2.5 mr-3 bg-gray-100/80 hover:bg-white rounded-xl text-gray-600 hover:text-primary transition-all duration-300 md:hidden border border-transparent hover:border-primary/20 shadow-sm"
+                    className="p-2.5 mr-3 bg-black/5 hover:bg-white rounded-xl text-[#060606] hover:text-primary transition-all duration-300 md:hidden border border-[#060606]/10 hover:border-primary/20 shadow-xs"
                 >
                     <HiOutlineMenu className="h-5 w-5" />
                 </button>
@@ -171,7 +171,7 @@ const Topbar = ({ onMenuClick }) => {
                 {/* Mobile Logo */}
                 <div className="flex items-center space-x-2 mr-4 md:hidden">
                     {logoUrl ? (
-                        <div className="h-8 w-8 rounded-lg overflow-hidden shadow-md shadow-primary/10 border border-gray-100">
+                        <div className="h-8 w-8 rounded-lg overflow-hidden shadow-md shadow-primary/10 border border-[#060606]/10">
                             <img src={logoUrl} alt={appName} className="h-full w-full object-contain" />
                         </div>
                     ) : (
@@ -183,14 +183,14 @@ const Topbar = ({ onMenuClick }) => {
 
                 {!isSeller && (
                     <form onSubmit={handleSearchSubmit} className="relative w-full md:w-[400px] group hidden md:block">
-                        <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-primary transition-all duration-300" />
+                        <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#060606]/40 group-focus-within:text-primary transition-all duration-300" />
                         <input
                             type="text"
                             placeholder="Search anything..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
-                            className="w-full pl-10 pr-4 py-2 bg-gray-100/50 border border-transparent rounded-xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary/20 transition-all duration-500 outline-none"
+                            className="w-full pl-10 pr-4 py-2 bg-white/90 border border-[#060606]/10 rounded-xl text-xs font-medium text-[#060606] placeholder-[#060606]/40 focus:bg-white focus:ring-2 focus:ring-primary/10 focus:border-primary/20 transition-all duration-500 outline-none shadow-xs"
                         />
                     </form>
                 )}
@@ -201,8 +201,8 @@ const Topbar = ({ onMenuClick }) => {
                     <button
                         onClick={() => setShowNotifications(!showNotifications)}
                         className={cn(
-                            "p-2 hover:bg-primary/5 text-gray-500 hover:text-primary rounded-xl transition-all duration-300 relative group",
-                            showNotifications && "bg-primary/5 text-primary"
+                            "p-2 hover:bg-black/5 text-[#060606]/70 hover:text-primary rounded-xl transition-all duration-300 relative group",
+                            showNotifications && "bg-black/5 text-primary"
                         )}
                         title="Notifications"
                     >

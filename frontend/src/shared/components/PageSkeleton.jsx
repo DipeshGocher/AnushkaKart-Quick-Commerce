@@ -133,8 +133,10 @@ const PageSkeleton = ({ variant, className = '' }) => {
     : pathname.startsWith('/category') || pathname.startsWith('/search') || pathname.startsWith('/offers') ? 'listing'
     : 'rows');
 
+  const bgClass = isPanel ? 'bg-[#FFFDD0]' : 'bg-[#f1f4f8]';
+
   return (
-    <div role="status" aria-label="Loading page" className={`${kind === 'home-content' ? 'min-h-0' : 'min-h-screen'} bg-[#f1f4f8] ${className}`}>
+    <div role="status" aria-label="Loading page" className={`${kind === 'home-content' ? 'min-h-0' : 'min-h-screen'} ${bgClass} ${className}`}>
       {kind === 'home' && <><PageHeader /><HomeContent /></>}
       {kind === 'home-content' && <HomeContent />}
       {kind === 'listing' && <Listing categories={pathname.startsWith('/categor')} />}
