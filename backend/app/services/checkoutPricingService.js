@@ -21,6 +21,7 @@ import {
   evaluateDeliveryEligibility,
   resolveProductDeliveryMode,
 } from "./shipping/localPincodeService.js";
+import { calculateShiprocketLiveRate } from "./shipping/shiprocketService.js";
 
 function normalizeLocation(location = null) {
   const lat = Number(location?.lat);
@@ -580,6 +581,52 @@ export async function buildCheckoutPricingSnapshot({
     const sellerRatio = totalSubtotal > 0 ? (sellerSubtotals.get(sellerId) || 0) / totalSubtotal : 1 / sellerIds.length;
     const sellerDiscount = round2(effectiveDiscount * sellerRatio);
 
+    const isWarehouse = !!sellerItems[0]?.warehouseId && !sellerItems[0]?.sellerId;
+    const actualSellerId = isWarehouse ? null : sellerId;
+    const actualWarehouseId = isWarehouse ? sellerId : null;
+
+    let liveCourierFee = null;
+    let liveRateMeta = null;
+    if (sellerHasShiprocket) {
+      let pickupPincode = process.env.SHIPROCKET_DEFAULT_PICKUP_PINCODE || "";
+      if (actualSellerId && mongoose.Types.ObjectId.isValid(actualSellerId)) {
+        try {
+          const sDoc = await Seller.findById(actualSellerId).select("pincode").lean();
+          if (sDoc?.pincode) pickupPincode = sDoc.pincode;
+        } catch (_) {}
+      }
+      const defaultWeightKg = Number(process.env.SHIPROCKET_DEFAULT_ITEM_WEIGHT_KG || 0.5);
+      let totalWeight = 0;
+      let maxLength = 10;
+      let maxBreadth = 10;
+      let totalHeight = 0;
+      for (const it of sellerItems) {
+        const rawWeight = String(it.weight || "").toLowerCase();
+        const match = rawWeight.match(/^(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|grams?)$/);
+        let itemW = defaultWeightKg;
+        if (match) {
+          itemW = match[2].startsWith("k") ? Number(match[1]) : Number(match[1]) / 1000;
+        }
+        const qty = Number(it.quantity || 1);
+        totalWeight += itemW * qty;
+        if (Number(it.length) > maxLength) maxLength = Number(it.length);
+        if (Number(it.breadth) > maxBreadth) maxBreadth = Number(it.breadth);
+        totalHeight += (Number(it.height) || 10) * qty;
+      }
+      liveRateMeta = await calculateShiprocketLiveRate({
+        pickupPincode,
+        deliveryPincode: address?.pincode,
+        weight: Math.max(0.1, totalWeight || 0.5),
+        length: Math.max(5, Math.min(100, maxLength)),
+        breadth: Math.max(5, Math.min(100, maxBreadth)),
+        height: Math.max(5, Math.min(100, totalHeight || 10)),
+        cod: 0,
+      });
+      if (liveRateMeta?.success && Number.isFinite(liveRateMeta.rate)) {
+        liveCourierFee = liveRateMeta.rate;
+      }
+    }
+
     const breakdown = await generateOrderPaymentBreakdown({
       preHydratedItems: sellerItems,
       distanceKm: distanceData.distanceKm,
@@ -587,11 +634,8 @@ export async function buildCheckoutPricingSnapshot({
       taxTotal: 0,
       session,
       fulfillmentType: sellerFulfillmentType,
+      courierDeliveryFee: liveCourierFee,
     });
-
-    const isWarehouse = !!sellerItems[0]?.warehouseId && !sellerItems[0]?.sellerId;
-    const actualSellerId = isWarehouse ? null : sellerId;
-    const actualWarehouseId = isWarehouse ? sellerId : null;
 
     sellerBreakdownEntries.push({
       sellerId,
@@ -602,6 +646,7 @@ export async function buildCheckoutPricingSnapshot({
       fulfillmentType: sellerFulfillmentType,
       deliveryEstimate: sellerDeliveryEstimate,
       isLocal: !sellerHasShiprocket,
+      liveRateMeta,
       deliveryData: {
         warehouseLocation: distanceData.sellerLocation,
         customerLocation: normalizeLocation(address?.location),
@@ -613,9 +658,10 @@ export async function buildCheckoutPricingSnapshot({
       breakdown: {
         ...breakdown,
         sellerId,
-        fulfillmentType,
-        deliveryEstimate,
-        isLocal,
+        fulfillmentType: sellerFulfillmentType,
+        deliveryEstimate: sellerDeliveryEstimate,
+        isLocal: !sellerHasShiprocket,
+        liveRateMeta,
       },
     });
   }
@@ -650,15 +696,69 @@ export async function buildCheckoutPricingSnapshot({
   );
 
   const overallHasShiprocket = sellerBreakdownEntries.some((e) => e.fulfillmentType === "SHIPROCKET");
+  const overallHasLocal = sellerBreakdownEntries.some((e) => e.fulfillmentType === "LOCAL");
+  const isSplitDelivery = overallHasShiprocket && overallHasLocal;
+
+  const localDeliveryEstimate = localPincodeRecord?.deliveryTimeEstimate || "20-35 mins";
+  const shiprocketDeliveryEstimate = "3-4 business days";
+
+  const localItems = sellerBreakdownEntries
+    .filter((e) => e.fulfillmentType === "LOCAL")
+    .flatMap((e) => e.items || []);
+  const shiprocketItems = sellerBreakdownEntries
+    .filter((e) => e.fulfillmentType === "SHIPROCKET")
+    .flatMap((e) => e.items || []);
+
+  const formatSummary = (items) => {
+    if (!items || items.length === 0) return "";
+    const names = items.map((it) => it.name || "Item");
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return `${names[0]}, ${names[1]}`;
+    return `${names[0]} + ${names.length - 1} more`;
+  };
+
+  const splitDetails = isSplitDelivery
+    ? {
+        isSplit: true,
+        shipmentCount: 2,
+        shipments: [
+          {
+            shipmentNumber: 1,
+            type: "LOCAL",
+            title: "Shipment 1",
+            modeLabel: "Quick Delivery",
+            deliveryEstimate: localDeliveryEstimate,
+            courierNote: "via Local Rider",
+            itemsSummary: formatSummary(localItems),
+            itemCount: localItems.reduce((sum, it) => sum + Number(it.quantity || 1), 0),
+          },
+          {
+            shipmentNumber: 2,
+            type: "SHIPROCKET",
+            title: "Shipment 2",
+            modeLabel: "Standard Courier",
+            deliveryEstimate: shiprocketDeliveryEstimate,
+            courierNote: "via Standard Courier",
+            itemsSummary: formatSummary(shiprocketItems),
+            itemCount: shiprocketItems.reduce((sum, it) => sum + Number(it.quantity || 1), 0),
+          },
+        ],
+      }
+    : null;
+
   const overallFulfillmentType = overallHasShiprocket ? "SHIPROCKET" : "LOCAL";
-  const overallDeliveryEstimate = overallHasShiprocket
-    ? "3-4 business days"
-    : (localPincodeRecord?.deliveryTimeEstimate || "20-35 mins");
+  const overallDeliveryEstimate = isSplitDelivery
+    ? `${localDeliveryEstimate} & ${shiprocketDeliveryEstimate}`
+    : overallHasShiprocket
+      ? shiprocketDeliveryEstimate
+      : localDeliveryEstimate;
   const overallIsLocal = !overallHasShiprocket;
 
   aggregateBreakdown.fulfillmentType = overallFulfillmentType;
   aggregateBreakdown.deliveryEstimate = overallDeliveryEstimate;
   aggregateBreakdown.isLocal = overallIsLocal;
+  aggregateBreakdown.isSplitDelivery = isSplitDelivery;
+  aggregateBreakdown.splitDetails = splitDetails;
 
   return {
     hydratedItems,
@@ -671,6 +771,10 @@ export async function buildCheckoutPricingSnapshot({
     freeDeliveryApplied: applyFreeDelivery,
     fulfillmentType: overallFulfillmentType,
     deliveryEstimate: overallDeliveryEstimate,
+    localDeliveryEstimate,
+    shiprocketDeliveryEstimate,
+    isSplitDelivery,
+    splitDetails,
     isLocal: overallIsLocal,
   };
 }

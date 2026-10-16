@@ -64,6 +64,10 @@ export const previewCheckoutFinance = async (req, res) => {
       fulfillmentType: pricingSnapshot.fulfillmentType,
       deliveryEstimate: pricingSnapshot.deliveryEstimate,
       isLocal: pricingSnapshot.isLocal,
+      isSplitDelivery: pricingSnapshot.isSplitDelivery,
+      splitDetails: pricingSnapshot.splitDetails,
+      localDeliveryEstimate: pricingSnapshot.localDeliveryEstimate,
+      shiprocketDeliveryEstimate: pricingSnapshot.shiprocketDeliveryEstimate,
       // Audit Phase 5: expose the resolved coupon snapshot so the
       // frontend can render "Coupon CODE applied — ₹X off" without
       // running its own math. `null` when no coupon was supplied or

@@ -55,6 +55,10 @@ const SellerProfile = () => {
         lng: data.location?.coordinates[0] || null,
         radius: data.serviceRadius || 5,
         address: data.address || "",
+        locality: data.locality || "",
+        pincode: data.pincode || "",
+        city: data.city || "",
+        state: data.state || "",
       });
     } catch (error) {
       toast.error("Failed to fetch profile");
@@ -69,7 +73,10 @@ const SellerProfile = () => {
       lat: location.lat,
       lng: location.lng,
       radius: location.radius,
-      address: location.address,
+      address: location.address || prev.address,
+      pincode: location.pincode || prev.pincode,
+      city: location.city || prev.city,
+      state: location.state || prev.state,
     }));
   };
 
@@ -82,6 +89,9 @@ const SellerProfile = () => {
     } else if (name === "phone") {
       // Allow only digits, max 10 characters
       const digitsOnly = value.replace(/[^0-9]/g, "").slice(0, 10);
+      setFormData({ ...formData, [name]: digitsOnly });
+    } else if (name === "pincode") {
+      const digitsOnly = value.replace(/[^0-9]/g, "").slice(0, 6);
       setFormData({ ...formData, [name]: digitsOnly });
     } else if (name === "email") {
       // Trim spaces, keep as-is otherwise; HTML5 type=email will help validate shape
@@ -101,6 +111,11 @@ const SellerProfile = () => {
     // Basic email validation
     if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       toast.error("Please enter a valid email address.");
+      return;
+    }
+    // Strict pincode validation if entered
+    if (formData.pincode && !/^[1-9][0-9]{5}$/.test(formData.pincode)) {
+      toast.error("Please enter a valid 6-digit Indian postal pincode.");
       return;
     }
     setIsSaving(true);
@@ -402,6 +417,102 @@ const SellerProfile = () => {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Strict Pickup Address Fields (For Shiprocket Courier Sync) */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200/80 space-y-4 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <Store size={16} className="text-primary" />
+                      Courier Pickup Address / कूरियर पिकअप पता
+                    </h4>
+                    <p className="text-[11px] text-slate-500 font-medium">
+                      Shiprocket इसी एड्रेस और 6-डिजिट पिनकोड से आपका पार्सल पिकअप करेगा।
+                    </p>
+                  </div>
+                  {profile?.shiprocketPickupLocation && (
+                    <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200/70 px-3 py-1 rounded-full text-indigo-700 text-xs font-bold w-fit">
+                      <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                      Shiprocket: {profile.shiprocketPickupLocation}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="space-y-1.5 flex flex-col">
+                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                      Shop / Street Address (दुकान का पूरा पता) *
+                    </label>
+                    <input
+                      name="address"
+                      value={formData.address}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 disabled:opacity-75"
+                      placeholder="e.g. Shop No 12, Main Market Road"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="space-y-1.5 flex flex-col">
+                      <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                        Locality / Landmark
+                      </label>
+                      <input
+                        name="locality"
+                        value={formData.locality}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 disabled:opacity-75"
+                        placeholder="Near Bus Stand"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 flex flex-col">
+                      <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                        City (शहर) *
+                      </label>
+                      <input
+                        name="city"
+                        value={formData.city}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 disabled:opacity-75"
+                        placeholder="e.g. Indore"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 flex flex-col">
+                      <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                        State (राज्य) *
+                      </label>
+                      <input
+                        name="state"
+                        value={formData.state}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 disabled:opacity-75"
+                        placeholder="e.g. Madhya Pradesh"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 flex flex-col">
+                      <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                        Pincode (6-Digit) *
+                      </label>
+                      <input
+                        name="pincode"
+                        maxLength={6}
+                        value={formData.pincode}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 disabled:opacity-75"
+                        placeholder="452001"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-start gap-3 p-4 bg-emerald-50/70 rounded-xl border border-emerald-100">

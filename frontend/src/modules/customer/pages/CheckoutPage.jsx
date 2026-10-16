@@ -391,6 +391,57 @@ const CheckoutPage = () => {
     return pricingPreview?.fulfillmentType || null;
   }, [pricingPreview?.fulfillmentType]);
 
+  const splitDeliveryInfo = useMemo(() => {
+    // 1. If backend returned explicit split details in preview, use that
+    if (pricingPreview?.isSplitDelivery && pricingPreview?.splitDetails?.shipments) {
+      const s1 = pricingPreview.splitDetails.shipments[0];
+      const s2 = pricingPreview.splitDetails.shipments[1];
+      return {
+        isSplit: true,
+        localEstimate: s1?.deliveryEstimate || pricingPreview.localDeliveryEstimate || "20-35 mins",
+        standardEstimate: s2?.deliveryEstimate || pricingPreview.shiprocketDeliveryEstimate || "3-4 business days",
+        localItemsSummary: s1?.itemsSummary || "",
+        standardItemsSummary: s2?.itemsSummary || "",
+        shipments: pricingPreview.splitDetails.shipments,
+      };
+    }
+
+    // 2. Otherwise cross-reference cart items with deliveryDecision
+    const localItems = [];
+    const standardItems = [];
+
+    cart.forEach((item) => {
+      const check = getDeliveryItem?.(item);
+      const isLocal = check?.fulfillmentType === "LOCAL_RIDERS" || item.fulfillmentType === "LOCAL_RIDERS";
+      if (isLocal) {
+        localItems.push(item);
+      } else {
+        standardItems.push(item);
+      }
+    });
+
+    const isSplit = (localItems.length > 0 && standardItems.length > 0) || Boolean(pricingPreview?.isSplitDelivery);
+    const formatNames = (items) => {
+      if (!items.length) return "";
+      const names = items.map((i) => i.name || "Item");
+      if (names.length === 1) return names[0];
+      if (names.length === 2) return `${names[0]}, ${names[1]}`;
+      return `${names[0]} + ${names.length - 1} more`;
+    };
+
+    return {
+      isSplit,
+      hasLocal: localItems.length > 0,
+      hasStandard: standardItems.length > 0,
+      localItems,
+      standardItems,
+      localEstimate: pricingPreview?.localDeliveryEstimate || "20-35 mins",
+      standardEstimate: pricingPreview?.shiprocketDeliveryEstimate || pricingPreview?.deliveryEstimate || "3-4 business days",
+      localItemsSummary: formatNames(localItems),
+      standardItemsSummary: formatNames(standardItems),
+    };
+  }, [cart, getDeliveryItem, pricingPreview]);
+
   const buildAddressForOrder = () => {
     let resolvedPincode = "";
     if (savedRecipient?.pincode) {
@@ -838,19 +889,23 @@ const CheckoutPage = () => {
         if (res.data?.success) {
           const rawBreakdown = res.data.result?.breakdown ?? null;
           const fulfillmentType = res.data.result?.fulfillmentType || rawBreakdown?.fulfillmentType;
-          if (rawBreakdown && (fulfillmentType === "LOCAL" || fulfillmentType === "SHIPROCKET")) {
+          if (rawBreakdown && (fulfillmentType === "LOCAL" || fulfillmentType === "SHIPROCKET" || fulfillmentType === "SPLIT")) {
             setPricingPreview({
               ...rawBreakdown,
               __previewKey: previewAddressKey,
               fulfillmentType,
               deliveryEstimate: res.data.result?.deliveryEstimate || rawBreakdown.deliveryEstimate || (fulfillmentType === "LOCAL" ? "20-35 mins" : "3-4 business days"),
               isLocal: fulfillmentType === "LOCAL",
+              isSplitDelivery: Boolean(res.data.result?.isSplitDelivery || rawBreakdown?.isSplitDelivery),
+              splitDetails: res.data.result?.splitDetails || rawBreakdown?.splitDetails || null,
+              localDeliveryEstimate: res.data.result?.localDeliveryEstimate || rawBreakdown?.localDeliveryEstimate || "20-35 mins",
+              shiprocketDeliveryEstimate: res.data.result?.shiprocketDeliveryEstimate || rawBreakdown?.shiprocketDeliveryEstimate || "3-4 business days",
             });
           } else {
             setPricingPreview(null);
             setPreviewError("Delivery details could not be verified for this address.");
           }
-          if (rawBreakdown && (fulfillmentType === "LOCAL" || fulfillmentType === "SHIPROCKET")) setPreviewError(null);
+          if (rawBreakdown && (fulfillmentType === "LOCAL" || fulfillmentType === "SHIPROCKET" || fulfillmentType === "SPLIT")) setPreviewError(null);
         } else {
           setPricingPreview(null);
           setPreviewError(res.data?.message || "Unable to calculate order total");
@@ -966,6 +1021,9 @@ const CheckoutPage = () => {
         const paymentRef =
           result.paymentRef || result.checkoutGroupId || mainOrderId;
 
+        const isMultiOrder = Array.isArray(result.orders) && result.orders.length > 1;
+        const postExitRoute = isMultiOrder ? "/orders" : `/orders/${mainOrderId}`;
+
         if (!mainOrderId) {
           setIsPlacingOrder(false);
           showToast(
@@ -1004,7 +1062,7 @@ const CheckoutPage = () => {
                 amount: amountPaise,
                 currency: "INR",
                 name: appName,
-                description: `Order ${mainOrderId}`,
+                description: isMultiOrder ? `Orders ${result.orders.map(o => o.orderId).join(", ")}` : `Order ${mainOrderId}`,
                 order_id: razorpayOrderId,
                 handler: async function (response) {
                   try {
@@ -1036,8 +1094,8 @@ const CheckoutPage = () => {
                 modal: {
                   ondismiss: function() {
                     setIsPlacingOrder(false);
-                    showToast("Payment cancelled. You can retry from your order details.", "warning");
-                    navigate(`/orders/${mainOrderId}`);
+                    showToast("Payment cancelled. You can retry from your orders list.", "warning");
+                    navigate(postExitRoute);
                   }
                 }
               };
@@ -1047,7 +1105,7 @@ const CheckoutPage = () => {
               rzp.on('payment.failed', function (response){
                 setIsPlacingOrder(false);
                 showToast(`Payment failed: ${response.error.description}`, "error");
-                navigate(`/orders/${mainOrderId}`);
+                navigate(postExitRoute);
               });
 
               rzp.open();
@@ -1064,7 +1122,7 @@ const CheckoutPage = () => {
                 "Order created but payment gateway failed. Please pay from order details.",
               "error"
             );
-            navigate(`/orders/${mainOrderId}`);
+            navigate(postExitRoute);
             return;
           }
         }
@@ -1085,7 +1143,7 @@ const CheckoutPage = () => {
         postOrderNavigateRef.current = setTimeout(() => {
           postOrderNavigateRef.current = null;
           setIsPlacingOrder(false);
-          navigate(`/orders/${mainOrderId}`);
+          navigate(postExitRoute);
         }, 3000);
       } else {
         setIsPlacingOrder(false);
@@ -1246,6 +1304,61 @@ const CheckoutPage = () => {
               ) : !resolvedFulfillmentType ? (
                 <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
                   {previewError || "Delivery details are unavailable for this address. Please check the address and retry."}
+                </div>
+              ) : splitDeliveryInfo.isSplit ? (
+                <div className="bg-gradient-to-br from-indigo-50/90 via-white to-slate-50/70 rounded-2xl p-4 sm:p-5 shadow-xs border border-indigo-200/90 transition-all">
+                  <div className="flex items-start justify-between gap-3 pb-3 border-b border-indigo-100/80">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-xl bg-indigo-100/90 border border-indigo-200 text-indigo-700 flex items-center justify-center shrink-0 shadow-2xs">
+                        <Package size={22} strokeWidth={2.3} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-black text-slate-900 text-base sm:text-lg tracking-tight">
+                            Split Delivery
+                          </h3>
+                        </div>
+                        <p className="text-xs sm:text-sm font-semibold text-slate-500 mt-0.5">
+                          2 Separate Shipments for your cart
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] uppercase font-black tracking-wider px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200 shrink-0">
+                      2 Shipments
+                    </span>
+                  </div>
+
+                  <div className="pt-3 space-y-2.5">
+                    {/* Shipment 1: Quick Delivery */}
+                    <div className="flex items-start gap-3 p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/80">
+                      <div className="w-8 h-8 rounded-lg bg-amber-100 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                        <Zap size={16} className="fill-amber-500 text-amber-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs sm:text-sm font-extrabold text-slate-900 block">
+                          ⚡ Shipment 1: Quick Delivery
+                        </span>
+                        <p className="text-xs text-slate-600 font-semibold mt-0.5">
+                          Arriving in 20-35 mins
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Shipment 2: Standard Courier */}
+                    <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-50/70 border border-blue-200/80">
+                      <div className="w-8 h-8 rounded-lg bg-blue-100 border border-blue-200 text-blue-700 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                        <Truck size={16} strokeWidth={2.3} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs sm:text-sm font-extrabold text-slate-900 block">
+                          🚚 Shipment 2: Standard Courier
+                        </span>
+                        <p className="text-xs text-slate-600 font-semibold mt-0.5">
+                          Arriving in 3-5 days
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ) : resolvedFulfillmentType === "SHIPROCKET" ? (
                 <div className="bg-gradient-to-r from-blue-50/90 via-white to-blue-50/40 rounded-2xl p-4 sm:p-5 shadow-xs border border-blue-200/90 transition-all">

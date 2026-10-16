@@ -50,6 +50,21 @@ const productSchema = new mongoose.Schema(
             type: String,
             trim: true,
         },
+        length: {
+            type: Number,
+            default: 10,
+            min: 0.1,
+        },
+        breadth: {
+            type: Number,
+            default: 10,
+            min: 0.1,
+        },
+        height: {
+            type: Number,
+            default: 10,
+            min: 0.1,
+        },
         shelfLife: {
             type: String,
             trim: true,

@@ -524,7 +524,9 @@ const MainLocationHeader = ({
           }}
           style={{
             backgroundColor: targetHeaderColor,
-            paddingTop: isScrolled ? 16 : 14,
+            paddingTop: isScrolled
+              ? "max(16px, calc(16px + env(safe-area-inset-top, 0px)))"
+              : "max(14px, calc(14px + env(safe-area-inset-top, 0px)))",
             paddingBottom: !isAllCategory ? 3 : 4,
             borderBottomLeftRadius: 24,
             borderBottomRightRadius: 24,

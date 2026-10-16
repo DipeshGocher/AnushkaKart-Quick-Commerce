@@ -65,6 +65,15 @@ const sellerSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    shiprocketPickupLocation: {
+      type: String,
+      trim: true,
+    },
+    shiprocketPickupStatus: {
+      type: String,
+      enum: ["unregistered", "pending", "verified", "failed", "mock"],
+      default: "unregistered",
+    },
 
     documents: {
       tradeLicense: { type: String, trim: true },

@@ -15,6 +15,7 @@ import {
   updateShiprocketStatusManual,
   shiprocketWebhookHandler,
   getShiprocketStatus,
+  recordDiscrepancy,
 } from "../controller/shippingController.js";
 
 const router = express.Router();
@@ -43,5 +44,6 @@ router.post("/shiprocket/process/:orderId", verifyToken, allowRoles("admin"), pr
 router.post("/shiprocket/pickup/:orderId", verifyToken, allowRoles("admin"), scheduleShiprocketPickup);
 router.get("/shiprocket/label/:orderId", verifyToken, allowRoles("admin"), fetchShiprocketLabel);
 router.post("/shiprocket/manual-status/:orderId", verifyToken, allowRoles("admin"), updateShiprocketStatusManual);
+router.post("/shiprocket/discrepancy/:orderId", verifyToken, allowRoles("admin"), recordDiscrepancy);
 
 export default router;

@@ -20,6 +20,7 @@ import {
   updateShiprocketManualStatus,
   processShiprocketWebhook,
   isShiprocketConfigured,
+  recordShiprocketWeightDiscrepancy,
 } from "../services/shipping/shiprocketService.js";
 
 /**
@@ -322,3 +323,24 @@ export const getShiprocketStatus = async (req, res) => {
     pickupLocation: process.env.SHIPROCKET_PICKUP_LOCATION || "Primary",
   });
 };
+
+/**
+ * Admin: Record Weight Discrepancy for Shiprocket Order
+ * Penalty is deducted from seller payout during settlement.
+ */
+export const recordDiscrepancy = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { discrepancyAmount, reason, chargedWeightKg, enteredWeightKg } = req.body;
+    const result = await recordShiprocketWeightDiscrepancy(orderId, {
+      discrepancyAmount,
+      reason,
+      chargedWeightKg,
+      enteredWeightKg,
+    });
+    return handleResponse(res, 200, result.message, result);
+  } catch (error) {
+    return handleResponse(res, error.statusCode || 500, error.message);
+  }
+};
+

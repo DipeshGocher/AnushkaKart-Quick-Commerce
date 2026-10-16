@@ -288,23 +288,15 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                               </span>
                             </div>
 
-                            {/* Delivery Fulfillment / Restriction Badge */}
-                            <div className="mt-2">
-                              {!deliveryReady ? (
-                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md">
-                                  {deliveryError || (destinationPincode ? "Checking delivery..." : "Select delivery address")}
-                                </span>
-                              ) : !deliveryCheck?.isDeliverable ? (
+                            {/* Delivery Restriction Badge (only if undeliverable) */}
+                            {deliveryReady && !deliveryCheck?.isDeliverable && (
+                              <div className="mt-2">
                                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md">
                                   <Ban size={11} className="shrink-0" />
                                   <span>{deliveryCheck?.warning || "Delivery unavailable for this item."}</span>
                                 </span>
-                              ) : deliveryCheck ? (
-                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
-                                  <span>{deliveryCheck.fulfillmentType === "LOCAL_RIDERS" ? "⚡ Quick (20-35 Mins)" : "📦 Standard (3-4 Days)"}</span>
-                                </span>
-                              ) : null}
-                            </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -392,7 +384,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
 
                   <div className="flex justify-between font-semibold text-slate-600">
                     <span>Delivery Charges</span>
-                    <span className="text-emerald-600 font-bold">FREE</span>
+                    <span className="text-slate-500 font-medium text-xs">Calculated at checkout</span>
                   </div>
 
                   <div className="border-t border-dashed border-slate-200 pt-3 flex justify-between text-base font-black text-slate-900">

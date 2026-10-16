@@ -238,26 +238,16 @@ async function resolveNearbySellerIds(deliveryPartner, userId) {
     location: {
       $near: {
         $geometry: deliveryPartner.location,
-        $maxDistance: 5000,
+        $maxDistance: 30000,
       },
     },
   }).select("_id");
 
-  let sellerIds = nearbySellers.map((seller) => seller._id);
-  let usedFallback = false;
-
-  if (sellerIds.length === 0 && process.env.NODE_ENV !== "production") {
-    const allSellers = await Seller.find({}).select("_id");
-    sellerIds = allSellers.map((seller) => seller._id);
-    usedFallback = true;
-    console.log(
-      `DEV LOG - Radius search found 0 sellers. Bypassing radius check for Delivery Partner: ${userId}`,
-    );
-  }
+  const sellerIds = nearbySellers.map((seller) => seller._id);
 
   return {
     sellerIds,
-    usedFallback,
+    usedFallback: false,
   };
 }
 

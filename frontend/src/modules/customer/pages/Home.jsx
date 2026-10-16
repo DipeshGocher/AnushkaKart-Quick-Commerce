@@ -873,8 +873,8 @@ const Home = () => {
       className={cn(
         "min-h-screen bg-white",
         isAllCategorySelected
-          ? "pt-[242px] sm:pt-[248px] md:pt-[168px]"
-          : "pt-[122px] sm:pt-[126px] md:pt-[160px] lg:pt-[165px]"
+          ? "pt-[calc(242px+env(safe-area-inset-top,0px))] sm:pt-[calc(248px+env(safe-area-inset-top,0px))] md:pt-[168px]"
+          : "pt-[calc(122px+env(safe-area-inset-top,0px))] sm:pt-[calc(126px+env(safe-area-inset-top,0px))] md:pt-[160px] lg:pt-[165px]"
       )}
     >
       <MainLocationHeader 

@@ -1,6 +1,8 @@
 import Order from "../../models/order.js";
 import Customer from "../../models/customer.js";
 import Product from "../../models/product.js";
+import Seller from "../../models/seller.js";
+import mongoose from "mongoose";
 import axios from "axios";
 import crypto from "node:crypto";
 import { WORKFLOW_STATUS } from "../../constants/orderWorkflow.js";
@@ -80,6 +82,166 @@ export async function getShiprocketAuthToken() {
   } catch (error) {
     console.error("[Shiprocket Auth Error]:", error.response?.data || error.message);
     throw new Error(`Shiprocket Authentication Failed: ${error.response?.data?.message || error.message}`);
+  }
+}
+
+/**
+ * Automatically creates or updates seller pickup location in Shiprocket.
+ * Endpoint: POST /settings/company/addpickup
+ */
+export async function syncSellerPickupLocationToShiprocket(seller) {
+  if (!seller) return null;
+
+  const rawPincode = String(seller.pincode || seller.pickupAddress?.pincode || "").trim();
+  if (!/^[1-9][0-9]{5}$/.test(rawPincode)) {
+    return { success: false, reason: "INVALID_PINCODE", message: "A valid 6-digit Indian pincode is required." };
+  }
+  const address = seller.address || seller.pickupAddress?.address;
+  const city = seller.city || seller.pickupAddress?.city;
+  const state = seller.state || seller.pickupAddress?.state;
+  const locality = seller.locality || seller.pickupAddress?.locality || "";
+  if (!address || !city || !state) {
+    return { success: false, reason: "INCOMPLETE_ADDRESS", message: "Complete address, city, and state are required." };
+  }
+
+  const sellerKey = String(seller._id || seller.id || "seller").slice(-8);
+  const locationNickname = `Seller_${sellerKey}`;
+
+  if (!isShiprocketConfigured()) {
+    seller.shiprocketPickupLocation = locationNickname;
+    seller.shiprocketPickupStatus = "mock";
+    return {
+      success: true,
+      mode: "MOCK",
+      pickup_location: locationNickname,
+      message: "Mock pickup location registered for local development",
+    };
+  }
+
+  try {
+    const token = await getShiprocketAuthToken();
+    const payload = {
+      pickup_location: locationNickname,
+      name: String(seller.name || seller.shopName || "Seller Partner").slice(0, 30),
+      email: String(seller.email || process.env.SHIPROCKET_CONTACT_EMAIL || "seller@store.com").trim(),
+      phone: String(seller.phone || "").replace(/\D/g, "").slice(-10),
+      address: String(address).slice(0, 80),
+      address_2: String(locality || "").slice(0, 80),
+      city: String(city).slice(0, 30),
+      state: String(state).slice(0, 30),
+      country: "India",
+      pin_code: Number(rawPincode),
+    };
+
+    const res = await axios.post(`${SHIPROCKET_BASE_URL}/settings/company/addpickup`, payload, {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 15000,
+    });
+
+    seller.shiprocketPickupLocation = locationNickname;
+    seller.shiprocketPickupStatus = "verified";
+    return {
+      success: true,
+      mode: "LIVE",
+      pickup_location: locationNickname,
+      response: res.data,
+    };
+  } catch (err) {
+    console.warn("[Shiprocket] Add pickup location API warning:", err.response?.data || err.message);
+    seller.shiprocketPickupLocation = locationNickname;
+    seller.shiprocketPickupStatus = "pending";
+    return {
+      success: false,
+      pickup_location: locationNickname,
+      error: err.response?.data?.message || err.message,
+    };
+  }
+}
+
+/**
+ * Calculates live dynamic courier rate between seller and customer.
+ * Endpoint: GET /courier/serviceability/
+ */
+export async function calculateShiprocketLiveRate({
+  pickupPincode,
+  deliveryPincode,
+  weight = 0.5,
+  length = 10,
+  breadth = 10,
+  height = 10,
+  cod = 0,
+} = {}) {
+  const normPickup = String(pickupPincode || "").trim();
+  const normDrop = String(deliveryPincode || "").trim();
+  const normWeight = Math.max(0.1, Number(weight || 0.5));
+  const normLength = Math.max(5, Number(length || 10));
+  const normBreadth = Math.max(5, Number(breadth || 10));
+  const normHeight = Math.max(5, Number(height || 10));
+
+  // Volumetric weight calculation: (L x B x H) / 5000
+  const volumetricWeight = (normLength * normBreadth * normHeight) / 5000;
+  const billableWeight = Math.max(normWeight, volumetricWeight);
+
+  // Dynamic weight-based fallback
+  const computeFallbackRate = () => {
+    const baseFee = Number(process.env.SHIPROCKET_DELIVERY_CHARGE || 49);
+    const extraWeight = Math.max(0, billableWeight - 0.5);
+    const extraBlocks = Math.ceil(extraWeight / 0.5);
+    const extraFee = extraBlocks * 25;
+    return {
+      success: true,
+      rate: Math.round(baseFee + extraFee),
+      courierName: "Standard Courier (Surface)",
+      etd: "3-4 business days",
+      billableWeightKg: Math.round(billableWeight * 100) / 100,
+      mode: "FALLBACK_DYNAMIC_WEIGHT",
+    };
+  };
+
+  if (!normPickup || !normDrop || !/^[1-9][0-9]{5}$/.test(normDrop)) {
+    return computeFallbackRate();
+  }
+
+  if (!isShiprocketConfigured()) {
+    return computeFallbackRate();
+  }
+
+  try {
+    const token = await getShiprocketAuthToken();
+    const res = await axios.get(`${SHIPROCKET_BASE_URL}/courier/serviceability/`, {
+      headers: { Authorization: `Bearer ${token}` },
+      params: {
+        pickup_postcode: normPickup,
+        delivery_postcode: normDrop,
+        weight: Math.round(billableWeight * 1000) / 1000,
+        cod: cod ? 1 : 0,
+        length: normLength,
+        breadth: normBreadth,
+        height: normHeight,
+      },
+      timeout: 12000,
+    });
+
+    const courierList = res.data?.data?.available_courier_companies;
+    if (Array.isArray(courierList) && courierList.length > 0) {
+      // Pick cheapest reliable courier
+      const sorted = [...courierList].sort((a, b) => Number(a.rate || 9999) - Number(b.rate || 9999));
+      const best = sorted[0];
+      return {
+        success: true,
+        rate: Math.ceil(Number(best.rate)),
+        courierName: best.courier_name || "Shiprocket Express",
+        etd: best.etd ? `${best.etd} days` : (best.estimated_delivery_days ? `${best.estimated_delivery_days} days` : "3-4 days"),
+        courierCompanyId: best.courier_company_id,
+        billableWeightKg: Math.round(billableWeight * 100) / 100,
+        mode: "LIVE_SHIPROCKET",
+      };
+    }
+
+    return computeFallbackRate();
+  } catch (error) {
+    console.warn("[Shiprocket Serviceability Rate API Warning]:", error.response?.data || error.message);
+    return computeFallbackRate();
   }
 }
 
@@ -206,9 +368,21 @@ export async function processShiprocketOrder(orderParam) {
     throw err;
   }
 
+  let pickupLocation = process.env.SHIPROCKET_PICKUP_LOCATION || "Primary";
+  if (order.seller) {
+    try {
+      const sellerDoc = await Seller.findById(order.seller).select("shiprocketPickupLocation pincode address city state").lean();
+      if (sellerDoc?.shiprocketPickupLocation) {
+        pickupLocation = sellerDoc.shiprocketPickupLocation;
+      }
+    } catch (err) {
+      console.warn("[Shiprocket] Error fetching seller for pickup location:", err.message);
+    }
+  }
+
   const productIds = (order.items || []).map((item) => item.product).filter(Boolean);
   const productDocs = productIds.length
-    ? await Product.find({ _id: { $in: productIds } }).select("_id weight sku").lean()
+    ? await Product.find({ _id: { $in: productIds } }).select("_id weight sku length breadth height").lean()
     : [];
   const productsById = new Map(productDocs.map((product) => [String(product._id), product]));
   const defaultItemWeightKg = Number(process.env.SHIPROCKET_DEFAULT_ITEM_WEIGHT_KG || 0.5);
@@ -218,6 +392,24 @@ export async function processShiprocketOrder(orderParam) {
     if (!match) return defaultItemWeightKg;
     return match[2].startsWith("k") ? Number(match[1]) : Number(match[1]) / 1000;
   };
+
+  let maxLength = 10;
+  let maxBreadth = 10;
+  let totalHeight = 0;
+  for (const it of (order.items || [])) {
+    const p = productsById.get(String(it.product));
+    const qty = Number(it.quantity || 1);
+    const pL = Number(p?.length || 10);
+    const pB = Number(p?.breadth || 10);
+    const pH = Number(p?.height || 10);
+    if (pL > maxLength) maxLength = pL;
+    if (pB > maxBreadth) maxBreadth = pB;
+    totalHeight += pH * qty;
+  }
+  const finalLength = Math.max(5, Math.min(100, Math.round(maxLength)));
+  const finalBreadth = Math.max(5, Math.min(100, Math.round(maxBreadth)));
+  const finalHeight = Math.max(5, Math.min(100, Math.round(totalHeight || 10)));
+
   const totalWeightKg = Math.max(0.5, (order.items || []).reduce((total, item) =>
     total + itemWeightKg(productsById.get(String(item.product))) * Number(item.quantity || 1), 0));
   const itemSubtotal = (order.items || []).reduce((total, item) =>
@@ -246,7 +438,7 @@ export async function processShiprocketOrder(orderParam) {
   const payload = {
     order_id: order.orderId,
     order_date: orderDate,
-    pickup_location: process.env.SHIPROCKET_PICKUP_LOCATION || "Primary",
+    pickup_location: pickupLocation,
     billing_customer_name: order.address?.name || "Customer",
     billing_last_name: "",
     billing_address: order.address.address,
@@ -263,9 +455,9 @@ export async function processShiprocketOrder(orderParam) {
     shipping_charges: deliveryFee,
     transaction_charges: additionalCharges,
     total_discount: totalDiscount,
-    length: Number(process.env.SHIPROCKET_PACKAGE_LENGTH_CM || 10),
-    breadth: Number(process.env.SHIPROCKET_PACKAGE_BREADTH_CM || 10),
-    height: Number(process.env.SHIPROCKET_PACKAGE_HEIGHT_CM || 10),
+    length: finalLength,
+    breadth: finalBreadth,
+    height: finalHeight,
     weight: Math.round(totalWeightKg * 1000) / 1000,
   };
 
@@ -697,6 +889,21 @@ export async function processShiprocketWebhook(payload = {}, headers = {}) {
     order.shiprocket.etd = payload.etd;
   }
 
+  const discrepancyAmt = Number(payload.weight_discrepancy_amount || payload.discrepancy_amount || 0);
+  if (discrepancyAmt > 0) {
+    order.shiprocket.weightDiscrepancyAmount = discrepancyAmt;
+    order.shiprocket.weightDiscrepancyReason = payload.discrepancy_reason || "Weight discrepancy reported by courier partner";
+    if (payload.charged_weight) order.shiprocket.chargedWeightKg = Number(payload.charged_weight);
+    if (payload.entered_weight) order.shiprocket.enteredWeightKg = Number(payload.entered_weight);
+    order.shiprocket.history.push({
+      status: "WEIGHT_DISCREPANCY",
+      location: location || "Courier Hub",
+      timestamp: new Date(),
+      remarks: `Weight discrepancy of ₹${discrepancyAmt} logged (deducted from seller payout). Reason: ${order.shiprocket.weightDiscrepancyReason}`,
+      source: "webhook",
+    });
+  }
+
   if (statusRaw === "DELIVERED") {
     order.status = "delivered";
     order.orderStatus = "delivered";
@@ -797,3 +1004,38 @@ export async function processShiprocketWebhook(payload = {}, headers = {}) {
     message: `Order #${order.orderId} updated via Shiprocket webhook: ${statusRaw}`,
   };
 }
+
+/**
+ * Super Admin: Manually Record Weight Discrepancy for Shiprocket Order
+ * Ensures platform safety: the discrepancy penalty is deducted from the seller's payout.
+ */
+export async function recordShiprocketWeightDiscrepancy(orderId, { discrepancyAmount, reason = "", chargedWeightKg = 0, enteredWeightKg = 0 } = {}) {
+  const query = mongoose.Types.ObjectId.isValid(orderId) ? { _id: orderId } : { orderId };
+  const order = await Order.findOne(query);
+  if (!order) {
+    const err = new Error("Order not found");
+    err.statusCode = 404;
+    throw err;
+  }
+  const amt = Number(discrepancyAmount || 0);
+  if (amt <= 0) {
+    const err = new Error("Valid positive discrepancy penalty amount is required");
+    err.statusCode = 400;
+    throw err;
+  }
+  if (!order.shiprocket) order.shiprocket = { history: [] };
+  order.shiprocket.weightDiscrepancyAmount = amt;
+  order.shiprocket.weightDiscrepancyReason = reason || "Weight discrepancy recorded by Admin";
+  if (chargedWeightKg) order.shiprocket.chargedWeightKg = Number(chargedWeightKg);
+  if (enteredWeightKg) order.shiprocket.enteredWeightKg = Number(enteredWeightKg);
+  order.shiprocket.history.push({
+    status: "WEIGHT_DISCREPANCY",
+    location: "Admin Portal",
+    timestamp: new Date(),
+    remarks: `Weight discrepancy of ₹${amt} manually recorded by Admin. Reason: ${order.shiprocket.weightDiscrepancyReason}`,
+    source: "manual",
+  });
+  await order.save();
+  return { success: true, message: `Weight discrepancy of ₹${amt} recorded`, order };
+}
+

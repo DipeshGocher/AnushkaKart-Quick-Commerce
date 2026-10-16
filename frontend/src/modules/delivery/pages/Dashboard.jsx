@@ -237,9 +237,10 @@ const Dashboard = () => {
       {/* Header */}
       <header
         style={{
-          background: "linear-gradient(180deg, rgba(102, 102, 255, 0.90) 0%, rgba(136, 136, 255, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%)"
+          background: "linear-gradient(180deg, rgba(102, 102, 255, 0.90) 0%, rgba(136, 136, 255, 0.42) 35%, rgba(255, 255, 255, 0.88) 75%, rgba(255, 255, 255, 0.95) 100%)",
+          paddingTop: "max(1rem, calc(0.75rem + env(safe-area-inset-top, 0px)))",
         }}
-        className="px-6 pt-12 pb-4 flex justify-between items-center sticky top-0 z-30 transition-all duration-300 border-b border-[#6666FF]/20 shadow-2xs backdrop-blur-md">
+        className="px-6 pb-4 flex justify-between items-center sticky top-0 z-30 transition-all duration-300 border-b border-[#6666FF]/20 shadow-2xs backdrop-blur-md">
         <div className="flex items-center gap-2.5">
           <img src={settings?.logoUrl || "/logo.png"} alt="Logo" className="h-8 object-contain drop-shadow-xs" />
           <h1 className="text-lg font-bold text-gray-900 tracking-tight ml-1">{user?.name || "Delivery Partner"}</h1>

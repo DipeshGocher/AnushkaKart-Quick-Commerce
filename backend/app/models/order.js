@@ -304,6 +304,10 @@ const orderSchema = new mongoose.Schema(
       shippedAt: { type: Date, default: null },
       deliveredAt: { type: Date, default: null },
       lastEventAt: { type: Date, default: null },
+      weightDiscrepancyAmount: { type: Number, default: 0 },
+      weightDiscrepancyReason: { type: String, default: null },
+      chargedWeightKg: { type: Number, default: 0 },
+      enteredWeightKg: { type: Number, default: 0 },
       history: [
         {
           status: String,

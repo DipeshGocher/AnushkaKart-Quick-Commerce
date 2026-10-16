@@ -289,7 +289,7 @@ export async function hydrateOrderItems(
     .filter(Boolean);
 
   const productQuery = Product.find({ _id: { $in: productIds } })
-    .select("_id name salePrice price mainImage headerId sellerId warehouseId status approvalStatus variants deliveryMode")
+    .select("_id name salePrice price mainImage headerId sellerId warehouseId status approvalStatus variants deliveryMode weight length breadth height")
     .lean();
   if (session) productQuery.session(session);
   const products = await productQuery;
@@ -347,6 +347,10 @@ export async function hydrateOrderItems(
       variantSku: rawVariantSku || "",
       variantName: resolvedVariant ? String(resolvedVariant?.name || "").trim() : "",
       deliveryMode: product.deliveryMode || "inherit",
+      weight: product.weight || "",
+      length: Number(product.length) || 10,
+      breadth: Number(product.breadth) || 10,
+      height: Number(product.height) || 10,
     };
   });
 }
@@ -371,6 +375,7 @@ export async function generateOrderPaymentBreakdown({
   handlingFeeStrategy,
   session = null,
   fulfillmentType = "LOCAL",
+  courierDeliveryFee: customCourierFee = null,
 }) {
   const normalizedItems = Array.isArray(preHydratedItems) && preHydratedItems.length > 0
     ? preHydratedItems
@@ -437,9 +442,11 @@ export async function generateOrderPaymentBreakdown({
     categoryById,
   });
   const isShiprocket = fulfillmentType === "SHIPROCKET";
-  const standardCourierFee = Number(process.env.SHIPROCKET_DELIVERY_CHARGE || 49);
-  const courierFreeThreshold = Number(process.env.SHIPROCKET_FREE_DELIVERY_THRESHOLD || 499);
-  const courierDeliveryFee = productSubtotal >= courierFreeThreshold ? 0 : standardCourierFee;
+  const standardCourierFee = customCourierFee !== null && Number.isFinite(Number(customCourierFee))
+    ? Math.max(0, Number(customCourierFee))
+    : Number(process.env.SHIPROCKET_DELIVERY_CHARGE || 49);
+  // Auto-free delivery disabled: always charge standard/live courier fee unless overridden by explicit coupon
+  const courierDeliveryFee = standardCourierFee;
 
   const delivery = isShiprocket
     ? {
@@ -530,6 +537,8 @@ export async function generateOrderPaymentBreakdown({
     currency: "INR",
     productSubtotal,
     deliveryFeeCharged: delivery.deliveryFeeCharged,
+    courierDeliveryFee: isShiprocket ? courierDeliveryFee : null,
+    fulfillmentType: isShiprocket ? "SHIPROCKET" : "LOCAL",
     handlingFeeCharged: handling.handlingFeeCharged,
     tipTotal: normalizedTip,
     discountTotal: normalizedDiscount,

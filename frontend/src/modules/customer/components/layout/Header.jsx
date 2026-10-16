@@ -67,7 +67,11 @@ const Header = () => {
     }, [typingState]);
 
     return (
-        <header className="customer-standard-header absolute top-0 md:top-8 left-0 right-0 z-[200] px-4 py-4 md:py-0 bg-[#eaf4ff] md:bg-none">
+        <header
+            style={{
+                paddingTop: "max(1rem, calc(1rem + env(safe-area-inset-top, 0px)))",
+            }}
+            className="customer-standard-header absolute top-0 md:top-8 left-0 right-0 z-[200] px-4 pb-4 md:py-0 bg-[#eaf4ff] md:bg-none">
             <div className="container mx-auto max-w-6xl">
                 {/* Mobile Top Row: Location & Profile */}
                 <div className="md:hidden flex items-center justify-between mb-4 px-2 animate-in slide-in-from-top duration-500">

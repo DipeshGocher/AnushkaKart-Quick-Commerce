@@ -57,9 +57,10 @@ const CheckoutCartSummary = React.memo(function CheckoutCartSummary({
                 );
               }
               if (check) {
+                const isLocal = check.fulfillmentType === "LOCAL_RIDERS";
                 return (
-                  <div className="text-[10px] font-extrabold uppercase tracking-wide text-emerald-600 mb-1">
-                    {check.fulfillmentType === "LOCAL_RIDERS" ? "⚡ Quick (20-35 Mins)" : "📦 Standard (3-4 Days)"}
+                  <div className={`text-[10px] font-extrabold uppercase tracking-wide mb-1 ${isLocal ? "text-emerald-700" : "text-blue-700"}`}>
+                    {isLocal ? "⚡ Quick (20-35 Mins)" : "📦 Standard (3-4 Days)"}
                   </div>
                 );
               }

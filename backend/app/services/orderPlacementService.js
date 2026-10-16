@@ -809,24 +809,21 @@ export async function placeOrderAtomic({
             message: error.message,
           });
         });
-      }
-    }
-
-    for (const order of orders) {
-      emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_PLACED, {
-        orderId: order.orderId,
-        checkoutGroupId,
-        customerId,
-        userId: customerId,
-      });
-      if (shouldStartSellerWorkflow && (order.seller || order.warehouseId)) {
-        emitNotificationEvent(NOTIFICATION_EVENTS.NEW_ORDER, {
+        emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_PLACED, {
           orderId: order.orderId,
           checkoutGroupId,
-          sellerId: order.seller || undefined,
-          warehouseId: order.warehouseId || undefined,
           customerId,
+          userId: customerId,
         });
+        if (order.seller || order.warehouseId) {
+          emitNotificationEvent(NOTIFICATION_EVENTS.NEW_ORDER, {
+            orderId: order.orderId,
+            checkoutGroupId,
+            sellerId: order.seller || undefined,
+            warehouseId: order.warehouseId || undefined,
+            customerId,
+          });
+        }
       }
     }
 

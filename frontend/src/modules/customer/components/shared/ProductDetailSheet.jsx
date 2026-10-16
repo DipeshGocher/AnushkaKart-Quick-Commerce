@@ -750,66 +750,7 @@ const ProductDetailSheet = () => {
     };
 
     const renderDeliveryFulfillmentCard = () => {
-        if (!selectedProduct) return null;
-
-        if (!canAddToCart) {
-            const cleanWarning = deliveryWarning
-                ? deliveryWarning
-                    .replace(/Quick Delivery (not available at|is not available at)[^.]*\.\s*/i, "")
-                    .replace(/\b\d{6}\b/g, "")
-                    .trim() || "This item is only delivered in local areas."
-                : "This item is only delivered in local areas.";
-
-            return (
-                <div className="rounded-xl border border-rose-100 bg-gradient-to-r from-rose-50/70 via-orange-50/20 to-slate-50/40 px-3 py-2 shadow-2xs my-2 text-left transition-all">
-                    <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-rose-100/80 border border-rose-200/60 text-rose-600 flex items-center justify-center shrink-0">
-                            <Clock size={15} strokeWidth={2.2} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <h4 className="text-[12px] font-bold text-slate-800 tracking-tight leading-tight">
-                                Quick Delivery Not Available
-                            </h4>
-                            <p className="text-[11px] text-slate-500 font-medium leading-tight mt-0.5">
-                                {cleanWarning}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-
-        if (fulfillmentType === "LOCAL_RIDERS") {
-            return (
-                <div className="rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/70 via-teal-50/40 to-emerald-50/50 px-3 py-2 shadow-2xs my-2 text-left transition-all">
-                    <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                            <Zap size={16} strokeWidth={2.5} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <h4 className="text-[12px] font-bold text-emerald-800 tracking-tight flex items-center gap-1 leading-tight">
-                                ⚡ Superfast 20–35 Mins Delivery
-                            </h4>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-
-        return (
-            <div className="rounded-xl border border-sky-100 bg-sky-50/60 px-3 py-2 shadow-2xs my-2 text-left">
-                <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
-                        <Truck size={15} strokeWidth={2.2} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <span className="text-[12px] font-bold text-sky-800 tracking-tight">
-                            📦 Standard Courier Delivery (3–4 Days)
-                        </span>
-                    </div>
-                </div>
-            </div>
-        );
+        return null;
     };
 
     const renderMoreDetailsCard = () => {

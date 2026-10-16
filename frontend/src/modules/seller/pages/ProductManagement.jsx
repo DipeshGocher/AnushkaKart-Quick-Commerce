@@ -318,6 +318,9 @@ const ProductManagement = () => {
     isTopDeal: false,
     tags: "",
     weight: "",
+    length: 10,
+    breadth: 10,
+    height: 10,
     brand: "",
     shelfLife: "",
     countryOfOrigin: "",
@@ -476,6 +479,9 @@ const ProductManagement = () => {
       data.append("isTopDeal", String(formData.isTopDeal));
       data.append("brand", formData.brand);
       data.append("weight", formData.weight);
+      data.append("length", formData.length || 10);
+      data.append("breadth", formData.breadth || 10);
+      data.append("height", formData.height || 10);
       data.append("tags", formData.tags);
       data.append("shelfLife", formData.shelfLife);
       data.append("countryOfOrigin", formData.countryOfOrigin);
@@ -657,6 +663,9 @@ const ProductManagement = () => {
         isTopDeal: Boolean(freshItem.isTopDeal),
         tags: Array.isArray(freshItem.tags) ? freshItem.tags.join(", ") : freshItem.tags || "",
         weight: freshItem.weight || "",
+        length: freshItem.length || 10,
+        breadth: freshItem.breadth || 10,
+        height: freshItem.height || 10,
         brand: freshItem.brand || "",
         shelfLife: freshItem.shelfLife || "",
         countryOfOrigin: freshItem.countryOfOrigin || "",
@@ -1285,6 +1294,75 @@ const ProductManagement = () => {
                             className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-semibold outline-none ring-primary/5 focus:ring-2"
                             placeholder="e.g. 100123..."
                           />
+                        </div>
+                      </div>
+
+                      {/* Parcel Weight & Box Dimensions (Shiprocket Courier) */}
+                      <div className="bg-slate-50/90 p-5 rounded-2xl border border-slate-200/90 space-y-4">
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                            <HiOutlineScale className="h-4 w-4 text-primary" />
+                            Parcel Weight & Box Dimensions (पार्सल का वजन और साइज़)
+                          </h4>
+                          <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                            💡 सही वजन और बॉक्स का साइज़ भरें ताकि Shiprocket कूरियर डिलीवरी चार्ज सही रहे और कोई पेनल्टी न लगे।
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="space-y-1.5 flex flex-col">
+                            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                              Product Weight (वजन)
+                            </label>
+                            <input
+                              value={formData.weight}
+                              onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                              className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/20"
+                              placeholder="e.g. 500g or 1.5 kg"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5 flex flex-col">
+                            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                              Length (लंबाई - cm)
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={formData.length}
+                              onChange={(e) => setFormData({ ...formData, length: Math.max(1, Number(e.target.value) || 10) })}
+                              className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/20"
+                              placeholder="10"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5 flex flex-col">
+                            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                              Width / Breadth (चौड़ाई - cm)
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={formData.breadth}
+                              onChange={(e) => setFormData({ ...formData, breadth: Math.max(1, Number(e.target.value) || 10) })}
+                              className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/20"
+                              placeholder="10"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5 flex flex-col">
+                            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                              Height (ऊंचाई - cm)
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={formData.height}
+                              onChange={(e) => setFormData({ ...formData, height: Math.max(1, Number(e.target.value) || 10) })}
+                              className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/20"
+                              placeholder="10"
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>

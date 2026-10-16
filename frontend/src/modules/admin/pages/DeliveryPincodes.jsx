@@ -14,6 +14,8 @@ import {
   AlertCircle,
   Globe,
   RefreshCw,
+  Power,
+  PowerOff,
 } from "lucide-react";
 import { useToast } from "@shared/components/ui/Toast";
 import { adminShippingApi } from "../services/api/shippingApi";
@@ -373,12 +375,18 @@ const DeliveryPincodes = () => {
                     <td className="py-3.5 px-4">
                       <button
                         onClick={() => handleToggleStatus(item)}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition ${
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition shadow-xs active:scale-95 cursor-pointer ${
                           item.isActive
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                            : "bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100"
+                            : "bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200"
                         }`}
+                        title={item.isActive ? "Click to Deactivate (will route to Shiprocket)" : "Click to Activate (In-House local riders)"}
                       >
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            item.isActive ? "bg-emerald-500 animate-pulse" : "bg-slate-400"
+                          }`}
+                        />
                         {item.isActive ? (
                           <>
                             <CheckCircle2 size={13} className="text-emerald-600" /> Active
@@ -405,18 +413,29 @@ const DeliveryPincodes = () => {
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
+                          onClick={() => handleToggleStatus(item)}
+                          className={`p-1.5 rounded-lg border transition ${
+                            item.isActive
+                              ? "text-emerald-600 hover:text-emerald-700 bg-emerald-50/60 hover:bg-emerald-100/70 border-emerald-200"
+                              : "text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 border-slate-300"
+                          }`}
+                          title={item.isActive ? "Click to Deactivate (Routes to Shiprocket)" : "Click to Activate (In-House Riders)"}
+                        >
+                          {item.isActive ? <Power size={15} /> : <PowerOff size={15} />}
+                        </button>
+                        <button
                           onClick={() => handleOpenEditModal(item)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition"
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition border border-slate-200"
                           title="Edit Pincode"
                         >
-                          <Edit2 size={16} />
+                          <Edit2 size={15} />
                         </button>
                         <button
                           onClick={() => handleDelete(item)}
-                          className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition"
+                          className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition border border-rose-200/60"
                           title="Delete Pincode"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     </td>
@@ -430,162 +449,155 @@ const DeliveryPincodes = () => {
 
       {/* Add / Edit Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-100 flex flex-col max-h-[88vh] my-auto overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-white shrink-0">
               <h3 className="font-bold text-lg text-slate-900">
                 {editingItem ? "Edit Local Pincode" : "Add Local Delivery Pincode"}
               </h3>
               <button
+                type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 transition"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  Pincode <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. 284204"
-                  maxLength={6}
-                  value={formData.pincode}
-                  onChange={(e) => setFormData({ ...formData, pincode: e.target.value.replace(/\D/g, "") })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base font-mono font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-                <p className="text-xs text-slate-400 mt-1">Orders for this pincode will be delivered by in-house riders.</p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  Area Name / Sector
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Mauranipur Hub / Main Market"
-                  value={formData.areaName}
-                  onChange={(e) => setFormData({ ...formData, areaName: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            {/* Scrollable Form Body */}
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="overflow-y-auto px-5 py-4 space-y-4 flex-1">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                    City
+                    Pincode <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Mauranipur"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    required
+                    placeholder="e.g. 284204"
+                    maxLength={6}
+                    value={formData.pincode}
+                    onChange={(e) => setFormData({ ...formData, pincode: e.target.value.replace(/\D/g, "") })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base font-mono font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
+                  <p className="text-xs text-slate-400 mt-1">Orders for this pincode will be delivered by in-house riders.</p>
                 </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                    State
+                    Area Name / Sector
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Uttar Pradesh"
-                    value={formData.state}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                    placeholder="e.g. Mauranipur Hub / Main Market"
+                    value={formData.areaName}
+                    onChange={(e) => setFormData({ ...formData, areaName: e.target.value })}
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  Delivery Time Estimate
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. 20-35 mins"
-                  value={formData.deliveryTimeEstimate}
-                  onChange={(e) => setFormData({ ...formData, deliveryTimeEstimate: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-                <p className="text-xs text-slate-400 mt-1">Displayed to customer at checkout for this pincode.</p>
-              </div>
-
-              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold text-slate-700 uppercase">
-                    Delivery Boys Alert Radius (Max 30 km)
-                  </label>
-                  <div className="flex items-center gap-1.5">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                      City
+                    </label>
                     <input
-                      type="number"
-                      min="1"
-                      max="30"
-                      value={formData.riderRadiusKm ?? 10}
-                      onChange={(e) => {
-                        const parsed = parseInt(e.target.value, 10);
-                        const val = isNaN(parsed) ? 1 : Math.min(Math.max(parsed, 1), 30);
-                        setFormData({ ...formData, riderRadiusKm: val });
-                      }}
-                      className="w-14 px-2 py-0.5 text-center text-xs font-black text-primary bg-primary/10 border border-primary/20 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+                      type="text"
+                      placeholder="e.g. Mauranipur"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                     />
-                    <span className="text-xs font-bold text-slate-600">km</span>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                      State
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Uttar Pradesh"
+                      value={formData.state}
+                      onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
                   </div>
                 </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="30"
-                  step="1"
-                  value={formData.riderRadiusKm ?? 10}
-                  onChange={(e) => setFormData({ ...formData, riderRadiusKm: Number(e.target.value) })}
-                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary"
-                />
-                <div className="flex justify-between text-[10px] text-slate-400 font-medium">
-                  <span>1 km</span>
-                  <span>15 km</span>
-                  <span>30 km (Max Limit)</span>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Delivery Time Estimate
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 20-35 mins"
+                    value={formData.deliveryTimeEstimate}
+                    onChange={(e) => setFormData({ ...formData, deliveryTimeEstimate: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                  <p className="text-xs text-slate-400 mt-1">Displayed to customer at checkout for this pincode.</p>
                 </div>
-                <p className="text-[11px] text-slate-500">
-                  Store orders in this pincode will alert local delivery riders within {formData.riderRadiusKm ?? 10} km radius.
-                </p>
+
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-700 uppercase">
+                      Delivery Boys Alert Radius (Max 30 km)
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min="1"
+                        max="30"
+                        value={formData.riderRadiusKm ?? 10}
+                        onChange={(e) => {
+                          const parsed = parseInt(e.target.value, 10);
+                          const val = isNaN(parsed) ? 1 : Math.min(Math.max(parsed, 1), 30);
+                          setFormData({ ...formData, riderRadiusKm: val });
+                        }}
+                        className="w-14 px-2 py-0.5 text-center text-xs font-black text-primary bg-primary/10 border border-primary/20 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      <span className="text-xs font-bold text-slate-600">km</span>
+                    </div>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="30"
+                    step="1"
+                    value={formData.riderRadiusKm ?? 10}
+                    onChange={(e) => setFormData({ ...formData, riderRadiusKm: Number(e.target.value) })}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-400 font-medium">
+                    <span>1 km</span>
+                    <span>15 km</span>
+                    <span>30 km (Max Limit)</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Store orders in this pincode will alert local delivery riders within {formData.riderRadiusKm ?? 10} km radius.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Internal Notes
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Any delivery instructions or territory notes..."
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  Internal Notes
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Any delivery instructions or territory notes..."
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="isActiveToggle"
-                  checked={formData.isActive}
-                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                  className="h-4 w-4 rounded text-primary focus:ring-primary border-slate-300"
-                />
-                <label htmlFor="isActiveToggle" className="text-sm font-semibold text-slate-700 cursor-pointer">
-                  Pincode is Active for in-house delivery
-                </label>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+              {/* Modal Sticky Footer */}
+              <div className="flex items-center justify-end gap-3 px-5 py-3.5 bg-slate-50 border-t border-slate-100 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold text-sm transition"
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 font-semibold text-sm transition"
                 >
                   Cancel
                 </button>

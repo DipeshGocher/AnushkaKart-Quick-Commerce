@@ -409,6 +409,53 @@ export async function deliveryAcceptAtomic(deliveryId, orderId, idempotencyKey) 
   }
 
   const now = new Date();
+
+  // Strict radius check: Ensure delivery partner is within the store's configured local radius
+  const orderPreCheck = await Order.findOne({ orderId }).select("orderId seller warehouseId fulfillmentType").lean();
+  if (orderPreCheck && orderPreCheck.fulfillmentType !== "SHIPROCKET") {
+    const riderDoc = await Delivery.findById(deliveryOid).select("location").lean();
+    const riderCoords = riderDoc?.location?.coordinates;
+    if (Array.isArray(riderCoords) && riderCoords.length >= 2) {
+      const [rlng, rlat] = riderCoords;
+      if (Number.isFinite(rlat) && Number.isFinite(rlng) && (Math.abs(rlat) > 1e-5 || Math.abs(rlng) > 1e-5)) {
+        let storeCoords = null;
+        let storePincode = "";
+        if (orderPreCheck.seller) {
+          const sDoc = await Seller.findById(orderPreCheck.seller).select("location pincode address").lean();
+          storeCoords = sDoc?.location?.coordinates;
+          storePincode = sDoc?.pincode || sDoc?.address?.pincode || "";
+        } else if (orderPreCheck.warehouseId) {
+          const wDoc = await Warehouse.findById(orderPreCheck.warehouseId).select("location pincode address").lean();
+          storeCoords = wDoc?.location?.coordinates;
+          storePincode = wDoc?.pincode || wDoc?.address?.pincode || "";
+        }
+
+        if (Array.isArray(storeCoords) && storeCoords.length >= 2) {
+          const [slng, slat] = storeCoords;
+          let maxRadiusKm = 10;
+          if (storePincode) {
+            try {
+              const LocalPincode = (await import("../models/localPincode.js")).default;
+              const localPin = await LocalPincode.findOne({ pincode: String(storePincode).trim(), isActive: true }).lean();
+              if (localPin && Number.isFinite(localPin.riderRadiusKm)) {
+                maxRadiusKm = Math.min(Math.max(Number(localPin.riderRadiusKm), 1), 30);
+              }
+            } catch (_err) {}
+          }
+          const distM = distanceMeters(rlat, rlng, slat, slng);
+          if (distM > maxRadiusKm * 1000) {
+            const distKm = (distM / 1000).toFixed(1);
+            const err = new Error(
+              `You are outside the delivery service radius for this store (${distKm} km away). Max allowed radius is ${maxRadiusKm} km.`
+            );
+            err.statusCode = 409;
+            throw err;
+          }
+        }
+      }
+    }
+  }
+
   const updated = await Order.findOneAndUpdate(
     {
       orderId,

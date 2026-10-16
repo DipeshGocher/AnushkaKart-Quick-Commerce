@@ -141,10 +141,15 @@ export function freezeFinancialSnapshot(order, breakdown) {
 }
 
 export async function createPendingSellerPayout(order, { session, actorId } = {}) {
-  if (!order?.seller) return null;
+  const sellerId = order?.seller || order?.sellerId;
+  if (!sellerId) return null;
   if (order.financeFlags?.sellerPayoutQueued) return null;
 
-  const amount = roundCurrency(order.paymentBreakdown?.sellerPayoutTotal || 0);
+  const baseAmount = roundCurrency(order.paymentBreakdown?.sellerPayoutTotal || 0);
+  const discrepancy = Number(order.shiprocket?.weightDiscrepancyAmount || 0);
+  const deduction = discrepancy > 0 ? Math.min(baseAmount, discrepancy) : 0;
+  const amount = roundCurrency(Math.max(0, baseAmount - deduction));
+
   if (amount <= 0) {
     order.settlementStatus = {
       ...(order.settlementStatus || {}),
@@ -157,10 +162,14 @@ export async function createPendingSellerPayout(order, { session, actorId } = {}
     {
       order,
       payoutType: PAYOUT_TYPE.SELLER,
-      beneficiaryId: order.seller,
+      beneficiaryId: sellerId,
       amount,
       createdBy: actorId || null,
-      metadata: { flow: "order_delivered" },
+      metadata: {
+        flow: "order_delivered",
+        weightDiscrepancyDeduction: deduction,
+        originalSellerPayout: baseAmount,
+      },
     },
     { session },
   );

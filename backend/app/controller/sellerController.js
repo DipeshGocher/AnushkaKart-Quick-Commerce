@@ -3,6 +3,7 @@ import Transaction from "../models/transaction.js";
 import { handleResponse, calculateDistance } from "../utils/helper.js";
 import mongoose from "mongoose";
 import { invalidateSellerName } from "../services/entityNameCache.js";
+import { syncSellerPickupLocationToShiprocket } from "../services/shipping/shiprocketService.js";
 
 /* ===============================
    GET NEARBY SELLERS
@@ -165,11 +166,45 @@ export const updateSellerProfile = async (req, res) => {
     if (name) seller.name = name;
     if (shopName) seller.shopName = shopName;
     if (phone) seller.phone = phone;
-    if (address !== undefined) seller.address = address;
     if (locality !== undefined) seller.locality = locality;
-    if (pincode !== undefined) seller.pincode = pincode;
-    if (city !== undefined) seller.city = city;
-    if (state !== undefined) seller.state = state;
+
+    if (pincode !== undefined) {
+      const normPincode = String(pincode || "").trim();
+      if (!/^[1-9][0-9]{5}$/.test(normPincode)) {
+        return handleResponse(res, 400, "A valid 6-digit Indian postal pincode is required");
+      }
+      seller.pincode = normPincode;
+    }
+    if (address !== undefined) {
+      const normAddress = String(address || "").trim();
+      if (normAddress && normAddress.length < 5) {
+        return handleResponse(res, 400, "Address must be at least 5 characters long");
+      }
+      seller.address = normAddress;
+    }
+    if (city !== undefined) {
+      const normCity = String(city || "").trim();
+      if (normCity && normCity.length < 2) {
+        return handleResponse(res, 400, "City must be at least 2 characters long");
+      }
+      seller.city = normCity;
+    }
+    if (state !== undefined) {
+      const normState = String(state || "").trim();
+      if (normState && normState.length < 2) {
+        return handleResponse(res, 400, "State must be at least 2 characters long");
+      }
+      seller.state = normState;
+    }
+
+    // Automatically register or update pickup location with Shiprocket
+    if (seller.pincode && seller.address && seller.city && seller.state) {
+      try {
+        await syncSellerPickupLocationToShiprocket(seller);
+      } catch (srErr) {
+        console.warn("[Seller Profile] Shiprocket pickup location sync warning:", srErr.message);
+      }
+    }
 
     // Validate and update geo data
     if (lat !== undefined && lng !== undefined) {

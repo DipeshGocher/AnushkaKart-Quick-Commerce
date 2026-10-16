@@ -19,14 +19,14 @@ import { Button } from "@/components/ui/button";
  * it is purely presentational; the parent only needs the saved result.
  */
 const CheckoutAddressSection = React.memo(function CheckoutAddressSection({
-  currentAddress,
+  currentAddress: _currentAddress,
   savedRecipient,
-  savedAddresses,
-  onSelectAddress,
-  onEditAddress,
-  onUseCurrentLocation,
+  savedAddresses: _savedAddresses,
+  onSelectAddress: _onSelectAddress,
+  onEditAddress: _onEditAddress,
+  onUseCurrentLocation: _onUseCurrentLocation,
   // Extra props forwarded from CheckoutPage that the section needs
-  isFetchingLocation,
+  isFetchingLocation: _isFetchingLocation,
   showRecipientForm,
   onToggleRecipientForm,
   recipientData,
@@ -172,47 +172,29 @@ const CheckoutAddressSection = React.memo(function CheckoutAddressSection({
       {/* Delivery address heading */}
       <div className="mb-3">
         <h3 className="font-black text-slate-800 text-base">Delivery Address</h3>
-        <p className="text-xs text-slate-500">Select or edit your saved address</p>
+        <p className="text-xs text-slate-500">Confirmed shipping destination</p>
       </div>
 
-      {/* Active address card */}
-      <div className="border rounded-xl p-3 mb-3 relative cursor-pointer transition-all border-primary bg-brand-50/50">
+      {/* Active address card - Locked as confirmed */}
+      <div className="border rounded-2xl p-4 mb-3 relative transition-all border-emerald-500/40 bg-emerald-50/30 shadow-sm">
         <div className="flex items-start gap-3">
           <div className="mt-1">
-            <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center">
+            <div className="h-5 w-5 rounded-full bg-emerald-600 flex items-center justify-center">
               <Check size={12} className="text-white stroke-[4]" />
             </div>
           </div>
-          <div className="flex-1">
-            <div className="flex justify-between items-start">
-              <h4 className="font-bold text-slate-800 text-sm">{displayName}</h4>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={(e) => { e.stopPropagation(); onEditAddress(); }}
-                  className="text-slate-500 text-xs font-bold hover:underline">
-                  Edit
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onSelectAddress(); }}
-                  className="text-primary text-xs font-bold hover:underline">
-                  Change
-                </button>
-              </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between items-start gap-2">
+              <h4 className="font-bold text-slate-800 text-sm truncate">{displayName}</h4>
+              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
+                Confirmed
+              </span>
             </div>
             <p className="text-xs text-slate-500 font-medium mt-0.5">{displayPhone}</p>
-            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{displayAddress}</p>
+            <p className="text-xs text-slate-600 mt-1 leading-relaxed">{displayAddress}</p>
           </div>
         </div>
       </div>
-
-      {/* Use current location */}
-      <button
-        type="button"
-        onClick={onUseCurrentLocation}
-        disabled={isFetchingLocation}
-        className="mt-3 w-full py-2.5 rounded-2xl border border-dashed border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors">
-        {isFetchingLocation ? "Detecting live location..." : "Use current live location"}
-      </button>
 
       {/* Confirmation banner */}
       <motion.div className="mt-3 rounded-2xl border border-brand-100 bg-brand-50/70 px-4 py-3 flex items-center gap-3 shadow-sm">

@@ -9,6 +9,7 @@ import {
     verifySellerResetOtpCode,
 } from "../services/sellerVerificationService.js";
 import { uploadToCloudinary } from "../services/mediaService.js";
+import { syncSellerPickupLocationToShiprocket } from "../services/shipping/shiprocketService.js";
 
 /* ===============================
    Utils
@@ -136,6 +137,24 @@ export const signupSeller = async (req, res) => {
             return handleResponse(res, 400, "All fields are required");
         }
 
+        const normAddress = String(address || "").trim();
+        const normCity = String(city || "").trim();
+        const normState = String(state || "").trim();
+        const normPincode = String(pincode || "").trim();
+
+        if (!normAddress || normAddress.length < 5) {
+            return handleResponse(res, 400, "Complete pickup address is required (minimum 5 characters)");
+        }
+        if (!normCity || normCity.length < 2) {
+            return handleResponse(res, 400, "Valid city is required");
+        }
+        if (!normState || normState.length < 2) {
+            return handleResponse(res, 400, "Valid state is required");
+        }
+        if (!/^[1-9][0-9]{5}$/.test(normPincode)) {
+            return handleResponse(res, 400, "A valid 6-digit Indian postal pincode is required");
+        }
+
         verifySellerVerificationToken({
             channel: "email",
             rawValue: email,
@@ -214,6 +233,14 @@ export const signupSeller = async (req, res) => {
         }
 
         seller = await Seller.create(sellerData);
+
+        // Register pickup address with Shiprocket automatically
+        try {
+            await syncSellerPickupLocationToShiprocket(seller);
+            await seller.save();
+        } catch (syncErr) {
+            console.warn("[Shiprocket Sync] Registration pickup sync warning:", syncErr.message);
+        }
 
         return handleResponse(res, 201, "Seller registered successfully", {
             seller,

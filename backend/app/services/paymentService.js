@@ -369,6 +369,13 @@ async function handleOrderSideEffectsFromPaymentStatus(payment, nextStatus, reas
         },
       });
       await moveOrderToSellerPendingAfterPayment(order._id);
+      emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_PLACED, {
+        orderId: order.orderId,
+        checkoutGroupId: payment.checkoutGroupId,
+        customerId: order.customer,
+        userId: order.customer,
+      });
+
       emitNotificationEvent(NOTIFICATION_EVENTS.PAYMENT_SUCCESS, {
         orderId: order.orderId,
         checkoutGroupId: payment.checkoutGroupId,
