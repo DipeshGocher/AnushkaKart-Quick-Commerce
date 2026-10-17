@@ -39,9 +39,15 @@ async function validateDependencies() {
   const isProduction = process.env.NODE_ENV === 'production';
   const role = getProcessRole();
 
-  if (isProduction && role === "all") {
+  const allowAllInProd =
+    process.env.ALLOW_ALL_IN_PRODUCTION === "true" ||
+    process.env.ALLOW_MONOLITH_PRODUCTION === "true";
+
+  if (isProduction && role === "all" && !allowAllInProd) {
     result.valid = false;
-    result.errors.push("PROCESS_ROLE=all (or legacy APP_ROLE=all) is not allowed in production. Use api, worker, or scheduler.");
+    result.errors.push(
+      "PROCESS_ROLE=all (or legacy APP_ROLE=all) is not allowed in production. Use api, worker, or scheduler (or set ALLOW_ALL_IN_PRODUCTION=true to run as single process in production)."
+    );
   }
 
   const hasAppRole = Boolean(process.env.APP_ROLE && String(process.env.APP_ROLE).trim());

@@ -710,15 +710,11 @@ orderSchema.index({ deliveryPartner: 1, status: 1, createdAt: -1 });
 
 // Payment/settlement queue
 orderSchema.index({ paymentStatus: 1, createdAt: -1 });
-orderSchema.index({ paymentMode: 1, paymentStatus: 1, createdAt: -1 });
 orderSchema.index({ "settlementStatus.overall": 1, createdAt: -1 });
 
 // Return/refund workflow
 orderSchema.index({ returnStatus: 1, returnRequestedAt: -1 });
 orderSchema.index({ customer: 1, returnStatus: 1, createdAt: -1 });
-
-// Auto-cancel job: pending orders expiring soon
-orderSchema.index({ status: 1, expiresAt: 1 }, { partialFilterExpression: { status: "pending" } });
 
 // Seller dashboard with status filter
 orderSchema.index({ seller: 1, status: 1, createdAt: -1 });

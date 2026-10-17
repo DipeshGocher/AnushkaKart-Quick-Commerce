@@ -35,10 +35,12 @@ module.exports = {
       env: {
         NODE_ENV: "development",
         PORT: 7000,
+        PROCESS_ROLE: "api",
       },
       env_production: {
         NODE_ENV: "production",
         PORT: 7000,
+        PROCESS_ROLE: "api",
         // TRUST_PROXY=1 because Nginx sits in front
         TRUST_PROXY: "1",
       },
@@ -76,8 +78,13 @@ module.exports = {
       node_args: "--max-old-space-size=256",
       max_memory_restart: "256M",
 
+      env: {
+        NODE_ENV: "development",
+        PROCESS_ROLE: "worker",
+      },
       env_production: {
         NODE_ENV: "production",
+        PROCESS_ROLE: "worker",
         WORKER_MODE: "1",
         TRUST_PROXY: "1",
       },
@@ -90,6 +97,39 @@ module.exports = {
 
       out_file: "/var/log/pm2/worker-out.log",
       error_file: "/var/log/pm2/worker-err.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z",
+    },
+
+    {
+      // ── Scheduler (Recurring cron jobs, auto-cancel, payouts) ───────────
+      name: "anushkakart-scheduler",
+      script: "./scheduler.js",
+      cwd: "/var/www/anushkakart/backend",
+
+      instances: 1,
+      exec_mode: "fork",
+
+      node_args: "--max-old-space-size=256",
+      max_memory_restart: "256M",
+
+      env: {
+        NODE_ENV: "development",
+        PROCESS_ROLE: "scheduler",
+      },
+      env_production: {
+        NODE_ENV: "production",
+        PROCESS_ROLE: "scheduler",
+        TRUST_PROXY: "1",
+      },
+
+      autorestart: true,
+      watch: false,
+      max_restarts: 5,
+      min_uptime: "10s",
+      kill_timeout: 10000,
+
+      out_file: "/var/log/pm2/scheduler-out.log",
+      error_file: "/var/log/pm2/scheduler-err.log",
       log_date_format: "YYYY-MM-DD HH:mm:ss Z",
     },
   ],
