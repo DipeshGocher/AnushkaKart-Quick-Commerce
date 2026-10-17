@@ -21,7 +21,7 @@ module.exports = {
       // ── Main API Server ──────────────────────────────────────────────────
       name: "anushkakart-api",
       script: "./index.js",
-      cwd: "/var/www/anushkakart/backend",
+      cwd: __dirname,
 
       // Cluster mode: fork 3 workers across 4 vCPUs
       instances: 3,
@@ -70,7 +70,7 @@ module.exports = {
       // ── Background Worker (Bull queues, email, notifications) ────────────
       name: "anushkakart-worker",
       script: "./worker.js",
-      cwd: "/var/www/anushkakart/backend",
+      cwd: __dirname,
 
       instances: 1,
       exec_mode: "fork",          // Single worker process for queues
@@ -104,7 +104,7 @@ module.exports = {
       // ── Scheduler (Recurring cron jobs, auto-cancel, payouts) ───────────
       name: "anushkakart-scheduler",
       script: "./scheduler.js",
-      cwd: "/var/www/anushkakart/backend",
+      cwd: __dirname,
 
       instances: 1,
       exec_mode: "fork",
