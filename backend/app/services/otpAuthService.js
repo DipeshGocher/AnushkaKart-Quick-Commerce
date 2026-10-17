@@ -195,7 +195,7 @@ export async function issueCustomerOtp({
     });
   }
 
-  return { sent: true, phone };
+  return { sent: true, phone, ...(useRealSMS() ? {} : { otp }) };
 }
 
 export async function verifyCustomerOtpCode({

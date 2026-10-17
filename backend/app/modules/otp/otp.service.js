@@ -46,13 +46,16 @@ function safeCompare(left, right) {
 }
 
 function isMockOtpEnabled() {
+  if (process.env.DISABLE_MOCK_OTP === "true" || process.env.DISABLE_MOCK_OTP === "1") {
+    return false;
+  }
   if (process.env.USE_MOCK_OTP === "true" || process.env.USE_MOCK_OTP === "1") {
     return true;
   }
   if (process.env.USE_REAL_SMS === "true" || process.env.USE_REAL_SMS === "1") {
     return false;
   }
-  return process.env.NODE_ENV !== "production";
+  return true;
 }
 
 function getExpiryMinutes() {

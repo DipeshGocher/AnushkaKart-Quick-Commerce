@@ -102,9 +102,10 @@ export const signupDelivery = async (req, res) => {
 
         if (useRealSMS()) {
             await sendSmsIndiaHubOtp({ phone, otp });
+            return handleResponse(res, 200, "OTP sent successfully");
         }
 
-        return handleResponse(res, 200, "OTP sent successfully");
+        return handleResponse(res, 200, "OTP sent successfully", { otp });
     } catch (error) {
         return handleResponse(res, 500, error.message);
     }
@@ -142,9 +143,10 @@ export const loginDelivery = async (req, res) => {
 
         if (useRealSMS()) {
             await sendSmsIndiaHubOtp({ phone, otp });
+            return handleResponse(res, 200, "OTP sent successfully");
         }
 
-        return handleResponse(res, 200, "OTP sent successfully");
+        return handleResponse(res, 200, "OTP sent successfully", { otp });
     } catch (error) {
         console.error("loginDelivery Error:", error);
         return handleResponse(res, 500, error.message, { stack: error.stack });
