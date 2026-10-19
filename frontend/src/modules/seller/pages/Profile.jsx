@@ -157,11 +157,11 @@ const SellerProfile = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-3 sm:p-6 md:p-8 font-['Outfit']">
+    <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 font-['Outfit'] space-y-6 md:space-y-8">
       {/* Header Section */}
-      <div className="relative mb-6 sm:mb-8 md:mb-12">
+      <div className="relative">
         {/* Banner Background & Content */}
-        <div className="bg-gradient-to-r from-[#0B132B] via-[#1C2541] to-[#6666FF] rounded-3xl shadow-2xl relative overflow-hidden border border-white/10 p-5 sm:p-8 md:p-10 md:min-h-[260px] flex flex-col justify-end">
+        <div className="bg-gradient-to-r from-[#0B132B] via-[#1C2541] to-[#6666FF] rounded-3xl shadow-2xl relative overflow-hidden border border-white/10 p-5 sm:p-8 md:p-10 md:min-h-[240px] flex flex-col justify-end">
           <div className="absolute inset-0 opacity-40 pointer-events-none">
             <div className="absolute top-0 left-0 w-80 h-80 bg-[#6666FF]/30 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
             <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#0047AB]/40 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
@@ -169,9 +169,9 @@ const SellerProfile = () => {
           </div>
 
           {/* Profile Info Row */}
-          <div className="relative z-10 grid grid-cols-1 md:grid-cols-[140px_minmax(0,1fr)_auto] lg:grid-cols-[176px_minmax(0,1fr)_auto] items-center md:items-end gap-5 md:gap-8">
+          <div className="relative z-10 grid grid-cols-1 md:grid-cols-[140px_minmax(0,1fr)_auto] lg:grid-cols-[160px_minmax(0,1fr)_auto] items-center md:items-end gap-5 md:gap-8">
             {/* Avatar Container */}
-            <div className="h-28 w-28 sm:h-36 sm:w-36 md:h-36 md:w-36 lg:h-44 lg:w-44 rounded-full p-[3px] md:p-[4px] bg-gradient-to-tr from-[#7777FF] via-[#6666FF] to-[#5555EE] shadow-[0_20px_50px_rgba(102,102,255,0.35)] shrink-0 mx-auto md:mx-0">
+            <div className="h-28 w-28 sm:h-36 sm:w-36 md:h-36 md:w-36 lg:h-40 lg:w-40 rounded-full p-[3px] md:p-[4px] bg-gradient-to-tr from-[#7777FF] via-[#6666FF] to-[#5555EE] shadow-[0_20px_50px_rgba(102,102,255,0.35)] shrink-0 mx-auto md:mx-0">
               <div className="h-full w-full rounded-full bg-white flex items-center justify-center border-4 border-white shadow-inner overflow-hidden">
                 <span className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black bg-gradient-to-br from-[#7777FF] via-[#6666FF] to-[#0B132B] bg-clip-text text-transparent">
                   {profile?.name?.charAt(0)}
@@ -183,7 +183,7 @@ const SellerProfile = () => {
             <div className="min-w-0 text-center md:text-left">
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 sm:gap-3 mb-2 sm:mb-3">
                 <span className="px-3 sm:px-4 py-1 sm:py-1.5 bg-[#6666FF]/20 backdrop-blur-xl text-brand-200 text-[10px] font-black uppercase tracking-[2px] rounded-full border border-[#6666FF]/40 shadow-sm flex items-center gap-1.5">
-                  <Store size={12} className="text-[#6666FF]" /> {profile?.role}
+                  <Store size={12} className="text-[#6666FF]" /> {profile?.role || "Seller"}
                 </span>
                 <button
                   onClick={toggleStatus}
@@ -200,12 +200,12 @@ const SellerProfile = () => {
                   {profile?.isActive ? "Active Store" : "Inactive"}
                 </button>
               </div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tight drop-shadow-md mb-2 break-words">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight drop-shadow-md mb-2 break-words">
                 {profile?.name}
               </h1>
-              <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 text-white font-bold tracking-[0.5px] text-xs sm:text-sm md:text-base shadow-sm">
+              <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 text-white font-bold tracking-[0.5px] text-xs sm:text-sm shadow-sm">
                 <Store size={16} className="text-[#6666FF]" />
-                <span className="text-brand-200 font-extrabold">{profile?.shopName || "Harsh's Hub"}</span>
+                <span className="text-brand-200 font-extrabold">{profile?.shopName || "Seller Store"}</span>
               </div>
             </div>
 
@@ -244,51 +244,55 @@ const SellerProfile = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-        {/* Main Info Card */}
-        <div className="md:col-span-2 space-y-6 md:space-y-8">
-          <Card className="p-5 sm:p-8 border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] rounded-2xl border-t-4 border-t-[#6666FF]">
-            <div className="flex items-center gap-3 mb-8 border-b border-slate-100 pb-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
+        {/* Main Info Columns */}
+        <div className="lg:col-span-2 space-y-6 md:space-y-8">
+          {/* Business Profile Card */}
+          <Card className="p-5 sm:p-7 md:p-8 border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] rounded-2xl border-t-4 border-t-[#6666FF] bg-white">
+            <div className="flex items-center gap-3 mb-6 sm:mb-8 border-b border-slate-100 pb-4">
               <div className="w-10 h-10 rounded-xl bg-brand-100 text-[#6666FF] flex items-center justify-center font-bold shadow-sm">
                 <Store size={20} />
               </div>
-              <h3 className="text-xl font-black text-slate-900">
-                Business Profile
-              </h3>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">
+                  Business Profile
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">Basic contact and shop credentials</p>
+              </div>
             </div>
 
-            <form className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-3">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-600 ml-1">
-                    Seller Identity
+            <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-700 ml-0.5">
+                    Full Name *
                   </label>
                   <div className="relative group">
-                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#6666FF] transition-colors">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#6666FF] transition-colors">
                       <User size={18} />
                     </div>
                     <input
                       type="text"
                       name="name"
                       maxLength={50}
-                      pattern="[a-zA-Z\s]*"
                       value={formData.name}
                       onChange={(e) => {
-                          e.target.value = e.target.value.replace(/[^a-zA-Z\s]/g, '');
-                          handleChange(e);
+                        e.target.value = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                        handleChange(e);
                       }}
                       disabled={!isEditing}
-                      className="w-full pl-14 pr-6 py-4 bg-slate-50/80 border-2 border-slate-100 rounded-xl text-sm font-bold text-slate-800 outline-none focus:bg-white focus:border-[#6666FF] focus:ring-4 focus:ring-[#6666FF]/10 transition-all disabled:opacity-70"
+                      placeholder="e.g. Harsh Sharma"
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50/80 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 outline-none focus:bg-white focus:border-[#6666FF] focus:ring-4 focus:ring-[#6666FF]/10 transition-all disabled:opacity-75"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-600 ml-1">
-                    Store Name
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-700 ml-0.5">
+                    Store Name *
                   </label>
                   <div className="relative group">
-                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#6666FF] transition-colors">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#6666FF] transition-colors">
                       <Store size={18} />
                     </div>
                     <input
@@ -297,36 +301,39 @@ const SellerProfile = () => {
                       value={formData.shopName}
                       onChange={handleChange}
                       disabled={!isEditing}
-                      className="w-full pl-14 pr-6 py-4 bg-slate-50/80 border-2 border-slate-100 rounded-xl text-sm font-bold text-slate-800 outline-none focus:bg-white focus:border-[#6666FF] focus:ring-4 focus:ring-[#6666FF]/10 transition-all disabled:opacity-70"
+                      placeholder="e.g. Harsh's Hub"
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50/80 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 outline-none focus:bg-white focus:border-[#6666FF] focus:ring-4 focus:ring-[#6666FF]/10 transition-all disabled:opacity-75"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-600 ml-1">
-                    Contact Number
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-700 ml-0.5">
+                    Phone Number *
                   </label>
                   <div className="relative group">
-                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#6666FF] transition-colors">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#6666FF] transition-colors">
                       <Phone size={18} />
                     </div>
                     <input
                       type="tel"
                       name="phone"
+                      maxLength={10}
                       value={formData.phone}
                       onChange={handleChange}
                       disabled={!isEditing}
-                      className="w-full pl-14 pr-6 py-4 bg-slate-50/80 border-2 border-slate-100 rounded-xl text-sm font-bold text-slate-800 outline-none focus:bg-white focus:border-[#6666FF] focus:ring-4 focus:ring-[#6666FF]/10 transition-all disabled:opacity-70"
+                      placeholder="10-digit mobile number"
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50/80 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 outline-none focus:bg-white focus:border-[#6666FF] focus:ring-4 focus:ring-[#6666FF]/10 transition-all disabled:opacity-75"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-600 ml-1">
-                    Email Address
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-700 ml-0.5">
+                    Email Address *
                   </label>
                   <div className="relative group">
-                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#6666FF] transition-colors">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#6666FF] transition-colors">
                       <Mail size={18} />
                     </div>
                     <input
@@ -335,7 +342,8 @@ const SellerProfile = () => {
                       value={formData.email}
                       onChange={handleChange}
                       disabled={!isEditing}
-                      className="w-full pl-14 pr-6 py-4 bg-slate-50/80 border-2 border-slate-100 rounded-xl text-sm font-bold text-slate-800 outline-none focus:bg-white focus:border-[#6666FF] focus:ring-4 focus:ring-[#6666FF]/10 transition-all disabled:opacity-70"
+                      placeholder="seller@domain.com"
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50/80 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 outline-none focus:bg-white focus:border-[#6666FF] focus:ring-4 focus:ring-[#6666FF]/10 transition-all disabled:opacity-75"
                     />
                   </div>
                 </div>
@@ -343,30 +351,34 @@ const SellerProfile = () => {
             </form>
           </Card>
 
-          {/* Location & Radius Settings Card */}
-          <Card className="p-5 sm:p-8 border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] rounded-2xl border-t-4 border-t-[#0047AB]">
+          {/* Location & Delivery Settings Card */}
+          <Card className="p-5 sm:p-7 md:p-8 border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] rounded-2xl border-t-4 border-t-[#0047AB] bg-white">
             <div className="flex flex-wrap justify-between items-center gap-3 mb-6 sm:mb-8 border-b border-slate-100 pb-4">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-blue-100 text-[#0047AB] flex items-center justify-center font-bold shadow-sm shrink-0">
                   <MapPin size={20} />
                 </div>
-                <h3 className="text-lg sm:text-xl font-black text-slate-900 truncate">
-                  Location & Service Settings
-                </h3>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">
+                    Location & Delivery Settings
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">GPS pin for local orders & courier pickup address</p>
+                </div>
               </div>
               {!isEditing && (
                 <Button
                   onClick={() => setIsEditing(true)}
-                  className="bg-slate-900 text-white hover:bg-black rounded-lg px-5 sm:px-6 py-2 text-[10px] font-black tracking-[2px] shrink-0">
+                  className="bg-slate-900 text-white hover:bg-black rounded-lg px-5 py-2 text-[10px] font-black tracking-[2px] shrink-0">
                   MANAGE
                 </Button>
               )}
             </div>
 
             <div className="space-y-6">
-              <div className="bg-gradient-to-r from-brand-50/80 to-blue-50/50 p-4 sm:p-6 rounded-2xl border-2 border-brand-100/70 space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6">
-                  <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
+              {/* Store Map Location Pin Box */}
+              <div className="bg-gradient-to-r from-brand-50/80 to-blue-50/50 p-4 sm:p-6 rounded-2xl border border-brand-100 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start sm:items-center gap-3.5 min-w-0">
                     <div
                       className={`h-11 w-11 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center transition-all shrink-0 ${
                         formData.lat
@@ -376,14 +388,12 @@ const SellerProfile = () => {
                       <MapPin size={22} />
                     </div>
                     <div className="space-y-1 min-w-0">
-                      <p className="text-sm font-black text-slate-900">
-                        {formData.lat
-                          ? "Store Location Pin"
-                          : "Location Not Defined"}
+                      <p className="text-sm font-bold text-slate-900">
+                        {formData.lat ? "Store Map Location Pin" : "Location Not Defined"}
                       </p>
-                      <p className="text-xs text-slate-500 font-medium max-w-[400px] leading-relaxed break-words">
+                      <p className="text-xs text-slate-600 font-medium leading-relaxed break-words">
                         {formData.address ||
-                          "Click change to precisely mark your shop location on the map for delivery accuracy."}
+                          "Click change pin to precisely mark your shop coordinates on the map."}
                       </p>
                     </div>
                   </div>
@@ -391,27 +401,27 @@ const SellerProfile = () => {
                     <Button
                       type="button"
                       onClick={() => setIsMapOpen(true)}
-                      className="w-full sm:w-auto bg-white text-[#6666FF] border-2 border-[#6666FF]/30 hover:border-[#6666FF] rounded-xl px-6 sm:px-8 py-3 text-[10px] font-black tracking-[2px] shadow-sm hover:shadow-md transition-all whitespace-nowrap shrink-0">
+                      className="w-full sm:w-auto bg-white text-[#6666FF] border border-[#6666FF]/40 hover:border-[#6666FF] rounded-xl px-5 py-2.5 text-xs font-bold tracking-wider shadow-sm hover:shadow transition-all whitespace-nowrap shrink-0">
                       CHANGE PIN
                     </Button>
                   )}
                 </div>
 
                 {formData.lat && (
-                  <div className="pt-6 border-t border-slate-200/60 flex flex-wrap gap-8">
-                    <div className="space-y-2">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
-                        Latitude
+                  <div className="pt-4 border-t border-slate-200/60 flex flex-wrap gap-4 sm:gap-8">
+                    <div className="flex items-center gap-2 bg-white/80 px-3 py-1.5 rounded-lg border border-slate-200/60 text-xs">
+                      <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">
+                        Latitude:
                       </span>
-                      <span className="text-sm font-bold text-slate-700 tabular-nums">
+                      <span className="font-semibold text-slate-700 tabular-nums">
                         {formData.lat.toFixed(6)}
                       </span>
                     </div>
-                    <div className="space-y-2">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
-                        Longitude
+                    <div className="flex items-center gap-2 bg-white/80 px-3 py-1.5 rounded-lg border border-slate-200/60 text-xs">
+                      <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">
+                        Longitude:
                       </span>
-                      <span className="text-sm font-bold text-slate-700 tabular-nums">
+                      <span className="font-semibold text-slate-700 tabular-nums">
                         {formData.lng.toFixed(6)}
                       </span>
                     </div>
@@ -419,44 +429,46 @@ const SellerProfile = () => {
                 )}
               </div>
 
-              {/* Strict Pickup Address Fields (For Shiprocket Courier Sync) */}
-              <div className="bg-white p-5 rounded-2xl border border-slate-200/80 space-y-4 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              {/* Courier Pickup Address Box */}
+              <div className="bg-slate-50/60 p-5 sm:p-6 rounded-2xl border border-slate-200/80 space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/70 pb-3">
                   <div>
                     <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                      <Store size={16} className="text-primary" />
-                      Courier Pickup Address / कूरियर पिकअप पता
+                      <Store size={17} className="text-[#6666FF]" />
+                      Courier Pickup Address
                     </h4>
-                    <p className="text-[11px] text-slate-500 font-medium">
-                      Shiprocket इसी एड्रेस और 6-डिजिट पिनकोड से आपका पार्सल पिकअप करेगा।
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      Shiprocket couriers will pick up Pan-India customer parcels and return packages from this address.
                     </p>
                   </div>
                   {profile?.shiprocketPickupLocation && (
-                    <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200/70 px-3 py-1 rounded-full text-indigo-700 text-xs font-bold w-fit">
+                    <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200/80 px-3 py-1.5 rounded-full text-indigo-700 text-xs font-bold shrink-0 self-start sm:self-auto">
                       <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-                      Shiprocket: {profile.shiprocketPickupLocation}
+                      Shiprocket Code: {profile.shiprocketPickupLocation}
                     </div>
                   )}
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-4">
+                  {/* Street Address */}
                   <div className="space-y-1.5 flex flex-col">
-                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                      Shop / Street Address (दुकान का पूरा पता) *
+                    <label className="text-xs font-bold text-slate-700">
+                      Street Address *
                     </label>
                     <input
                       name="address"
                       value={formData.address}
                       onChange={handleChange}
                       disabled={!isEditing}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 disabled:opacity-75"
-                      placeholder="e.g. Shop No 12, Main Market Road"
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 outline-none focus:border-[#6666FF] focus:ring-4 focus:ring-[#6666FF]/10 transition-all disabled:opacity-75"
+                      placeholder="e.g. Shop No. 12, Commercial Complex, Main Road"
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  {/* 2-Column Responsive Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5 flex flex-col">
-                      <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                      <label className="text-xs font-bold text-slate-700">
                         Locality / Landmark
                       </label>
                       <input
@@ -464,42 +476,42 @@ const SellerProfile = () => {
                         value={formData.locality}
                         onChange={handleChange}
                         disabled={!isEditing}
-                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 disabled:opacity-75"
-                        placeholder="Near Bus Stand"
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 outline-none focus:border-[#6666FF] focus:ring-4 focus:ring-[#6666FF]/10 transition-all disabled:opacity-75"
+                        placeholder="e.g. Near Bus Stand / Metro Station"
                       />
                     </div>
 
                     <div className="space-y-1.5 flex flex-col">
-                      <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                        City (शहर) *
+                      <label className="text-xs font-bold text-slate-700">
+                        City *
                       </label>
                       <input
                         name="city"
                         value={formData.city}
                         onChange={handleChange}
                         disabled={!isEditing}
-                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 disabled:opacity-75"
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 outline-none focus:border-[#6666FF] focus:ring-4 focus:ring-[#6666FF]/10 transition-all disabled:opacity-75"
                         placeholder="e.g. Indore"
                       />
                     </div>
 
                     <div className="space-y-1.5 flex flex-col">
-                      <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                        State (राज्य) *
+                      <label className="text-xs font-bold text-slate-700">
+                        State *
                       </label>
                       <input
                         name="state"
                         value={formData.state}
                         onChange={handleChange}
                         disabled={!isEditing}
-                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 disabled:opacity-75"
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 outline-none focus:border-[#6666FF] focus:ring-4 focus:ring-[#6666FF]/10 transition-all disabled:opacity-75"
                         placeholder="e.g. Madhya Pradesh"
                       />
                     </div>
 
                     <div className="space-y-1.5 flex flex-col">
-                      <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                        Pincode (6-Digit) *
+                      <label className="text-xs font-bold text-slate-700">
+                        Postal Code (Pincode) *
                       </label>
                       <input
                         name="pincode"
@@ -507,18 +519,19 @@ const SellerProfile = () => {
                         value={formData.pincode}
                         onChange={handleChange}
                         disabled={!isEditing}
-                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 disabled:opacity-75"
-                        placeholder="452001"
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-mono font-semibold text-slate-800 outline-none focus:border-[#6666FF] focus:ring-4 focus:ring-[#6666FF]/10 transition-all disabled:opacity-75"
+                        placeholder="e.g. 452001"
                       />
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-4 bg-emerald-50/70 rounded-xl border border-emerald-100">
-                <Shield size={16} className="text-emerald-600 mt-0.5" />
-                <p className="text-xs text-emerald-800 font-medium leading-relaxed">
-                  Your shop location and registered pincode determine local quick delivery availability.
+              {/* Service Info Banner */}
+              <div className="flex items-start gap-3 p-4 bg-emerald-50/80 rounded-xl border border-emerald-100">
+                <Shield size={18} className="text-emerald-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-emerald-900 font-medium leading-relaxed">
+                  Your store location and registered pincode determine local quick delivery availability.
                   Pan-India customers across all other pincodes can still order via Shiprocket courier.
                 </p>
               </div>
@@ -526,15 +539,15 @@ const SellerProfile = () => {
           </Card>
         </div>
 
-        {/* Sidebar Card */}
-        <div className="space-y-8">
-          <Card className="p-7 rounded-3xl bg-gradient-to-br from-[#0B132B] via-[#1C2541] to-[#0A1128] text-white border-t-4 border-t-[#6666FF] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.4)] relative overflow-hidden">
+        {/* Sidebar Security & Trust Card */}
+        <div className="space-y-6">
+          <Card className="p-6 sm:p-7 rounded-3xl bg-gradient-to-br from-[#0B132B] via-[#1C2541] to-[#0A1128] text-white border-t-4 border-t-[#6666FF] shadow-xl relative overflow-hidden">
             {/* Background Accent Glows */}
             <div className="absolute -top-10 -right-10 w-36 h-36 bg-[#6666FF]/25 rounded-full blur-2xl pointer-events-none" />
             <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-blue-600/20 rounded-full blur-2xl pointer-events-none" />
 
-            <div className="flex items-center justify-between pb-5 mb-6 border-b border-white/10 relative z-10">
-              <h4 className="text-xs font-black uppercase tracking-[3px] text-brand-400 flex items-center gap-2">
+            <div className="flex items-center justify-between pb-4 mb-5 border-b border-white/10 relative z-10">
+              <h4 className="text-xs font-black uppercase tracking-[2px] text-brand-300 flex items-center gap-2">
                 <Shield size={18} className="text-[#6666FF]" /> Security & Trust
               </h4>
               <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-black tracking-wider border border-emerald-500/30 flex items-center gap-1">
@@ -542,16 +555,16 @@ const SellerProfile = () => {
               </span>
             </div>
 
-            <div className="space-y-4 relative z-10">
-              <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-[#7777FF] to-[#6666FF] text-white shadow-lg shadow-[#6666FF]/30 flex items-center justify-center shrink-0">
-                  <Shield size={22} />
+            <div className="space-y-3.5 relative z-10">
+              <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
+                <div className="h-11 w-11 rounded-xl bg-gradient-to-tr from-[#7777FF] to-[#6666FF] text-white shadow-lg shadow-[#6666FF]/30 flex items-center justify-center shrink-0">
+                  <Shield size={20} />
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-brand-300">
                     Verification Status
                   </p>
-                  <p className="text-sm font-black text-white flex items-center gap-1.5 mt-0.5">
+                  <p className="text-sm font-bold text-white flex items-center gap-1.5 mt-0.5">
                     {profile?.isVerified ? (
                       <>
                         <span className="text-emerald-400">Verified Merchant</span>
@@ -564,30 +577,30 @@ const SellerProfile = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white shadow-lg shadow-blue-500/30 flex items-center justify-center shrink-0">
-                  <Rocket size={22} />
+              <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
+                <div className="h-11 w-11 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white shadow-lg shadow-blue-500/30 flex items-center justify-center shrink-0">
+                  <Rocket size={20} />
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-blue-300">
                     Partner Tier
                   </p>
-                  <p className="text-sm font-black text-white mt-0.5 flex items-center gap-1.5">
+                  <p className="text-sm font-bold text-white mt-0.5 flex items-center gap-1.5">
                     Standard Growth
                     <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-md font-bold border border-blue-400/30">PRO</span>
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white shadow-lg shadow-emerald-500/30 flex items-center justify-center shrink-0">
-                  <Globe size={22} />
+              <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
+                <div className="h-11 w-11 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white shadow-lg shadow-emerald-500/30 flex items-center justify-center shrink-0">
+                  <Globe size={20} />
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-emerald-300">
                     Coverage Region
                   </p>
-                  <p className="text-sm font-black text-white mt-0.5">Pan India Reach</p>
+                  <p className="text-sm font-bold text-white mt-0.5">Pan India Reach</p>
                 </div>
               </div>
 

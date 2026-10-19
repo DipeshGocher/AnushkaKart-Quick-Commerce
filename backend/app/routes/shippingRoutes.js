@@ -39,10 +39,10 @@ router.put("/pincodes/:id", verifyToken, allowRoles("admin"), updatePincode);
 router.delete("/pincodes/:id", verifyToken, allowRoles("admin"), deletePincode);
 router.patch("/pincodes/:id/toggle", verifyToken, allowRoles("admin"), togglePincode);
 
-/* Admin: Shiprocket Fulfillment operations */
-router.post("/shiprocket/process/:orderId", verifyToken, allowRoles("admin"), processShiprocket);
-router.post("/shiprocket/pickup/:orderId", verifyToken, allowRoles("admin"), scheduleShiprocketPickup);
-router.get("/shiprocket/label/:orderId", verifyToken, allowRoles("admin"), fetchShiprocketLabel);
+/* Shiprocket Fulfillment operations (Admin & Seller / Warehouse) */
+router.post("/shiprocket/process/:orderId", verifyToken, allowRoles("admin", "seller", "warehouse"), processShiprocket);
+router.post("/shiprocket/pickup/:orderId", verifyToken, allowRoles("admin", "seller", "warehouse"), scheduleShiprocketPickup);
+router.get("/shiprocket/label/:orderId", verifyToken, allowRoles("admin", "seller", "warehouse"), fetchShiprocketLabel);
 router.post("/shiprocket/manual-status/:orderId", verifyToken, allowRoles("admin"), updateShiprocketStatusManual);
 router.post("/shiprocket/discrepancy/:orderId", verifyToken, allowRoles("admin"), recordDiscrepancy);
 

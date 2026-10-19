@@ -102,8 +102,6 @@ async function computeSellerStats(sellerOid, range) {
     {
       $match: {
         seller: sellerOid,
-        status: { $ne: "cancelled" },
-        workflowStatus: { $ne: "CANCELLED" },
       },
     },
     {
@@ -117,7 +115,13 @@ async function computeSellerStats(sellerOid, range) {
                   $cond: [
                     {
                       $and: [
-                        { $eq: ["$status", "delivered"] },
+                        {
+                          $or: [
+                            { $eq: ["$status", "delivered"] },
+                            { $eq: ["$workflowStatus", "DELIVERED"] },
+                          ],
+                        },
+                        { $ne: ["$status", "cancelled"] },
                         { $ne: ["$workflowStatus", "CANCELLED"] },
                       ],
                     },
@@ -131,7 +135,43 @@ async function computeSellerStats(sellerOid, range) {
                   $cond: [
                     {
                       $and: [
-                        { $eq: ["$status", "delivered"] },
+                        {
+                          $or: [
+                            { $eq: ["$status", "delivered"] },
+                            { $eq: ["$workflowStatus", "DELIVERED"] },
+                          ],
+                        },
+                        { $ne: ["$status", "cancelled"] },
+                        { $ne: ["$workflowStatus", "CANCELLED"] },
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+              cancelledOrders: {
+                $sum: {
+                  $cond: [
+                    {
+                      $or: [
+                        { $eq: ["$status", "cancelled"] },
+                        { $eq: ["$workflowStatus", "CANCELLED"] },
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+              pendingOrders: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $ne: ["$status", "delivered"] },
+                        { $ne: ["$workflowStatus", "DELIVERED"] },
+                        { $ne: ["$status", "cancelled"] },
                         { $ne: ["$workflowStatus", "CANCELLED"] },
                       ],
                     },
@@ -148,7 +188,11 @@ async function computeSellerStats(sellerOid, range) {
           {
             $match: {
               createdAt: { $gte: sevenDaysAgo },
-              status: "delivered",
+              $or: [
+                { status: "delivered" },
+                { workflowStatus: "DELIVERED" },
+              ],
+              status: { $ne: "cancelled" },
               workflowStatus: { $ne: "CANCELLED" },
             },
           },
@@ -164,7 +208,11 @@ async function computeSellerStats(sellerOid, range) {
           {
             $match: {
               createdAt: { $gte: fourteenDaysAgo, $lt: sevenDaysAgo },
-              status: "delivered",
+              $or: [
+                { status: "delivered" },
+                { workflowStatus: "DELIVERED" },
+              ],
+              status: { $ne: "cancelled" },
               workflowStatus: { $ne: "CANCELLED" },
             },
           },
@@ -180,7 +228,11 @@ async function computeSellerStats(sellerOid, range) {
           {
             $match: {
               createdAt: { $gte: trendStartDate },
-              status: "delivered",
+              $or: [
+                { status: "delivered" },
+                { workflowStatus: "DELIVERED" },
+              ],
+              status: { $ne: "cancelled" },
               workflowStatus: { $ne: "CANCELLED" },
             },
           },
@@ -240,11 +292,28 @@ async function computeSellerStats(sellerOid, range) {
     },
   ]);
 
-  const overviewRaw = statsResult.overview[0] || { totalSales: 0, totalOrders: 0, deliveredOrders: 0 };
+  const overviewRaw = statsResult.overview[0] || {
+    totalSales: 0,
+    totalOrders: 0,
+    deliveredOrders: 0,
+    cancelledOrders: 0,
+    pendingOrders: 0,
+  };
   const totalSales = overviewRaw.totalSales || 0;
   const totalOrders = overviewRaw.totalOrders || 0;
   const deliveredOrders = overviewRaw.deliveredOrders || 0;
-  const avgOrderValue = deliveredOrders > 0 ? totalSales / deliveredOrders : (totalOrders > 0 && totalSales > 0 ? totalSales / totalOrders : 0);
+  const cancelledOrders = overviewRaw.cancelledOrders || 0;
+  const pendingOrders = overviewRaw.pendingOrders || 0;
+  const avgOrderValue =
+    deliveredOrders > 0
+      ? totalSales / deliveredOrders
+      : totalOrders > 0 && totalSales > 0
+        ? totalSales / totalOrders
+        : 0;
+  const cancellationRate =
+    totalOrders > 0
+      ? ((cancelledOrders / totalOrders) * 100).toFixed(1)
+      : "0.0";
 
   const currentSales = statsResult.currentWeek[0]?.sales || 0;
   const prevSalesVal = statsResult.prevWeek[0]?.sales || 0;
@@ -320,6 +389,8 @@ async function computeSellerStats(sellerOid, range) {
         count: { $sum: 1 },
       },
     },
+    { $sort: { count: -1 } },
+    { $limit: 8 },
     {
       $project: {
         subject: "$_id",
@@ -376,9 +447,16 @@ async function computeSellerStats(sellerOid, range) {
 
   return {
     overview: {
-      totalSales: `₹${totalSales.toLocaleString()}`,
+      totalSales: `₹${Math.round(totalSales).toLocaleString()}`,
+      totalSalesRaw: totalSales,
       totalOrders: totalOrders.toLocaleString(),
+      totalOrdersRaw: totalOrders,
+      deliveredOrders,
+      cancelledOrders,
+      pendingOrders,
+      cancellationRate: `${cancellationRate}%`,
       avgOrderValue: `₹${Math.round(avgOrderValue).toLocaleString()}`,
+      avgOrderValueRaw: Math.round(avgOrderValue),
       conversionRate: totalOrders > 0 ? "4.2%" : "0%",
       salesTrend: `${salesTrendPerc > 0 ? "+" : ""}${salesTrendPerc}%`,
       ordersTrend: `${ordersTrendPerc > 0 ? "+" : ""}${ordersTrendPerc}%`,

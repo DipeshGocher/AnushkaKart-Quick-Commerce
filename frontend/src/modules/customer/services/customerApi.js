@@ -22,6 +22,7 @@ export const customerApi = {
 
   // Sellers & Location
   getNearbySellers: (params) => getWithDedupe("/seller/nearby", params),
+  reverseGeocode: (params) => getWithDedupe("/maps/reverse-geocode", params, { ttl: 60000 }),
 
   // Cart
   getCart: () => getWithDedupe("/cart", {}, { ttl: 2000 }), // Very short cache for cart

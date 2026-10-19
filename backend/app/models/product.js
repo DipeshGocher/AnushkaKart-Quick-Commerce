@@ -153,6 +153,20 @@ const productSchema = new mongoose.Schema(
             enum: ["quick_only", "both", "inherit"],
             default: "inherit",
         },
+        isReturnable: {
+            type: Boolean,
+            default: true,
+        },
+        returnWindowDays: {
+            type: Number,
+            default: 7,
+            min: 0,
+        },
+        returnPolicyNote: {
+            type: String,
+            trim: true,
+            default: "",
+        },
         status: {
             type: String,
             enum: ["active", "inactive"],

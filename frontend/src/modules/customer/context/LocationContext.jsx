@@ -117,111 +117,139 @@ export const LocationProvider = ({ children }) => {
       setIsFetchingLocation(true);
       setLocationError(null);
 
-      const fallbackFromCoords = (latitude, longitude) => ({
-        name: `Lat ${Number(latitude).toFixed(5)}, Lng ${Number(longitude).toFixed(5)}`,
-        time: "20-35 mins",
-        city: currentLocation?.city || "Indore",
-        state: currentLocation?.state || "Madhya Pradesh",
-        pincode: currentLocation?.pincode || "452018",
-        latitude,
-        longitude,
-      });
+      const fallbackFromCoords = (latitude, longitude) => {
+        const existingCity = currentLocation?.city || "Indore";
+        const hasValidExistingName = currentLocation?.name && !/^Lat\s*[-+]?\d/i.test(currentLocation.name);
+        return {
+          name: hasValidExistingName ? currentLocation.name : `Near ${existingCity}`,
+          time: "20-35 mins",
+          city: existingCity,
+          state: currentLocation?.state || "Madhya Pradesh",
+          pincode: currentLocation?.pincode || "452018",
+          latitude,
+          longitude,
+        };
+      };
 
       const handleLocationSuccess = async (latitude, longitude) => {
         try {
-          // Always succeed with coordinates (needed for delivery fee calculation),
-          // even if reverse geocoding fails (key missing / quota / restrictions).
-          let liveLocation = fallbackFromCoords(latitude, longitude);
+          let resolvedLocation = null;
 
-          const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-
-          if (apiKey) {
-            const params = new URLSearchParams({
-              latlng: `${latitude},${longitude}`,
-              key: apiKey,
-            });
-
-            const response = await fetch(
-              `https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`,
-            );
-
-            if (!response.ok) {
-              throw new Error("Failed to fetch address from Google Maps");
+          // 1. Backend Reverse Geocode API (Google Maps with server key & caching, no CORS issues)
+          try {
+            const res = await customerApi.reverseGeocode({ lat: latitude, lng: longitude });
+            const data = res?.data?.result || res?.data;
+            if (data && (data.friendlyName || data.formattedAddress)) {
+              resolvedLocation = {
+                name: data.friendlyName || data.formattedAddress,
+                time: "20-35 mins",
+                city: data.city || "Indore",
+                state: data.state || "Madhya Pradesh",
+                pincode: data.pincode || "452018",
+                latitude: Number(latitude),
+                longitude: Number(longitude),
+              };
             }
-
-            const data = await response.json();
-
-            // Handle Google Geocoding API error responses
-            if (data.status === "REQUEST_DENIED") {
-              const msg =
-                data.error_message ||
-                "Geocoding API rejected (check API key restrictions)";
-              throw new Error(msg);
-            }
-            if (data.status === "OVER_QUERY_LIMIT") {
-              throw new Error("Geocoding API quota exceeded");
-            }
-            if (!data.results || data.results.length === 0) {
-              throw new Error(
-                data.error_message || "No address found for current location",
-              );
-            }
-
-            const components = data.results[0].address_components || [];
-
-            const getComponent = (types) =>
-              components.find((c) => types.every((t) => c.types.includes(t)))
-                ?.long_name;
-
-            // Build address from components to match: "214, Rajshri Palace Colony, Pipliyahana, Indore, Madhya Pradesh 452018, India"
-            const premise = getComponent(["premise"]);
-            const neighborhood = getComponent(["neighborhood"]);
-            const sublocality = getComponent([
-              "sublocality_level_1",
-              "sublocality",
-            ]);
-            const locality = getComponent(["locality"]);
-            const state = getComponent(["administrative_area_level_1"]);
-            const pincode = getComponent(["postal_code"]);
-            const country = getComponent(["country"]);
-
-            const displayParts = [];
-            if (premise) displayParts.push(premise);
-            
-            const streetNumber = getComponent(["street_number"]);
-            const route = getComponent(["route"]);
-            if (streetNumber && route) {
-              displayParts.push(`${streetNumber} ${route}`);
-            } else if (route) {
-              displayParts.push(route);
-            }
-
-            if (neighborhood) displayParts.push(neighborhood);
-            if (sublocality && sublocality !== neighborhood)
-              displayParts.push(sublocality);
-
-            let friendlyName = displayParts.join(", ");
-            if (!friendlyName) {
-              const parts = (data.results[0].formatted_address || "").split(",");
-              friendlyName = parts[0] || "Unknown Location";
-            }
-
-            liveLocation = {
-              name: friendlyName,
-              time: "20-35 mins",
-              city: locality || liveLocation.city,
-              state: state || liveLocation.state,
-              pincode: pincode || liveLocation.pincode,
-              latitude: latitude,
-              longitude: longitude,
-            };
+          } catch (backendErr) {
+            console.warn("[LocationContext] Backend reverse geocode failed:", backendErr?.message);
           }
 
-          updateLocation(liveLocation, {
+          // 2. Google Maps JS SDK Geocoder (if loaded on window)
+          if (!resolvedLocation && typeof window !== "undefined" && window.google?.maps?.Geocoder) {
+            try {
+              const geocoder = new window.google.maps.Geocoder();
+              const googleRes = await new Promise((res, rej) => {
+                geocoder.geocode({ location: { lat: latitude, lng: longitude } }, (results, status) => {
+                  if (status === "OK" && results?.[0]) res(results[0]);
+                  else rej(new Error(status));
+                });
+              });
+
+              if (googleRes) {
+                const components = googleRes.address_components || [];
+                const getComponent = (types) =>
+                  components.find((c) => types.every((t) => c.types.includes(t)))?.long_name;
+
+                const premise = getComponent(["premise"]);
+                const neighborhood = getComponent(["neighborhood"]);
+                const sublocality = getComponent(["sublocality_level_1", "sublocality"]);
+                const locality = getComponent(["locality"]);
+                const state = getComponent(["administrative_area_level_1"]);
+                const pincode = getComponent(["postal_code"]);
+
+                const displayParts = [];
+                if (premise) displayParts.push(premise);
+                if (neighborhood) displayParts.push(neighborhood);
+                if (sublocality && sublocality !== neighborhood) displayParts.push(sublocality);
+                if (locality && !displayParts.includes(locality)) displayParts.push(locality);
+
+                let friendlyName = displayParts.join(", ");
+                if (!friendlyName) {
+                  const parts = (googleRes.formatted_address || "").split(",");
+                  friendlyName = parts.slice(0, 2).join(",").trim() || "Current Location";
+                }
+
+                resolvedLocation = {
+                  name: friendlyName,
+                  time: "20-35 mins",
+                  city: locality || "Indore",
+                  state: state || "Madhya Pradesh",
+                  pincode: pincode || "452018",
+                  latitude: Number(latitude),
+                  longitude: Number(longitude),
+                };
+              }
+            } catch (jsMapsErr) {
+              console.warn("[LocationContext] Google Maps JS reverse geocode failed:", jsMapsErr?.message);
+            }
+          }
+
+          // 3. Free client-side reverse geocode API (BigDataCloud - reliable in all mobile web & WebViews)
+          if (!resolvedLocation) {
+            try {
+              const bdcRes = await fetch(
+                `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+              );
+              if (bdcRes.ok) {
+                const bdcData = await bdcRes.json();
+                const locality = bdcData.locality || bdcData.city || "";
+                const state = bdcData.principalSubdivision || "";
+                const pincode = bdcData.postcode || "";
+                const displayParts = [];
+                if (bdcData.locality && bdcData.locality !== bdcData.city) {
+                  displayParts.push(bdcData.locality);
+                }
+                if (bdcData.city) {
+                  displayParts.push(bdcData.city);
+                }
+                let friendlyName = displayParts.join(", ");
+                if (!friendlyName) friendlyName = locality || state || "Current Location";
+
+                resolvedLocation = {
+                  name: friendlyName,
+                  time: "20-35 mins",
+                  city: locality || "Indore",
+                  state: state || "Madhya Pradesh",
+                  pincode: pincode || "452018",
+                  latitude: Number(latitude),
+                  longitude: Number(longitude),
+                };
+              }
+            } catch (bdcErr) {
+              console.warn("[LocationContext] BigDataCloud reverse geocode failed:", bdcErr?.message);
+            }
+          }
+
+          // 4. Safe fallback that never outputs lat/lng numbers
+          if (!resolvedLocation) {
+            resolvedLocation = fallbackFromCoords(latitude, longitude);
+          }
+
+          updateLocation(resolvedLocation, {
             persist: true,
             updateSavedHome: false,
           });
-          resolve({ ok: true, location: liveLocation });
+          resolve({ ok: true, location: resolvedLocation });
         } catch (err) {
           const loc = fallbackFromCoords(latitude, longitude);
           updateLocation(loc, { persist: true, updateSavedHome: false });
@@ -320,7 +348,9 @@ export const LocationProvider = ({ children }) => {
   useEffect(() => {
     const parsed = getJSON(STORAGE_KEY, null);
     const addressName = parsed?.address || parsed?.name;
-    if (parsed && addressName) {
+    const isRawCoordName = addressName && /^Lat\s*[-+]?\d/i.test(addressName);
+
+    if (parsed && addressName && !isRawCoordName) {
       updateLocation(
         {
           name: addressName,
@@ -336,9 +366,31 @@ export const LocationProvider = ({ children }) => {
       );
       setIsLocationReady(true);
     } else {
-      // Keep the initial address stable until the customer explicitly selects
-      // another address or taps the current-location action.
-      updateLocation(currentLocation, { persist: true, updateSavedHome: false });
+      // If cached name is a raw coordinate string (e.g. "Lat 22.71737, Lng 75.87162") from earlier bug:
+      if (parsed?.latitude && parsed?.longitude) {
+        customerApi.reverseGeocode({ lat: parsed.latitude, lng: parsed.longitude })
+          .then((res) => {
+            const data = res?.data?.result || res?.data;
+            if (data && (data.friendlyName || data.formattedAddress)) {
+              updateLocation({
+                name: data.friendlyName || data.formattedAddress,
+                time: "20-35 mins",
+                city: data.city || parsed.city || "Indore",
+                state: data.state || parsed.state || "Madhya Pradesh",
+                pincode: data.pincode || parsed.pincode || "452018",
+                latitude: parsed.latitude,
+                longitude: parsed.longitude,
+              });
+            } else {
+              updateLocation(currentLocation, { persist: true, updateSavedHome: false });
+            }
+          })
+          .catch(() => {
+            updateLocation(currentLocation, { persist: true, updateSavedHome: false });
+          });
+      } else {
+        updateLocation(currentLocation, { persist: true, updateSavedHome: false });
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

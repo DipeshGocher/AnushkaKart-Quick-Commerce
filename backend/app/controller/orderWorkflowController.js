@@ -281,6 +281,12 @@ export const getOrderRoute = async (req, res) => {
 export const requestReturnPickupOtp = async (req, res) => {
   try {
     const { orderId } = req.params;
+    const orderKey = orderMatchQueryFromRouteParam(orderId);
+    const order = await Order.findOne(orderKey).lean();
+    if (!order) {
+      return handleResponse(res, 404, "Order not found");
+    }
+
     const result = await generateReturnPickupOtp(orderId);
     if (!result.success) {
       return handleResponse(res, 400, result.error);

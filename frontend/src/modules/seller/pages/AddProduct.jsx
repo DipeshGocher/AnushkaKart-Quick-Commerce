@@ -128,6 +128,9 @@ const AddProduct = () => {
     shelfLife: "",
     countryOfOrigin: "",
     fssaiLicense: "",
+    isReturnable: true,
+    returnWindowDays: 7,
+    returnPolicyNote: "",
     mainImage: null,   // Cloudinary URL string (for existing/URL-input images)
     galleryImages: [], // Array of Cloudinary URL strings (existing images)
     highlights: [
@@ -266,6 +269,9 @@ const AddProduct = () => {
       data.append("isFeatured", String(formData.isFeatured));
       data.append("isTopDeal", String(formData.isTopDeal));
       data.append("deliveryMode", formData.deliveryMode || "inherit");
+      data.append("isReturnable", String(formData.isReturnable ?? true));
+      data.append("returnWindowDays", String(Number(formData.returnWindowDays) || 7));
+      data.append("returnPolicyNote", formData.returnPolicyNote || "");
 
       // Map top-level price/stock from first variant for indexing/listing
       data.append("price", firstVariant.price);
@@ -621,6 +627,63 @@ const AddProduct = () => {
                       onChange={(e) => setFormData({ ...formData, height: Math.max(1, Number(e.target.value) || 10) })}
                       className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/20"
                       placeholder="10"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Return Policy & Non-Returnable Flag */}
+              <div className="bg-slate-50/90 p-5 rounded-2xl border border-slate-200/90 space-y-4">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <HiOutlineArrowPath className="h-4 w-4 text-primary" />
+                    Return Policy Settings (रिटर्न पॉलिसी सेटिंग्स)
+                  </h4>
+                  <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                    💡 Perishable (दूध, फल, ब्रेड) या Hygiene items के लिए रिटर्न बंद करें।
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-1.5 flex flex-col">
+                    <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                      Is Product Returnable? (रिटर्न संभव है?)
+                    </label>
+                    <select
+                      value={formData.isReturnable ? "true" : "false"}
+                      onChange={(e) => setFormData({ ...formData, isReturnable: e.target.value === "true" })}
+                      className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                      <option value="true">✅ Yes (Returnable)</option>
+                      <option value="false">❌ No (Non-Returnable)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5 flex flex-col">
+                    <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                      Courier Return Window (Days)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="30"
+                      disabled={!formData.isReturnable}
+                      value={formData.returnWindowDays}
+                      onChange={(e) => setFormData({ ...formData, returnWindowDays: Number(e.target.value) || 0 })}
+                      className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/20 disabled:bg-slate-100 disabled:opacity-60"
+                      placeholder="7"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 flex flex-col sm:col-span-1">
+                    <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                      Policy Note (Reason if Non-returnable)
+                    </label>
+                    <input
+                      value={formData.returnPolicyNote}
+                      onChange={(e) => setFormData({ ...formData, returnPolicyNote: e.target.value })}
+                      className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/20"
+                      placeholder="e.g. Perishable dairy product"
                     />
                   </div>
                 </div>

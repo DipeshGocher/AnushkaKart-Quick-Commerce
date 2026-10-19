@@ -146,7 +146,7 @@ body:has(.customer-app),
 
 .customer-location-header.is-category-mode {
   background-image: none !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-bottom: none !important;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
 }
 
@@ -156,7 +156,7 @@ body:has(.customer-app),
 }
 
 .customer-location-header > .absolute.inset-x-0 {
-  background-color: #c8ddfa;
+  display: none !important;
 }
 
 .customer-location-header img[alt*="Logo"] {
@@ -487,19 +487,12 @@ body:has(.customer-app),
   font-weight: 700 !important;
 }
 
-.customer-location-header.is-category-mode:not(.is-bright-header) .customer-category-nav-indicator,
-.customer-location-header.is-category-mode:not(.is-bright-header) .customer-category-nav-item.is-active span[class*="absolute bottom-0"] {
-  background-color: var(--category-header-indicator, #ffffff) !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35) !important;
-  bottom: 0px !important;
-  left: 0px !important;
-  right: 0px !important;
-  width: 100% !important;
-  height: 4px !important;
-  border-radius: 9999px !important;
+.customer-location-header.is-category-mode .customer-category-nav-indicator,
+.customer-location-header.is-category-mode .customer-category-nav-item.is-active span[class*="absolute bottom-0"] {
+  display: none !important;
 }
 
-/* When bright/light background: Text and underline automatically become BLACK or custom headerFontColor */
+/* When bright/light background: Text automatically becomes BLACK or custom headerFontColor */
 .customer-location-header.is-category-mode.is-bright-header .customer-category-nav-label {
   color: var(--category-header-text-color, rgba(15, 23, 42, 0.72)) !important;
   font-weight: 500 !important;
@@ -508,18 +501,6 @@ body:has(.customer-app),
 .customer-location-header.is-category-mode.is-bright-header .customer-category-nav-item.is-active .customer-category-nav-label {
   color: var(--category-header-text-active, #0f172a) !important;
   font-weight: 700 !important;
-}
-
-.customer-location-header.is-category-mode.is-bright-header .customer-category-nav-indicator,
-.customer-location-header.is-category-mode.is-bright-header .customer-category-nav-item.is-active span[class*="absolute bottom-0"] {
-  background-color: var(--category-header-indicator, #0f172a) !important;
-  box-shadow: none !important;
-  bottom: 0px !important;
-  left: 0px !important;
-  right: 0px !important;
-  width: 100% !important;
-  height: 4px !important;
-  border-radius: 9999px !important;
 }
 
 .customer-location-header input::placeholder {

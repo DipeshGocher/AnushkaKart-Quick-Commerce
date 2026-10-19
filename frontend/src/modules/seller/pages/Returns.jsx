@@ -506,7 +506,35 @@ const Returns = () => {
                                 {/* Tracking Info Section */}
                                 {(selectedReturn.returnStatus === "return_pickup_assigned" ||
                                     selectedReturn.returnStatus === "return_in_transit" ||
-                                    selectedReturn.returnStatus === "return_drop_pending") && selectedReturn.returnDeliveryBoy && (
+                                    selectedReturn.returnStatus === "return_drop_pending" ||
+                                    selectedReturn.returnStatus === "return_approved") && (
+                                    (selectedReturn.fulfillmentType === "SHIPROCKET" || selectedReturn.shiprocket?.reverseAwb) ? (
+                                        <div className="bg-sky-50 rounded-2xl p-4 border border-sky-100 space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-8 w-8 rounded-lg bg-sky-600 flex items-center justify-center text-white">
+                                                    <HiOutlineTruck className="h-5 w-5" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-black text-sky-600 uppercase tracking-widest leading-none mb-1">Shiprocket Reverse Courier</p>
+                                                    <p className="text-sm font-bold text-slate-900 leading-none">{selectedReturn.shiprocket?.reverseCourierName || "Delhivery / Ecom Express"}</p>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white/70 p-2.5 rounded-xl border border-sky-200 text-xs space-y-1">
+                                                <p className="font-semibold text-slate-700">Reverse AWB: <span className="font-mono font-bold text-sky-900">{selectedReturn.shiprocket?.reverseAwb || "Scheduled"}</span></p>
+                                                <p className="text-[11px] text-slate-500">Status: <span className="font-medium text-slate-800">{selectedReturn.shiprocket?.reverseStatus || "Pickup In-Progress"}</span></p>
+                                                {selectedReturn.shiprocket?.reverseLabelUrl && (
+                                                    <a
+                                                        href={selectedReturn.shiprocket.reverseLabelUrl}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="inline-block mt-1 text-[11px] font-bold text-sky-700 underline"
+                                                    >
+                                                        Download Return Label PDF
+                                                    </a>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ) : selectedReturn.returnDeliveryBoy ? (
                                         <div className="bg-brand-50 rounded-2xl p-4 border border-brand-100 space-y-2">
                                             <div className="flex items-center gap-2">
                                                 <div className="h-8 w-8 rounded-lg bg-black  flex items-center justify-center text-white">
@@ -531,7 +559,8 @@ const Returns = () => {
                                                 </p>
                                             )}
                                         </div>
-                                    )}
+                                    ) : null
+                                )}
 
                                 {/* QC Info Section */}
                                 {(selectedReturn.returnStatus === "qc_passed" || selectedReturn.returnStatus === "qc_failed") && (

@@ -779,7 +779,7 @@ export const getProducts = async (req, res) => {
       const [rawProducts, total] = await Promise.all([
         Product.find(finalQuery)
           .select(
-            "name slug description sku price salePrice stock brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights conditionType refurbishedDetails createdAt deliveryMode",
+            "name slug description sku price salePrice stock brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights conditionType refurbishedDetails createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
           )
           // No .populate() — names resolved via cache-backed entityNameCache
           .sort(sortQuery)
@@ -911,7 +911,7 @@ export const getSellerProducts = async (req, res) => {
     ] = await Promise.all([
       Product.find(query)
         .select(
-          "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights conditionType refurbishedDetails createdAt",
+          "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights conditionType refurbishedDetails createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
         )
         .populate("headerId", "name slug trustBadges")
         .populate("categoryId", "name slug trustBadges")
@@ -1248,6 +1248,17 @@ export const createProduct = async (req, res) => {
       productData.tags = productData.tags.split(",").map((tag) => tag.trim());
     }
 
+    if (productData.isReturnable !== undefined) {
+      productData.isReturnable = productData.isReturnable === true || productData.isReturnable === "true" || productData.isReturnable === 1 || productData.isReturnable === "1";
+    }
+    if (productData.returnWindowDays !== undefined) {
+      const days = Number(productData.returnWindowDays);
+      productData.returnWindowDays = !isNaN(days) && days >= 0 ? days : 7;
+    }
+    if (productData.returnPolicyNote !== undefined) {
+      productData.returnPolicyNote = String(productData.returnPolicyNote || "").trim();
+    }
+
     if (Array.isArray(productData.variants)) {
       productData.variants = productData.variants.map((variant, idx) => ({
         ...variant,
@@ -1539,6 +1550,17 @@ export const updateProduct = async (req, res) => {
       productData.tags = productData.tags.split(",").map((tag) => tag.trim());
     }
 
+    if (productData.isReturnable !== undefined) {
+      productData.isReturnable = productData.isReturnable === true || productData.isReturnable === "true" || productData.isReturnable === 1 || productData.isReturnable === "1";
+    }
+    if (productData.returnWindowDays !== undefined) {
+      const days = Number(productData.returnWindowDays);
+      productData.returnWindowDays = !isNaN(days) && days >= 0 ? days : 7;
+    }
+    if (productData.returnPolicyNote !== undefined) {
+      productData.returnPolicyNote = String(productData.returnPolicyNote || "").trim();
+    }
+
     if (typeof productData.variants === "string") {
       try {
         productData.variants = JSON.parse(productData.variants);
@@ -1677,7 +1699,7 @@ export const getProductById = async (req, res) => {
         const query = isObjectId ? { _id: id } : { slug: id };
         return Product.findOne(query)
           .select(
-            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId isMonthlyKit status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights specifications dynamicAttributes trustBadges createdAt deliveryMode",
+            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId isMonthlyKit status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights specifications dynamicAttributes trustBadges createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
           )
           .populate("headerId", "name slug trustBadges deliveryMode catalogType")
           .populate("categoryId", "name slug trustBadges deliveryMode catalogType")
@@ -1866,7 +1888,7 @@ export const getModerationProducts = async (req, res) => {
       await Promise.all([
         Product.find(moderatedQuery)
           .select(
-            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights createdAt",
+            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
           )
           .populate("headerId", "name")
           .populate("categoryId", "name")

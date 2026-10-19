@@ -430,6 +430,56 @@ const ProductDetailSheet = () => {
         }
     };
 
+    const handleShareProduct = async (e) => {
+        e?.stopPropagation?.();
+        const prod = activeProduct || selectedProduct;
+        if (!prod) return;
+
+        const idOrSlug = prod.slug || prod._id || prod.id;
+        const shareUrl = `${window.location.origin}/product/${idOrSlug}`;
+        const shareTitle = prod.name || "Check out this product on AnushkaKart";
+        const priceToShare = selectedVariant?.salePrice || selectedVariant?.price || prod.salePrice || prod.price;
+        const shareText = `Check out ${prod.name} on AnushkaKart for just ₹${priceToShare}!\n${shareUrl}`;
+
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: shareTitle,
+                    text: shareText,
+                    url: shareUrl,
+                });
+                return;
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error("Share failed", err);
+                } else {
+                    return;
+                }
+            }
+        }
+
+        // Fallback: Clipboard copy
+        try {
+            if (navigator?.clipboard?.writeText) {
+                await navigator.clipboard.writeText(shareUrl);
+                showToast("Product link copied to clipboard!", "success");
+            } else {
+                const textArea = document.createElement("textarea");
+                textArea.value = shareUrl;
+                textArea.style.position = "fixed";
+                textArea.style.opacity = "0";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                document.execCommand("copy");
+                document.body.removeChild(textArea);
+                showToast("Product link copied to clipboard!", "success");
+            }
+        } catch {
+            showToast("Could not copy link automatically", "error");
+        }
+    };
+
     const toggleWishlist = (e) => {
         e.stopPropagation();
 
@@ -987,27 +1037,39 @@ const ProductDetailSheet = () => {
                                         </motion.div>
                                     )}
 
-                                    <motion.button
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.9 }}
-                                        onClick={toggleWishlist}
-                                        className={cn(
-                                            "relative w-10 h-10 backdrop-blur-md rounded-xl shadow-md shadow-black/5 flex items-center justify-center hover:shadow-lg transition-all border",
-                                            isWishlisted ? "bg-red-50/95 border-red-100" : "bg-white/95 border-gray-100/80"
-                                        )}
-                                    >
-                                        <ParticleBurst isActive={showHeartPopup} />
-                                        <motion.div
-                                            animate={isWishlisted ? { scale: [1, 1.3, 1] } : {}}
-                                            transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                                            className="relative z-10"
+                                    <div className="flex items-center gap-2">
+                                        <motion.button
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.9 }}
+                                            onClick={handleShareProduct}
+                                            className="w-10 h-10 bg-white/95 backdrop-blur-md rounded-xl shadow-md shadow-black/5 flex items-center justify-center hover:shadow-lg transition-all border border-gray-100/80 text-gray-700 cursor-pointer"
+                                            title="Share Product"
                                         >
-                                            <Heart size={18} className={cn(
-                                                "transition-all",
-                                                isWishlisted ? 'text-red-500 fill-red-500' : 'text-gray-400 hover:text-red-400'
-                                            )} />
-                                        </motion.div>
-                                    </motion.button>
+                                            <Share2 size={18} strokeWidth={2.3} />
+                                        </motion.button>
+
+                                        <motion.button
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.9 }}
+                                            onClick={toggleWishlist}
+                                            className={cn(
+                                                "relative w-10 h-10 backdrop-blur-md rounded-xl shadow-md shadow-black/5 flex items-center justify-center hover:shadow-lg transition-all border cursor-pointer",
+                                                isWishlisted ? "bg-red-50/95 border-red-100" : "bg-white/95 border-gray-100/80"
+                                            )}
+                                        >
+                                            <ParticleBurst isActive={showHeartPopup} />
+                                            <motion.div
+                                                animate={isWishlisted ? { scale: [1, 1.3, 1] } : {}}
+                                                transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                                                className="relative z-10"
+                                            >
+                                                <Heart size={18} className={cn(
+                                                    "transition-all",
+                                                    isWishlisted ? 'text-red-500 fill-red-500' : 'text-gray-400 hover:text-red-400'
+                                                )} />
+                                            </motion.div>
+                                        </motion.button>
+                                    </div>
 
                                     <AnimatePresence>
                                         {showHeartPopup && (
@@ -1390,18 +1452,51 @@ const ProductDetailSheet = () => {
                         )}
                         style={{ willChange: "transform, height", touchAction: "auto", height: "100dvh", maxHeight: "100dvh" }}
                     >
-                        {/* Header Actions (Absolute & Sticky) */}
-                        <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-40 pointer-events-none">
+                        {/* Top Blue Header Bar (Bottle reference: Back Arrow + White Search field + Cart icon with badge) */}
+                        <div 
+                            className="bg-[#3478d3] px-3.5 py-2.5 flex items-center gap-2.5 shadow-md shrink-0 z-40 text-white"
+                            style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top, 10px))' }}
+                        >
+                            {/* 1. Back Arrow Button */}
                             <motion.button
                                 onClick={closeProduct}
                                 whileTap={{ scale: 0.9 }}
-                                className="w-10 h-10 bg-white shadow-lg rounded-full flex items-center justify-center border border-gray-100 pointer-events-auto"
+                                className="w-9 h-9 rounded-full flex items-center justify-center text-white hover:bg-white/10 active:scale-95 transition-all shrink-0 cursor-pointer"
+                                aria-label="Back"
                             >
-                                <ArrowLeft size={24} className={isRefurbishedProduct ? "text-blue-600" : "text-primary"} strokeWidth={3} />
+                                <ArrowLeft size={22} strokeWidth={2.5} />
                             </motion.button>
-                            <div className="flex gap-3 pointer-events-auto invisible">
-                                {/* Hidden as per request to simplify the view */}
+
+                            {/* 2. White Search Input Field */}
+                            <div 
+                                onClick={() => {
+                                    closeProduct();
+                                    navigate('/search');
+                                }}
+                                className="flex-1 bg-white h-10 rounded-full px-3.5 flex items-center gap-2 cursor-pointer shadow-xs border border-white/20 select-none active:scale-[0.99] transition-transform"
+                            >
+                                <Search size={17} className="text-slate-400 shrink-0" />
+                                <span className="text-xs sm:text-sm text-slate-400 font-normal truncate">
+                                    Search for products
+                                </span>
                             </div>
+
+                            {/* 3. Cart Icon with Badge */}
+                            <Link
+                                to="/cart"
+                                onClick={closeProduct}
+                                className="relative w-10 h-10 rounded-full flex items-center justify-center text-white hover:bg-white/10 active:scale-95 transition-all shrink-0 cursor-pointer"
+                                aria-label="Cart"
+                            >
+                                <ShoppingCart size={22} strokeWidth={2.2} />
+                                {((isRefurbishedProduct ? refurbishedCartCount : groceryCartCount) || cartCount || 0) > 0 && (
+                                    <span className="absolute -top-1 -right-1 bg-[#ff5200] text-white border-2 border-[#3478d3] text-[10px] font-black min-w-[20px] h-5 px-1 rounded-full flex items-center justify-center shadow-xs">
+                                        {((isRefurbishedProduct ? refurbishedCartCount : groceryCartCount) || cartCount) > 99
+                                            ? '99+'
+                                            : ((isRefurbishedProduct ? refurbishedCartCount : groceryCartCount) || cartCount)}
+                                    </span>
+                                )}
+                            </Link>
                         </div>
 
                         {/* Scrollable Content */}
@@ -1414,7 +1509,7 @@ const ProductDetailSheet = () => {
                         >
                             {/* Product Image Carousel */}
                             <div className={cn(
-                                "relative w-full pt-12 pb-8 h-[380px] sm:h-[480px] border-b",
+                                "relative w-full pt-3 pb-6 h-[360px] sm:h-[440px] border-b",
                                 isRefurbishedProduct
                                     ? "bg-gradient-to-b from-blue-50/90 via-sky-50/50 to-white border-blue-100/80"
                                     : "bg-gradient-to-b from-[#FFF2E8] via-[#FFF7F2] to-white border-orange-100/60"
@@ -1584,23 +1679,39 @@ const ProductDetailSheet = () => {
                             className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-100 p-3 sm:p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.08)] z-50 shrink-0"
                             style={{ paddingBottom: 'max(1.25rem, calc(0.75rem + env(safe-area-inset-bottom, 16px)))' }}
                         >
-                            <div className="flex items-center justify-between gap-3 max-w-md mx-auto">
-                                {/* Left Side: Cart Icon with Badge */}
-                                <Link
-                                    to="/cart"
-                                    onClick={closeProduct}
-                                    className="relative w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-slate-800 hover:bg-slate-200 active:scale-95 transition-all shrink-0"
-                                    title="View Cart"
-                                >
-                                    <ShoppingCart size={20} className="text-slate-800" />
-                                    {(isRefurbishedProduct ? refurbishedCartCount : groceryCartCount) > 0 && (
-                                        <div className="absolute -top-1.5 -right-1.5 text-slate-900 bg-[#FFC200] border border-white text-[10px] font-black w-4.5 h-4.5 rounded-full flex shrink-0 items-center justify-center shadow-xs">
-                                            {(isRefurbishedProduct ? refurbishedCartCount : groceryCartCount) > 99 ? '99+' : (isRefurbishedProduct ? refurbishedCartCount : groceryCartCount)}
-                                        </div>
+                            <div className="flex items-center gap-2.5 max-w-md mx-auto">
+                                {/* 1. Wishlist Circle Button */}
+                                <motion.button
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={toggleWishlist}
+                                    className={cn(
+                                        "w-12 h-12 rounded-full flex items-center justify-center border shadow-xs transition-all shrink-0 cursor-pointer",
+                                        isWishlisted 
+                                            ? "bg-rose-50 border-rose-200 text-rose-500 shadow-rose-100/50" 
+                                            : "bg-white border-slate-200/90 text-slate-700 hover:bg-slate-50 hover:border-slate-300"
                                     )}
-                                </Link>
+                                    title={isWishlisted ? "Remove from Wishlist" : "Add to Wishlist"}
+                                    aria-label="Wishlist"
+                                >
+                                    <Heart 
+                                        size={21} 
+                                        className={cn("transition-colors", isWishlisted ? "fill-rose-500 text-rose-500" : "text-slate-700")} 
+                                        strokeWidth={2.2} 
+                                    />
+                                </motion.button>
 
-                                {/* Right Side: Flipkart-style Yellow Add to Cart / Quantity Pill Button */}
+                                {/* 2. Share Circle Button */}
+                                <motion.button
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={handleShareProduct}
+                                    className="w-12 h-12 rounded-full bg-white border border-slate-200/90 shadow-xs flex items-center justify-center text-slate-700 hover:bg-slate-50 hover:border-slate-300 active:scale-95 transition-all shrink-0 cursor-pointer"
+                                    title="Share Product"
+                                    aria-label="Share"
+                                >
+                                    <Share2 size={20} strokeWidth={2.2} className="text-slate-700" />
+                                </motion.button>
+
+                                {/* 3. Compact Add to Cart / Quantity Pill Button */}
                                 {quantity > 0 ? (
                                     <div className="flex-1 bg-[#FFC200] text-slate-900 h-12 rounded-xl flex items-center justify-between px-3 shadow-md border border-[#E6AC00]">
                                         <motion.button
@@ -1635,9 +1746,8 @@ const ProductDetailSheet = () => {
                                         whileHover={{ scale: 1.01 }}
                                         whileTap={{ scale: 0.96 }}
                                         onClick={handleAddToCart}
-                                        className="flex-1 bg-[#FFC200] hover:bg-[#F5B800] text-slate-900 h-12 rounded-xl font-bold text-xs sm:text-[14px] flex items-center justify-center gap-2 shadow-md shadow-amber-200/50 border border-[#E6AC00] active:opacity-95 tracking-wider uppercase cursor-pointer"
+                                        className="flex-1 bg-[#FFC200] hover:bg-[#F5B800] text-slate-900 h-12 rounded-xl font-bold text-xs sm:text-[14px] flex items-center justify-center shadow-md shadow-amber-200/50 border border-[#E6AC00] active:opacity-95 tracking-wider uppercase cursor-pointer"
                                     >
-                                        <ShoppingCart size={18} strokeWidth={2.5} />
                                         ADD TO CART
                                     </motion.button>
                                 )}

@@ -39,6 +39,9 @@ export const createProductSchema = Joi.object({
       })
     )
     .optional(),
+  isReturnable: Joi.boolean().optional(),
+  returnWindowDays: Joi.number().min(0).optional(),
+  returnPolicyNote: trimmedString.max(500).allow("").optional(),
   conditionType: trimmedString.valid("new", "refurbished").optional(),
   refurbishedDetails: Joi.object({
     grade: trimmedString.allow("").optional(),

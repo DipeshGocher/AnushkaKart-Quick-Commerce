@@ -43,7 +43,10 @@ describe("sellerAuthController signupSeller", () => {
         phoneVerificationToken: "phone-token",
         shopName: "Noyo Mart",
         category: "Groceries",
-        address: "MG Road",
+        address: "MG Road, Civil Lines",
+        city: "Jhansi",
+        state: "Uttar Pradesh",
+        pincode: "284001",
         documents: JSON.stringify({
           tradeLicense: "https://example.com/trade-license.pdf",
           gstCertificate: "https://example.com/gst.pdf",

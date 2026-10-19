@@ -178,17 +178,50 @@ const OrderDetailPage = () => {
   const [routePolyline, setRoutePolyline] = useState(null);
   const [handoffOtp, setHandoffOtp] = useState(null);
   const [clockTick, setClockTick] = useState(Date.now());
-  const parsedReturnWindowMinutes = parseInt(
-    import.meta.env.VITE_RETURN_WINDOW_MINUTES || "5",
-    10,
-  );
-  const returnWindowMinutes =
-    Number.isFinite(parsedReturnWindowMinutes) && parsedReturnWindowMinutes > 0
-      ? parsedReturnWindowMinutes
-      : 5;
+  const isShiprocketOrder = order?.fulfillmentType === "SHIPROCKET";
+  const returnWindowLabel = isShiprocketOrder ? "7 days" : "4 hours";
   const routeOriginRef = useRef(null);
   const routeRequestRef = useRef({ phase: "", startedAt: 0 });
   const [returnCountdown, setReturnCountdown] = useState(null);
+
+  const effectiveWindowExpiresAt = useMemo(() => {
+    if (returnDetails?.returnWindowExpiresAt) return new Date(returnDetails.returnWindowExpiresAt).getTime();
+    if (order?.returnWindowExpiresAt) return new Date(order.returnWindowExpiresAt).getTime();
+    if (order?.deliveredAt) {
+      const windowMs = isShiprocketOrder ? 7 * 24 * 60 * 60 * 1000 : 4 * 60 * 60 * 1000;
+      return new Date(order.deliveredAt).getTime() + windowMs;
+    }
+    return null;
+  }, [returnDetails?.returnWindowExpiresAt, order?.returnWindowExpiresAt, order?.deliveredAt, isShiprocketOrder]);
+
+  useEffect(() => {
+    if (!effectiveWindowExpiresAt) {
+      setReturnCountdown(null);
+      return;
+    }
+    const updateCountdown = () => {
+      const now = Date.now();
+      const diff = effectiveWindowExpiresAt - now;
+      if (diff <= 0) {
+        setReturnCountdown("Expired");
+        return;
+      }
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      if (days > 0) {
+        setReturnCountdown(`${days}d ${hours}h`);
+      } else if (hours > 0) {
+        setReturnCountdown(`${hours}h ${minutes}m`);
+      } else {
+        setReturnCountdown(`${Math.max(1, minutes)}m`);
+      }
+    };
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 30000);
+    return () => clearInterval(interval);
+  }, [effectiveWindowExpiresAt]);
+
   const refreshRef = useRef({ inFlight: false, lastAt: 0 });
   const extraRoomRef = useRef("");
 
@@ -692,13 +725,23 @@ const OrderDetailPage = () => {
       return false;
     }
 
-    const windowStart = new Date(order.deliveredAt || order.createdAt).getTime();
-    const now = Date.now();
-    const windowMs = returnWindowMinutes * 60 * 1000;
-    return now - windowStart <= windowMs;
+    if (effectiveWindowExpiresAt && Date.now() > effectiveWindowExpiresAt) {
+      return false;
+    }
+
+    // Check if at least one item in order is returnable
+    const hasReturnableItem = Array.isArray(order.items) && order.items.some(
+      (item) => item.isReturnable !== false && item.product?.isReturnable !== false
+    );
+    return hasReturnableItem;
   };
 
   const toggleItemSelection = (index) => {
+    const item = order?.items?.[index];
+    if (item && (item.isReturnable === false || item.product?.isReturnable === false)) {
+      toast.error(`"${item.name}" is a non-returnable item.`);
+      return;
+    }
     setSelectedReturnItems((prev) => {
       const next = { ...prev };
       if (next[index]) {
@@ -1383,32 +1426,50 @@ const OrderDetailPage = () => {
               <div className="space-y-4 text-sm">
                 <ReturnProgressTracker returnStatus={returnDetails.returnStatus} />
 
-                {/* Return OTP Display for Customer if pickup is assigned */}
+                {/* Return OTP / Courier Pickup Display */}
                 {returnDetails.returnStatus === "return_pickup_assigned" && (
-                  <div className="bg-brand-50 rounded-2xl p-4 border border-brand-100">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="h-8 w-8 rounded-full bg-brand-100 flex items-center justify-center">
-                        <Truck size={16} className="text-brand-600" />
-                      </div>
-                      <p className="text-sm font-bold text-brand-900">Return Pickup Assigned</p>
-                    </div>
-                    <p className="text-xs text-brand-700 mb-3 ml-11">
-                      A delivery partner is coming to collect your return. Please share this OTP when they arrive:
-                    </p>
-                    <div className="ml-11 flex items-center gap-2">
-                      {handoffOtp ? (
-                        <div className="flex gap-2">
-                          {handoffOtp.split('').map((digit, i) => (
-                            <div key={i} className="h-10 w-8 bg-white border-2 border-brand-200 rounded-lg flex items-center justify-center text-lg font-black text-brand-700 shadow-sm">
-                              {digit}
-                            </div>
-                          ))}
+                  isShiprocketOrder ? (
+                    <div className="bg-sky-50 rounded-2xl p-4 border border-sky-100">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="h-8 w-8 rounded-full bg-sky-100 flex items-center justify-center">
+                          <Truck size={16} className="text-sky-600" />
                         </div>
-                      ) : (
-                        <p className="text-xs font-bold text-slate-400 italic">Waiting for rider to request OTP...</p>
-                      )}
+                        <div>
+                          <p className="text-sm font-bold text-sky-900">Courier Reverse Pickup Scheduled</p>
+                          <p className="text-xs text-sky-700">Shiprocket Return Partner: {order?.shiprocket?.reverseCourierName || "Delhivery / Ecom Express"}</p>
+                        </div>
+                      </div>
+                      <div className="ml-11 mt-2 text-xs text-slate-600 space-y-1">
+                        <p>Reverse AWB: <span className="font-mono font-bold text-slate-900">{order?.shiprocket?.reverseAwb || "AWB Generating"}</span></p>
+                        <p className="text-[11px] text-slate-500">Please pack the item securely in original packaging. The courier executive will collect it from your doorstep.</p>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="bg-brand-50 rounded-2xl p-4 border border-brand-100">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="h-8 w-8 rounded-full bg-brand-100 flex items-center justify-center">
+                          <Truck size={16} className="text-brand-600" />
+                        </div>
+                        <p className="text-sm font-bold text-brand-900">Return Pickup Assigned</p>
+                      </div>
+                      <p className="text-xs text-brand-700 mb-3 ml-11">
+                        A delivery partner is coming to collect your return. Please share this OTP when they arrive:
+                      </p>
+                      <div className="ml-11 flex items-center gap-2">
+                        {handoffOtp ? (
+                          <div className="flex gap-2">
+                            {handoffOtp.split('').map((digit, i) => (
+                              <div key={i} className="h-10 w-8 bg-white border-2 border-brand-200 rounded-lg flex items-center justify-center text-lg font-black text-brand-700 shadow-sm">
+                                {digit}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs font-bold text-slate-400 italic">Waiting for rider to request OTP...</p>
+                        )}
+                      </div>
+                    </div>
+                  )
                 )}
 
                 {returnDetails.returnStatus === "return_rejected" && (
@@ -1429,7 +1490,7 @@ const OrderDetailPage = () => {
               </div>
             ) : (
               <p className="text-sm text-slate-500 mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                You can request a return within the first {returnWindowMinutes} minutes after delivery.
+                You can request a return within {returnWindowLabel} of delivery.
               </p>
             )}
 
@@ -1474,23 +1535,42 @@ const OrderDetailPage = () => {
             </p>
             <div className="max-h-48 overflow-y-auto space-y-3">
               {order.items.map((item, idx) => {
+                const isItemNonReturnable = item.isReturnable === false || item.product?.isReturnable === false;
                 const checked = !!selectedReturnItems[idx];
                 return (
                   <label
                     key={idx}
-                    className="flex items-center gap-3 p-3 rounded-2xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors">
+                    className={`flex items-center gap-3 p-3 rounded-2xl border transition-colors ${
+                      isItemNonReturnable
+                        ? "border-rose-100 bg-rose-50/60 opacity-80 cursor-not-allowed"
+                        : "border-slate-100 hover:bg-slate-50 cursor-pointer"
+                    }`}
+                  >
                     <input
                       type="checkbox"
                       checked={checked}
-                      onChange={() => toggleItemSelection(idx)}
-                      className="h-4 w-4 rounded border-slate-300 text-slate-900"
+                      disabled={isItemNonReturnable}
+                      onChange={() => !isItemNonReturnable && toggleItemSelection(idx)}
+                      className="h-4 w-4 rounded border-slate-300 text-slate-900 disabled:opacity-40"
                     />
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-slate-800">
-                        {item.name}
-                      </p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-bold text-slate-800 truncate">
+                          {item.name}
+                        </p>
+                        {isItemNonReturnable && (
+                          <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
+                            Non-Returnable
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-slate-500">
                         Qty: {item.quantity} • ₹{item.price * item.quantity}
+                        {isItemNonReturnable && (
+                          <span className="text-rose-600 block text-[11px] font-medium mt-0.5">
+                            {item.returnPolicyNote || item.product?.returnPolicyNote || "Perishable or hygiene item"}
+                          </span>
+                        )}
                       </p>
                     </div>
                   </label>

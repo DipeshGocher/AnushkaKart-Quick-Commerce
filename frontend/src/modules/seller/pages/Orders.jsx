@@ -32,7 +32,7 @@ import ShimmerButton from '@/components/ui/shimmer-button';
 import { sellerApi } from '../services/sellerApi';
 import { useToast } from '@shared/components/ui/Toast';
 import { getLegacyStatusFromOrder } from '@/shared/utils/orderStatus';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Package, Truck, Clock, Printer, ExternalLink, Copy, Check } from 'lucide-react';
 import Pagination from '@shared/components/ui/Pagination';
 import { DatePicker } from "@/components/ui/date-picker";
 import { getOrderStatusVariant } from '../components/orders';
@@ -66,6 +66,10 @@ const Orders = () => {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const [total, setTotal] = useState(0);
+    const [isProcessingShiprocket, setIsProcessingShiprocket] = useState(false);
+    const [isSchedulingPickup, setIsSchedulingPickup] = useState(false);
+    const [isFetchingLabel, setIsFetchingLabel] = useState(false);
+    const [copiedAwb, setCopiedAwb] = useState(false);
     const hasMountedRef = useRef(false);
 
     // Initial load: show full-page loader once
@@ -151,7 +155,10 @@ const Orders = () => {
                 location: order.address?.location || null,
                 payment: order.payment?.method === 'cash' || order.payment?.method === 'cod'
                     ? 'Cash on Delivery'
-                    : 'Online Paid'
+                    : 'Online Paid',
+                shiprocket: order.shiprocket || null,
+                deliveryEstimate: order.deliveryEstimate || null,
+                rawOrder: order
             }));
 
             setOrders(formattedOrders);
@@ -293,6 +300,87 @@ const Orders = () => {
         a.click();
         URL.revokeObjectURL(url);
         showToast(`Exported ${data.length} order(s) as CSV`, "success");
+    };
+
+    const copyAwbToClipboard = (awb) => {
+        if (!awb) return;
+        navigator.clipboard?.writeText(awb);
+        setCopiedAwb(true);
+        showToast("AWB Code copied to clipboard", "success");
+        setTimeout(() => setCopiedAwb(false), 2000);
+    };
+
+    const handleProcessShiprocket = async (orderId) => {
+        try {
+            setIsProcessingShiprocket(true);
+            const res = await sellerApi.processShiprocketOrder(orderId);
+            if (res.data?.success) {
+                showToast(res.data.message || "Shiprocket shipment created & AWB assigned", "success");
+                const shipmentData = res.data.result?.shipment || res.data.result || null;
+                if (selectedOrder && selectedOrder.id === orderId) {
+                    setSelectedOrder(prev => ({
+                        ...prev,
+                        status: 'confirmed',
+                        shiprocket: shipmentData || {
+                            ...(prev.shiprocket || {}),
+                            currentStatus: 'AWB_ASSIGNED',
+                        }
+                    }));
+                }
+                fetchOrders(page, false, true);
+            }
+        } catch (error) {
+            console.error("Failed to process Shiprocket order:", error);
+            showToast(error.response?.data?.message || "Failed to process with Shiprocket", "error");
+        } finally {
+            setIsProcessingShiprocket(false);
+        }
+    };
+
+    const handleSchedulePickup = async (orderId) => {
+        try {
+            setIsSchedulingPickup(true);
+            const res = await sellerApi.scheduleShiprocketPickup(orderId);
+            if (res.data?.success) {
+                showToast(res.data.message || "Courier pickup scheduled successfully", "success");
+                if (selectedOrder && selectedOrder.id === orderId) {
+                    setSelectedOrder(prev => ({
+                        ...prev,
+                        status: 'packed',
+                        shiprocket: {
+                            ...(prev.shiprocket || {}),
+                            currentStatus: 'PICKUP_SCHEDULED',
+                            pickupScheduledAt: new Date().toISOString()
+                        }
+                    }));
+                }
+                fetchOrders(page, false, true);
+            }
+        } catch (error) {
+            console.error("Failed to schedule pickup:", error);
+            showToast(error.response?.data?.message || "Failed to schedule pickup", "error");
+        } finally {
+            setIsSchedulingPickup(false);
+        }
+    };
+
+    const handleDownloadLabel = async (orderId) => {
+        try {
+            setIsFetchingLabel(true);
+            const res = await sellerApi.getShiprocketLabel(orderId);
+            const labelUrl = res.data?.result?.labelUrl || res.data?.result?.data?.label_url;
+            if (res.data?.success && labelUrl) {
+                window.open(labelUrl, "_blank");
+                showToast("Opening shipping label", "success");
+            } else {
+                showToast("Label URL not available yet", "error");
+            }
+        } catch (error) {
+            console.error("Failed to fetch shipping label:", error);
+            showToast(error.response?.data?.message || "Failed to generate label", "error");
+        } finally {
+            setIsFetchingLabel(false);
+        }
     };
 
     return (
@@ -988,6 +1076,162 @@ const Orders = () => {
                                                 </div>
                                             </div>
                                         </div>
+
+                                        {/* Shiprocket Courier Dispatch Card (Pan-India Orders) */}
+                                        {selectedOrder.fulfillmentType === 'SHIPROCKET' && (
+                                            <div className="mb-6 p-4 sm:p-5 bg-gradient-to-br from-sky-50/80 via-blue-50/50 to-indigo-50/40 rounded-3xl border border-sky-100 shadow-sm text-left space-y-4">
+                                                {/* Header */}
+                                                <div className="flex items-center justify-between pb-3 border-b border-sky-100">
+                                                    <div className="flex items-center gap-2.5">
+                                                        <div className="h-9 w-9 bg-sky-600 text-white rounded-xl flex items-center justify-center shadow-md shadow-sky-600/20">
+                                                            <Truck className="h-4 w-4" />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                                                                Shiprocket Courier Fulfillment
+                                                            </h4>
+                                                            <p className="text-[10px] text-slate-500 font-medium">
+                                                                Pan-India Doorstep Logistics
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${
+                                                        selectedOrder.shiprocket?.currentStatus === "DELIVERED"
+                                                            ? "bg-emerald-100 text-emerald-800"
+                                                            : selectedOrder.shiprocket?.currentStatus === "AWB_ASSIGNED" || selectedOrder.shiprocket?.currentStatus === "IN_TRANSIT" || selectedOrder.shiprocket?.currentStatus === "PICKUP_SCHEDULED"
+                                                            ? "bg-sky-100 text-sky-800"
+                                                            : "bg-amber-100 text-amber-800"
+                                                    }`}>
+                                                        {selectedOrder.shiprocket?.currentStatus || "PENDING SHIPMENT"}
+                                                    </span>
+                                                </div>
+
+                                                {/* Details Grid */}
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                                                    <div className="bg-white/80 backdrop-blur-sm p-3 rounded-2xl border border-sky-100">
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">AWB Code</span>
+                                                        <div className="flex items-center gap-1.5 mt-1">
+                                                            <span className="font-mono font-black text-slate-900 text-xs truncate">
+                                                                {selectedOrder.shiprocket?.awb || "—"}
+                                                            </span>
+                                                            {selectedOrder.shiprocket?.awb && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => copyAwbToClipboard(selectedOrder.shiprocket.awb)}
+                                                                    className="p-1 hover:bg-sky-50 rounded text-sky-600 transition"
+                                                                    title="Copy AWB"
+                                                                >
+                                                                    {copiedAwb ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="bg-white/80 backdrop-blur-sm p-3 rounded-2xl border border-sky-100">
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Courier Partner</span>
+                                                        <span className="font-black text-slate-800 text-xs mt-1 block truncate">
+                                                            {selectedOrder.shiprocket?.courierName || "Pending Assignment"}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="bg-white/80 backdrop-blur-sm p-3 rounded-2xl border border-sky-100">
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Estimate</span>
+                                                        <span className="font-bold text-slate-700 text-xs mt-1 block truncate">
+                                                            {selectedOrder.shiprocket?.etd || selectedOrder.deliveryEstimate || "3-4 days"}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="bg-white/80 backdrop-blur-sm p-3 rounded-2xl border border-sky-100">
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Shipment ID</span>
+                                                        <span className="font-mono font-bold text-slate-700 text-xs mt-1 block truncate">
+                                                            {selectedOrder.shiprocket?.shipmentId || "—"}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Action Controls */}
+                                                {selectedOrder.status !== "cancelled" && (
+                                                    <div className="pt-1 flex flex-wrap items-center gap-2">
+                                                        {!selectedOrder.shiprocket?.awb ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleProcessShiprocket(selectedOrder.id)}
+                                                                disabled={isProcessingShiprocket}
+                                                                className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
+                                                            >
+                                                                {isProcessingShiprocket ? (
+                                                                    <>
+                                                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                                        <span>Generating AWB...</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Package className="h-3.5 w-3.5" />
+                                                                        <span>Generate AWB & Label</span>
+                                                                    </>
+                                                                )}
+                                                            </button>
+                                                        ) : (
+                                                            <>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleSchedulePickup(selectedOrder.id)}
+                                                                    disabled={isSchedulingPickup || selectedOrder.shiprocket?.currentStatus === "PICKUP_SCHEDULED"}
+                                                                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
+                                                                >
+                                                                    {isSchedulingPickup ? (
+                                                                        <>
+                                                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                                            <span>Scheduling...</span>
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <Clock className="h-3.5 w-3.5" />
+                                                                            <span>
+                                                                                {selectedOrder.shiprocket?.currentStatus === "PICKUP_SCHEDULED"
+                                                                                    ? "Pickup Scheduled"
+                                                                                    : "Schedule Pickup"}
+                                                                            </span>
+                                                                        </>
+                                                                    )}
+                                                                </button>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleDownloadLabel(selectedOrder.id)}
+                                                                    disabled={isFetchingLabel}
+                                                                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
+                                                                >
+                                                                    {isFetchingLabel ? (
+                                                                        <>
+                                                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                                            <span>Opening...</span>
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <Printer className="h-3.5 w-3.5" />
+                                                                            <span>Print Label</span>
+                                                                        </>
+                                                                    )}
+                                                                </button>
+
+                                                                {selectedOrder.shiprocket?.awb && (
+                                                                    <a
+                                                                        href={selectedOrder.shiprocket?.trackingUrl || `https://shiprocket.co/tracking/${selectedOrder.shiprocket.awb}`}
+                                                                        target="_blank"
+                                                                        rel="noreferrer"
+                                                                        className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-700 hover:text-sky-900 hover:underline px-2 py-1.5 ml-auto"
+                                                                    >
+                                                                        <span>Track</span>
+                                                                        <ExternalLink className="h-3 w-3" />
+                                                                    </a>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
 
                                         <h4 className="text-xs font-black text-slate-600 uppercase tracking-widest mb-3 sm:mb-4">Items Ordered ({selectedOrder.items.length})</h4>
                                         <div className="space-y-3 max-h-52 sm:max-h-64 overflow-y-auto pr-1">

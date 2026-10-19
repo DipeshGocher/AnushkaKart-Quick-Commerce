@@ -5,6 +5,7 @@ const mockWalletCreate = jest.fn();
 
 const mockOrderAggregate = jest.fn();
 const mockPayoutAggregate = jest.fn();
+const mockTransactionAggregate = jest.fn();
 
 jest.unstable_mockModule("../app/models/wallet.js", () => ({
   default: {
@@ -25,6 +26,12 @@ jest.unstable_mockModule("../app/models/payout.js", () => ({
   },
 }));
 
+jest.unstable_mockModule("../app/models/transaction.js", () => ({
+  default: {
+    aggregate: mockTransactionAggregate,
+  },
+}));
+
 const { getAdminFinanceSummary } = await import(
   "../app/services/finance/walletService.js"
 );
@@ -32,6 +39,7 @@ const { getAdminFinanceSummary } = await import(
 describe("getAdminFinanceSummary", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockTransactionAggregate.mockResolvedValue([]);
 
     // Admin wallet exists with some available balance
     mockWalletFindOne.mockResolvedValue({
@@ -47,19 +55,22 @@ describe("getAdminFinanceSummary", () => {
     });
   });
 
-  it("computes systemFloatCOD as SUM(paymentBreakdown.codPendingAmount) for COD orders", async () => {
+  it("computes systemFloatCOD from Transaction collection & settlement pipeline", async () => {
     // getAdminFinanceSummary runs 6 aggregates:
-    // 1) onlineCollection, 2) codReconciled, 3) adminEarning, 4) pendingPayouts, 5) systemFloatCOD, 6) platformGross
+    // 1) onlineCollection, 2) codReconciled, 3) adminEarning, 4) pendingPayouts, 5) systemFloatCOD (Transaction), 6) platformGross
     mockOrderAggregate
       .mockResolvedValueOnce([{ _id: null, amount: 270 }]) // onlineCollection
       .mockResolvedValueOnce([{ _id: null, amount: 60 }]) // codReconciled
-      .mockResolvedValueOnce([{ _id: null, amount: 50 }]) // adminEarning (ONLINE only)
-      .mockResolvedValueOnce([{ _id: null, amount: 375.55 }]) // systemFloatCOD = SUM(codPendingAmount)
-      .mockResolvedValueOnce([{ _id: null, amount: 9999 }]); // platformGross = SUM(grandTotal/pricing.total)
+      .mockResolvedValueOnce([{ _id: null, amount: 50 }]) // adminEarning
+      .mockResolvedValueOnce([{ _id: null, amount: 9999 }]); // platformGross
 
     mockPayoutAggregate.mockResolvedValueOnce([
       { _id: "SELLER", amount: 180 },
       { _id: "DELIVERY_PARTNER", amount: 40 },
+    ]);
+
+    mockTransactionAggregate.mockResolvedValueOnce([
+      { _id: null, amount: 375.55 },
     ]);
 
     const summary = await getAdminFinanceSummary();
@@ -68,25 +79,25 @@ describe("getAdminFinanceSummary", () => {
     expect(summary.totalPlatformEarning).toBe(9999);
     expect(summary.availableBalance).toBe(9779);
     expect(summary.walletAvailableBalance).toBe(999);
-    expect(mockOrderAggregate).toHaveBeenCalledTimes(5);
+    expect(mockOrderAggregate).toHaveBeenCalledTimes(4);
     expect(mockPayoutAggregate).toHaveBeenCalledTimes(1);
+    expect(mockTransactionAggregate).toHaveBeenCalledTimes(1);
   });
 
-  it("builds systemFloatCOD pipeline using pending when collected and estimate when not collected", async () => {
+  it("builds systemFloatCOD pipeline using Cash Collection & Cash Settlement aggregation on Delivery transactions", async () => {
     mockOrderAggregate
-      .mockResolvedValueOnce([{ _id: null, amount: 0 }])
       .mockResolvedValueOnce([{ _id: null, amount: 0 }])
       .mockResolvedValueOnce([{ _id: null, amount: 0 }])
       .mockResolvedValueOnce([{ _id: null, amount: 0 }])
       .mockResolvedValueOnce([{ _id: null, amount: 0 }]);
     mockPayoutAggregate.mockResolvedValueOnce([]);
+    mockTransactionAggregate.mockResolvedValueOnce([]);
 
     await getAdminFinanceSummary();
 
-    const pipeline = mockOrderAggregate.mock.calls[3]?.[0];
+    const pipeline = mockTransactionAggregate.mock.calls[0]?.[0];
     expect(Array.isArray(pipeline)).toBe(true);
-    expect(JSON.stringify(pipeline)).toContain("codPendingAmount");
-    expect(JSON.stringify(pipeline)).toContain("riderPayoutTotal");
-    expect(JSON.stringify(pipeline)).toContain("codMarkedCollected");
+    expect(JSON.stringify(pipeline)).toContain("Cash Collection");
+    expect(JSON.stringify(pipeline)).toContain("Cash Settlement");
   });
 });

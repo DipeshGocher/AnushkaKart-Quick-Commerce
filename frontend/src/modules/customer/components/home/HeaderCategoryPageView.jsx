@@ -663,7 +663,7 @@ const HeaderCategoryPageView = ({
     <div className="w-full flex flex-col pb-20 select-none animate-in fade-in duration-300">
       {/* ── 1. HEADER CATEGORY BANNER (SINGLE STATIC BANNER ONLY) ── */}
       {categoryBanners.length > 0 && (
-        <div className="w-full relative overflow-hidden select-none mt-1 mb-1 px-2.5 sm:px-3 md:px-0">
+        <div className="w-full relative overflow-hidden select-none mt-0 sm:mt-1 mb-1 px-2.5 sm:px-3 md:px-0">
           <ExperienceBannerCarousel
             section={{ title: "" }}
             items={categoryBanners.slice(0, 1)}

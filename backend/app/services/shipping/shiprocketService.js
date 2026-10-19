@@ -2,6 +2,7 @@ import Order from "../../models/order.js";
 import Customer from "../../models/customer.js";
 import Product from "../../models/product.js";
 import Seller from "../../models/seller.js";
+import Warehouse from "../../models/warehouse.js";
 import mongoose from "mongoose";
 import axios from "axios";
 import crypto from "node:crypto";
@@ -682,6 +683,191 @@ export async function getShiprocketLabel(orderParam) {
   }
 
   return { success: true, labelUrl };
+}
+
+/**
+ * Creates a reverse courier pickup via Shiprocket for returned items.
+ * Origin = Customer delivery address
+ * Destination = Seller / Warehouse shop address
+ */
+export async function createShiprocketReversePickup(orderParam) {
+  let order = typeof orderParam === "object" ? orderParam : await Order.findOne({ orderId: orderParam });
+  if (!order && typeof orderParam === "string") {
+    order = await Order.findById(orderParam);
+  }
+  if (!order) {
+    const err = new Error("Order not found");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (order.fulfillmentType !== "SHIPROCKET") {
+    const err = new Error("Order is not a Shiprocket courier order");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // Populate seller and warehouse details if needed
+  let seller = null;
+  if (order.seller) {
+    seller = await Seller.findById(order.seller).lean();
+  }
+  let warehouse = null;
+  if (order.warehouseId) {
+    warehouse = await Warehouse.findById(order.warehouseId).lean();
+  }
+
+  const destinationName = seller?.shopName || warehouse?.name || "AnushkaKart Central Store";
+  const destinationPhone = seller?.phone || warehouse?.phone || order.address?.phone || "9999999999";
+  const destinationAddress = seller?.address || warehouse?.address || "Jhansi Store Hub";
+  const destinationCity = seller?.city || warehouse?.city || "Jhansi";
+  const destinationState = seller?.state || warehouse?.state || "Uttar Pradesh";
+  const destinationPincode = seller?.pincode || warehouse?.pincode || "284001";
+
+  if (!isShiprocketConfigured()) {
+    if (process.env.NODE_ENV === "production") {
+      const err = new Error("Shiprocket credentials are not configured for reverse pickup");
+      err.statusCode = 503;
+      throw err;
+    }
+    // Simulation mode for local development
+    const randomSuffix = Math.floor(10000000 + Math.random() * 90000000);
+    const mockReverseAwb = `SR_RET_${randomSuffix}IN`;
+    const mockReverseShipmentId = `SHP_RET_${Date.now()}`;
+    const mockCourier = "Delhivery Surface Reverse";
+
+    if (!order.shiprocket) {
+      order.shiprocket = { history: [] };
+    }
+    order.shiprocket.reverseShipmentId = String(mockReverseShipmentId);
+    order.shiprocket.reverseAwb = mockReverseAwb;
+    order.shiprocket.reverseCourierName = mockCourier;
+    order.shiprocket.reverseStatus = "REVERSE_PICKUP_SCHEDULED";
+    order.shiprocket.history.push({
+      status: "REVERSE_PICKUP_SCHEDULED",
+      location: order.address?.city || "Customer Address",
+      timestamp: new Date(),
+      remarks: `Shiprocket courier reverse pickup scheduled. Reverse AWB: ${mockReverseAwb}`,
+      source: "simulation",
+    });
+
+    order.returnStatus = "return_pickup_assigned";
+    await order.save();
+
+    emitOrderStatusUpdate(
+      order.orderId,
+      {
+        returnStatus: order.returnStatus,
+        shiprocket: order.shiprocket,
+      },
+      order.customer?._id || order.customer
+    );
+
+    return {
+      success: true,
+      mode: "SIMULATED",
+      message: `Reverse courier pickup scheduled. Reverse AWB: ${mockReverseAwb}`,
+      reverseAwb: mockReverseAwb,
+      reverseShipmentId: mockReverseShipmentId,
+      courierName: mockCourier,
+    };
+  }
+
+  const token = await getShiprocketAuthToken();
+
+  const returnItems = (Array.isArray(order.returnItems) && order.returnItems.length > 0)
+    ? order.returnItems
+    : order.items;
+
+  const orderItems = returnItems.map((item, idx) => ({
+    name: item.name || `Item ${idx + 1}`,
+    sku: item.sku || `SKU-${idx + 1}`,
+    units: item.quantity || 1,
+    selling_price: item.price || 1,
+    discount: 0,
+    qc_enable: true,
+  }));
+
+  const payload = {
+    order_id: `${order.orderId}-RET`,
+    order_date: new Date().toISOString().slice(0, 10),
+    channel_id: "",
+    pickup_customer_name: order.address?.name || "Customer",
+    pickup_last_name: "",
+    pickup_address: order.address?.address || order.address?.fullAddress || "Customer Address",
+    pickup_address_2: "",
+    pickup_city: order.address?.city || "",
+    pickup_state: order.address?.state || "",
+    pickup_country: "India",
+    pickup_pincode: String(order.address?.pincode || "").trim(),
+    pickup_email: order.address?.email || "customer@anushkakart.com",
+    pickup_phone: String(order.address?.phone || "").trim(),
+    shipping_customer_name: destinationName,
+    shipping_address: destinationAddress,
+    shipping_city: destinationCity,
+    shipping_state: destinationState,
+    shipping_country: "India",
+    shipping_pincode: String(destinationPincode).trim(),
+    shipping_phone: String(destinationPhone).trim(),
+    order_items: orderItems,
+    payment_method: "Prepaid",
+    sub_total: order.returnRefundAmount || 100,
+    length: 10,
+    breadth: 10,
+    height: 10,
+    weight: 0.5,
+  };
+
+  try {
+    const retRes = await axios.post(`${SHIPROCKET_BASE_URL}/orders/create/return`, payload, {
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 20000,
+    });
+
+    const retData = retRes.data;
+    const reverseShipmentId = retData.shipment_id || retData.order_id;
+    const reverseAwb = retData.awb_code || `SR_RET_${Date.now()}`;
+    const reverseCourier = retData.courier_name || "Shiprocket Reverse Logistics";
+
+    if (!order.shiprocket) {
+      order.shiprocket = { history: [] };
+    }
+    order.shiprocket.reverseShipmentId = String(reverseShipmentId);
+    order.shiprocket.reverseAwb = reverseAwb;
+    order.shiprocket.reverseCourierName = reverseCourier;
+    order.shiprocket.reverseStatus = "REVERSE_PICKUP_SCHEDULED";
+    order.shiprocket.history.push({
+      status: "REVERSE_PICKUP_SCHEDULED",
+      location: order.address?.city || "",
+      timestamp: new Date(),
+      remarks: `Shiprocket reverse pickup booked. Reverse AWB: ${reverseAwb}`,
+      source: "api",
+    });
+
+    order.returnStatus = "return_pickup_assigned";
+    await order.save();
+
+    emitOrderStatusUpdate(
+      order.orderId,
+      {
+        returnStatus: order.returnStatus,
+        shiprocket: order.shiprocket,
+      },
+      order.customer?._id || order.customer
+    );
+
+    return {
+      success: true,
+      mode: "LIVE",
+      message: `Reverse pickup booked successfully. Reverse AWB: ${reverseAwb}`,
+      reverseAwb,
+      reverseShipmentId,
+      courierName: reverseCourier,
+    };
+  } catch (err) {
+    console.error("[Shiprocket Reverse Pickup Error]:", err.response?.data || err.message);
+    throw new Error(`Failed to create Shiprocket reverse pickup: ${err.response?.data?.message || err.message}`);
+  }
 }
 
 /**

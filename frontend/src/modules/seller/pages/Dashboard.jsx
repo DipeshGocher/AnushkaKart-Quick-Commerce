@@ -38,6 +38,7 @@ import { cn } from "@/lib/utils";
 import { sellerApi } from "../services/sellerApi";
 import { toast } from "sonner";
 import { useSellerOrders } from "../context/SellerOrdersContext";
+import { getLegacyStatusFromOrder } from "@/shared/utils/orderStatus";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -70,6 +71,11 @@ const Dashboard = () => {
   }, []);
 
   const safeOrders = Array.isArray(ordersFromContext) ? ordersFromContext : [];
+  const sortedRecentOrders = React.useMemo(() => {
+    return [...safeOrders]
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+      .slice(0, 5);
+  }, [safeOrders]);
   const loadingOrStats = loading || ordersLoading;
 
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -88,51 +94,75 @@ const Dashboard = () => {
       return { name: dayNames[d.getDay()], sales: 0 };
     });
   }, [statsData?.salesTrend, statsData?.chartData]);
-  const revenueMax = Math.max(1, ...revenueChartData.map((d) => d.sales));
+  const maxSales = Math.max(0, ...revenueChartData.map((d) => d.sales));
+  const revenueMax = maxSales > 0 ? Math.ceil(maxSales * 1.15) : 1000;
+
+  const topCategories = React.useMemo(() => {
+    const list = statsData?.categoryMix || [];
+    return [...list]
+      .sort((a, b) => (Number(b.A) || 0) - (Number(a.A) || 0))
+      .slice(0, 6)
+      .map((item) => {
+        const full = String(item.subject || "");
+        return {
+          ...item,
+          fullName: full,
+          displayName: full.length > 18 ? full.slice(0, 17) + "…" : full,
+        };
+      });
+  }, [statsData?.categoryMix]);
+
+  const deliveredCount = statsData?.overview?.deliveredOrders ?? 0;
+  const cancelledCount = statsData?.overview?.cancelledOrders ?? 0;
+  const pendingCount = statsData?.overview?.pendingOrders != null 
+    ? statsData.overview.pendingOrders 
+    : safeOrders.filter(o => ['pending', 'processing', 'confirmed', 'packed', 'shipped', 'out_for_delivery'].includes(o.status)).length;
+  const cancellationRateStr = statsData?.overview?.cancellationRate ?? "0.0%";
+
+  const salesTrendNum = parseFloat(statsData?.overview?.salesTrend) || 0;
+  const ordersTrendNum = parseFloat(statsData?.overview?.ordersTrend) || 0;
 
   const stats = [
     {
       label: "Total Revenue",
       value: statsData?.overview?.totalSales || "₹0",
-      change: "+12.5%",
-      changeType: "increase",
+      change: null,
       icon: DollarSign,
       iconBg: "bg-brand-50",
       iconColor: "text-brand-600",
-      description: "vs last month",
+      description: "All-time delivered payout",
       path: "/seller/earnings",
     },
     {
       label: "Total Orders",
-      value: statsData?.overview?.totalOrders || "0",
-      change: "+8.2%",
-      changeType: "increase",
+      value: statsData?.overview?.totalOrders || safeOrders.length.toString(),
+      change: null,
       icon: ShoppingBag,
       iconBg: "bg-brand-50",
       iconColor: "text-brand-600",
-      description: "vs last month",
+      description: "All-time placed orders",
       path: "/seller/orders",
     },
     {
       label: "Avg Order Value",
       value: statsData?.overview?.avgOrderValue || "₹0",
-      change: "+2",
-      changeType: "increase",
+      change: null,
       icon: Package,
       iconBg: "bg-purple-50",
       iconColor: "text-purple-600",
-      description: "per order",
+      description: deliveredCount > 0 ? `Based on ${deliveredCount} delivered order${deliveredCount > 1 ? 's' : ''}` : "Based on delivered orders",
       path: "/seller/analytics",
     },
     {
       label: "Pending Orders",
-      value: safeOrders.filter(o => o.status === 'pending').length.toString(),
-      change: "-3",
-      changeType: "decrease",
+      value: pendingCount.toString(),
+      change: null,
       icon: Clock,
       iconBg: "bg-orange-50",
       iconColor: "text-orange-600",
-      description: "need attention",
+      description: cancelledCount > 0
+        ? `To fulfill • ${cancelledCount} cancelled (${cancellationRateStr})`
+        : "Active orders to process",
       path: "/seller/orders",
     },
   ];
@@ -261,17 +291,21 @@ const Dashboard = () => {
               <div className="flex-1">
                 <p className="text-base font-medium text-slate-600">{stat.label}</p>
                 <p className="text-2xl font-bold text-slate-900 mt-2">{stat.value}</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <span
-                    className={cn(
-                      "text-xs font-semibold flex items-center gap-1",
-                      stat.changeType === "increase" ? "text-brand-600" : "text-red-600"
-                    )}
-                  >
-                    <TrendingUp className={cn("h-3 w-3", stat.changeType === "decrease" && "rotate-180")} />
-                    {stat.change}
-                  </span>
-                  <span className="text-sm text-slate-600">{stat.description}</span>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  {stat.change && (
+                    <span
+                      className={cn(
+                        "text-xs font-semibold flex items-center gap-1",
+                        stat.changeType === "increase" ? "text-brand-600" : "text-red-600"
+                      )}
+                    >
+                      <TrendingUp className={cn("h-3 w-3", stat.changeType === "decrease" && "rotate-180")} />
+                      {stat.change}
+                    </span>
+                  )}
+                  {stat.description && (
+                    <span className="text-sm text-slate-600">{stat.description}</span>
+                  )}
                 </div>
               </div>
               <div className={cn("p-3 rounded-lg", stat.iconBg)}>
@@ -334,7 +368,11 @@ const Dashboard = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Revenue Chart */}
-        <Card title="Revenue Overview" subtitle="Last 7 days performance" className="lg:col-span-2">
+        <Card 
+          title="Revenue Overview" 
+          subtitle={maxSales > 0 ? "Last 7 days performance" : "Last 7 days performance (No sales in this period)"} 
+          className="lg:col-span-2"
+        >
           <div className="h-[300px] min-h-[280px] w-full mt-4">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={revenueChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -384,32 +422,39 @@ const Dashboard = () => {
         </Card>
 
         {/* Product Performance */}
-        <Card title="Top Categories" subtitle="Sales by category">
+        <Card title="Top Categories" subtitle="Most stocked categories in catalog">
           <div className="h-[300px] min-h-[280px] w-full mt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={statsData?.categoryMix || []} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: "#475569", fontSize: 12 }} />
-                <YAxis
-                  type="category"
-                  dataKey="subject"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "#475569", fontSize: 12 }}
-                  width={80}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "white",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "8px",
-                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                    color: "#334155",
-                  }}
-                />
-                <Bar dataKey="A" fill="#6666FF" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {topCategories.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-sm text-slate-400">
+                No category data available
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={topCategories} layout="vertical" margin={{ left: 10, right: 30, top: 10, bottom: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: "#475569", fontSize: 12 }} allowDecimals={false} />
+                  <YAxis
+                    type="category"
+                    dataKey="displayName"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#475569", fontSize: 11, fontWeight: 500 }}
+                    width={115}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "white",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                      color: "#334155",
+                    }}
+                    formatter={(value, name, item) => [`${value} Products`, item?.payload?.fullName || "Category"]}
+                  />
+                  <Bar dataKey="A" fill="#6366F1" radius={[0, 6, 6, 0]} name="Products" barSize={18} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Card>
       </div>
@@ -453,43 +498,48 @@ const Dashboard = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {safeOrders.slice(0, 5).map((order) => (
-                <tr key={order.orderId} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="py-4 px-4 align-middle">
-                    <span className="text-sm font-semibold text-slate-900">{order.orderId}</span>
-                  </td>
-                  <td className="py-4 px-4 align-middle">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-semibold text-slate-600">
-                        {order.customer?.name?.split(" ").map(n => n[0]).join("") || "C"}
+              {sortedRecentOrders.map((order) => {
+                const status = getLegacyStatusFromOrder(order);
+                return (
+                  <tr key={order.orderId} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="py-4 px-4 align-middle">
+                      <span className="text-sm font-semibold text-slate-900">{order.orderId}</span>
+                    </td>
+                    <td className="py-4 px-4 align-middle">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-semibold text-slate-600">
+                          {order.customer?.name?.split(" ").map(n => n[0]).join("") || "C"}
+                        </div>
+                        <span className="text-sm font-medium text-slate-700">{order.customer?.name || "Customer"}</span>
                       </div>
-                      <span className="text-sm font-medium text-slate-700">{order.customer?.name || "Customer"}</span>
-                    </div>
-                  </td>
-                  <td className="py-4 px-4 align-middle">
-                    <span className="text-sm text-slate-600">{new Date(order.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
-                  </td>
-                  <td className="py-4 px-4 align-middle">
-                    <span className="text-sm font-semibold text-slate-900">₹{order.pricing?.total || 0}</span>
-                  </td>
-                  <td className="py-4 px-4 align-middle">
-                    <Badge variant={getStatusColor(order.status)} className="capitalize">
-                      {order.status}
-                    </Badge>
-                  </td>
-                  <td className="py-4 px-4 text-center align-middle">
-                    <button
-                      onClick={() => {
-                        setSelectedOrder(normalizeOrderForModal(order));
-                        setIsOrderModalOpen(true);
-                      }}
-                      className="text-slate-600 hover:text-primary transition-colors p-1"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="py-4 px-4 align-middle">
+                      <span className="text-sm text-slate-600">
+                        {order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 align-middle">
+                      <span className="text-sm font-semibold text-slate-900">₹{order.pricing?.total || 0}</span>
+                    </td>
+                    <td className="py-4 px-4 align-middle">
+                      <Badge variant={getStatusColor(status)} className="capitalize">
+                        {status}
+                      </Badge>
+                    </td>
+                    <td className="py-4 px-4 text-center align-middle">
+                      <button
+                        onClick={() => {
+                          setSelectedOrder(normalizeOrderForModal(order));
+                          setIsOrderModalOpen(true);
+                        }}
+                        className="text-slate-600 hover:text-primary transition-colors p-1"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

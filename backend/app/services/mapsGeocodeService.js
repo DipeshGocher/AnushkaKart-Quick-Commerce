@@ -262,3 +262,151 @@ export async function geocodePlaceId(placeId) {
 
   return result;
 }
+
+function cacheKeyReverseGeocode(lat, lng) {
+  const roundedLat = Number(lat).toFixed(5);
+  const roundedLng = Number(lng).toFixed(5);
+  const raw = `reverse_geocode:v2:${roundedLat}:${roundedLng}`.toLowerCase();
+  const h = crypto.createHash("sha1").update(raw).digest("hex");
+  return `geocode:v2:rev:${h}`;
+}
+
+/**
+ * Reverse geocode coordinates -> { lat, lng, formattedAddress, friendlyName, city, state, pincode, placeId }.
+ * Uses Redis cache and Mongo cache when available.
+ */
+export async function reverseGeocodeCoords(lat, lng) {
+  const latitude = Number(lat);
+  const longitude = Number(lng);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    const err = new Error("Valid lat and lng numbers are required");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    const err = new Error(
+      "Google Maps API key missing. Set GOOGLE_MAPS_API_KEY.",
+    );
+    err.statusCode = 500;
+    err.code = "MAPS_KEY_MISSING";
+    throw err;
+  }
+
+  const redis = getRedisClient();
+  const key = cacheKeyReverseGeocode(latitude, longitude);
+
+  if (redis) {
+    try {
+      const cached = await redis.get(key);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  try {
+    const doc = await GeocodeCache.findOne({ key }).lean();
+    if (doc && doc.expiresAt && doc.expiresAt > new Date()) {
+      return {
+        lat: doc.lat,
+        lng: doc.lng,
+        formattedAddress: doc.formattedAddress,
+        placeId: doc.placeId || null,
+        city: "",
+        state: "",
+        pincode: "",
+        friendlyName: doc.formattedAddress,
+      };
+    }
+  } catch {
+    // ignore
+  }
+
+  const resp = await client.reverseGeocode({
+    params: {
+      latlng: { lat: latitude, lng: longitude },
+      key: apiKey,
+    },
+    timeout: 10000,
+  });
+
+  const status = resp.data?.status;
+  if (status && status !== "OK") {
+    const msg = resp.data?.error_message || status;
+    const err = new Error(`Reverse geocoding failed: ${msg}`);
+    err.statusCode = status === "ZERO_RESULTS" ? 404 : 502;
+    err.code = status;
+    throw err;
+  }
+
+  const first = resp.data?.results?.[0];
+  if (!first) {
+    const err = new Error("Reverse geocoding returned no results");
+    err.statusCode = 404;
+    err.code = "ZERO_RESULTS";
+    throw err;
+  }
+
+  const components = first.address_components || [];
+  const getComponent = (types) =>
+    components.find((c) => types.every((t) => c.types.includes(t)))?.long_name;
+
+  const premise = getComponent(["premise"]);
+  const neighborhood = getComponent(["neighborhood"]);
+  const sublocality = getComponent(["sublocality_level_1", "sublocality"]);
+  const locality = getComponent(["locality"]);
+  const state = getComponent(["administrative_area_level_1"]);
+  const pincode = getComponent(["postal_code"]);
+
+  const displayParts = [];
+  if (premise) displayParts.push(premise);
+  if (neighborhood) displayParts.push(neighborhood);
+  if (sublocality && sublocality !== neighborhood) displayParts.push(sublocality);
+  if (locality && !displayParts.includes(locality)) displayParts.push(locality);
+
+  let friendlyName = displayParts.join(", ");
+  if (!friendlyName) {
+    const parts = (first.formatted_address || "").split(",");
+    friendlyName = (parts.slice(0, 2).join(",") || "Current Location").trim();
+  }
+
+  const result = {
+    lat: latitude,
+    lng: longitude,
+    formattedAddress: first.formatted_address || friendlyName,
+    friendlyName,
+    city: locality || "",
+    state: state || "",
+    pincode: pincode || "",
+    placeId: first.place_id || null,
+  };
+
+  const expiresAt = new Date(Date.now() + GEOCODE_CACHE_TTL_SEC() * 1000);
+  if (redis) {
+    try {
+      await redis.set(key, JSON.stringify(result), "EX", GEOCODE_CACHE_TTL_SEC());
+    } catch {}
+  }
+
+  try {
+    await GeocodeCache.updateOne(
+      { key },
+      {
+        $set: {
+          lat: latitude,
+          lng: longitude,
+          formattedAddress: result.formattedAddress,
+          placeId: result.placeId,
+          expiresAt,
+        },
+      },
+      { upsert: true },
+    );
+  } catch {}
+
+  return result;
+}

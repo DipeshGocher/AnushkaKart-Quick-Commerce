@@ -21,6 +21,8 @@
 
 import mongoose from "mongoose";
 import Order from "../../models/order.js";
+import Product from "../../models/product.js";
+import StockHistory from "../../models/stockHistory.js";
 import Setting from "../../models/setting.js";
 import User from "../../models/customer.js";
 import Seller from "../../models/seller.js";
@@ -39,6 +41,8 @@ import * as walletService from "../finance/walletService.js";
 import { cancelPendingPayoutForOrder } from "../finance/payoutService.js";
 import { LEDGER_TRANSACTION_TYPE, OWNER_TYPE } from "../../constants/finance.js";
 import { clearOrderTracking } from "../firebaseService.js";
+import { createShiprocketReversePickup } from "../shipping/shiprocketService.js";
+import { buildKey, invalidate } from "../cacheService.js";
 import logger from "../logger.js";
 
 function err(message, statusCode) {
@@ -98,6 +102,16 @@ export class OrderReturnService {
       );
     }
 
+    const productIds = items
+      .map((entry) => order.items[entry?.itemIndex]?.product)
+      .filter(Boolean);
+
+    const productDocs = await Product.find({ _id: { $in: productIds } })
+      .select("name isReturnable returnPolicyNote")
+      .lean();
+
+    const productMap = new Map(productDocs.map((p) => [String(p._id), p]));
+
     const selectedItems = [];
     for (const entry of items) {
       const { itemIndex, quantity } = entry || {};
@@ -109,6 +123,13 @@ export class OrderReturnService {
         throw err("Invalid item selection for return.", 400);
       }
       const original = order.items[itemIndex];
+      const prodDoc = productMap.get(String(original.product));
+      if (prodDoc && prodDoc.isReturnable === false) {
+        throw err(
+          `"${original.name || prodDoc.name}" is a non-returnable item (${prodDoc.returnPolicyNote || "Hygiene/perishable policy"}).`,
+          400,
+        );
+      }
       const qty = Number(quantity) || original.quantity;
       if (qty <= 0 || qty > original.quantity) {
         throw err("Invalid quantity for one of the return items.", 400);
@@ -392,14 +413,25 @@ export class OrderReturnService {
       deliverySearchExpiresAt,
     };
 
-    const customerLocation = order.address?.location;
-    emitReturnBroadcastForCustomer(customerLocation, broadcastPayload);
-    emitNotificationEvent(NOTIFICATION_EVENTS.RETURN_PICKUP_ASSIGNED, {
-      orderId: order.orderId,
-      sellerId: order.seller,
-      customerId: order.customer,
-      data: { commission: returnCommission },
-    });
+    if (order.fulfillmentType === "SHIPROCKET") {
+      try {
+        await createShiprocketReversePickup(order);
+      } catch (revErr) {
+        logger.warn("[approveReturn] Shiprocket reverse pickup auto-booking warning:", {
+          orderId: order.orderId,
+          error: revErr.message,
+        });
+      }
+    } else {
+      const customerLocation = order.address?.location;
+      emitReturnBroadcastForCustomer(customerLocation, broadcastPayload);
+      emitNotificationEvent(NOTIFICATION_EVENTS.RETURN_PICKUP_ASSIGNED, {
+        orderId: order.orderId,
+        sellerId: order.seller,
+        customerId: order.customer,
+        data: { commission: returnCommission },
+      });
+    }
 
     return order;
   }
@@ -698,6 +730,49 @@ export class OrderReturnService {
             );
           }
 
+          // 4. Automatically restock returned items to seller / warehouse inventory
+          if (Array.isArray(order.returnItems) && order.returnItems.length > 0) {
+            for (const retItem of order.returnItems) {
+              const pId = retItem.product?._id || retItem.product;
+              const qty = Number(retItem.quantity) || 0;
+              if (pId && qty > 0) {
+                if (retItem.variantSlot) {
+                  await Product.updateOne(
+                    { _id: pId, "variants.slot": retItem.variantSlot },
+                    {
+                      $inc: {
+                        stock: qty,
+                        "variants.$.stock": qty,
+                      },
+                    },
+                    { session }
+                  );
+                } else {
+                  await Product.updateOne(
+                    { _id: pId },
+                    { $inc: { stock: qty } },
+                    { session }
+                  );
+                }
+
+                await StockHistory.create(
+                  [
+                    {
+                      product: pId,
+                      seller: order.seller || undefined,
+                      warehouseId: order.warehouseId || undefined,
+                      type: "Restock",
+                      quantity: qty,
+                      note: `Return restock for Order #${order.orderId}`,
+                      order: order._id,
+                    },
+                  ],
+                  { session }
+                );
+              }
+            }
+          }
+
           order.returnStatus = "refund_completed";
           if (order.payment) {
             order.payment.status = "refunded";
@@ -744,6 +819,16 @@ export class OrderReturnService {
     const canonicalOrderId = savedOrder?.orderId || orderInput?.orderId;
     if (canonicalOrderId) {
       clearOrderTracking(canonicalOrderId).catch(() => {});
+    }
+
+    if (savedOrder && Array.isArray(savedOrder.returnItems)) {
+      for (const item of savedOrder.returnItems) {
+        const pId = item.product?._id || item.product;
+        if (pId) {
+          invalidate(`cache:catalog:product:${pId.toString()}`).catch(() => {});
+        }
+      }
+      invalidate(buildKey("catalog", "productList", "*")).catch(() => {});
     }
 
     return savedOrder || orderInput;

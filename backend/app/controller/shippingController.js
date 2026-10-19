@@ -1,5 +1,7 @@
 import handleResponse from "../utils/helper.js";
 import crypto from "node:crypto";
+import mongoose from "mongoose";
+import Order from "../models/order.js";
 import Product from "../models/product.js";
 import LocalPincode from "../models/localPincode.js";
 import {
@@ -239,11 +241,45 @@ export const togglePincode = async (req, res) => {
 };
 
 /**
- * Admin: Process Shiprocket shipment & generate AWB
+ * Helper to verify order fulfillment permission:
+ * - Admin has master access across all orders
+ * - Seller and Warehouse can strictly only manage courier shipments for their own assigned orders
+ */
+async function verifyOrderShipmentAccess(orderId, user) {
+  if (!user) {
+    const err = new Error("Authentication required");
+    err.statusCode = 401;
+    throw err;
+  }
+  if (user.role === "admin") {
+    return;
+  }
+  let order = await Order.findOne({ orderId }).select("seller warehouseId").lean();
+  if (!order && mongoose.Types.ObjectId.isValid(orderId)) {
+    order = await Order.findById(orderId).select("seller warehouseId").lean();
+  }
+  if (!order) {
+    const err = new Error("Order not found");
+    err.statusCode = 404;
+    throw err;
+  }
+  const sellerId = (order.seller?._id || order.seller)?.toString?.() || "";
+  const warehouseId = (order.warehouseId?._id || order.warehouseId)?.toString?.() || "";
+  const userId = (user.id || user._id)?.toString?.() || "";
+  if (sellerId !== userId && warehouseId !== userId) {
+    const err = new Error("Unauthorized: You can only manage courier shipments for your own orders");
+    err.statusCode = 403;
+    throw err;
+  }
+}
+
+/**
+ * Admin / Seller: Process Shiprocket shipment & generate AWB
  */
 export const processShiprocket = async (req, res) => {
   try {
     const { orderId } = req.params;
+    await verifyOrderShipmentAccess(orderId, req.user);
     const result = await processShiprocketOrder(orderId);
     return handleResponse(res, 200, result.message || "Shiprocket shipment processed", result);
   } catch (error) {
@@ -252,11 +288,12 @@ export const processShiprocket = async (req, res) => {
 };
 
 /**
- * Admin: Request Courier Pickup on Shiprocket
+ * Admin / Seller: Request Courier Pickup on Shiprocket
  */
 export const scheduleShiprocketPickup = async (req, res) => {
   try {
     const { orderId } = req.params;
+    await verifyOrderShipmentAccess(orderId, req.user);
     const result = await requestShiprocketPickup(orderId);
     return handleResponse(res, 200, result.message || "Pickup requested", result);
   } catch (error) {
@@ -265,11 +302,12 @@ export const scheduleShiprocketPickup = async (req, res) => {
 };
 
 /**
- * Admin: Generate / Download Shipping Label
+ * Admin / Seller: Generate / Download Shipping Label
  */
 export const fetchShiprocketLabel = async (req, res) => {
   try {
     const { orderId } = req.params;
+    await verifyOrderShipmentAccess(orderId, req.user);
     const result = await getShiprocketLabel(orderId);
     return handleResponse(res, 200, "Shipping label fetched", result);
   } catch (error) {

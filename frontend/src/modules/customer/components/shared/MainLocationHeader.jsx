@@ -147,8 +147,8 @@ function CategoryNavColumn({
           {displayName}
         </span>
       </div>
-      {/* Full underline bar directly matching the reference image */}
-      {isActive && (
+      {/* Indicator bar: Only shown in ALL category mode. In category mode (like Electronics), active category is distinguished cleanly via text style without a separating line */}
+      {isActive && isAllCategory && (
         <motion.span
           layoutId={`category-nav-indicator-${layoutIdPrefix}`}
           className="customer-category-nav-indicator absolute bottom-0 inset-x-1.5 h-[2.5px] rounded-full pointer-events-none"
@@ -524,10 +524,12 @@ const MainLocationHeader = ({
           }}
           style={{
             backgroundColor: targetHeaderColor,
-            paddingTop: isScrolled
-              ? "max(16px, calc(16px + env(safe-area-inset-top, 0px)))"
-              : "max(14px, calc(14px + env(safe-area-inset-top, 0px)))",
-            paddingBottom: !isAllCategory ? 3 : 4,
+            paddingTop: isMobile
+              ? (isScrolled
+                  ? "max(6px, env(safe-area-inset-top, 0px))"
+                  : "env(safe-area-inset-top, 0px)")
+              : (isScrolled ? 16 : 14),
+            paddingBottom: !isAllCategory ? 2 : 4,
             borderBottomLeftRadius: 24,
             borderBottomRightRadius: 24,
             opacity: bgOpacity,
@@ -542,13 +544,11 @@ const MainLocationHeader = ({
           }}
           className={cn(
             "customer-location-header pointer-events-auto w-full max-w-full min-w-0 px-4 lg:px-6 xl:px-8 2xl:px-10 overflow-hidden transform-gpu will-change-[transform,background-color] backdrop-blur-md transition-[padding] duration-150 ease-out",
-            "rounded-b-[24px] shadow-[0_8px_24px_rgba(0,0,0,0.12)] border-b",
-            !isAllCategory && "is-category-mode",
-            isAllCategory && isScrolled && "is-scrolled-compact",
-            isBright ? "is-bright-header border-black/10" : "is-dark-header border-white/10"
+            "rounded-b-[24px] shadow-[0_8px_24px_rgba(0,0,0,0.12)]",
+            !isAllCategory ? "is-category-mode border-b-0" : (isBright ? "is-bright-header border-b border-black/10" : "is-dark-header border-b border-white/10"),
+            isAllCategory && isScrolled && "is-scrolled-compact"
           )}>
           <div className="absolute inset-0 pointer-events-none" style={{ background: isAllCategory ? 'linear-gradient(180deg, rgba(255,255,255,0.34) 0%, rgba(234,244,255,0.22) 100%)' : 'none' }} />
-          <div className="absolute inset-x-0 top-0 h-px bg-white/40 pointer-events-none" />
           <svg aria-hidden="true" viewBox="0 0 430 280" preserveAspectRatio="none" className="absolute inset-0 h-full w-full pointer-events-none" style={{ opacity: isAllCategory ? 0.3 : 0.12 }}>
             <g fill="none" stroke="white" strokeLinecap="round" strokeLinejoin="round">
               <path d="M-28 43 C55 8 92 63 163 34 S298 6 461 59" strokeWidth="1.65" />
@@ -705,7 +705,7 @@ const MainLocationHeader = ({
           </div>
 
           {/* Mobile Header Layout (MOBILE ONLY) */}
-          <div className="md:hidden pt-0.5 pb-1 select-none">
+          <div className="md:hidden pt-0 pb-1 select-none">
             {/* Top row: Logo/Branding + Bell Button + Location bar (ONLY when isAllCategory and not scrolled) */}
             <AnimatePresence initial={false}>
               {isAllCategory && !isScrolled && (
@@ -766,7 +766,10 @@ const MainLocationHeader = ({
             <div
               onClick={handleSearchClick}
               tabIndex={-1}
-              className="w-full bg-white/95 border-2 border-white/90 rounded-2xl md:rounded-full px-4 h-11 flex items-center shadow-[0_4px_16px_rgba(0,0,0,0.12)] cursor-pointer hover:border-white transition-all mb-1.5 select-none focus:outline-none focus:ring-0 focus:border-white focus-visible:outline-none focus-visible:ring-0 active:scale-[0.99]"
+              className={cn(
+                "w-full bg-white/95 border-2 border-white/90 rounded-2xl md:rounded-full px-4 h-11 flex items-center shadow-[0_4px_16px_rgba(0,0,0,0.12)] cursor-pointer hover:border-white transition-all select-none focus:outline-none focus:ring-0 focus:border-white focus-visible:outline-none focus-visible:ring-0 active:scale-[0.99]",
+                !isAllCategory ? "mb-0.5" : "mb-1.5"
+              )}
               style={{ WebkitTapHighlightColor: "transparent" }}
             >
               <SearchIcon sx={{ color: "#0f172a", fontSize: 20 }} className="shrink-0" />
@@ -818,7 +821,7 @@ const MainLocationHeader = ({
                   "overflow-x-auto no-scrollbar scroll-smooth",
                   (isAllCategory && !isScrolled)
                     ? "h-[48px] overflow-y-hidden pb-0.5"
-                    : "h-10 overflow-y-visible pb-0"
+                    : "h-8.5 overflow-y-visible pb-0"
                 )}
                 style={{
                   WebkitOverflowScrolling: "touch",
@@ -830,7 +833,7 @@ const MainLocationHeader = ({
                     "flex shrink-0 px-1", 
                     (isAllCategory && !isScrolled)
                       ? "h-[48px] items-center gap-[var(--cat-gap,8px)] pb-0.5"
-                      : "h-10 items-end gap-2.5 pb-0"
+                      : "h-8.5 items-center gap-2 pb-0"
                   )}
                   style={{
                     gap: (isAllCategory && !isScrolled) ? "var(--cat-gap, 8px)" : undefined,
