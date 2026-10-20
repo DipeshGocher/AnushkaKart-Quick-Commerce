@@ -99,14 +99,14 @@ export function buildHeaderGradient(baseHeaderColor) {
 
 /** Solid fill for floating cart pill: header mid tone, slightly darker. */
 export function buildMiniCartColor(baseHeaderColor) {
-  const base = baseHeaderColor || DEFAULT_BASE;
+  const base = getBaseHexColor(baseHeaderColor) || DEFAULT_BASE;
   const mid = shiftHex(base, 20);
   return shiftHex(mid, -26);
 }
 
 /** Gradient for floating mini cart pill (same palette as header, horizontal). */
 export function buildMiniCartGradient(baseHeaderColor) {
-  const base = baseHeaderColor || DEFAULT_BASE;
+  const base = getBaseHexColor(baseHeaderColor) || DEFAULT_BASE;
   const top = shiftHex(base, -12);
   const mid = shiftHex(base, 20);
   const deep = shiftHex(mid, -32);
@@ -141,38 +141,38 @@ const getThemeColor = (category) => {
 };
 
 const categoryKey = (category) => String(category?._id || category?.id || category?.slug || category?.name || 'all');
-const isAllCategory = (category) => !category || String(category.name || category.slug || '').toLowerCase() === 'all';
+const isAllCategory = (category) =>
+  !category ||
+  category._id === 'all' ||
+  category.id === 'all' ||
+  String(category.slug || '').toLowerCase() === 'all' ||
+  String(category.name || '').toLowerCase() === 'all';
 
-/** Curated medium-tone colors keep every visible category distinct. */
+/** Curated unified header color: Whatever background color is set on "All" category applies to all categories */
 export function getCustomerHeaderColor(category, categories = []) {
-  if (isAllCategory(category)) return category?.headerColor || '#3478d3';
-  if (category?.headerColor) return category.headerColor;
+  return getCategoryHeaderColor(category, categories);
+}
 
-  const visibleCategories = categories.length ? categories : [category];
-  const usedColors = new Set();
-  for (let index = 0; index < visibleCategories.length; index += 1) {
-    const item = visibleCategories[index];
-    let color = isAllCategory(item)
-      ? (item?.headerColor || '#3478d3')
-      : item?.headerColor || getThemeColor(item) || HEADER_PALETTE[index % HEADER_PALETTE.length];
+export const FLIPKART_BLUE_PURPLE_GRADIENT = "linear-gradient(180deg, #0A24AC 0%, #3023C0 45%, #681FD6 100%)";
+export const DEFAULT_HEADER_COLOR = FLIPKART_BLUE_PURPLE_GRADIENT;
 
-    if (usedColors.has(color.toLowerCase())) {
-      color = HEADER_PALETTE.find((candidate) => !usedColors.has(candidate)) ||
-        `hsl(${Math.round((index * 137.508) % 360)} 58% 44%)`;
-    }
-    usedColors.add(color.toLowerCase());
-    if (categoryKey(item) === categoryKey(category)) return color;
-  }
-
-  return category?.headerColor || getThemeColor(category) || HEADER_PALETTE[1];
+export function getBaseHexColor(color) {
+  if (!color || typeof color !== "string") return "#0A24AC";
+  if (color.startsWith("#")) return color;
+  const match = color.match(/#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}/);
+  return match ? match[0] : "#0A24AC";
 }
 
 /** Check if color has high luminance (bright), requiring dark/black text */
 export function isBrightColor(color) {
   if (!color || typeof color !== "string") return false;
+  let targetHex = color;
+  if (color.includes("gradient")) {
+    targetHex = getBaseHexColor(color);
+  }
   let r = 0, g = 0, b = 0;
-  if (color.startsWith('#')) {
-    const clean = color.replace('#', '');
+  if (targetHex.startsWith('#')) {
+    const clean = targetHex.replace('#', '');
     if (clean.length === 3) {
       r = parseInt(clean[0] + clean[0], 16);
       g = parseInt(clean[1] + clean[1], 16);
@@ -182,8 +182,8 @@ export function isBrightColor(color) {
       g = parseInt(clean.substring(2, 4), 16) || 0;
       b = parseInt(clean.substring(4, 6), 16) || 0;
     }
-  } else if (color.startsWith('rgb')) {
-    const parts = color.match(/\d+/g);
+  } else if (targetHex.startsWith('rgb')) {
+    const parts = targetHex.match(/\d+/g);
     if (parts && parts.length >= 3) {
       r = parseInt(parts[0], 10);
       g = parseInt(parts[1], 10);
@@ -196,49 +196,32 @@ export function isBrightColor(color) {
 
 /**
  * Resolves the primary base theme color for a header category.
- * - Prioritizes custom admin-saved category.headerColor / themeColor / color FIRST!
- * - Handles the "All" category default light blue (#dcecff) or admin headerColor
- * - Only falls back to preset patterns if no custom color is defined in DB
+ * - Always uses the "All" category's headerColor for all categories (Grocery, Electronics, Mobile, etc.)
+ * - Defaults to Flipkart Blue -> Purple Gradient if not set or set to old placeholder.
  */
-export function getCategoryHeaderColor(category) {
-  if (
-    !category ||
-    category.id === "all" ||
-    category._id === "all" ||
-    String(category.slug || "").toLowerCase() === "all" ||
-    String(category.name || "").toLowerCase() === "all"
-  ) {
-    return category?.headerColor || "#dcecff";
+export function getCategoryHeaderColor(category, categories = []) {
+  // 1. Look for the "All" category's headerColor first
+  const allCat = (Array.isArray(categories) && categories.find((c) => isAllCategory(c))) ||
+    (isAllCategory(category) ? category : null);
+
+  const rawColor = allCat?.headerColor || category?.headerColor;
+
+  if (rawColor && typeof rawColor === "string" && rawColor.trim()) {
+    const trimmed = rawColor.trim();
+    // If it's an old placeholder default, upgrade to the Flipkart gradient
+    if (trimmed === "#0b1a8e" || trimmed === "#1e293b" || trimmed === "#2875E8") {
+      return DEFAULT_HEADER_COLOR;
+    }
+    return trimmed;
   }
 
-  // 1. Explicit admin configured color always takes highest priority!
-  const customColor =
-    category.headerColor ||
-    category.themeColor ||
-    category.color ||
-    category.backgroundColor;
-  if (customColor) return customColor;
-
-  // 2. Preset fallbacks ONLY if no custom color was configured
-  const text = `${category.name || ""} ${category.slug || ""}`.toLowerCase();
-  if (/grocer/i.test(text)) return "#166534"; // green a little dark
-  if (/electr/i.test(text)) return "#003957"; // cobalt blue (#003957)
-  if (/mobil|phone/i.test(text)) return "#1A43BF"; // #1A43BF
-  if (/home|appliance/i.test(text)) return "#787276"; // Fossil (#787276)
-  if (/fashion|cloth/i.test(text)) return "#D8B863"; // Sand (#D8B863)
-  if (/beaut|skin|cosmetic/i.test(text)) return "#FE7F9C"; // Watermelon (#FE7F9C)
-
-  return "#003957";
+  return DEFAULT_HEADER_COLOR;
 }
 
 /**
- * Resolves title / text color for the header based on admin category.headerFontColor or background luminance.
+ * Icons and text in the header are always pure white as requested.
  */
-export function getCategoryHeaderTextColor(category, bgColor) {
-  if (category?.headerFontColor) {
-    return category.headerFontColor;
-  }
-  const resolvedBg = bgColor || getCategoryHeaderColor(category);
-  return isBrightColor(resolvedBg) ? "#0f172a" : "#ffffff";
+export function getCategoryHeaderTextColor() {
+  return "#ffffff";
 }
 

@@ -178,9 +178,9 @@ const ALL_CATEGORY = {
   name: "All",
   icon: "🌟",
   theme: DEFAULT_CATEGORY_THEME,
-  headerColor: "#3478d3",
-  headerFontColor: "#111111",
-  headerIconColor: "#111111",
+  headerColor: "#0b1a8e",
+  headerFontColor: "#FFFFFF",
+  headerIconColor: "#FFFFFF",
   banner: {
     title: "HOUSEFULL",
     subtitle: "SALE",
@@ -198,7 +198,7 @@ const homePageDataCache = new Map();
 const headerSectionsMemoryCache = {};
 const heroConfigMemoryCache = {};
 
-const HOME_PAGE_PERSISTENT_CACHE_KEY = "anushkakart:home_cache:v6";
+const HOME_PAGE_PERSISTENT_CACHE_KEY = "anushkakart:home_cache:v7";
 
 const readPersistentHomeCache = (key) => {
   try {
@@ -278,29 +278,7 @@ const Home = () => {
   const quickCatsRef = useRef(null);
   const cachedHomePageData = getCachedHomePageData(currentLocation);
 
-  const [isScrolled, setIsScrolled] = useState(false);
 
-  useEffect(() => {
-    let ticking = false;
-    const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          const currentY = window.scrollY || document.documentElement.scrollTop || 0;
-          setIsScrolled((prev) => {
-            if (!prev && currentY > 60) return true;
-            if (prev && currentY < 25) return false;
-            return prev;
-          });
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   const { language } = useTranslation();
   const { getTranslatedText } = usePageTranslation(homeStaticTexts);
@@ -571,29 +549,39 @@ const Home = () => {
         });
         partialHomeData.formattedHeaders = formattedHeaders;
         const allHeaderFromAdmin = formattedHeaders.find((h) => (h.slug?.toLowerCase() === "all") || (h.name?.toLowerCase() === "all"));
+        const masterHeaderColor = allHeaderFromAdmin?.headerColor || ALL_CATEGORY.headerColor || "#0b1a8e";
         const mergedAllCategory = allHeaderFromAdmin ? { 
           ...ALL_CATEGORY, 
           name: allHeaderFromAdmin.name || ALL_CATEGORY.name,
           image: allHeaderFromAdmin.image || null,
-          headerColor: allHeaderFromAdmin.headerColor || ALL_CATEGORY.headerColor, 
-          headerFontColor: allHeaderFromAdmin.headerFontColor || ALL_CATEGORY.headerFontColor, 
-          headerIconColor: allHeaderFromAdmin.headerIconColor || ALL_CATEGORY.headerIconColor, 
+          headerColor: masterHeaderColor, 
+          headerFontColor: "#FFFFFF", 
+          headerIconColor: "#FFFFFF", 
           icon: allHeaderFromAdmin.icon || ALL_CATEGORY.icon,
           iconId: allHeaderFromAdmin.iconId || null,
-        } : ALL_CATEGORY;
-        partialHomeData.categories = [mergedAllCategory, ...formattedHeaders.filter((h) => !((h.slug?.toLowerCase() === "all") || (h.name?.toLowerCase() === "all")))];
+        } : { ...ALL_CATEGORY, headerColor: masterHeaderColor };
+
+        // All category headers inherit the masterHeaderColor from "All" category
+        const syncedHeaders = formattedHeaders.map((cat) => ({
+          ...cat,
+          headerColor: masterHeaderColor,
+          headerFontColor: "#FFFFFF",
+          headerIconColor: "#FFFFFF",
+        }));
+
+        partialHomeData.categories = [mergedAllCategory, ...syncedHeaders.filter((h) => !((h.slug?.toLowerCase() === "all") || (h.name?.toLowerCase() === "all")))];
         partialHomeData.activeCategory = mergedAllCategory;
         partialHomeData.quickCategories = dbCats.filter((cat) => cat.type === "category").map((cat) => ({ id: cat._id, name: cat.name, image: cat.image || "https://cdn-icons-png.flaticon.com/128/2321/2321831.png" }));
 
         setCategories(partialHomeData.categories);
         setActiveCategory((currentActive) => {
-          if (!currentActive || currentActive._id === "all" || currentActive.id === "all") {
-            return currentActive;
+          if (!currentActive || currentActive._id === "all" || currentActive.id === "all" || currentActive.slug === "all") {
+            return mergedAllCategory;
           }
           const fresh = partialHomeData.categories.find(
             (c) => String(c._id || c.id) === String(currentActive._id || currentActive.id)
           );
-          return fresh || currentActive;
+          return fresh ? { ...fresh, headerColor: masterHeaderColor, headerFontColor: "#FFFFFF", headerIconColor: "#FFFFFF" } : currentActive;
         });
         setQuickCategories(partialHomeData.quickCategories);
         setCategoryMap(catMap);
@@ -870,18 +858,12 @@ const Home = () => {
 
   return (
     <div
-      className={cn(
-        "min-h-screen bg-white",
-        isAllCategorySelected
-          ? "pt-[calc(210px+env(safe-area-inset-top,0px))] sm:pt-[calc(216px+env(safe-area-inset-top,0px))] md:pt-[168px]"
-          : "pt-[calc(86px+env(safe-area-inset-top,0px))] sm:pt-[calc(90px+env(safe-area-inset-top,0px))] md:pt-[136px] lg:pt-[140px]"
-      )}
+      className="min-h-screen bg-white pt-[calc(199px+env(safe-area-inset-top,0px))] sm:pt-[calc(205px+env(safe-area-inset-top,0px))] md:pt-[168px]"
     >
       <MainLocationHeader 
         categories={displayCategories} 
         activeCategory={activeCategory} 
         onCategorySelect={handleCategorySelect}
-        isScrolled={isScrolled}
       />
 
       {isLoading && !cachedHomePageData && categories.length <= 1 ? <PageSkeleton variant="home-content" /> : <motion.div
@@ -900,7 +882,7 @@ const Home = () => {
 
           return (
             <motion.div ref={heroRef} className="block will-change-transform pt-0" style={isMobile ? { opacity: 1 } : { opacity, y, scale, pointerEvents }}>
-              <div className="w-full min-w-0 max-w-none px-3 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16 mt-3 sm:mt-3.5 md:mt-4 mb-1 relative z-20 overflow-hidden">
+              <div className="w-full min-w-0 max-w-none px-3 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16 mt-1.5 sm:mt-2 md:mt-4 mb-1 relative z-20 overflow-hidden">
                 <ExperienceBannerCarousel
                   section={{ title: "" }}
                   items={homeBanners}

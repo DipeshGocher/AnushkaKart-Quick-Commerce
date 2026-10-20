@@ -680,7 +680,7 @@ const HeaderCategoryPageView = ({
 
       {/* ── 2. TOP CATEGORIES (PLACED DIRECTLY BELOW THE BANNER AS REQUESTED) ── */}
       {displayCategoriesList.length > 0 && (
-        <section className="mt-2 mb-2">
+        <section className={cn("mb-2", categoryBanners.length > 0 ? "mt-2" : "mt-0.5")}>
           {/* Section Header */}
           <div className="px-4 md:px-0 pb-2.5 flex items-center justify-between">
             <h2 className="text-[17px] sm:text-[18px] font-bold text-slate-900 tracking-tight leading-none">

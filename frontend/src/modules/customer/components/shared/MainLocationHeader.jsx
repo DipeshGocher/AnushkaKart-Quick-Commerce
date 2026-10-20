@@ -46,7 +46,7 @@ function DeliveryBadge({ settings, className }) {
   return (
     <div 
       className={cn(
-        "customer-header-delivery-time shrink-0 h-[38px] px-3 rounded-xl flex items-center justify-center gap-1.5 shadow-sm text-white font-black text-xs select-none transition-all",
+        "customer-header-delivery-time shrink-0 h-[36px] px-2.5 rounded-xl flex items-center justify-center gap-1.5 shadow-sm text-white font-black text-xs select-none transition-all",
         className
       )}
       style={{
@@ -56,7 +56,7 @@ function DeliveryBadge({ settings, className }) {
     >
       <Zap className="h-3.5 w-3.5 fill-current shrink-0" />
       <span 
-        className="text-[12px] font-black leading-none tracking-tight whitespace-nowrap"
+        className="text-[11.5px] font-black leading-none tracking-tight whitespace-nowrap"
         style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
       >
         {text}
@@ -76,27 +76,14 @@ function CategoryNavColumn({
   headerTextColor = null,
   layoutIdPrefix = "desktop",
 }) {
-  const isTextOnlyMode = !isAllCategory || isScrolled;
   const displayName = truncateCategoryName(cat.name, 12);
 
-  const activeColor = headerTextColor || (
-    isTextOnlyMode
-      ? (isAllCategory ? (isBright ? "#1764cf" : "#ffffff") : (isBright ? "#0f172a" : "#ffffff"))
-      : (isBright ? "#1764cf" : "#ffffff")
-  );
-  const inactiveColor = headerTextColor
-    ? (headerTextColor.toLowerCase() === "#ffffff"
-        ? "rgba(255, 255, 255, 0.85)"
-        : "rgba(15, 23, 42, 0.72)")
-    : (isTextOnlyMode
-        ? (isBright ? "rgba(15, 23, 42, 0.72)" : "rgba(255, 255, 255, 0.85)")
-        : (isBright ? "#344054" : "rgba(255, 255, 255, 0.85)"));
-  const iconColor = headerTextColor || (isBright ? "#111827" : "#ffffff");
-  const indicatorColor = headerTextColor || (
-    isAllCategory
-      ? (isBright ? "#2875E8" : "#ffffff")
-      : (isBright ? "#0f172a" : "#ffffff")
-  );
+  // Icons and names are always white as requested for dark header background
+  const activeColor = "#ffffff";
+  const inactiveColor = "rgba(255, 255, 255, 0.88)";
+  const iconColor = "#ffffff";
+  const activeIconColor = "#ffffff";
+  const indicatorColor = "#ffffff";
 
   return (
     <div
@@ -107,38 +94,32 @@ function CategoryNavColumn({
       }}
       className={cn(
         "customer-category-nav-item relative z-[2] flex shrink-0 cursor-pointer items-center justify-center flex-col select-none",
-        isTextOnlyMode
-          ? "px-3 pt-1 pb-1.5 h-9"
-          : "flex-col gap-0.5 px-0.5 pb-1 pt-0.5 md:min-w-[68px] md:max-w-[88px] h-[46px]",
+        "flex-col gap-0.5 px-0.5 pb-1 pt-0.5 md:min-w-[68px] md:max-w-[88px] h-[46px]",
         isActive && "is-active"
       )}>
-      {!isTextOnlyMode && (
-        <div 
+      <div 
+        className={cn(
+          "customer-category-nav-icon relative z-10 flex items-center justify-center transition-all duration-200",
+          "h-5 w-5 sm:h-[22px] sm:w-[22px]",
+          isActive ? "scale-105 opacity-100" : "opacity-85"
+        )}
+      >
+        <CategoryIcon
+          iconId={cat.iconId}
+          alt={cat.name}
           className={cn(
-            "customer-category-nav-icon relative z-10 flex items-center justify-center transition-all duration-200",
-            "h-5 w-5 sm:h-[22px] sm:w-[22px]",
-            isActive ? "scale-105 opacity-100" : "opacity-85"
+            "transition-all duration-200",
+            "h-[18px] w-[18px] sm:h-[19px] sm:w-[19px]",
+            isActive ? "scale-105" : "scale-100"
           )}
-        >
-          <CategoryIcon
-            iconId={cat.iconId}
-            alt={cat.name}
-            className={cn(
-              "transition-all duration-200",
-              "h-[18px] w-[18px] sm:h-[19px] sm:w-[19px]",
-              isActive ? "scale-105" : "scale-100"
-            )}
-            style={{ color: isActive ? activeColor : iconColor }}
-          />
-        </div>
-      )}
-      <div className={cn("relative flex items-center justify-center", isTextOnlyMode ? "w-auto" : "w-full")}>
+          style={{ color: isActive ? activeIconColor : iconColor }}
+        />
+      </div>
+      <div className="relative flex items-center justify-center w-full">
         <span
           className={cn(
             "customer-category-nav-label relative z-10 block text-center leading-none tracking-tight transition-all duration-200 whitespace-nowrap mt-0.5",
-            isTextOnlyMode
-              ? "text-[13.5px] md:text-[14px]"
-              : "w-full max-w-full truncate text-[10px] sm:text-[10.5px] md:text-[11px]",
+            "w-full max-w-full truncate text-[10px] sm:text-[10.5px] md:text-[11px]",
             isActive ? "font-bold" : "font-medium",
           )}
           style={{
@@ -147,8 +128,8 @@ function CategoryNavColumn({
           {displayName}
         </span>
       </div>
-      {/* Indicator bar: Only shown in ALL category mode. In category mode (like Electronics), active category is distinguished cleanly via text style without a separating line */}
-      {isActive && isAllCategory && (
+      {/* Lower active indicator bar: shifts to whichever category is selected */}
+      {isActive && (
         <motion.span
           layoutId={`category-nav-indicator-${layoutIdPrefix}`}
           className="customer-category-nav-indicator absolute bottom-0 inset-x-1.5 h-[2.5px] rounded-full pointer-events-none"
@@ -162,8 +143,8 @@ function CategoryNavColumn({
   );
 }
 
-const SearchPlaceholderTypewriter = React.memo(() => {
-  const [searchPlaceholder, setSearchPlaceholder] = useState("Search ");
+const SearchPlaceholderTypewriter = React.memo(({ categories = [] }) => {
+  const [searchPlaceholder, setSearchPlaceholder] = useState('Search "Mobile"');
   const [typingState, setTypingState] = useState({
     textIndex: 0,
     charIndex: 0,
@@ -172,26 +153,34 @@ const SearchPlaceholderTypewriter = React.memo(() => {
   });
 
   const staticText = "Search ";
-  const typingPhrases = [
-    '"bread"',
-    '"milk"',
-    '"chocolate"',
-    '"eggs"',
-    '"chips"',
-  ];
+
+  // Dynamically extract category names from categories prop (ignoring "All")
+  // e.g. ["Mobile", "Grocery", "Electronics", "Home Appliances", "Fashion"]
+  const typingPhrases = React.useMemo(() => {
+    const names = (categories || [])
+      .map((c) => (typeof c === "string" ? c : c?.name))
+      .filter((n) => n && typeof n === "string" && n.trim().toLowerCase() !== "all");
+
+    if (names.length > 0) {
+      return names.map((name) => `"${name.trim()}"`);
+    }
+    return ['"Mobile"', '"Grocery"', '"Electronics"', '"Home Appliances"', '"Fashion"'];
+  }, [categories]);
 
   useEffect(() => {
+    if (!typingPhrases.length) return;
     const { textIndex, charIndex, isDeleting, isPaused } = typingState;
-    const currentPhrase = typingPhrases[textIndex];
+    const currentPhrase = typingPhrases[textIndex % typingPhrases.length];
 
     if (isPaused) {
+      // Pause for 3.2 seconds when full category name is displayed (changes every 3-4 seconds)
       const timeout = setTimeout(() => {
         setTypingState((prev) => ({
           ...prev,
           isPaused: false,
           isDeleting: true,
         }));
-      }, 2000);
+      }, 3200);
       return () => clearTimeout(timeout);
     }
 
@@ -222,25 +211,26 @@ const SearchPlaceholderTypewriter = React.memo(() => {
             setTypingState((prev) => ({
               ...prev,
               isDeleting: false,
+              charIndex: 0,
               textIndex: (prev.textIndex + 1) % typingPhrases.length,
             }));
           }
         }
       },
-      isDeleting ? 50 : 100,
+      isDeleting ? 40 : 80,
     );
 
     return () => clearTimeout(timeout);
-  }, [typingState]);
+  }, [typingState, typingPhrases]);
 
   return (
     <input
       type="text"
-      placeholder={searchPlaceholder || "Search Products..."}
+      placeholder={searchPlaceholder || 'Search "Mobile"'}
       readOnly
       tabIndex={-1}
-      className="min-w-0 flex-1 bg-transparent border-0 ring-0 outline-none focus:outline-none focus:ring-0 focus:border-0 focus-visible:outline-none focus-visible:ring-0 pl-2 text-slate-900 font-bold placeholder:text-slate-500 text-[13px] cursor-pointer pointer-events-none select-none shadow-none truncate"
-      style={{ outline: "none", border: "none", boxShadow: "none", WebkitTapHighlightColor: "transparent" }}
+      className="min-w-0 flex-1 bg-transparent border-0 ring-0 outline-none focus:outline-none focus:ring-0 focus:border-0 focus-visible:outline-none focus-visible:ring-0 pl-2 text-black font-semibold placeholder:text-black text-[13px] sm:text-[13.5px] cursor-pointer pointer-events-none select-none shadow-none truncate"
+      style={{ outline: "none", border: "none", boxShadow: "none", WebkitTapHighlightColor: "transparent", color: "#000000" }}
     />
   );
 });
@@ -283,6 +273,9 @@ const MainLocationHeader = ({
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
   useEffect(() => {
+    // Mobile uses hardware-accelerated Framer Motion transforms directly linked to scrollY.
+    // Desktop only needs internalScrolled to toggle mb-2 vs mb-8 on large screens.
+    if (typeof window === "undefined" || window.innerWidth < 768) return;
     if (isScrolledProp !== undefined) return;
     let ticking = false;
     const handleScroll = () => {
@@ -468,15 +461,20 @@ const MainLocationHeader = ({
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
-  const mobileTopHeight = useTransform(scrollY, [0, 22, 108], ["116px", "116px", "0px"]);
-  const mobileTopOpacity = useTransform(scrollY, [0, 30, 95], [1, 1, 0]);
+  // Blinkit-style hardware-accelerated smooth collapse for top section (Logo + Bell + Delivery Card)
+  // Height collapses smoothly from 92px to 0px over first 50px of scroll
+  const mobileTopHeight = useTransform(scrollY, [0, 50], ["92px", "0px"]);
+  // Opacity fades out smoothly over first 32px of scroll
+  const mobileTopOpacity = useTransform(scrollY, [0, 32], [1, 0]);
+  // Subtle upward glide translation for natural feel
+  const mobileTopY = useTransform(scrollY, [0, 50], ["0px", "-16px"]);
+  // Margin collapses to 0px in sync with height
+  const mobileTopMarginBottom = useTransform(scrollY, [0, 50], ["6px", "0px"]);
+  // Disable pointer events when faded out so user cannot tap hidden buttons
+  const mobileTopPointerEvents = useTransform(scrollY, (v) => (v >= 32 ? "none" : "auto"));
 
   const contentHeight = useTransform(scrollY, [0, 160], ["64px", "64px"]);
   const contentOpacity = useTransform(scrollY, [0, 160], [1, 1]);
-  const mobileNavHeight = useTransform(scrollY, [0, 22, 108], ["80px", "80px", "0px"]);
-  const mobileNavOpacity = useTransform(scrollY, [0, 35, 92], [1, 1, 0]);
-  const mobileNavMargin = useTransform(scrollY, [0, 22, 108], [8, 8, 0]);
-  const mobileNavPointerEvents = useTransform(scrollY, (value) => value >= 92 ? 'none' : 'auto');
   const categorySpacing = useTransform(scrollY, [0, 200], [3, 3]);
   const cartOpacity = useTransform(scrollY, [0, 110, 150], [1, 1, 1]);
   const cartScale = useTransform(scrollY, [0, 110, 150], [1, 1, 1]);
@@ -494,10 +492,10 @@ const MainLocationHeader = ({
     String(activeCategory.name || "").toLowerCase() === "all";
 
 
-  const targetHeaderColor = getCategoryHeaderColor(activeCategory);
-  const targetTextColor = getCategoryHeaderTextColor(activeCategory, targetHeaderColor);
-  const isBright = isBrightColor(targetHeaderColor) || (activeCategory?.headerFontColor && !isBrightColor(activeCategory.headerFontColor));
-  const categoryModeTextColor = !isAllCategory ? targetTextColor : null;
+  const targetHeaderColor = getCategoryHeaderColor(activeCategory, categories);
+  const targetTextColor = "#ffffff";
+  const isBright = isBrightColor(targetHeaderColor);
+  const categoryModeTextColor = "#ffffff";
 
   const baseHeaderColor = getCustomerHeaderColor(activeCategory, categories);
 
@@ -517,39 +515,33 @@ const MainLocationHeader = ({
         <motion.div
           initial={false}
           animate={{
-            backgroundColor: targetHeaderColor,
+            ...(targetHeaderColor && typeof targetHeaderColor === "string" && targetHeaderColor.includes("gradient")
+              ? {}
+              : { backgroundColor: targetHeaderColor }),
           }}
           transition={{
             backgroundColor: { duration: 0.25, ease: [0.22, 1, 0.36, 1] },
           }}
           style={{
-            backgroundColor: targetHeaderColor,
+            background: targetHeaderColor,
             paddingTop: isMobile
-              ? (isScrolled
-                  ? "max(6px, env(safe-area-inset-top, 0px))"
-                  : "env(safe-area-inset-top, 0px)")
+              ? "calc(env(safe-area-inset-top, 0px) + 7px)"
               : (isScrolled ? 16 : 14),
-            paddingBottom: !isAllCategory ? 2 : 4,
+            paddingBottom: 3,
             borderBottomLeftRadius: 24,
             borderBottomRightRadius: 24,
             opacity: bgOpacity,
-            "--category-header-text-active": targetTextColor,
-            "--category-header-text-color":
-              targetTextColor?.toLowerCase() === "#ffffff"
-                ? "rgba(255, 255, 255, 0.85)"
-                : (isBright || (targetTextColor && !isBrightColor(targetTextColor))
-                    ? "rgba(15, 23, 42, 0.72)"
-                    : targetTextColor),
-            "--category-header-indicator": targetTextColor,
+            "--category-header-text-active": "#ffffff",
+            "--category-header-text-color": "rgba(255, 255, 255, 0.85)",
+            "--category-header-indicator": "#ffffff",
           }}
           className={cn(
-            "customer-location-header pointer-events-auto w-full max-w-full min-w-0 px-4 lg:px-6 xl:px-8 2xl:px-10 overflow-hidden transform-gpu will-change-[transform,background-color] backdrop-blur-md transition-[padding] duration-150 ease-out",
+            "customer-location-header pointer-events-auto w-full max-w-full min-w-0 px-4 lg:px-6 xl:px-8 2xl:px-10 overflow-hidden transform-gpu will-change-[transform,background] backdrop-blur-md transition-[padding] duration-150 ease-out",
             "rounded-b-[24px] shadow-[0_8px_24px_rgba(0,0,0,0.12)]",
-            !isAllCategory ? "is-category-mode border-b-0" : (isBright ? "is-bright-header border-b border-black/10" : "is-dark-header border-b border-white/10"),
-            isAllCategory && isScrolled && "is-scrolled-compact"
+            "is-dark-header border-b border-white/10"
           )}>
-          <div className="absolute inset-0 pointer-events-none" style={{ background: isAllCategory ? 'linear-gradient(180deg, rgba(255,255,255,0.34) 0%, rgba(234,244,255,0.22) 100%)' : 'none' }} />
-          <svg aria-hidden="true" viewBox="0 0 430 280" preserveAspectRatio="none" className="absolute inset-0 h-full w-full pointer-events-none" style={{ opacity: isAllCategory ? 0.3 : 0.12 }}>
+          <div className="absolute inset-0 pointer-events-none" style={{ background: 'none' }} />
+          <svg aria-hidden="true" viewBox="0 0 430 280" preserveAspectRatio="none" className="absolute inset-0 h-full w-full pointer-events-none" style={{ opacity: 0.12 }}>
             <g fill="none" stroke="white" strokeLinecap="round" strokeLinejoin="round">
               <path d="M-28 43 C55 8 92 63 163 34 S298 6 461 59" strokeWidth="1.65" />
               <path d="M-20 84 C53 45 128 105 207 69 S352 55 450 103" strokeWidth="1.25" />
@@ -559,23 +551,22 @@ const MainLocationHeader = ({
               <path d="M266 12 C307 25 310 47 352 48 M80 126 C116 115 141 123 165 137" strokeWidth="2.6" opacity="0.65" />
             </g>
           </svg>
-          <div className={cn("absolute inset-x-0 bottom-0 h-px pointer-events-none", isAllCategory ? "bg-blue-200/80" : "hidden")} />
+          <div className="absolute inset-x-0 bottom-0 h-px pointer-events-none bg-white/10" />
 
           {/* Desktop/Tablet Header Layout (md and above) */}
-          <div className={cn("hidden md:flex items-center gap-2 lg:gap-3 relative z-20 w-full min-w-0 max-w-full transition-all duration-300 mt-1", (isAllCategory && isScrolled) ? "mb-2" : "mb-8")}>
+          <div className={cn("hidden md:flex items-center gap-2 lg:gap-3 relative z-20 w-full min-w-0 max-w-full transition-all duration-300 mt-1", isScrolled ? "mb-2" : "mb-8")}>
             {/* Left Section: Logo + Location row */}
             <div className="flex min-w-0 shrink items-center gap-2 lg:gap-3">
               <div
                 onClick={() => navigate("/")}
-                className="flex items-center gap-2 cursor-pointer group shrink-0">
-                <div className="group-hover:scale-105 transition-all duration-300 drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)]">
-                  <img
-                    src={logoUrl || "/logo.png"}
-                    alt={`${appName || 'AnushkaStore'} Logo`}
-                    loading="lazy"
-                    className="h-11 lg:h-12 max-w-[110px] lg:max-w-[125px] w-auto object-contain drop-shadow-[0_2px_5px_rgba(16,24,40,0.12)]"
-                  />
-                </div>
+                className="flex items-center justify-center bg-white rounded-xl px-1.5 py-0.5 h-[42px] w-fit shrink-0 shadow-[0_2px_8px_rgba(0,0,0,0.08)] border border-white/80 cursor-pointer group active:scale-95 transition-all hover:shadow-md overflow-hidden"
+              >
+                <img
+                  src={logoUrl || "/logo.png"}
+                  alt={`${appName || 'AnushkaStore'} Logo`}
+                  loading="lazy"
+                  className="h-full w-auto max-h-[39px] max-w-[125px] object-contain"
+                />
               </div>
 
               <button
@@ -583,43 +574,52 @@ const MainLocationHeader = ({
                 data-lenis-prevent
                 data-lenis-prevent-touch
                 onClick={() => setIsLocationOpen(true)}
-                className="customer-delivery-card flex min-w-0 w-[190px] lg:w-[230px] xl:w-[270px] max-w-full shrink items-center gap-1.5 h-[38px] rounded-xl border border-blue-100/90 bg-blue-50/70 px-2.5 text-left shadow-[0_2px_8px_rgba(40,117,232,0.06)] backdrop-blur-xl transition-transform active:scale-[0.99] cursor-pointer"
+                className="customer-delivery-card flex min-w-0 w-[190px] lg:w-[230px] xl:w-[270px] max-w-full shrink items-center gap-1.5 h-[38px] rounded-xl border border-white/20 bg-white/15 px-2.5 text-left shadow-[0_2px_8px_rgba(0,0,0,0.12)] backdrop-blur-xl transition-transform active:scale-[0.99] cursor-pointer"
               >
-                <MapPin className="customer-delivery-icon h-3.5 w-3.5 shrink-0 text-[#2875E8]" style={{ color: '#2875E8' }} />
-                <span className="customer-delivery-label shrink-0 text-[11px] font-black text-[#2875E8] tracking-tight uppercase" style={{ color: '#2875E8' }}>HOME</span>
-                <span className="customer-delivery-address min-w-0 flex-1 truncate text-[10.5px] font-medium text-slate-500" style={{ color: '#64748b' }}>
+                <MapPin className="customer-delivery-icon h-3.5 w-3.5 shrink-0 text-white" style={{ color: '#ffffff' }} />
+                <span className="customer-delivery-label shrink-0 text-[11px] font-black text-white tracking-tight uppercase" style={{ color: '#ffffff' }}>HOME</span>
+                <span className="customer-delivery-address min-w-0 flex-1 truncate text-[10.5px] font-medium text-white/95" style={{ color: '#ffffff' }}>
                   {isFetchingLocation ? "Detecting..." : (currentLocation.name || currentLocation.city || "Select address")}
                 </span>
-                <ChevronRight className="h-3 w-3 shrink-0 text-slate-400" style={{ color: '#94a3b8' }} />
+                <ChevronRight className="h-3 w-3 shrink-0 text-white/80" style={{ color: '#ffffff' }} />
               </button>
 
               {/* Delivery Time Badge / Logo */}
               <DeliveryBadge settings={settings} className="hidden md:flex" />
             </div>
 
-            {/* Center Section: Highly Visible Search Bar */}
+            {/* Center Section: Highly Visible White Search Bar */}
             <div className="min-w-0 flex-1 xl:max-w-[680px]">
               <motion.div
                 onClick={handleSearchClick}
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
                 tabIndex={-1}
-                className="bg-white rounded-full px-3.5 h-10 border border-slate-200/90 shadow-[0_4px_14px_rgba(0,0,0,0.06)] flex items-center transition-all duration-200 cursor-pointer hover:shadow-md hover:border-slate-300 select-none focus:outline-none focus:ring-0 focus-within:ring-0"
-                style={{ WebkitTapHighlightColor: "transparent" }}
+                data-search-box="true"
+                className="customer-search-box bg-white border-2 border-white rounded-full px-3.5 h-10 shadow-[0_4px_16px_rgba(0,0,0,0.12)] flex items-center transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-0 focus-within:ring-0"
+                style={{ WebkitTapHighlightColor: "transparent", backgroundColor: "#ffffff" }}
               >
-                <SearchIcon sx={{ color: "#0f172a", fontSize: 19 }} />
-                <SearchPlaceholderTypewriter />
+                <SearchIcon
+                  className="customer-search-icon shrink-0 text-black"
+                  sx={{ color: "#000000 !important", fill: "#000000 !important", fontSize: 20 }}
+                  style={{ color: "#000000", fill: "#000000" }}
+                />
+                <SearchPlaceholderTypewriter categories={categories} />
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsVoiceModalOpen(true);
                   }}
-                  className="flex items-center justify-center border-l border-slate-200 pl-2 text-slate-700 hover:text-indigo-600 transition-colors cursor-pointer"
+                  className="flex items-center justify-center border-l border-slate-300 pl-2 text-black hover:text-slate-700 transition-colors cursor-pointer"
                   title="Voice Search"
                   aria-label="Voice Search"
                 >
-                  <MicIcon sx={{ color: "currentColor", fontSize: 18 }} />
+                  <MicIcon
+                    className="customer-mic-icon text-black"
+                    sx={{ color: "#000000 !important", fill: "#000000 !important", fontSize: 19 }}
+                    style={{ color: "#000000", fill: "#000000" }}
+                  />
                 </button>
               </motion.div>
             </div>
@@ -657,11 +657,11 @@ const MainLocationHeader = ({
                 onClick={() => navigate("/cart")}
                 className={cn(
                   "w-9 h-9 flex items-center justify-center relative cursor-pointer rounded-full transition-colors shrink-0",
-                  isBright ? "hover:bg-black/5" : "hover:bg-white/10"
+                  "hover:bg-white/10"
                 )}
                 title="My Cart"
               >
-                <ShoppingCartOutlinedIcon sx={{ fontSize: 22, color: isBright ? "#0f172a" : "#ffffff" }} />
+                <ShoppingCartOutlinedIcon sx={{ fontSize: 22, color: "#ffffff" }} />
                 {cartCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-[#2875E8] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:-translate-y-0.5 animate-in zoom-in duration-300">
                     {cartCount}
@@ -676,11 +676,11 @@ const MainLocationHeader = ({
                 onClick={() => navigate("/notifications")}
                 className={cn(
                   "w-9 h-9 flex items-center justify-center relative cursor-pointer rounded-full transition-colors shrink-0",
-                  isBright ? "hover:bg-black/5" : "hover:bg-white/10"
+                  "hover:bg-white/10"
                 )}
                 title="Notifications"
               >
-                <NotificationsNoneOutlinedIcon sx={{ fontSize: 22, color: isBright ? "#0f172a" : "#ffffff" }} />
+                <NotificationsNoneOutlinedIcon sx={{ fontSize: 22, color: "#ffffff" }} />
                 {unreadNotificationsCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-[#2875E8] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:-translate-y-0.5 animate-in zoom-in duration-300">
                     {unreadNotificationsCount > 9 ? "9+" : unreadNotificationsCount}
@@ -695,103 +695,103 @@ const MainLocationHeader = ({
                 onClick={() => navigate("/profile")}
                 className={cn(
                   "w-9 h-9 flex items-center justify-center cursor-pointer rounded-full transition-colors shrink-0",
-                  isBright ? "hover:bg-black/5" : "hover:bg-white/10"
+                  "hover:bg-white/10"
                 )}
                 title="Profile"
               >
-                <AccountCircleOutlinedIcon sx={{ fontSize: 24, color: isBright ? "#0f172a" : "#ffffff" }} />
+                <AccountCircleOutlinedIcon sx={{ fontSize: 24, color: "#ffffff" }} />
               </motion.button>
             </div>
           </div>
 
           {/* Mobile Header Layout (MOBILE ONLY) */}
           <div className="md:hidden pt-0 pb-1 select-none">
-            {/* Top row: Logo/Branding + Bell Button + Location bar (ONLY when isAllCategory and not scrolled) */}
-            <AnimatePresence initial={false}>
-              {isAllCategory && !isScrolled && (
-                <motion.div
-                  key="mobile-header-top-section"
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.24, ease: [0.25, 0.1, 0.25, 1] }}
-                  className="overflow-hidden flex flex-col gap-1.5 mb-1.5 transform-gpu"
+            {/* Top row: Logo/Branding + Bell Button + Location bar (GPU-accelerated smooth collapse on scroll for all categories) */}
+            <motion.div
+              style={{
+                height: mobileTopHeight,
+                opacity: mobileTopOpacity,
+                y: mobileTopY,
+                marginBottom: mobileTopMarginBottom,
+                pointerEvents: mobileTopPointerEvents,
+              }}
+              className="overflow-hidden flex flex-col gap-2.5 transform-gpu will-change-[transform,opacity,height]"
+            >
+              <div className="flex items-center justify-between">
+                {/* Brand Logo placed inside white card container, image covering full height & width */}
+                <div
+                  onClick={() => navigate("/")}
+                  className="flex items-center justify-center bg-white rounded-xl px-1.5 py-0.5 h-[42px] w-fit shrink-0 shadow-[0_2px_8px_rgba(0,0,0,0.08)] border border-white/80 cursor-pointer active:scale-95 transition-transform overflow-hidden"
                 >
-                  <div className="flex items-center justify-between">
-                    {/* Brand Logo */}
-                    <div onClick={() => navigate("/")} className="flex items-center gap-2 cursor-pointer">
-                      <img
-                        src={logoUrl || "/logo.png"}
-                        alt="AnushkaStore Logo"
-                        className="h-14 max-w-[132px] w-auto object-contain shrink-0 drop-shadow-[0_2px_4px_rgba(16,24,40,0.12)]"
-                      />
-                    </div>
+                  <img
+                    src={logoUrl || "/logo.png"}
+                    alt="AnushkaStore Logo"
+                    className="h-full w-auto max-h-[39px] max-w-[125px] object-contain shrink-0"
+                  />
+                </div>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => navigate("/notifications")}
-                        className="relative flex h-10 w-10 items-center justify-center text-white drop-shadow-sm active:scale-95 transition-transform"
-                        title="Notifications"
-                      >
-                        <NotificationsNoneOutlinedIcon sx={{ fontSize: 26, color: isBright ? "#0f172a" : "#ffffff" }} />
-                        {unreadNotificationsCount > 0 && <span className="absolute right-0 top-0 h-4 min-w-4 rounded-full bg-orange-500 px-0.5 text-center text-[9px] font-black leading-4 text-white">{unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}</span>}
-                      </button>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/notifications")}
+                    className="relative flex h-9 w-9 items-center justify-center text-white drop-shadow-sm active:scale-95 transition-transform"
+                    title="Notifications"
+                  >
+                    <NotificationsNoneOutlinedIcon sx={{ fontSize: 24, color: "#ffffff" }} />
+                    {unreadNotificationsCount > 0 && <span className="absolute right-0 top-0 h-4 min-w-4 rounded-full bg-orange-500 px-0.5 text-center text-[9px] font-black leading-4 text-white">{unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}</span>}
+                  </button>
+                </div>
+              </div>
 
-                  {/* Location bar + 30 min delivery time */}
-                  <div className="flex items-center gap-2 w-full pt-0.5">
-                    <button
-                      type="button"
-                      onClick={() => setIsLocationOpen(true)}
-                      className="customer-delivery-card flex-1 min-w-0 h-[40px] flex items-center gap-2 rounded-xl border border-blue-100/90 bg-blue-50/65 px-3 text-left shadow-[0_2px_8px_rgba(40,117,232,0.06)] backdrop-blur-xl cursor-pointer active:scale-[0.99] transition-transform"
-                    >
-                      <MapPin className="customer-delivery-icon h-4 w-4 shrink-0 text-[#2875E8]" style={{ color: '#2875E8' }} />
-                      <span className="customer-delivery-label shrink-0 text-[11.5px] font-black text-[#2875E8] tracking-tight uppercase" style={{ color: '#2875E8' }}>HOME</span>
-                      <span className="customer-delivery-address min-w-0 flex-1 truncate text-[11px] font-medium text-slate-500" style={{ color: '#64748b' }}>
-                        {isFetchingLocation ? "Detecting location..." : (currentLocation.name || currentLocation.city || "Select address")}
-                      </span>
-                      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-400" style={{ color: '#94a3b8' }} />
-                    </button>
+              {/* Location bar + 30 min delivery time */}
+              <div className="flex items-center gap-2 w-full pt-0">
+                <button
+                  type="button"
+                  onClick={() => setIsLocationOpen(true)}
+                  className="customer-delivery-card flex-1 min-w-0 h-[36px] flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/15 px-2.5 text-left shadow-[0_2px_8px_rgba(0,0,0,0.12)] backdrop-blur-xl cursor-pointer active:scale-[0.99] transition-transform"
+                >
+                  <MapPin className="customer-delivery-icon h-3.5 w-3.5 shrink-0 text-white" style={{ color: '#ffffff' }} />
+                  <span className="customer-delivery-label shrink-0 text-[11px] font-black text-white tracking-tight uppercase" style={{ color: '#ffffff' }}>HOME</span>
+                  <span className="customer-delivery-address min-w-0 flex-1 truncate text-[10.5px] font-medium text-white/95" style={{ color: '#ffffff' }}>
+                    {isFetchingLocation ? "Detecting location..." : (currentLocation.name || currentLocation.city || "Select address")}
+                  </span>
+                  <ChevronRight className="h-3 w-3 shrink-0 text-white/80" style={{ color: '#ffffff' }} />
+                </button>
 
-                    {/* Delivery Time Badge / Logo */}
-                    <DeliveryBadge settings={settings} />
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                {/* Delivery Time Badge / Logo */}
+                <DeliveryBadge settings={settings} />
+              </div>
+            </motion.div>
 
-            {/* Bottom row: Highly Visible White Search Bar */}
+            {/* Bottom row: Search Bar with solid white background, black icons and dynamic category placeholder */}
             <div
               onClick={handleSearchClick}
               tabIndex={-1}
-              className={cn(
-                "w-full bg-white/95 border-2 border-white/90 rounded-2xl md:rounded-full px-4 h-11 flex items-center shadow-[0_4px_16px_rgba(0,0,0,0.12)] cursor-pointer hover:border-white transition-all select-none focus:outline-none focus:ring-0 focus:border-white focus-visible:outline-none focus-visible:ring-0 active:scale-[0.99]",
-                !isAllCategory ? "mb-0.5" : "mb-1.5"
-              )}
-              style={{ WebkitTapHighlightColor: "transparent" }}
+              data-search-box="true"
+              className="customer-search-box w-full bg-white border-2 border-white rounded-2xl md:rounded-full px-4 h-10 flex items-center shadow-[0_4px_16px_rgba(0,0,0,0.12)] cursor-pointer transition-all select-none focus:outline-none mb-1 active:scale-[0.99]"
+              style={{ WebkitTapHighlightColor: "transparent", backgroundColor: "#ffffff" }}
             >
-              <SearchIcon sx={{ color: "#0f172a", fontSize: 20 }} className="shrink-0" />
-              <input
-                type="text"
-                placeholder='Search "Atta, Rice, Oil, Maggi..."'
-                readOnly
-                tabIndex={-1}
-                className="flex-1 bg-transparent border-0 ring-0 outline-none focus:outline-none focus:ring-0 focus:border-0 focus-visible:outline-none focus-visible:ring-0 pl-2 text-slate-900 font-bold placeholder:text-slate-600 text-[13.5px] cursor-pointer pointer-events-none select-none shadow-none"
-                style={{ outline: "none", border: "none", boxShadow: "none", WebkitTapHighlightColor: "transparent" }}
+              <SearchIcon
+                className="customer-search-icon shrink-0 text-black"
+                sx={{ color: "#000000 !important", fill: "#000000 !important", fontSize: 20 }}
+                style={{ color: "#000000", fill: "#000000" }}
               />
+              <SearchPlaceholderTypewriter categories={categories} />
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsVoiceModalOpen(true);
                 }}
-                className="flex items-center justify-center shrink-0 ml-1 border-l border-slate-200 pl-3 text-slate-800 hover:text-indigo-600 transition-colors cursor-pointer active:scale-95"
+                className="flex items-center justify-center shrink-0 ml-1 border-l border-slate-300 pl-3 text-black hover:text-slate-700 transition-colors cursor-pointer active:scale-95"
                 title="Voice Search"
                 aria-label="Voice Search"
               >
-                <MicIcon sx={{ color: "currentColor", fontSize: 20 }} />
+                <MicIcon
+                  className="customer-mic-icon text-black"
+                  sx={{ color: "#000000 !important", fill: "#000000 !important", fontSize: 20 }}
+                  style={{ color: "#000000", fill: "#000000" }}
+                />
               </button>
             </div>
           </div>
@@ -817,26 +817,16 @@ const MainLocationHeader = ({
               <div
                 ref={mobileNavRef}
                 data-lenis-prevent
-                className={cn(
-                  "overflow-x-auto no-scrollbar scroll-smooth",
-                  (isAllCategory && !isScrolled)
-                    ? "h-[48px] overflow-y-hidden pb-0.5"
-                    : "h-8.5 overflow-y-visible pb-0"
-                )}
+                className="overflow-x-auto no-scrollbar scroll-smooth h-[48px] overflow-y-hidden pb-0.5"
                 style={{
                   WebkitOverflowScrolling: "touch",
                   overscrollBehaviorX: "contain",
                 }}
               >
                 <div 
-                  className={cn(
-                    "flex shrink-0 px-1", 
-                    (isAllCategory && !isScrolled)
-                      ? "h-[48px] items-center gap-[var(--cat-gap,8px)] pb-0.5"
-                      : "h-8.5 items-center gap-2 pb-0"
-                  )}
+                  className="flex shrink-0 px-1 h-[48px] items-center gap-[var(--cat-gap,8px)] pb-0.5"
                   style={{
-                    gap: (isAllCategory && !isScrolled) ? "var(--cat-gap, 8px)" : undefined,
+                    gap: "var(--cat-gap, 8px)",
                   }}
                 >
                   {categories.map((cat) => (
@@ -861,13 +851,13 @@ const MainLocationHeader = ({
             <motion.div
               ref={navRef}
               data-lenis-prevent
-              style={{ height: (isAllCategory && !isScrolled) ? "48px" : "40px", opacity: 1, marginTop: 2 }}
+              style={{ height: !isScrolled ? "48px" : "40px", opacity: 1, marginTop: 2 }}
               className="relative z-10 w-full hidden md:flex overflow-x-auto overflow-y-visible px-4 lg:px-8 xl:px-12 no-scrollbar scroll-smooth"
             >
               <div
                 className={cn(
                   "flex mx-auto shrink-0",
-                  (isAllCategory && !isScrolled)
+                  !isScrolled
                     ? "items-center gap-2.5 lg:gap-4 xl:gap-5 pb-0.5"
                     : "items-end gap-3 lg:gap-5 xl:gap-6 pb-0"
                 )}
