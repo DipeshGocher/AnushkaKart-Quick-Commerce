@@ -4,6 +4,7 @@ import { customerApi } from "../../services/customerApi";
 import { useProductDetail } from "../../context/ProductDetailContext";
 import { useCart } from "../../context/CartContext";
 import { useVariantSelection } from "../../context/VariantSelectionContext";
+import { useDeliveryEligibility } from "../../hooks/useDeliveryEligibility";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
 import { getProductVariantText, getProductPriceInfo } from "@/core/utils/productUrl";
 import { useTranslation } from "@core/context/LanguageContext";
@@ -40,6 +41,7 @@ const NewArrivalProductCard = React.memo(({ product }) => {
   const { openProduct } = useProductDetail();
   const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
   const { openVariantSelection } = useVariantSelection();
+  const { canAddToCart, warning: deliveryWarning } = useDeliveryEligibility(product);
 
   const productId = product.id || product._id;
   const { currentPrice, originalPrice, hasDiscount, discountPercent } =
@@ -77,6 +79,11 @@ const NewArrivalProductCard = React.memo(({ product }) => {
       e.preventDefault();
       e.stopPropagation();
 
+      if (!canAddToCart) {
+        openProduct(product);
+        return;
+      }
+
       if (Array.isArray(product?.variants) && product.variants.length > 1) {
         if (openVariantSelection) {
           openVariantSelection(product);
@@ -91,7 +98,7 @@ const NewArrivalProductCard = React.memo(({ product }) => {
         variantName: defaultVariant?.name || "",
       });
     },
-    [product, productId, variantKey, defaultVariant?.name, openVariantSelection, addToCart]
+    [product, productId, variantKey, defaultVariant?.name, openVariantSelection, addToCart, canAddToCart, openProduct]
   );
 
   const handleIncrement = useCallback(
@@ -171,6 +178,13 @@ const NewArrivalProductCard = React.memo(({ product }) => {
             >
               <Plus size={11} strokeWidth={2.8} />
             </button>
+          </div>
+        ) : !canAddToCart ? (
+          <div
+            className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded-lg flex items-center justify-center text-[9px] font-bold border border-slate-200 z-10 cursor-not-allowed select-none"
+            title={deliveryWarning || "Quick delivery not available in your area"}
+          >
+            Unavailable
           </div>
         ) : (
           <button

@@ -239,19 +239,45 @@ export async function toggleLocalPincodeStatus(id) {
 export async function resolveProductDeliveryMode(product, category = null) {
   if (!product) return "both";
   
+  // 1. Explicit product override takes precedence
   const pMode = product.deliveryMode;
   if (pMode === "quick_only" || pMode === "both") {
     return pMode;
   }
 
-  // Resolve from category
+  // 2. Resolve from category object if passed
   let cat = category;
-  if (!cat) {
-    const catId = product.headerId?._id || product.headerId || product.categoryId?._id || product.categoryId;
-    if (catId) {
+  const isCatObject =
+    cat &&
+    typeof cat === "object" &&
+    !(cat instanceof mongoose.Types.ObjectId) &&
+    !Array.isArray(cat);
+  const catHasDeliveryMode =
+    isCatObject &&
+    (cat.deliveryMode === "quick_only" || cat.deliveryMode === "both");
+
+  if (!catHasDeliveryMode) {
+    const candidateId =
+      (isCatObject ? cat._id || cat.id : null) ||
+      (cat && (typeof cat === "string" || mongoose.Types.ObjectId.isValid(cat))
+        ? String(cat)
+        : null) ||
+      product.headerId?._id ||
+      product.headerId ||
+      product.categoryId?._id ||
+      product.categoryId ||
+      product.subcategoryId?._id ||
+      product.subcategoryId;
+
+    if (candidateId && mongoose.Types.ObjectId.isValid(String(candidateId))) {
       try {
         const Category = (await import("../../models/category.js")).default;
-        cat = await Category.findById(catId).select("deliveryMode catalogType name").lean();
+        const fetchedCat = await Category.findById(candidateId)
+          .select("deliveryMode catalogType name slug")
+          .lean();
+        if (fetchedCat) {
+          cat = fetchedCat;
+        }
       } catch (err) {
         // silent fallback
       }
@@ -262,9 +288,80 @@ export async function resolveProductDeliveryMode(product, category = null) {
     return cat.deliveryMode;
   }
 
-  // Default heuristic if not explicitly set:
-  // Fresh/Grocery/Dairy catalog categories are quick_only by default
-  if (cat?.catalogType === "grocery") {
+  // 3. Check populated fields on product if present
+  if (
+    product.headerId?.deliveryMode === "quick_only" ||
+    product.headerId?.deliveryMode === "both"
+  ) {
+    return product.headerId.deliveryMode;
+  }
+  if (
+    product.categoryId?.deliveryMode === "quick_only" ||
+    product.categoryId?.deliveryMode === "both"
+  ) {
+    return product.categoryId.deliveryMode;
+  }
+  if (
+    product.subcategoryId?.deliveryMode === "quick_only" ||
+    product.subcategoryId?.deliveryMode === "both"
+  ) {
+    return product.subcategoryId.deliveryMode;
+  }
+
+  // 4. If headerId or categoryId is an unpopulated ID, fetch from DB to check admin deliveryMode
+  const hId = product.headerId?._id || product.headerId;
+  if (hId && mongoose.Types.ObjectId.isValid(String(hId))) {
+    try {
+      const Category = (await import("../../models/category.js")).default;
+      const hCat = await Category.findById(hId)
+        .select("deliveryMode catalogType name slug")
+        .lean();
+      if (hCat?.deliveryMode === "quick_only" || hCat?.deliveryMode === "both") {
+        return hCat.deliveryMode;
+      }
+      if (!cat) cat = hCat;
+    } catch (e) {}
+  }
+
+  const cId = product.categoryId?._id || product.categoryId;
+  if (cId && mongoose.Types.ObjectId.isValid(String(cId))) {
+    try {
+      const Category = (await import("../../models/category.js")).default;
+      const cCat = await Category.findById(cId)
+        .select("deliveryMode catalogType name slug")
+        .lean();
+      if (cCat?.deliveryMode === "quick_only" || cCat?.deliveryMode === "both") {
+        return cCat.deliveryMode;
+      }
+      if (!cat) cat = cCat;
+    } catch (e) {}
+  }
+
+  // 5. Fallback heuristics: check category slug
+  const slug = String(
+    cat?.slug || product.headerId?.slug || product.categoryId?.slug || ""
+  ).toLowerCase();
+  if (slug === "grocery" || slug === "kirana" || slug === "fresh") {
+    return "quick_only";
+  }
+
+  const names = [
+    cat?.name,
+    product.headerId?.name,
+    product.categoryId?.name,
+    product.name,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  if (
+    names.includes("grocery") ||
+    names.includes("kirana") ||
+    names.includes("fresh") ||
+    names.includes("vegetable") ||
+    names.includes("sabzi") ||
+    names.includes("dairy")
+  ) {
     return "quick_only";
   }
 
@@ -290,17 +387,75 @@ export async function evaluateDeliveryEligibility({
   const isSellerLocal = cleanSeller ? await isPincodeLocal(cleanSeller) : false;
 
   const localDetails = isCustomerLocal ? await getLocalPincodeDetails(cleanCustomer) : null;
-  const localEstimate = localDetails?.deliveryTimeEstimate || "20-35 mins";
+  const localEstimate = localDetails?.deliveryTimeEstimate || "15-20 mins";
 
-  // Fulfillment is determined by both endpoints, including products previously
-  // marked quick_only. The merchant is responsible for courier eligibility.
+  // Mode 1: Quick Delivery Only (Perishables/Grocery/Local Riders)
+  if (deliveryMode === "quick_only") {
+    // Both endpoints MUST be within active admin local delivery pincodes
+    if (isCustomerLocal && isSellerLocal) {
+      return {
+        isDeliverable: true,
+        fulfillmentType: "LOCAL_RIDERS",
+        deliveryEstimate: localEstimate,
+        shippingFeeType: "LOCAL",
+        deliveryMode: "quick_only",
+        isCustomerLocal: true,
+        isSellerLocal: true,
+        displayBadge: `⚡ ${localEstimate} Delivery (Local)`,
+        reason: null,
+      };
+    }
+
+    if (!cleanCustomer) {
+      return {
+        isDeliverable: false,
+        fulfillmentType: null,
+        deliveryEstimate: null,
+        shippingFeeType: null,
+        deliveryMode: "quick_only",
+        isCustomerLocal: false,
+        isSellerLocal,
+        displayBadge: "❌ Quick Delivery Not Available",
+        reason: "Please select a delivery location to check availability.",
+      };
+    }
+
+    if (!isCustomerLocal) {
+      return {
+        isDeliverable: false,
+        fulfillmentType: null,
+        deliveryEstimate: null,
+        shippingFeeType: null,
+        deliveryMode: "quick_only",
+        isCustomerLocal: false,
+        isSellerLocal,
+        displayBadge: `❌ Quick Delivery Not Available at ${cleanCustomer}`,
+        reason: `Quick Delivery is not available at pincode ${cleanCustomer}. Fresh items are only delivered in local areas.`,
+      };
+    }
+
+    // Customer is local, but seller is outside local delivery zone (e.g. Indore)
+    return {
+      isDeliverable: false,
+      fulfillmentType: null,
+      deliveryEstimate: null,
+      shippingFeeType: null,
+      deliveryMode: "quick_only",
+      isCustomerLocal: true,
+      isSellerLocal: false,
+      displayBadge: "❌ Out of Zone",
+      reason: "This fresh product is stocked outside the local delivery zone and cannot be delivered via courier.",
+    };
+  }
+
+  // Mode 2: Both / Hybrid (Local 15-min riders if both endpoints are local, else Shiprocket standard courier)
   if (isCustomerLocal && isSellerLocal) {
     return {
       isDeliverable: true,
       fulfillmentType: "LOCAL_RIDERS",
       deliveryEstimate: localEstimate,
       shippingFeeType: "LOCAL",
-      deliveryMode,
+      deliveryMode: "both",
       isCustomerLocal: true,
       isSellerLocal: true,
       displayBadge: `⚡ ${localEstimate} Delivery (Local)`,
@@ -314,7 +469,7 @@ export async function evaluateDeliveryEligibility({
     fulfillmentType: "SHIPROCKET",
     deliveryEstimate: "3-4 business days",
     shippingFeeType: "SHIPROCKET",
-    deliveryMode,
+    deliveryMode: "both",
     isCustomerLocal,
     isSellerLocal,
     displayBadge: "📦 Standard Courier (3-4 Days)",

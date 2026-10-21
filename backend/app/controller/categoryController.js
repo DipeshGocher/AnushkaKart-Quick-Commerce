@@ -453,6 +453,12 @@ export const updateCategory = async (req, res) => {
     invalidate("cache:catalog:categories:*").catch(err => {
       console.warn("[Category] Cache invalidation failed:", err.message);
     });
+    invalidate("cache:catalog:productList:*").catch(err => {
+      console.warn("[Category] Product list cache invalidation failed:", err.message);
+    });
+    invalidate("cache:catalog:product:*").catch(err => {
+      console.warn("[Category] Product cache invalidation failed:", err.message);
+    });
     invalidateCategoryName(id).catch(err => {
       console.warn("[Category] Name cache invalidation failed:", err.message);
     });

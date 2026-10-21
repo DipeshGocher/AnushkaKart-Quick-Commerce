@@ -433,36 +433,6 @@ const OrderDetailPage = () => {
     return () => clearInterval(iv);
   }, []);
 
-  useEffect(() => {
-    if (!order) {
-      setReturnCountdown(null);
-      return;
-    }
-
-    const calculateCountdown = () => {
-      if (order.status !== "delivered") {
-        setReturnCountdown(null);
-        return;
-      }
-      const windowStart = new Date(order.deliveredAt || order.createdAt).getTime();
-      const now = Date.now();
-      const windowMs = returnWindowMinutes * 60 * 1000;
-      const remaining = Math.max(0, (windowStart + windowMs) - now);
-
-      if (remaining <= 0) {
-        setReturnCountdown(0);
-        return;
-      }
-
-      const mins = Math.floor(remaining / 60000);
-      const secs = Math.floor((remaining % 60000) / 1000);
-      setReturnCountdown(`${mins}:${secs.toString().padStart(2, "0")}`);
-    };
-
-    calculateCountdown();
-    const iv = setInterval(calculateCountdown, 1000);
-    return () => clearInterval(iv);
-  }, [order, returnWindowMinutes]);
 
   const handleOpenInMaps = () => {
     const loc = order?.address?.location;

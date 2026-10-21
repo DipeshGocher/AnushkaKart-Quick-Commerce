@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { motion, AnimatePresence, useAnimation, useDragControls } from 'framer-motion';
+import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { X, ChevronDown, ChevronUp, FileText, Share2, Heart, Search, Clock, Minus, Plus, ShoppingBag, ShoppingCart, Star, MessageSquare, ArrowLeft, ChevronRight, ChevronLeft, Store, Building2, Package, RotateCcw, Banknote, ShieldCheck, Zap, Award, Truck, Ban, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
 import { useProductDetail } from '../../context/ProductDetailContext';
@@ -48,6 +48,9 @@ const ProductDetailSheet = () => {
     const { currentLocation } = useAppLocation();
     const supportEmail = settings?.supportEmail || 'support@example.com';
 
+    const [extendedProduct, setExtendedProduct] = useState(null);
+    const activeProduct = extendedProduct || selectedProduct;
+
     const {
         isDeliverable,
         canAddToCart,
@@ -56,7 +59,7 @@ const ProductDetailSheet = () => {
         deliveryEstimate,
         fulfillmentType,
         customerPincode
-    } = useDeliveryEligibility(selectedProduct);
+    } = useDeliveryEligibility(activeProduct);
 
     // Controls for sheet animation
     const controls = useAnimation();
@@ -101,7 +104,6 @@ const ProductDetailSheet = () => {
     const [isSubmittingReview, setIsSubmittingReview] = useState(false);
     const [newReview, setNewReview] = useState({ rating: 5, comment: '' });
     const [localHasReviewed, setLocalHasReviewed] = useState(false);
-    const [extendedProduct, setExtendedProduct] = useState(null);
     const [expandedSections, setExpandedSections] = useState(['specification']); // Start with description open
     const [showHeartPopup, setShowHeartPopup] = useState(false);
     const [isDescriptionOpen, setIsDescriptionOpen] = useState(true);
@@ -415,21 +417,6 @@ const ProductDetailSheet = () => {
         }
     }, [isOpen, controls]);
 
-    const handleDragEnd = (event, info) => {
-        const offset = info.offset.y;
-        const velocity = info.velocity.y;
-
-        if (offset > 150 || velocity > 200) {
-            // Dragged down significantly -> Close
-            closeProduct();
-        } else if (offset < -20 || velocity < -200) {
-            // Dragged up -> Expand
-            setIsExpanded(true);
-        } else {
-            // Snap back to current state (expanded or initial)
-        }
-    };
-
     const handleShareProduct = async (e) => {
         e?.stopPropagation?.();
         const prod = activeProduct || selectedProduct;
@@ -565,7 +552,6 @@ const ProductDetailSheet = () => {
         }
     };
 
-    const activeProduct = extendedProduct || selectedProduct;
     const cleanDesc = cleanDescription(activeProduct?.description || selectedProduct?.description);
 
     const specificationsList = useMemo(() => {
@@ -1412,10 +1398,6 @@ const ProductDetailSheet = () => {
                     {/* ============================================================ */}
                     {isMobileDevice && (
                     <motion.div
-                        drag="y"
-                        dragConstraints={{ top: 0, bottom: 0 }}
-                        dragElastic={0.2}
-                        onDragEnd={handleDragEnd}
                         initial={{
                             opacity: 0,
                             y: "100%",
@@ -1448,14 +1430,14 @@ const ProductDetailSheet = () => {
                             mass: 0.8
                         }}
                         className={cn(
-                            "md:hidden fixed z-[590] bg-white shadow-2xl overflow-hidden flex flex-col inset-0 h-[100dvh] max-h-[100dvh] w-full",
+                            "md:hidden fixed z-[590] bg-[#3478d3] shadow-2xl overflow-hidden flex flex-col inset-0 h-[100dvh] max-h-[100dvh] w-full",
                         )}
                         style={{ willChange: "transform, height", touchAction: "auto", height: "100dvh", maxHeight: "100dvh" }}
                     >
                         {/* Top Blue Header Bar (Bottle reference: Back Arrow + White Search field + Cart icon with badge) */}
                         <div 
-                            className="bg-[#3478d3] px-3.5 py-2.5 flex items-center gap-2.5 shadow-md shrink-0 z-40 text-white"
-                            style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top, 10px))' }}
+                            className="bg-[#3478d3] px-3.5 pt-1.5 pb-2 flex items-center gap-2.5 shrink-0 z-40 text-white border-none shadow-none"
+                            style={{ paddingTop: 'env(safe-area-inset-top, 6px)' }}
                         >
                             {/* 1. Back Arrow Button */}
                             <motion.button
@@ -1473,7 +1455,7 @@ const ProductDetailSheet = () => {
                                     closeProduct();
                                     navigate('/search');
                                 }}
-                                className="flex-1 bg-white h-10 rounded-full px-3.5 flex items-center gap-2 cursor-pointer shadow-xs border border-white/20 select-none active:scale-[0.99] transition-transform"
+                                className="flex-1 bg-white h-10 rounded-full px-3.5 flex items-center gap-2 cursor-pointer shadow-xs border-0 select-none active:scale-[0.99] transition-transform"
                             >
                                 <Search size={17} className="text-slate-400 shrink-0" />
                                 <span className="text-xs sm:text-sm text-slate-400 font-normal truncate">

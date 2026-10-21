@@ -6,6 +6,10 @@ import {
   parseCustomerCoordinates,
   getNearbySellerIdsForCustomer,
 } from "../services/customerVisibilityService.js";
+import {
+  evaluateDeliveryEligibility,
+  resolveProductDeliveryMode,
+} from "../services/shipping/localPincodeService.js";
 
 const CART_POPULATE_FIELDS =
   "name slug price salePrice mainImage stock status headerId categoryId subcategoryId sellerId warehouseId variants conditionType catalogType refurbishedDetails isFeatured brand weight unit isMonthlyKit";
@@ -99,6 +103,40 @@ export const addToCart = async (req, res) => {
         radiusErr.statusCode || 400,
         radiusErr.message,
       );
+    }
+
+    const customerPincode = String(req.body.customerPincode || req.body.pincode || "").trim();
+    if (customerPincode) {
+      try {
+        const fullProduct = await Product.findById(productId)
+          .select("deliveryMode headerId categoryId sellerId warehouseId")
+          .populate("sellerId", "pincode")
+          .populate("warehouseId", "pincode")
+          .populate("headerId", "deliveryMode catalogType")
+          .lean();
+        if (fullProduct) {
+          const sellerPincode =
+            fullProduct.sellerId?.pincode || fullProduct.warehouseId?.pincode || "";
+          const deliveryMode = await resolveProductDeliveryMode(
+            fullProduct,
+            fullProduct.headerId,
+          );
+          const eligibility = await evaluateDeliveryEligibility({
+            customerPincode,
+            sellerPincode,
+            deliveryMode,
+          });
+          if (!eligibility.isDeliverable) {
+            return handleResponse(
+              res,
+              400,
+              eligibility.reason || "This product cannot be delivered to your location.",
+            );
+          }
+        }
+      } catch (checkErr) {
+        // Continue if verification throws
+      }
     }
 
     let cart = await Cart.findOne({ customerId });

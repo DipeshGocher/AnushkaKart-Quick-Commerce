@@ -56,7 +56,10 @@ export async function resolveWarehouseName(id) {
  * @param {string|ObjectId} id
  */
 export async function invalidateCategoryName(id) {
-  await invalidate(buildKey("catalog", "categoryName", String(id)));
+  await Promise.all([
+    invalidate(buildKey("catalog", "categoryName", String(id))),
+    invalidate(buildKey("catalog", "categoryMeta", String(id))),
+  ]);
 }
 
 /**
@@ -64,5 +67,78 @@ export async function invalidateCategoryName(id) {
  * @param {string|ObjectId} id
  */
 export async function invalidateSellerName(id) {
-  await invalidate(buildKey("catalog", "sellerName", String(id)));
+  await Promise.all([
+    invalidate(buildKey("catalog", "sellerName", String(id))),
+    invalidate(buildKey("catalog", "sellerMeta", String(id))),
+  ]);
 }
+
+/**
+ * Resolve category metadata (name, slug, deliveryMode, catalogType) by ID (cache-backed).
+ * @param {string|ObjectId} id
+ * @returns {Promise<Object|null>}
+ */
+export async function resolveCategoryMeta(id) {
+  if (!id) return null;
+  const key = buildKey("catalog", "categoryMeta", String(id));
+  const cat = await getOrSet(
+    key,
+    () => Category.findById(id).select("name slug deliveryMode catalogType").lean(),
+    getTTL("categoryName"),
+  );
+  return cat
+    ? {
+        name: cat.name ?? null,
+        slug: cat.slug ?? null,
+        deliveryMode: cat.deliveryMode || "both",
+        catalogType: cat.catalogType ?? null,
+      }
+    : null;
+}
+
+/**
+ * Resolve seller metadata (shopName, pincode, city, state) by ID (cache-backed).
+ * @param {string|ObjectId} id
+ * @returns {Promise<Object|null>}
+ */
+export async function resolveSellerMeta(id) {
+  if (!id) return null;
+  const key = buildKey("catalog", "sellerMeta", String(id));
+  const seller = await getOrSet(
+    key,
+    () => Seller.findById(id).select("shopName pincode city state").lean(),
+    getTTL("categoryName"),
+  );
+  return seller
+    ? {
+        shopName: seller.shopName ?? null,
+        pincode: seller.pincode ?? null,
+        city: seller.city ?? null,
+        state: seller.state ?? null,
+      }
+    : null;
+}
+
+/**
+ * Resolve warehouse metadata (name, pincode, city, state) by ID (cache-backed).
+ * @param {string|ObjectId} id
+ * @returns {Promise<Object|null>}
+ */
+export async function resolveWarehouseMeta(id) {
+  if (!id) return null;
+  const key = buildKey("catalog", "warehouseMeta", String(id));
+  const warehouse = await getOrSet(
+    key,
+    () => Warehouse.findById(id).select("name pincode city state").lean(),
+    getTTL("categoryName"),
+  );
+  return warehouse
+    ? {
+        name: warehouse.name ?? null,
+        pincode: warehouse.pincode ?? null,
+        city: warehouse.city ?? null,
+        state: warehouse.state ?? null,
+      }
+    : null;
+}
+

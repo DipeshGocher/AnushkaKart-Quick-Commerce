@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import LocationDrawer from "./LocationDrawer";
 import { useLocation } from "../../context/LocationContext";
 import { useProductDetail } from "../../context/ProductDetailContext";
@@ -136,7 +136,7 @@ function CategoryNavColumn({
           style={{
             backgroundColor: indicatorColor,
           }}
-          transition={{ type: "spring", stiffness: 450, damping: 35 }}
+          transition={{ type: "spring", stiffness: 520, damping: 36, mass: 0.7 }}
         />
       )}
     </div>
@@ -241,7 +241,6 @@ const MainLocationHeader = ({
   onCategorySelect,
   isScrolled: isScrolledProp,
 }) => {
-  const { scrollY } = useScroll();
   const { t, language, setLanguage, languages } = useTranslation();
   const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
   const desktopLangDropdownRef = useRef(null);
@@ -265,6 +264,7 @@ const MainLocationHeader = ({
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [internalScrolled, setInternalScrolled] = useState(false);
   const isScrolled = isScrolledProp !== undefined ? isScrolledProp : internalScrolled;
+  const [isMobileCollapsed, setIsMobileCollapsed] = useState(false);
   const { currentLocation, refreshLocation, isFetchingLocation } =
     useLocation();
   const { isOpen: isProductDetailOpen } = useProductDetail();
@@ -273,18 +273,22 @@ const MainLocationHeader = ({
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
   useEffect(() => {
-    // Mobile uses hardware-accelerated Framer Motion transforms directly linked to scrollY.
-    // Desktop only needs internalScrolled to toggle mb-2 vs mb-8 on large screens.
-    if (typeof window === "undefined" || window.innerWidth < 768) return;
-    if (isScrolledProp !== undefined) return;
+    if (typeof window === "undefined") return;
     let ticking = false;
     const handleScroll = () => {
       if (!ticking) {
         window.requestAnimationFrame(() => {
           const currentY = window.scrollY || document.documentElement.scrollTop || 0;
+          // Desktop compact header toggle
           setInternalScrolled((prev) => {
             if (!prev && currentY > 60) return true;
             if (prev && currentY < 25) return false;
+            return prev;
+          });
+          // Mobile collapsible header (collapses past 35px, expands below 15px)
+          setIsMobileCollapsed((prev) => {
+            if (!prev && currentY > 35) return true;
+            if (prev && currentY < 15) return false;
             return prev;
           });
           ticking = false;
@@ -296,7 +300,7 @@ const MainLocationHeader = ({
     window.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [isScrolledProp]);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -357,16 +361,21 @@ const MainLocationHeader = ({
     return () => ro.disconnect();
   }, [categories.length]);
 
-  // Auto-scroll category into view, shifting right-side tabs to the left/center
+  const lastScrolledCatIdRef = useRef("");
+
+  // Auto-scroll category into view, shifting right-side tabs to the left/center immediately
   const scrollCategoryIntoView = (targetEl) => {
     if (!targetEl) return;
+    const catId = targetEl.getAttribute("data-category-id");
+    if (catId) {
+      lastScrolledCatIdRef.current = catId;
+    }
     [mobileNavRef.current, navRef.current].forEach((container) => {
       if (!container) return;
       const containerWidth = container.clientWidth;
       const elOffset = targetEl.offsetLeft;
       const elWidth = targetEl.clientWidth;
 
-      // Center the active category tab in the scroll view so right-side categories become visible
       const targetScrollLeft = Math.max(0, elOffset - (containerWidth / 2) + (elWidth / 2));
       container.scrollTo({
         left: targetScrollLeft,
@@ -375,13 +384,18 @@ const MainLocationHeader = ({
     });
   };
 
-  // Automatically scroll when activeCategory changes
+  // Automatically scroll when activeCategory changes from external navigation (e.g. route switch)
   useEffect(() => {
     if (!activeCategory) return;
     const activeId = String(activeCategory._id || activeCategory.id || "");
     if (!activeId) return;
 
-    const timer = setTimeout(() => {
+    if (lastScrolledCatIdRef.current === activeId) {
+      return; // Already centered smoothly on tap
+    }
+    lastScrolledCatIdRef.current = activeId;
+
+    const rafId = window.requestAnimationFrame(() => {
       [mobileNavRef.current, navRef.current].forEach((container) => {
         if (!container) return;
         const activeEl = container.querySelector(`[data-category-id="${activeId}"]`);
@@ -396,9 +410,9 @@ const MainLocationHeader = ({
           });
         }
       });
-    }, 80);
+    });
 
-    return () => clearTimeout(timer);
+    return () => window.cancelAnimationFrame(rafId);
   }, [activeCategory]);
 
   const checkScroll = () => {
@@ -444,13 +458,7 @@ const MainLocationHeader = ({
   };
 
 
-  // Smooth scroll interpolations
-  const headerTopPadding = useTransform(scrollY, [0, 160], [16, 16]);
-  const headerBottomPadding = useTransform(scrollY, [0, 160], [4, 4]);
-  const headerRoundness = useTransform(scrollY, [0, 160], [0, 0]);
-  const bgOpacity = useTransform(scrollY, [0, 160], [1, 1]);
-
-  // Content animations
+  // Responsive check
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth < 768 : false
   );
@@ -461,28 +469,6 @@ const MainLocationHeader = ({
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
-  // Blinkit-style hardware-accelerated smooth collapse for top section (Logo + Bell + Delivery Card)
-  // Height collapses smoothly from 92px to 0px over first 50px of scroll
-  const mobileTopHeight = useTransform(scrollY, [0, 50], ["92px", "0px"]);
-  // Opacity fades out smoothly over first 32px of scroll
-  const mobileTopOpacity = useTransform(scrollY, [0, 32], [1, 0]);
-  // Subtle upward glide translation for natural feel
-  const mobileTopY = useTransform(scrollY, [0, 50], ["0px", "-16px"]);
-  // Margin collapses to 0px in sync with height
-  const mobileTopMarginBottom = useTransform(scrollY, [0, 50], ["6px", "0px"]);
-  // Disable pointer events when faded out so user cannot tap hidden buttons
-  const mobileTopPointerEvents = useTransform(scrollY, (v) => (v >= 32 ? "none" : "auto"));
-
-  const contentHeight = useTransform(scrollY, [0, 160], ["64px", "64px"]);
-  const contentOpacity = useTransform(scrollY, [0, 160], [1, 1]);
-  const categorySpacing = useTransform(scrollY, [0, 200], [3, 3]);
-  const cartOpacity = useTransform(scrollY, [0, 110, 150], [1, 1, 1]);
-  const cartScale = useTransform(scrollY, [0, 110, 150], [1, 1, 1]);
-
-  // Helper to hide elements completely when collapsed to prevent clicks
-  const displayContent = useTransform(scrollY, (value) => "block");
-  const displayNav = useTransform(scrollY, (value) => "flex");
-  const displayCart = useTransform(scrollY, (value) => "block");
 
   const isAllCategory =
     !activeCategory ||
@@ -525,18 +511,18 @@ const MainLocationHeader = ({
           style={{
             background: targetHeaderColor,
             paddingTop: isMobile
-              ? "calc(env(safe-area-inset-top, 0px) + 7px)"
+              ? "env(safe-area-inset-top, 2px)"
               : (isScrolled ? 16 : 14),
             paddingBottom: 3,
             borderBottomLeftRadius: 24,
             borderBottomRightRadius: 24,
-            opacity: bgOpacity,
+            opacity: 1,
             "--category-header-text-active": "#ffffff",
             "--category-header-text-color": "rgba(255, 255, 255, 0.85)",
             "--category-header-indicator": "#ffffff",
           }}
           className={cn(
-            "customer-location-header pointer-events-auto w-full max-w-full min-w-0 px-4 lg:px-6 xl:px-8 2xl:px-10 overflow-hidden transform-gpu will-change-[transform,background] backdrop-blur-md transition-[padding] duration-150 ease-out",
+            "customer-location-header pointer-events-auto w-full max-w-full min-w-0 px-4 lg:px-6 xl:px-8 2xl:px-10 overflow-hidden transform-gpu will-change-[transform,background]",
             "rounded-b-[24px] shadow-[0_8px_24px_rgba(0,0,0,0.12)]",
             "is-dark-header border-b border-white/10"
           )}>
@@ -574,7 +560,7 @@ const MainLocationHeader = ({
                 data-lenis-prevent
                 data-lenis-prevent-touch
                 onClick={() => setIsLocationOpen(true)}
-                className="customer-delivery-card flex min-w-0 w-[190px] lg:w-[230px] xl:w-[270px] max-w-full shrink items-center gap-1.5 h-[38px] rounded-xl border border-white/20 bg-white/15 px-2.5 text-left shadow-[0_2px_8px_rgba(0,0,0,0.12)] backdrop-blur-xl transition-transform active:scale-[0.99] cursor-pointer"
+                className="customer-delivery-card flex min-w-0 w-[190px] lg:w-[230px] xl:w-[270px] max-w-full shrink items-center gap-1.5 h-[38px] rounded-xl border border-white/20 bg-white/15 px-2.5 text-left shadow-[0_2px_8px_rgba(0,0,0,0.12)] transition-transform active:scale-[0.99] cursor-pointer"
               >
                 <MapPin className="customer-delivery-icon h-3.5 w-3.5 shrink-0 text-white" style={{ color: '#ffffff' }} />
                 <span className="customer-delivery-label shrink-0 text-[11px] font-black text-white tracking-tight uppercase" style={{ color: '#ffffff' }}>HOME</span>
@@ -707,15 +693,11 @@ const MainLocationHeader = ({
           {/* Mobile Header Layout (MOBILE ONLY) */}
           <div className="md:hidden pt-0 pb-1 select-none">
             {/* Top row: Logo/Branding + Bell Button + Location bar (GPU-accelerated smooth collapse on scroll for all categories) */}
-            <motion.div
-              style={{
-                height: mobileTopHeight,
-                opacity: mobileTopOpacity,
-                y: mobileTopY,
-                marginBottom: mobileTopMarginBottom,
-                pointerEvents: mobileTopPointerEvents,
-              }}
-              className="overflow-hidden flex flex-col gap-2.5 transform-gpu will-change-[transform,opacity,height]"
+            <div
+              className={cn(
+                "mobile-header-collapsible flex flex-col gap-2.5",
+                isMobileCollapsed ? "is-collapsed" : "is-expanded"
+              )}
             >
               <div className="flex items-center justify-between">
                 {/* Brand Logo placed inside white card container, image covering full height & width */}
@@ -748,7 +730,7 @@ const MainLocationHeader = ({
                 <button
                   type="button"
                   onClick={() => setIsLocationOpen(true)}
-                  className="customer-delivery-card flex-1 min-w-0 h-[36px] flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/15 px-2.5 text-left shadow-[0_2px_8px_rgba(0,0,0,0.12)] backdrop-blur-xl cursor-pointer active:scale-[0.99] transition-transform"
+                  className="customer-delivery-card flex-1 min-w-0 h-[36px] flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/15 px-2.5 text-left shadow-[0_2px_8px_rgba(0,0,0,0.12)] cursor-pointer active:scale-[0.99] transition-transform"
                 >
                   <MapPin className="customer-delivery-icon h-3.5 w-3.5 shrink-0 text-white" style={{ color: '#ffffff' }} />
                   <span className="customer-delivery-label shrink-0 text-[11px] font-black text-white tracking-tight uppercase" style={{ color: '#ffffff' }}>HOME</span>
@@ -761,7 +743,7 @@ const MainLocationHeader = ({
                 {/* Delivery Time Badge / Logo */}
                 <DeliveryBadge settings={settings} />
               </div>
-            </motion.div>
+            </div>
 
             {/* Bottom row: Search Bar with solid white background, black icons and dynamic category placeholder */}
             <div

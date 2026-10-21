@@ -34,6 +34,8 @@ export const addToCartSchema = Joi.object({
   variantSku: variantSkuField,
   lat: Joi.number().min(-90).max(90).optional(),
   lng: Joi.number().min(-180).max(180).optional(),
+  pincode: Joi.string().allow("", null).optional(),
+  customerPincode: Joi.string().allow("", null).optional(),
   kitAddons: Joi.array().items(
     Joi.object({
       addonId: objectIdLike.required(),

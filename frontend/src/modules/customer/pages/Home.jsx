@@ -308,9 +308,10 @@ const Home = () => {
 
     if (!headerSlug || headerSlug.toLowerCase() === 'all') {
       const allCat = categories.find((c) => c._id === 'all' || c.id === 'all' || c.slug === 'all') || ALL_CATEGORY;
-      if (activeCategory?._id !== allCat._id) {
-        setActiveCategory(allCat);
-      }
+      setActiveCategory((prev) => {
+        if (String(prev?._id || prev?.id) === String(allCat._id || allCat.id)) return prev;
+        return allCat;
+      });
       return;
     }
 
@@ -321,13 +322,16 @@ const Home = () => {
     });
 
     if (matchedCategory) {
-      if (
-        String(activeCategory?._id || activeCategory?.id) !== String(matchedCategory._id || matchedCategory.id) ||
-        activeCategory?.headerColor !== matchedCategory?.headerColor ||
-        activeCategory?.headerFontColor !== matchedCategory?.headerFontColor
-      ) {
-        setActiveCategory(matchedCategory);
-      }
+      setActiveCategory((prev) => {
+        if (
+          String(prev?._id || prev?.id) === String(matchedCategory._id || matchedCategory.id) &&
+          prev?.headerColor === matchedCategory?.headerColor &&
+          prev?.headerFontColor === matchedCategory?.headerFontColor
+        ) {
+          return prev;
+        }
+        return matchedCategory;
+      });
     }
   }, [headerSlug, categories]);
 
@@ -853,12 +857,14 @@ const Home = () => {
         navigate(`/${catSlug}`, { replace: false });
       }
     }
-    window.scrollTo({ top: 0, behavior: "instant" });
+    if (window.scrollY > 0) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   return (
     <div
-      className="min-h-screen bg-white pt-[calc(199px+env(safe-area-inset-top,0px))] sm:pt-[calc(205px+env(safe-area-inset-top,0px))] md:pt-[168px]"
+      className="min-h-screen bg-white pt-[calc(194px+env(safe-area-inset-top,0px))] sm:pt-[calc(200px+env(safe-area-inset-top,0px))] md:pt-[168px]"
     >
       <MainLocationHeader 
         categories={displayCategories} 
@@ -866,11 +872,10 @@ const Home = () => {
         onCategorySelect={handleCategorySelect}
       />
 
-      {isLoading && !cachedHomePageData && categories.length <= 1 ? <PageSkeleton variant="home-content" /> : <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-      >
+      {isLoading && !cachedHomePageData && categories.length <= 1 ? (
+        <PageSkeleton variant="home-content" />
+      ) : (
+        <div className="w-full transition-opacity duration-150">
         {isAllCategorySelected && (() => {
           const configuredBanners = (heroConfig.banners?.items || []).filter(
             (b) => b && b.imageUrl && b.status !== "inactive"
@@ -978,7 +983,8 @@ const Home = () => {
             />
           </div>
         )}
-      </motion.div>}
+      </div>
+      )}
     </div>
   );
 };

@@ -46,34 +46,87 @@ export function isPincodeLocalSync(pincode) {
   return cachedLocalPincodes.has(clean);
 }
 
+export {
+  categoryDeliveryModeCache,
+  registerCategoryDeliveryMode,
+  registerCategoriesDeliveryModes,
+} from "./deliveryCache";
+import { categoryDeliveryModeCache } from "./deliveryCache";
+
 /**
  * Resolves whether a product is "quick_only" or "both" based on product override,
- * category setting, or perishable heuristics.
+ * category setting set by admin, or perishable heuristics.
  */
 export function resolveProductDeliveryMode(product) {
   if (!product) return "both";
 
+  // 1. Explicit product override takes precedence
   const pMode = product.deliveryMode;
   if (pMode === "quick_only" || pMode === "both") {
     return pMode;
   }
 
-  // Check populated category / header
-  const cat = product.categoryId || product.headerId;
-  if (cat && typeof cat === "object") {
-    if (cat.deliveryMode === "quick_only" || cat.deliveryMode === "both") {
-      return cat.deliveryMode;
+  // 2. Check candidate category / header / subcategory objects
+  const candidateObjects = [
+    product.headerId,
+    product.header,
+    product.headerCategory,
+    product.categoryId,
+    product.category,
+    product.subcategoryId,
+    product.subcategory,
+  ];
+  for (const cat of candidateObjects) {
+    if (cat && typeof cat === "object") {
+      if (cat.deliveryMode === "quick_only" || cat.deliveryMode === "both") {
+        return cat.deliveryMode;
+      }
     }
   }
 
-  // Perishable keywords heuristic fallback
-  const textToCheck = `${product.name || ""} ${product.brand || ""} ${cat?.name || ""}`.toLowerCase();
+  // 3. Check candidate IDs against category deliveryMode cache (populated from admin config)
+  const candidateIds = [
+    product.headerId?._id || product.headerId,
+    product.categoryId?._id || product.categoryId,
+    product.subcategoryId?._id || product.subcategoryId,
+    product.header?._id || product.header?.id,
+  ];
+  for (const id of candidateIds) {
+    if (id && (typeof id === "string" || typeof id === "number")) {
+      const cached = categoryDeliveryModeCache.get(String(id).toLowerCase());
+      if (cached === "quick_only" || cached === "both") {
+        return cached;
+      }
+    }
+  }
+
+  // 4. Check category slug for grocery
+  for (const cat of candidateObjects) {
+    if (cat && typeof cat === "object") {
+      const slug = String(cat.slug || "").toLowerCase();
+      if (slug === "grocery" || slug === "kirana" || slug === "fresh") {
+        return "quick_only";
+      }
+    }
+  }
+
+  // 5. Check category names or product names
+  const textToCheck = [
+    product.name,
+    product.brand,
+    product.headerId?.name,
+    product.categoryId?.name,
+    product.subcategoryId?.name,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
   const perishableKeywords = [
-    "milk", "doodh", "paneer", "dahi", "curd", "vegetable", "sabzi",
+    "grocery", "kirana", "milk", "doodh", "paneer", "dahi", "curd", "vegetable", "sabzi",
     "fruits", "bread", "dairy", "butter", "egg", "meat", "chicken"
   ];
-  const isPerishable = perishableKeywords.some((kw) => textToCheck.includes(kw));
-  if (isPerishable) {
+  if (perishableKeywords.some((kw) => textToCheck.includes(kw))) {
     return "quick_only";
   }
 
@@ -91,37 +144,108 @@ export function evaluateProductDelivery(product, customerPincode) {
   const cleanCustomerPincode = customerPincode ? String(customerPincode).trim() : "";
   const isCustomerLocal = Boolean(cleanCustomerPincode && isPincodeLocalSync(cleanCustomerPincode));
 
-  // An unknown seller origin must not be treated as local.
+  // Determine seller origin pincode
   const sellerPincode = String(
     product?.sellerId?.pincode || product?.warehouseId?.pincode || ""
   ).trim();
-  const isSellerLocal = isPincodeLocalSync(sellerPincode);
+  const isSellerLocal = Boolean(sellerPincode && isPincodeLocalSync(sellerPincode));
 
   const deliveryMode = resolveProductDeliveryMode(product);
 
-  // Seller and customer both need active local pincodes for rider delivery.
+  const createBadge = (type, label) => ({
+    type,
+    label,
+    toString() {
+      return label;
+    },
+  });
+
+  // ── Mode 1: Quick Delivery Only ──
+  if (deliveryMode === "quick_only") {
+    // If BOTH customer and seller are within local delivery pincodes
+    if (isCustomerLocal && isSellerLocal) {
+      return {
+        isDeliverable: true,
+        canAddToCart: true,
+        deliveryMode: "quick_only",
+        fulfillmentType: "LOCAL_RIDERS",
+        badge: null,
+        deliveryEstimate: "15-20 mins",
+        isCustomerLocal: true,
+        isSellerLocal: true,
+        warning: null,
+      };
+    }
+
+    // Customer has not selected or entered a pincode yet
+    if (!cleanCustomerPincode) {
+      return {
+        isDeliverable: false,
+        canAddToCart: false,
+        deliveryMode: "quick_only",
+        fulfillmentType: null,
+        badge: null,
+        deliveryEstimate: null,
+        isCustomerLocal: false,
+        isSellerLocal,
+        warning: "Please select a delivery location to check availability",
+      };
+    }
+
+    // Customer is outside local delivery zone
+    if (!isCustomerLocal) {
+      return {
+        isDeliverable: false,
+        canAddToCart: false,
+        deliveryMode: "quick_only",
+        fulfillmentType: null,
+        badge: createBadge("unserviceable", "❌ OUT OF ZONE"),
+        deliveryEstimate: null,
+        isCustomerLocal: false,
+        isSellerLocal,
+        warning: `Quick delivery is not available at pincode ${cleanCustomerPincode}. Fresh grocery items are only delivered in local areas.`,
+      };
+    }
+
+    // Customer is local, but seller is outside local delivery zone (e.g., Indore)
+    return {
+      isDeliverable: false,
+      canAddToCart: false,
+      deliveryMode: "quick_only",
+      fulfillmentType: null,
+      badge: createBadge("unserviceable", "❌ OUT OF ZONE"),
+      deliveryEstimate: null,
+      isCustomerLocal: true,
+      isSellerLocal: false,
+      warning: "This grocery item is stocked outside the local delivery zone and cannot be delivered.",
+    };
+  }
+
+  // ── Mode 2: Both (Local 15-min riders if both local, else Shiprocket 3-4 days courier) ──
   if (isCustomerLocal && isSellerLocal) {
     return {
       isDeliverable: true,
       canAddToCart: true,
-      deliveryMode,
+      deliveryMode: "both",
       fulfillmentType: "LOCAL_RIDERS",
-      badge: "⚡ 20-35 Mins",
-      deliveryEstimate: "20-35 mins",
+      badge: null,
+      deliveryEstimate: "15-20 mins",
       isCustomerLocal: true,
+      isSellerLocal: true,
       warning: null,
     };
   }
 
-  // Delivered via Shiprocket
+  // Fallback to Pan-India Shiprocket courier (No badge on product cards as requested)
   return {
     isDeliverable: true,
     canAddToCart: true,
-    deliveryMode,
+    deliveryMode: "both",
     fulfillmentType: "SHIPROCKET",
-    badge: "📦 Standard (3-4 Days)",
+    badge: null,
     deliveryEstimate: "3-4 business days",
-    isCustomerLocal: isCustomerLocal,
+    isCustomerLocal,
+    isSellerLocal,
     warning: null,
   };
 }

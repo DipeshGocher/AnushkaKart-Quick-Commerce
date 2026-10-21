@@ -126,17 +126,26 @@ describe("Hybrid Delivery Architecture - Local vs Shiprocket", () => {
           ? { pincode, deliveryTimeEstimate: "20-35 mins", isActive: true }
           : null),
       }));
-      const scenarios = [
+      const bothScenarios = [
         ["284204", "284205", "LOCAL_RIDERS"],
         ["284204", "110001", "SHIPROCKET"],
         ["110001", "284204", "SHIPROCKET"],
         ["110001", "110002", "SHIPROCKET"],
         ["284204", "", "SHIPROCKET"],
       ];
-      for (const [customerPincode, sellerPincode, expected] of scenarios) {
-        const result = await evaluateDeliveryEligibility({ customerPincode, sellerPincode, deliveryMode: "quick_only" });
+      for (const [customerPincode, sellerPincode, expected] of bothScenarios) {
+        const result = await evaluateDeliveryEligibility({ customerPincode, sellerPincode, deliveryMode: "both" });
         expect(result.fulfillmentType).toBe(expected);
       }
+
+      // quick_only: only local riders if both local, else blocked (fulfillmentType: null, isDeliverable: false)
+      const quickLocal = await evaluateDeliveryEligibility({ customerPincode: "284204", sellerPincode: "284205", deliveryMode: "quick_only" });
+      expect(quickLocal.isDeliverable).toBe(true);
+      expect(quickLocal.fulfillmentType).toBe("LOCAL_RIDERS");
+
+      const quickOutside = await evaluateDeliveryEligibility({ customerPincode: "284204", sellerPincode: "110001", deliveryMode: "quick_only" });
+      expect(quickOutside.isDeliverable).toBe(false);
+      expect(quickOutside.fulfillmentType).toBe(null);
     });
   });
 

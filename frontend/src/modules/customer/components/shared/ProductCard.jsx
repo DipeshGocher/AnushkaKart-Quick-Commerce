@@ -122,17 +122,12 @@ const ProductCard = ({ product, className, priority = false }) => {
         className="product-image-wrapper relative w-full rounded-[12px] bg-[#F0F0F0] flex items-center justify-center overflow-hidden"
         style={{ aspectRatio: "0.88" }}
       >
-        {/* Delivery Mode Badge (Top-Left) */}
-        {deliveryBadge && (
+        {/* Out of Zone Delivery Badge (Top-Left) */}
+        {deliveryBadge && deliveryBadge.type === "unserviceable" && (
           <div
-            className={cn(
-              "absolute top-2 left-2 z-20 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider shadow-xs flex items-center gap-1",
-              deliveryBadge.type === "quick" && "bg-emerald-600 text-white shadow-emerald-700/20",
-              deliveryBadge.type === "courier" && "bg-sky-600 text-white shadow-sky-700/20",
-              deliveryBadge.type === "unserviceable" && "bg-red-500 text-white shadow-red-600/20"
-            )}
+            className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider shadow-xs flex items-center gap-1 bg-red-500 text-white shadow-red-600/20"
           >
-            <span>{deliveryBadge.label}</span>
+            <span>{deliveryBadge.label || "❌ Out of Zone"}</span>
           </div>
         )}
 

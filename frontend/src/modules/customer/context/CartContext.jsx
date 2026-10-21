@@ -246,6 +246,7 @@ export const CartProvider = ({ children }) => {
           productId: id,
           variantSku,
           quantity: defaultQuantity,
+          pincode: destinationPincode,
         };
         if (options.kitAddons) {
             payload.kitAddons = options.kitAddons;

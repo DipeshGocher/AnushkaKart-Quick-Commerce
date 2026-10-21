@@ -96,7 +96,14 @@ import {
 import { buildKey, getOrSet, getTTL, invalidate } from "../services/cacheService.js";
 import { uploadToCloudinary } from "../services/mediaService.js";
 import logger from "../services/logger.js";
-import { resolveCategoryName, resolveSellerName, resolveWarehouseName } from "../services/entityNameCache.js";
+import {
+  resolveCategoryName,
+  resolveSellerName,
+  resolveWarehouseName,
+  resolveCategoryMeta,
+  resolveSellerMeta,
+  resolveWarehouseMeta,
+} from "../services/entityNameCache.js";
 import {
   PRODUCT_APPROVAL_STATUS,
   getProductApprovalConfig,
@@ -801,40 +808,80 @@ export const getProducts = async (req, res) => {
         if (p.warehouseId) warehouseIdSet.add(String(p.warehouseId));
       }
 
-      // Resolve names in parallel via cache-backed service
+      // Resolve metadata in parallel via cache-backed service
       const [categoryEntries, sellerEntries, warehouseEntries] = await Promise.all([
         Promise.all(
-          [...categoryIdSet].map(async (id) => [id, await resolveCategoryName(id)]),
+          [...categoryIdSet].map(async (id) => [id, await resolveCategoryMeta(id)]),
         ),
         Promise.all(
-          [...sellerIdSet].map(async (id) => [id, await resolveSellerName(id)]),
+          [...sellerIdSet].map(async (id) => [id, await resolveSellerMeta(id)]),
         ),
         Promise.all(
-          [...warehouseIdSet].map(async (id) => [id, await resolveWarehouseName(id)]),
+          [...warehouseIdSet].map(async (id) => [id, await resolveWarehouseMeta(id)]),
         ),
       ]);
 
-      const nameMap = Object.fromEntries([...categoryEntries, ...sellerEntries, ...warehouseEntries]);
+      const catMap = Object.fromEntries(categoryEntries);
+      const sellerMap = Object.fromEntries(sellerEntries);
+      const warehouseMap = Object.fromEntries(warehouseEntries);
 
       // Enrich products to match the shape previously returned by .populate()
-      const products = rawProducts.map((p) => ({
-        ...p,
-        headerId: p.headerId
-          ? { _id: p.headerId, name: nameMap[String(p.headerId)] ?? null }
-          : null,
-        categoryId: p.categoryId
-          ? { _id: p.categoryId, name: nameMap[String(p.categoryId)] ?? null }
-          : null,
-        subcategoryId: p.subcategoryId
-          ? { _id: p.subcategoryId, name: nameMap[String(p.subcategoryId)] ?? null }
-          : null,
-        sellerId: p.sellerId
-          ? { _id: p.sellerId, shopName: nameMap[String(p.sellerId)] ?? null }
-          : null,
-        warehouseId: p.warehouseId
-          ? { _id: p.warehouseId, name: nameMap[String(p.warehouseId)] ?? null }
-          : null,
-      }));
+      const products = rawProducts.map((p) => {
+        const hMeta = p.headerId ? catMap[String(p.headerId)] : null;
+        const cMeta = p.categoryId ? catMap[String(p.categoryId)] : null;
+        const sMeta = p.subcategoryId ? catMap[String(p.subcategoryId)] : null;
+        const selMeta = p.sellerId ? sellerMap[String(p.sellerId)] : null;
+        const whMeta = p.warehouseId ? warehouseMap[String(p.warehouseId)] : null;
+
+        return {
+          ...p,
+          headerId: p.headerId
+            ? {
+                _id: p.headerId,
+                name: hMeta?.name ?? null,
+                slug: hMeta?.slug ?? null,
+                deliveryMode: hMeta?.deliveryMode ?? "both",
+                catalogType: hMeta?.catalogType ?? null,
+              }
+            : null,
+          categoryId: p.categoryId
+            ? {
+                _id: p.categoryId,
+                name: cMeta?.name ?? null,
+                slug: cMeta?.slug ?? null,
+                deliveryMode: cMeta?.deliveryMode ?? "both",
+                catalogType: cMeta?.catalogType ?? null,
+              }
+            : null,
+          subcategoryId: p.subcategoryId
+            ? {
+                _id: p.subcategoryId,
+                name: sMeta?.name ?? null,
+                slug: sMeta?.slug ?? null,
+                deliveryMode: sMeta?.deliveryMode ?? "both",
+                catalogType: sMeta?.catalogType ?? null,
+              }
+            : null,
+          sellerId: p.sellerId
+            ? {
+                _id: p.sellerId,
+                shopName: selMeta?.shopName ?? null,
+                pincode: selMeta?.pincode ?? null,
+                city: selMeta?.city ?? null,
+                state: selMeta?.state ?? null,
+              }
+            : null,
+          warehouseId: p.warehouseId
+            ? {
+                _id: p.warehouseId,
+                name: whMeta?.name ?? null,
+                pincode: whMeta?.pincode ?? null,
+                city: whMeta?.city ?? null,
+                state: whMeta?.state ?? null,
+              }
+            : null,
+        };
+      });
 
       return {
         items: normalizeProductListModeration(products),
@@ -2137,7 +2184,7 @@ export const getHeaderProducts = async (req, res) => {
           }
 
           let items = await Product.find(prodQuery)
-            .select("_id name slug price salePrice mainImage variants rating ratingsCount weight unit brand isFeatured isTopDeal")
+            .select("_id name slug price salePrice mainImage variants rating ratingsCount weight unit brand isFeatured isTopDeal deliveryMode headerId categoryId subcategoryId sellerId warehouseId")
             .sort({ isFeatured: -1, createdAt: -1 })
             .limit(limit)
             .lean();
@@ -2145,7 +2192,7 @@ export const getHeaderProducts = async (req, res) => {
           if ((!items || items.length === 0) && sellerFilter) {
             delete prodQuery.$and;
             items = await Product.find(prodQuery)
-              .select("_id name slug price salePrice mainImage variants rating ratingsCount weight unit brand isFeatured isTopDeal")
+              .select("_id name slug price salePrice mainImage variants rating ratingsCount weight unit brand isFeatured isTopDeal deliveryMode headerId categoryId subcategoryId sellerId warehouseId")
               .sort({ isFeatured: -1, createdAt: -1 })
               .limit(limit)
               .lean();
@@ -2166,6 +2213,7 @@ export const getHeaderProducts = async (req, res) => {
               headerColor: header.headerColor || null,
               headerFontColor: header.headerFontColor || null,
               sortOrder: header.sortOrder ?? 0,
+              deliveryMode: header.deliveryMode || "both",
             },
             products: (items || []).map((p) => {
               const firstVar = p.variants?.[0];
@@ -2176,6 +2224,14 @@ export const getHeaderProducts = async (req, res) => {
               return {
                 ...p,
                 id: p._id,
+                deliveryMode: p.deliveryMode || header.deliveryMode || "inherit",
+                headerId: p.headerId || header._id,
+                headerCategory: {
+                  _id: header._id,
+                  name: header.name,
+                  slug: header.slug,
+                  deliveryMode: header.deliveryMode || "both",
+                },
                 image: p.mainImage || (p.variants?.[0]?.images?.[0]) || "",
                 price: hasVarDiscount ? vSalePrice : (p.salePrice || p.price),
                 originalPrice: hasVarDiscount ? vPrice : (p.price || p.salePrice),

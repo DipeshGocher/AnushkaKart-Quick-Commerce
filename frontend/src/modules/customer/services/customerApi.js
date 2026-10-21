@@ -1,5 +1,6 @@
 import axiosInstance from "@core/api/axios";
 import { getWithDedupe, invalidateCache, TTL } from "@core/api/dedupe";
+import { registerCategoriesDeliveryModes } from "./deliveryCache";
 
 export const customerApi = {
   sendLoginOtp: (data) => axiosInstance.post("/customer/send-login-otp", data),
@@ -14,10 +15,37 @@ export const customerApi = {
   deleteAccount: () => axiosInstance.delete("/customer/delete-account"),
   getWalletTransactions: (params) =>
     getWithDedupe("/customer/transactions", params),
-  getCategories: (params) =>
-    getWithDedupe("/categories", params, { ttl: TTL.LONG }),  // 5 min — categories rarely change
+  getCategories: async (params) => {
+    const res = await getWithDedupe("/categories", params, { ttl: TTL.LONG });
+    try {
+      const data =
+        res?.data?.results ||
+        res?.data?.result ||
+        res?.data?.items ||
+        res?.data ||
+        res;
+      if (Array.isArray(data)) registerCategoriesDeliveryModes(data);
+    } catch (e) {}
+    return res;
+  },
   getProducts: (params) => getWithDedupe("/products", params, { ttl: TTL.MEDIUM }),
-  getHeaderProducts: (params) => getWithDedupe("/products/header-products", params, { ttl: TTL.MEDIUM }),
+  getHeaderProducts: async (params) => {
+    const res = await getWithDedupe("/products/header-products", params, { ttl: TTL.MEDIUM });
+    try {
+      const sections =
+        res?.data?.results ||
+        res?.data?.result ||
+        res?.data?.items ||
+        res?.data ||
+        res;
+      if (Array.isArray(sections)) {
+        sections.forEach((s) => {
+          if (s?.header) registerCategoriesDeliveryModes([s.header]);
+        });
+      }
+    } catch (e) {}
+    return res;
+  },
   getProductById: (id, params) => getWithDedupe(`/products/${id}`, params),
 
   // Sellers & Location
