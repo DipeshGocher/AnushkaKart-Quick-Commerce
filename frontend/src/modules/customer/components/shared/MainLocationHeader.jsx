@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useCart } from "../../context/CartContext";
 import { customerApi } from "../../services/customerApi";
 import CategoryIcon from "@shared/components/CategoryIcon";
+import { MapPin, Home, ChevronRight, LayoutGrid, ShoppingBag, Zap } from 'lucide-react';
 import { getCustomerHeaderColor, buildMiniCartColor, isBrightColor, getCategoryHeaderColor, getCategoryHeaderTextColor, getBaseHexColor } from "../../utils/headerTheme";
 import { setStatusBarColor } from "@/core/utils/statusBar";
 import VoiceSearchModal from "./VoiceSearchModal";
