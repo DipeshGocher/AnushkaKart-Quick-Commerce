@@ -18,9 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import ParticleBurst from './ParticleBurst';
 import ProductCard from './ProductCard';
-
-
-
+import { setStatusBarColor } from '@/core/utils/statusBar';
 
 const extendedProductMemoryCache = new Map();
 const reviewsMemoryCache = new Map();
@@ -28,6 +26,12 @@ const similarProductsMemoryCache = new Map();
 
 const ProductDetailSheet = () => {
     const { selectedProduct, isOpen, closeProduct } = useProductDetail();
+
+    useEffect(() => {
+        if (isOpen) {
+            setStatusBarColor('#3478d3', false);
+        }
+    }, [isOpen]);
     const { 
         cart, 
         cartCount, 

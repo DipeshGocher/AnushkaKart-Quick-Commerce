@@ -13,6 +13,7 @@ import { useAuth } from '@core/context/AuthContext';
 import { onReturnPickupOtp, onReturnDropOtp } from '@core/services/orderSocket';
 import { toast } from 'sonner';
 import { ShieldCheck, Package } from 'lucide-react';
+import { setStatusBarColor } from '@/core/utils/statusBar';
 
 
 const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = false, showCart: showCartProp, showBottomNav: showBottomNavProp }) => {
@@ -97,6 +98,52 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
     const showHeader = showHeaderProp !== undefined ? showHeaderProp : (!hideHeaderRoutes.includes(path) && !isHeaderCategoryRoute && !path.startsWith('/category') && !path.startsWith('/orders') && !path.startsWith('/products') && !path.startsWith('/product') && !isHierarchicalProduct);
     const showBottomNav = showBottomNavProp !== undefined ? showBottomNavProp : !hideBottomNavRoutes.includes(path);
     const showCart = showCartProp !== undefined ? showCartProp : (!hideCartRoutes.includes(path) && !path.startsWith('/orders'));
+
+    // Synchronize Mobile Status Bar (Android / Flutter WebView / PWA)
+    useEffect(() => {
+        // Priority 1: When Product Detail Sheet is open, match its search header color (#3478d3)
+        if (isProductDetailOpen) {
+            setStatusBarColor('#3478d3', false);
+            return;
+        }
+
+        const currentPath = location.pathname.replace(/\/$/, '') || '/';
+
+        // Priority 2: Pure White Header Pages (Profile, Orders, Cart, Categories, Search, etc.)
+        const whiteHeaderRoutes = [
+            '/profile', '/profile/edit', '/categories', '/cart', '/search',
+            '/orders', '/transactions', '/addresses', '/wishlist', '/wallet',
+            '/settings', '/help', '/support', '/about', '/privacy', '/privacy-policy',
+            '/terms', '/terms-and-conditions', '/terms-conditions', '/terms&conditions', '/term-and-conditions',
+            '/checkout', '/notifications', '/chat', '/offers'
+        ];
+
+        const isWhiteHeader = whiteHeaderRoutes.some(
+            (r) => currentPath === r || currentPath.startsWith('/orders/')
+        );
+
+        if (isWhiteHeader) {
+            setStatusBarColor('#FFFFFF', true);
+            return;
+        }
+
+        // Priority 3: Custom colored section headers
+        if (currentPath === '/products') {
+            setStatusBarColor('#0ea5e9', false);
+            return;
+        }
+
+        if (currentPath.startsWith('/category/')) {
+            setStatusBarColor('#028ce8', false);
+            return;
+        }
+
+        // Priority 4: Home page or Header Category page
+        if (currentPath === '/' || isHeaderCategoryRoute) {
+            const activeHomeColor = document.documentElement.style.getPropertyValue('--customer-header-base-color')?.trim();
+            setStatusBarColor(activeHomeColor || '#0A24AC', false);
+        }
+    }, [location.pathname, isProductDetailOpen, isHeaderCategoryRoute]);
 
     // Condition to hide the MobileFooterMessage ("Sab kuchh ek basket mein") on specific pages
     const hideFooterMessageRoutes = ['/profile', '/profile/edit', '/categories'];

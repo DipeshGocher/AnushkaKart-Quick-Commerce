@@ -27,6 +27,29 @@ const AppZetoBridge = {
   },
 
   /**
+   * Send status bar color and brightness configuration to Flutter
+   * @param {string} color - Hex color code
+   * @param {boolean} darkIcons - Whether status bar icons should be dark/black
+   */
+  setStatusBarColor: (color, darkIcons = false) => {
+    if (window.Flutter && typeof window.Flutter.postMessage === 'function') {
+      try {
+        window.Flutter.postMessage(JSON.stringify({
+          type: 'set_status_bar',
+          color: color,
+          darkIcons: Boolean(darkIcons),
+          statusBarColor: color,
+          isDark: Boolean(darkIcons),
+        }));
+      } catch (_) {
+        try {
+          window.Flutter.postMessage(`set_status_bar:${color}`);
+        } catch (__) {}
+      }
+    }
+  },
+
+  /**
    * Listen for responses from Flutter
    * @param {Function} callback - Function to handle the response
    */

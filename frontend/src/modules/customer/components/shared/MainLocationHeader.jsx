@@ -9,8 +9,8 @@ import { cn } from "@/lib/utils";
 import { useCart } from "../../context/CartContext";
 import { customerApi } from "../../services/customerApi";
 import CategoryIcon from "@shared/components/CategoryIcon";
-import { MapPin, Home, ChevronRight, LayoutGrid, ShoppingBag, Zap } from 'lucide-react';
-import { getCustomerHeaderColor, buildMiniCartColor, isBrightColor, getCategoryHeaderColor, getCategoryHeaderTextColor } from "../../utils/headerTheme";
+import { getCustomerHeaderColor, buildMiniCartColor, isBrightColor, getCategoryHeaderColor, getCategoryHeaderTextColor, getBaseHexColor } from "../../utils/headerTheme";
+import { setStatusBarColor } from "@/core/utils/statusBar";
 import VoiceSearchModal from "./VoiceSearchModal";
 
 
@@ -488,12 +488,20 @@ const MainLocationHeader = ({
   useEffect(() => {
     const c = buildMiniCartColor(baseHeaderColor);
     document.documentElement.style.setProperty("--customer-mini-cart-color", c);
+    
+    // Synchronize status bar color when category changes on Home
+    const topHex = getBaseHexColor(targetHeaderColor);
+    document.documentElement.style.setProperty("--customer-header-base-color", topHex);
+    if (!isProductDetailOpen) {
+      setStatusBarColor(topHex);
+    }
+
     return () => {
       document.documentElement.style.removeProperty(
         "--customer-mini-cart-color",
       );
     };
-  }, [baseHeaderColor]);
+  }, [baseHeaderColor, targetHeaderColor, isProductDetailOpen]);
 
   return (
     <>

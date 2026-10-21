@@ -12,12 +12,17 @@ import { useSettings } from '@core/context/SettingsContext';
 import { useTranslation } from '@core/context/LanguageContext';
 import { cn } from '@/lib/utils';
 import AccountDesktopLayout from '../components/layout/AccountDesktopLayout';
+import { setStatusBarColor } from '@/core/utils/statusBar';
 
 const ProfilePage = () => {
     const navigate = useNavigate();
     const { user, logout } = useAuth();
     const { settings } = useSettings();
     const { t } = useTranslation();
+
+    React.useEffect(() => {
+        setStatusBarColor('#FFFFFF', true);
+    }, []);
     const appName = settings?.appName || 'App';
     const [showLogoutModal, setShowLogoutModal] = React.useState(false);
     const [showDeleteModal, setShowDeleteModal] = React.useState(false);
