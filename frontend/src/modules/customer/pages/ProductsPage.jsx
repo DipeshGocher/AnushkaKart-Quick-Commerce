@@ -38,6 +38,13 @@ const shuffleArray = (array) => {
   return shuffled;
 };
 
+let productsPageMemoryCache = {
+  rawProducts: [],
+  headerCategories: [],
+  allCategoriesMap: {},
+  allSubcategoriesMap: {},
+};
+
 const ProductsPage = () => {
   const { openProduct } = useProductDetail();
   const navigate = useNavigate();
@@ -55,12 +62,12 @@ const ProductsPage = () => {
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [selectedHeaderId, setSelectedHeaderId] = useState(initialCategory);
 
-  const [headerCategories, setHeaderCategories] = useState([]);
-  const [allCategoriesMap, setAllCategoriesMap] = useState({});
-  const [allSubcategoriesMap, setAllSubcategoriesMap] = useState({});
+  const [headerCategories, setHeaderCategories] = useState(() => productsPageMemoryCache.headerCategories);
+  const [allCategoriesMap, setAllCategoriesMap] = useState(() => productsPageMemoryCache.allCategoriesMap);
+  const [allSubcategoriesMap, setAllSubcategoriesMap] = useState(() => productsPageMemoryCache.allSubcategoriesMap);
 
-  const [rawProducts, setRawProducts] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [rawProducts, setRawProducts] = useState(() => productsPageMemoryCache.rawProducts);
+  const [isLoading, setIsLoading] = useState(() => productsPageMemoryCache.rawProducts.length === 0);
   const [activeSort, setActiveSort] = useState('relevance');
   const [isSortModalOpen, setIsSortModalOpen] = useState(false);
 
@@ -100,6 +107,9 @@ const ProductsPage = () => {
             if (c.type === 'category') catMap[c._id] = c;
             if (c.type === 'subcategory') subMap[c._id] = c;
           });
+          productsPageMemoryCache.headerCategories = headers;
+          productsPageMemoryCache.allCategoriesMap = catMap;
+          productsPageMemoryCache.allSubcategoriesMap = subMap;
           setAllCategoriesMap(catMap);
           setAllSubcategoriesMap(subMap);
         }
@@ -119,7 +129,9 @@ const ProductsPage = () => {
     let cancelled = false;
 
     const fetchProducts = async () => {
-      setIsLoading(true);
+      if (productsPageMemoryCache.rawProducts.length === 0 || debouncedQuery.trim() || (selectedHeaderId && selectedHeaderId !== 'all')) {
+        setIsLoading(true);
+      }
       try {
         const params = {
           limit: 150,
@@ -150,11 +162,12 @@ const ProductsPage = () => {
 
         if (!cancelled) {
           // If viewing All and no search query, shuffle for random mix
-          if ((!selectedHeaderId || selectedHeaderId === 'all') && !debouncedQuery.trim()) {
-            setRawProducts(shuffleArray(items));
-          } else {
-            setRawProducts(items);
+          const isDefaultView = (!selectedHeaderId || selectedHeaderId === 'all') && !debouncedQuery.trim();
+          const finalItems = isDefaultView ? shuffleArray(items) : items;
+          if (isDefaultView) {
+            productsPageMemoryCache.rawProducts = finalItems;
           }
+          setRawProducts(finalItems);
         }
       } catch (err) {
         console.error('Failed to fetch products:', err);

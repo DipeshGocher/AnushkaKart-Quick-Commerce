@@ -13,6 +13,8 @@ import {
   Globe,
   MapPin,
   CheckCircle,
+  Building2,
+  CreditCard,
 } from "lucide-react";
 import { sellerApi } from "../services/sellerApi";
 import { toast } from "sonner";
@@ -35,6 +37,15 @@ const SellerProfile = () => {
     lng: null,
     radius: 5,
     address: "",
+    locality: "",
+    pincode: "",
+    city: "",
+    state: "",
+    bankName: "",
+    accountNumber: "",
+    ifsc: "",
+    accountHolder: "",
+    upiId: "",
   });
 
   useEffect(() => {
@@ -44,13 +55,14 @@ const SellerProfile = () => {
   const fetchProfile = async () => {
     try {
       const response = await sellerApi.getProfile();
-      const data = response.data.result;
+      const data = response.data.result || response.data.data;
+      const bank = data?.bankDetails || {};
       setProfile(data);
       setFormData({
-        name: data.name,
-        shopName: data.shopName,
-        phone: data.phone,
-        email: data.email,
+        name: data.name || "",
+        shopName: data.shopName || "",
+        phone: data.phone || "",
+        email: data.email || "",
         lat: data.location?.coordinates[1] || null,
         lng: data.location?.coordinates[0] || null,
         radius: data.serviceRadius || 5,
@@ -59,6 +71,11 @@ const SellerProfile = () => {
         pincode: data.pincode || "",
         city: data.city || "",
         state: data.state || "",
+        bankName: bank.bankName || data.bankName || "",
+        accountNumber: bank.accountNumber || data.accountNumber || "",
+        ifsc: bank.ifscCode || bank.ifsc || data.ifsc || "",
+        accountHolder: bank.accountHolderName || bank.accountHolder || data.accountHolder || data.name || "",
+        upiId: bank.upiId || "",
       });
     } catch (error) {
       toast.error("Failed to fetch profile");
@@ -96,6 +113,11 @@ const SellerProfile = () => {
     } else if (name === "email") {
       // Trim spaces, keep as-is otherwise; HTML5 type=email will help validate shape
       setFormData({ ...formData, [name]: value.trimStart() });
+    } else if (name === "ifsc") {
+      setFormData({ ...formData, [name]: value.toUpperCase().trim() });
+    } else if (name === "accountNumber") {
+      const digitsOnly = value.replace(/[^0-9]/g, "");
+      setFormData({ ...formData, [name]: digitsOnly });
     } else {
       setFormData({ ...formData, [name]: value });
     }
@@ -125,6 +147,15 @@ const SellerProfile = () => {
         lat: formData.lat,
         lng: formData.lng,
         radius: formData.radius,
+        bankDetails: {
+          bankName: formData.bankName,
+          accountNumber: formData.accountNumber,
+          ifsc: formData.ifsc,
+          ifscCode: formData.ifsc,
+          accountHolder: formData.accountHolder,
+          accountHolderName: formData.accountHolder,
+          upiId: formData.upiId,
+        },
       };
       await sellerApi.updateProfile(payload);
       toast.success("Profile updated successfully");
@@ -349,6 +380,152 @@ const SellerProfile = () => {
                 </div>
               </div>
             </form>
+          </Card>
+
+          {/* Bank Account & Payout Details Card */}
+          <Card className="p-5 sm:p-7 md:p-8 border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] rounded-2xl border-t-4 border-t-emerald-500 bg-white">
+            <div className="flex flex-wrap justify-between items-center gap-3 mb-6 sm:mb-8 border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold shadow-sm shrink-0">
+                  <Building2 size={20} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                    Bank Account & Payout Details
+                    {formData.accountNumber && formData.bankName ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <CheckCircle size={10} /> Linked
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                        Missing
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">Bank details used for withdrawing your settled earnings</p>
+                </div>
+              </div>
+              {!isEditing && (
+                <Button
+                  onClick={() => setIsEditing(true)}
+                  className="bg-slate-900 text-white hover:bg-black rounded-lg px-5 py-2 text-[10px] font-black tracking-[2px] shrink-0">
+                  {formData.accountNumber ? "EDIT BANK" : "ADD BANK"}
+                </Button>
+              )}
+            </div>
+
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-700 ml-0.5">
+                    Bank Name *
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors">
+                      <Building2 size={18} />
+                    </div>
+                    <input
+                      type="text"
+                      name="bankName"
+                      value={formData.bankName}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      placeholder="e.g. HDFC Bank, State Bank of India, ICICI"
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50/80 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 outline-none focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all disabled:opacity-75"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-700 ml-0.5">
+                    Account Holder Name *
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors">
+                      <User size={18} />
+                    </div>
+                    <input
+                      type="text"
+                      name="accountHolder"
+                      value={formData.accountHolder}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      placeholder="Name as per bank passbook"
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50/80 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 outline-none focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all disabled:opacity-75"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-700 ml-0.5">
+                    Bank Account Number *
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors">
+                      <CreditCard size={18} />
+                    </div>
+                    <input
+                      type={isEditing ? "text" : "password"}
+                      name="accountNumber"
+                      value={formData.accountNumber}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      placeholder="Enter bank account number"
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50/80 border border-slate-200 rounded-xl text-sm font-mono font-semibold text-slate-800 outline-none focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all disabled:opacity-75"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-700 ml-0.5">
+                    IFSC Code *
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors">
+                      <Shield size={18} />
+                    </div>
+                    <input
+                      type="text"
+                      name="ifsc"
+                      maxLength={11}
+                      value={formData.ifsc}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      placeholder="e.g. HDFC0001234"
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50/80 border border-slate-200 rounded-xl text-sm font-mono font-semibold uppercase text-slate-800 outline-none focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all disabled:opacity-75"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2 sm:col-span-2">
+                  <label className="text-xs font-bold text-slate-700 ml-0.5">
+                    UPI ID / VPA (Optional)
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors">
+                      <Globe size={18} />
+                    </div>
+                    <input
+                      type="text"
+                      name="upiId"
+                      value={formData.upiId}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      placeholder="e.g. mobile@okhdfcbank"
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50/80 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 outline-none focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all disabled:opacity-75"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Informational Banner */}
+              <div className="flex items-start gap-3 p-4 bg-emerald-50/80 rounded-xl border border-emerald-100">
+                <Shield size={18} className="text-emerald-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-emerald-900 font-medium leading-relaxed">
+                  Payout funds are transferred directly to this account upon withdrawal approval. Make sure the Account Number and IFSC Code exactly match your bank passbook/statement.
+                </p>
+              </div>
+            </div>
           </Card>
 
           {/* Location & Delivery Settings Card */}

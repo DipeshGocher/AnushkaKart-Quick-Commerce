@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
 import Button from '@shared/components/ui/Button';
@@ -26,6 +27,7 @@ import { useSellerEarnings } from "../context/SellerEarningsContext";
 import Pagination from "@shared/components/ui/Pagination";
 
 const Withdrawals = () => {
+    const navigate = useNavigate();
     const { earningsData: data, earningsLoading: loading, refreshEarnings } = useSellerEarnings();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [amount, setAmount] = useState('');
@@ -33,9 +35,38 @@ const Withdrawals = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
+    const [sellerProfile, setSellerProfile] = useState(null);
+
+    useEffect(() => {
+        let isMounted = true;
+        sellerApi.getProfile()
+            .then((res) => {
+                if (isMounted && res.data?.success) {
+                    setSellerProfile(res.data.result || res.data.data || null);
+                }
+            })
+            .catch((err) => console.error("Profile fetch error:", err));
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
+    const bank = sellerProfile?.bankDetails;
+    const bankAccount = bank?.accountNumber || sellerProfile?.accountNumber;
+    const bankName = bank?.bankName || sellerProfile?.bankName;
+    const ifsc = bank?.ifscCode || bank?.ifsc || sellerProfile?.ifsc;
+    const accountHolder = bank?.accountHolderName || bank?.accountHolder || sellerProfile?.accountHolder || sellerProfile?.name;
+    const hasBankLinked = Boolean(bankAccount && bankName);
 
     const ledger = Array.isArray(data?.ledger) ? data.ledger : [];
     const withdrawalHistory = ledger.filter((t) => (t.type || '').toString() === 'Withdrawal');
+
+    const balances = {
+        available: Number(data.balances?.availableBalance ?? 0),
+        onHold: Number(data.balances?.onHoldBalance ?? 0),
+        pending: Math.abs(Number(data.balances?.pendingPayouts ?? 0)),
+        lastWithdrawal: Math.abs(withdrawalHistory[0]?.amount ?? 0),
+    };
 
     const filteredHistory = useMemo(() => {
         const term = searchTerm.toLowerCase();
@@ -43,16 +74,15 @@ const Withdrawals = () => {
             const id = (item.id ?? item.ref ?? '').toString().toLowerCase();
             const status = (item.status ?? '').toString().toLowerCase();
             const method = (item.method ?? item.customer ?? '').toString().toLowerCase();
-            const amount = Math.abs(Number(item.amount ?? 0)).toString();
+            const amountStr = Math.abs(Number(item.amount ?? 0)).toString();
             return (
                 !term ||
                 id.includes(term) ||
                 status.includes(term) ||
                 method.includes(term) ||
-                amount.includes(term)
+                amountStr.includes(term)
             );
         });
-        // Reset page if out of range
         const totalPages = Math.max(1, Math.ceil(result.length / pageSize));
         if (page > totalPages) {
             setPage(1);
@@ -69,15 +99,21 @@ const Withdrawals = () => {
     const handleDownloadReceipt = (item) => {
         const id = item.id || item.ref || item.reference || 'withdrawal';
         const lines = [];
-        lines.push('Withdrawal Receipt');
-        lines.push(`ID,${id}`);
-        lines.push(`Status,${item.status ?? ''}`);
+        lines.push('AnushkaKart - Withdrawal Payout Receipt');
+        lines.push(`Receipt ID,${id}`);
+        lines.push(`Status,${item.status ?? 'Pending'}`);
         lines.push(`Date,${item.date ?? ''}`);
         lines.push(`Time,${item.time ?? ''}`);
         lines.push(`Amount,₹${Math.abs(item.amount ?? 0).toLocaleString()}`);
-        lines.push(`Method,${item.customer ?? 'Bank Transfer'}`);
-        if (item.reason) {
-            lines.push(`Reason,${item.reason}`);
+        lines.push(`Payout Destination,${item.meta?.bankDetails?.bankName || item.customer || 'Bank Transfer'}`);
+        if (item.meta?.bankDetails?.accountNumber) {
+            lines.push(`Account Number,**** ${String(item.meta.bankDetails.accountNumber).slice(-4)}`);
+        }
+        if (item.meta?.bankDetails?.ifscCode) {
+            lines.push(`IFSC Code,${item.meta.bankDetails.ifscCode}`);
+        }
+        if (item.notes || item.reason) {
+            lines.push(`Notes,${item.notes || item.reason}`);
         }
         const csvContent = lines.join('\n');
         const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -87,46 +123,53 @@ const Withdrawals = () => {
         a.download = `withdrawal-receipt-${id}.csv`;
         a.click();
         URL.revokeObjectURL(url);
-        toast.success('Receipt downloaded');
+        toast.success('Receipt downloaded successfully');
     };
 
     const handleSubmitRequest = async (e) => {
         e.preventDefault();
-        const settled = Number(data?.balances?.settledBalance ?? 0);
-        const pending = Math.abs(Number(data?.balances?.pendingPayouts ?? 0));
-        const available = Math.max(0, settled - pending);
+        const available = balances.available;
 
-        if (!amount || parseFloat(amount) <= 0 || parseFloat(amount) > available) {
-            toast.error(`Please enter a valid amount within your available balance (₹${available}).`);
+        if (!hasBankLinked) {
+            toast.error("Please link your bank account in Profile before requesting a withdrawal.");
+            return;
+        }
+
+        const parsedAmount = parseFloat(amount);
+        if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
+            toast.error("Please enter a valid withdrawal amount.");
+            return;
+        }
+
+        if (parsedAmount > available) {
+            toast.error(`Amount exceeds available balance (₹${available.toLocaleString()}).`);
             return;
         }
 
         try {
             setIsSubmitting(true);
-            const response = await sellerApi.requestWithdrawal({ amount: parseFloat(amount) });
+            const response = await sellerApi.requestWithdrawal({ amount: parsedAmount });
             if (response.data.success) {
-                toast.success('Withdrawal request submitted successfully!');
+                toast.success('Withdrawal request submitted to admin successfully!');
                 setIsModalOpen(false);
                 setAmount('');
                 refreshEarnings();
             }
         } catch (error) {
-            toast.error(error.response?.data?.message || "Failed to submit request");
+            toast.error(error.response?.data?.message || "Failed to submit withdrawal request");
         } finally {
             setIsSubmitting(false);
         }
     };
 
     if (loading) {
-        return <div className="flex items-center justify-center h-screen font-black text-slate-600">LOADING WITHDRAWALS...</div>;
+        return (
+            <div className="flex flex-col items-center justify-center h-[60vh] gap-3">
+                <div className="h-10 w-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                <p className="font-black text-slate-600 text-sm tracking-wider uppercase">Loading Money Requests...</p>
+            </div>
+        );
     }
-
-    const balances = {
-        available: Number(data.balances?.availableBalance ?? 0),
-        onHold: Number(data.balances?.onHoldBalance ?? 0),
-        pending: Math.abs(Number(data.balances?.pendingPayouts ?? 0)),
-        lastWithdrawal: Math.abs(withdrawalHistory[0]?.amount ?? 0),
-    };
 
     return (
         <div className="space-y-8 pb-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -212,7 +255,7 @@ const Withdrawals = () => {
                                     <th className="px-8 py-4 text-xs font-black text-slate-600 uppercase tracking-widest">Request Details</th>
                                     <th className="px-8 py-4 text-xs font-black text-slate-600 uppercase tracking-widest">Amount</th>
                                     <th className="px-8 py-4 text-xs font-black text-slate-600 uppercase tracking-widest text-center">Status</th>
-                                    <th className="px-8 py-4 text-xs font-black text-slate-600 uppercase tracking-widest text-right">Method</th>
+                                    <th className="px-8 py-4 text-xs font-black text-slate-600 uppercase tracking-widest text-right">Destination</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
@@ -222,37 +265,42 @@ const Withdrawals = () => {
                                             {withdrawalHistory.length === 0 ? "No withdrawal requests yet." : "No matches for your search."}
                                         </td>
                                     </tr>
-                                ) : paginatedHistory.map((item, idx) => (
-                                    <tr key={item.id || item.ref || item.reference || `wd-${idx}`} className="group hover:bg-slate-50/50 transition-all">
-                                        <td className="px-8 py-5">
-                                            <p className="text-sm font-black text-slate-900">{item.id}</p>
-                                            <p className="text-xs font-bold text-slate-600 mt-0.5 uppercase tracking-tighter">{item.date} • {item.time}</p>
-                                        </td>
-                                        <td className="px-8 py-5">
-                                            <p className="text-sm font-black text-slate-900">₹{Math.abs(item.amount).toLocaleString()}</p>
-                                        </td>
-                                        <td className="px-8 py-5 text-center">
-                                            <Badge
-                                                variant={item.status === 'Settled' ? 'success' : (item.status === 'Pending' || item.status === 'Processing') ? 'warning' : 'danger'}
-                                                className="text-[8px] font-black px-2.5 py-0.5 uppercase tracking-widest rounded-lg"
-                                            >
-                                                {item.status === 'Settled' ? <CheckCircle2 className="h-3 w-3 mr-1" /> : (item.status === 'Pending' || item.status === 'Processing') ? <Clock className="h-3 w-3 mr-1" /> : <XCircle className="h-3 w-3 mr-1" />}
-                                                {item.status}
-                                            </Badge>
-                                            {item.reason && <p className="text-[9px] text-rose-500 font-bold mt-1 uppercase italic">{item.reason}</p>}
-                                        </td>
-                                        <td className="px-8 py-5 text-right">
-                                            <p className="text-xs font-bold text-slate-600">{item.customer}</p>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDownloadReceipt(item)}
-                                                className="text-[10px] font-black text-brand-500 hover:text-brand-600 mt-1 uppercase tracking-widest flex items-center gap-1 justify-end ml-auto"
-                                            >
-                                                Receipt <Download className="h-3 w-3" />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
+                                ) : paginatedHistory.map((item, idx) => {
+                                    const metaBank = item.meta?.bankDetails;
+                                    const bankTitle = metaBank?.bankName || item.customer || "Bank Transfer";
+                                    const bankSubtitle = metaBank?.accountNumber ? `**** ${String(metaBank.accountNumber).slice(-4)}` : "";
+                                    return (
+                                        <tr key={item.id || item.ref || item.reference || `wd-${idx}`} className="group hover:bg-slate-50/50 transition-all">
+                                            <td className="px-8 py-5">
+                                                <p className="text-sm font-black text-slate-900">{item.id}</p>
+                                                <p className="text-xs font-bold text-slate-600 mt-0.5 uppercase tracking-tighter">{item.date} • {item.time}</p>
+                                            </td>
+                                            <td className="px-8 py-5">
+                                                <p className="text-sm font-black text-slate-900">₹{Math.abs(item.amount).toLocaleString()}</p>
+                                            </td>
+                                            <td className="px-8 py-5 text-center">
+                                                <Badge
+                                                    variant={item.status === 'Settled' ? 'success' : (item.status === 'Pending' || item.status === 'Processing') ? 'warning' : 'danger'}
+                                                    className="text-[8px] font-black px-2.5 py-0.5 uppercase tracking-widest rounded-lg"
+                                                >
+                                                    {item.status === 'Settled' ? <CheckCircle2 className="h-3 w-3 mr-1" /> : (item.status === 'Pending' || item.status === 'Processing') ? <Clock className="h-3 w-3 mr-1" /> : <XCircle className="h-3 w-3 mr-1" />}
+                                                    {item.status}
+                                                </Badge>
+                                                {item.reason && <p className="text-[9px] text-rose-500 font-bold mt-1 uppercase italic">{item.reason}</p>}
+                                            </td>
+                                            <td className="px-8 py-5 text-right">
+                                                <p className="text-xs font-bold text-slate-800">{bankTitle} {bankSubtitle && <span className="text-slate-500 text-[11px]">({bankSubtitle})</span>}</p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDownloadReceipt(item)}
+                                                    className="text-[10px] font-black text-brand-500 hover:text-brand-600 mt-1 uppercase tracking-widest flex items-center gap-1 justify-end ml-auto"
+                                                >
+                                                    Receipt <Download className="h-3 w-3" />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
@@ -276,7 +324,7 @@ const Withdrawals = () => {
                 </Card>
             </BlurFade>
 
-            {/* Request Modal */}
+            {/* Request Withdrawal Modal */}
             <Modal
                 isOpen={isModalOpen}
                 onClose={() => !isSubmitting && setIsModalOpen(false)}
@@ -303,33 +351,76 @@ const Withdrawals = () => {
                                     value={amount}
                                     onChange={(e) => setAmount(e.target.value)}
                                     placeholder="0.00"
-                                    className="w-full pl-12 pr-6 py-4 bg-white ring-1 ring-slate-200 focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 rounded-2xl text-xl font-black outline-none transition-all placeholder:text-slate-200"
+                                    max={balances.available}
+                                    min="1"
+                                    step="any"
+                                    disabled={!hasBankLinked}
+                                    className="w-full pl-12 pr-6 py-4 bg-white ring-1 ring-slate-200 focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 rounded-2xl text-xl font-black outline-none transition-all placeholder:text-slate-200 disabled:bg-slate-100 disabled:cursor-not-allowed"
                                 />
                             </div>
                         </div>
 
-                        <div className="p-4 bg-brand-50/50 rounded-2xl border border-brand-100/50 space-y-3">
-                            <p className="text-[10px] font-black text-brand-600 uppercase tracking-widest mb-1">Transfer Destination</p>
-                            <div className="flex items-center gap-4">
-                                <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
-                                    <Building2 className="h-5 w-5 text-brand-400" />
+                        {/* Real Bank Account Card or Missing Bank Warning */}
+                        {hasBankLinked ? (
+                            <div
+                                onClick={() => navigate('/seller/profile')}
+                                className="p-4 bg-brand-50/50 hover:bg-brand-50 rounded-2xl border border-brand-100/50 space-y-2 cursor-pointer transition-all group"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <p className="text-[10px] font-black text-brand-600 uppercase tracking-widest">Transfer Destination</p>
+                                    <span className="text-[10px] font-bold text-brand-600 group-hover:underline flex items-center gap-1">
+                                        Edit in Profile
+                                    </span>
                                 </div>
-                                <div className="flex-1">
-                                    <p className="text-xs font-black text-slate-900 uppercase">HDFC Bank Limited</p>
-                                    <p className="text-[10px] font-bold text-slate-600 uppercase tracking-tighter">Acct Ending in **** 4589</p>
+                                <div className="flex items-center gap-4">
+                                    <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                                        <Building2 className="h-5 w-5 text-brand-400" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-xs font-black text-slate-900 uppercase">{bankName}</p>
+                                        <p className="text-[10px] font-bold text-slate-600 uppercase tracking-tighter">
+                                            Acct Ending in **** {String(bankAccount).slice(-4)} • {ifsc ? `IFSC: ${ifsc}` : ""}
+                                        </p>
+                                    </div>
+                                    <ArrowRight className="h-4 w-4 text-slate-300 group-hover:translate-x-0.5 transition-transform" />
                                 </div>
-                                <ArrowRight className="h-4 w-4 text-slate-300" />
                             </div>
-                        </div>
+                        ) : (
+                            <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-3">
+                                <div className="flex items-start gap-3">
+                                    <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                                    <div className="space-y-1">
+                                        <p className="text-xs font-black text-amber-900 uppercase">No Bank Account Linked</p>
+                                        <p className="text-xs text-amber-700 font-medium">
+                                            Please add your bank account in Profile before requesting a withdrawal.
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/seller/profile')}
+                                    className="w-full py-2.5 px-4 bg-amber-600 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-amber-700 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <span>Add Bank Details in Profile</span>
+                                    <ArrowRight className="h-3.5 w-3.5" />
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex flex-col gap-3 pt-4">
                         <button
                             type="submit"
-                            disabled={isSubmitting}
-                            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 hover:bg-slate-800 disabled:opacity-50 transition-all active:scale-95"
+                            disabled={isSubmitting || !hasBankLinked}
+                            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
                         >
-                            {isSubmitting ? <div className="h-4 w-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : 'SUBMIT REQUEST'}
+                            {isSubmitting ? (
+                                <div className="h-4 w-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                            ) : !hasBankLinked ? (
+                                'LINK BANK ACCOUNT TO WITHDRAW'
+                            ) : (
+                                'SUBMIT REQUEST'
+                            )}
                         </button>
                         <button
                             type="button"

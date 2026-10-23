@@ -3,6 +3,8 @@ import Delivery from "../../models/delivery.js";
 import Transaction from "../../models/transaction.js";
 import Notification from "../../models/notification.js";
 import Order from "../../models/order.js";
+import Wallet from "../../models/wallet.js";
+import { buildKey, del } from "../cacheService.js";
 
 export async function getDeliveryCashBalancesData({ page, limit, skip }) {
   const ridersPipeline = [
@@ -297,7 +299,7 @@ export async function getDeliveryCashBalancesData({ page, limit, skip }) {
   };
 }
 
-export async function settleRiderCashEntry({ riderId, amount, method }) {
+export async function settleRiderCashEntry({ riderId, amount, method, notes, actorId }) {
   if (!riderId || !amount || amount <= 0) {
     throw new Error("Missing riderId or invalid amount");
   }
@@ -307,24 +309,95 @@ export async function settleRiderCashEntry({ riderId, amount, method }) {
     return null;
   }
 
-  const settlement = await Transaction.create({
+  const amountAbs = Math.abs(Number(amount));
+
+  // 1. Check if there is an existing pending handover transaction for this rider
+  let settlement = await Transaction.findOne({
     user: riderId,
     userModel: "Delivery",
     type: "Cash Settlement",
-    amount: -Math.abs(amount),
-    status: "Settled",
-    reference: `CSH-SET-${Date.now()}`,
-    notes: `Method: ${method || "Cash"}`,
-  });
+    status: { $in: ["Pending", "Processing"] },
+  }).sort({ createdAt: -1 });
 
-  await Notification.create({
-    recipient: riderId,
-    recipientModel: "Delivery",
-    title: "Cash Settled",
-    message: `Admin has collected \u20B9${amount} cash from you. Your balance is updated.`,
-    type: "payment",
-    data: { transactionId: settlement._id },
-  });
+  if (settlement) {
+    settlement.status = "Settled";
+    settlement.amount = -amountAbs;
+    settlement.notes = notes || `Settled by Admin at Hub. Method: ${method || "Cash"}`;
+    if (!settlement.reference) {
+      settlement.reference = `CSH-SET-${Date.now()}`;
+    }
+    await settlement.save();
+  } else {
+    settlement = await Transaction.create({
+      user: riderId,
+      userModel: "Delivery",
+      type: "Cash Settlement",
+      amount: -amountAbs,
+      status: "Settled",
+      reference: `CSH-SET-${Date.now()}`,
+      notes: notes || `Settled by Admin at Hub. Method: ${method || "Cash"}`,
+    });
+  }
+
+  // 2. Reconcile COD Orders for this rider so codPendingAmount becomes 0
+  const pendingOrders = await Order.find({
+    deliveryBoy: riderId,
+    paymentMode: { $in: ["COD", "cod"] },
+    status: { $ne: "cancelled" },
+    orderStatus: { $ne: "cancelled" },
+    "paymentBreakdown.codPendingAmount": { $gt: 0 },
+  }).sort({ createdAt: 1 });
+
+  let remaining = amountAbs;
+  for (const order of pendingOrders) {
+    if (remaining <= 0) break;
+    const pending = Number(order.paymentBreakdown?.codPendingAmount || 0);
+    if (pending <= 0) continue;
+    const settleAmt = Math.min(pending, remaining);
+    order.paymentBreakdown.codPendingAmount = Math.max(0, pending - settleAmt);
+    order.paymentBreakdown.codRemittedAmount = (order.paymentBreakdown.codRemittedAmount || 0) + settleAmt;
+    if (order.paymentBreakdown.codPendingAmount === 0) {
+      if (!order.financeFlags) order.financeFlags = {};
+      order.financeFlags.codSettled = true;
+      order.financeFlags.codMarkedCollected = true;
+    }
+    await order.save();
+    remaining -= settleAmt;
+  }
+
+  // 3. Update Wallet cashInHand
+  try {
+    const wallet = await Wallet.findOne({
+      ownerType: { $in: ["DELIVERY_PARTNER", "DELIVERY"] },
+      ownerId: riderId,
+    });
+    if (wallet) {
+      wallet.cashInHand = Math.max(0, (wallet.cashInHand || 0) - amountAbs);
+      await wallet.save();
+    }
+  } catch (wErr) {
+    // Non-blocking
+  }
+
+  // 4. Invalidate rider COD cache
+  try {
+    const cacheKey = buildKey("delivery", "codSummary", String(riderId));
+    await del(cacheKey);
+  } catch (cErr) {
+    // Non-blocking
+  }
+
+  // 5. Notify rider
+  try {
+    await Notification.create({
+      recipient: riderId,
+      recipientModel: "Delivery",
+      title: "Cash Settled at Hub",
+      message: `Admin has collected and verified ₹${amountAbs.toLocaleString()} cash from you. Your balance is updated.`,
+      type: "payment",
+      data: { transactionId: settlement._id },
+    });
+  } catch (nErr) {}
 
   return settlement;
 }

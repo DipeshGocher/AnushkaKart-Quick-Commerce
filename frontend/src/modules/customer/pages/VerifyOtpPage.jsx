@@ -69,6 +69,30 @@ const VerifyOtpPage = () => {
         return () => clearInterval(interval);
     }, [timer]);
 
+    const dismissKeyboard = () => {
+        try {
+            if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                document.activeElement.blur();
+            }
+            if (Array.isArray(inputRefs.current)) {
+                inputRefs.current.forEach((el) => {
+                    if (el && typeof el.blur === 'function') {
+                        el.blur();
+                    }
+                });
+            }
+        } catch (e) {
+            // ignore
+        }
+    };
+
+    // Ensure keyboard is dismissed when leaving OTP page
+    useEffect(() => {
+        return () => {
+            dismissKeyboard();
+        };
+    }, []);
+
     const isProtectedRoute = (path) => {
         if (!path) return false;
         const cleanPath = path.split('?')[0];
@@ -81,6 +105,7 @@ const VerifyOtpPage = () => {
     };
 
     const handleClose = () => {
+        dismissKeyboard();
         if (fromPath && !isProtectedRoute(fromPath) && fromPath !== '/login' && fromPath !== '/signup' && fromPath !== '/verify-otp') {
             navigate(fromPath, { replace: true });
             return;
@@ -89,6 +114,7 @@ const VerifyOtpPage = () => {
     };
 
     const handleChangeNumber = () => {
+        dismissKeyboard();
         navigate(isLogin ? '/login' : '/signup', {
             state: { phone, name, isLogin, from: fromPath },
             replace: true
@@ -115,9 +141,14 @@ const VerifyOtpPage = () => {
         nextDigits[index] = digit;
         setOtpDigits(nextDigits);
 
-        // Auto focus next box
+        // Auto focus next box or dismiss keyboard on final digit
         if (index < 3 && digit) {
             inputRefs.current[index + 1]?.focus();
+        } else if (index === 3 && digit) {
+            const allFilled = nextDigits.every(d => Boolean(d));
+            if (allFilled) {
+                dismissKeyboard();
+            }
         }
     };
 
@@ -156,8 +187,12 @@ const VerifyOtpPage = () => {
         }
         setOtpDigits(nextDigits);
 
-        const focusTarget = Math.min(startIndex + digits.length, 3);
-        inputRefs.current[focusTarget]?.focus();
+        if (nextDigits.every(d => Boolean(d))) {
+            dismissKeyboard();
+        } else {
+            const focusTarget = Math.min(startIndex + digits.length, 3);
+            inputRefs.current[focusTarget]?.focus();
+        }
     };
 
     const handlePaste = (e, index) => {
@@ -190,6 +225,7 @@ const VerifyOtpPage = () => {
 
     const handleVerifyOtp = async (e) => {
         if (e) e.preventDefault();
+        dismissKeyboard();
         const otpString = otpDigits.join('');
 
         if (otpString.length !== 4) {
@@ -205,10 +241,12 @@ const VerifyOtpPage = () => {
             });
             const { token, customer } = response.data.result;
 
+            dismissKeyboard();
+            toast.dismiss();
+
             sessionStorage.removeItem('anushka_pending_auth');
             invalidateCache('/customer/profile');
             login({ ...customer, token, role: 'customer' });
-            toast.success(t('loggedInSuccess') || 'Successfully Logged In!');
 
             const targetPath = (fromPath && fromPath !== '/login' && fromPath !== '/signup' && fromPath !== '/verify-otp')
                 ? fromPath 

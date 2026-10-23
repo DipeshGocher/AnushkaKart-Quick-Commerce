@@ -193,6 +193,7 @@ const HeaderCategoryPageView = ({
 
     if (categoryHeroConfigMemoryCache.has(headerId)) {
       setCategoryHeroConfig(categoryHeroConfigMemoryCache.get(headerId));
+      return;
     }
 
     const loadConfig = (force = false) => {

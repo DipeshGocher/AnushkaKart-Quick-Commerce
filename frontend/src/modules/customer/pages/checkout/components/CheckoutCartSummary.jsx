@@ -1,6 +1,8 @@
 import React from "react";
 import { Plus, Minus, Ban } from "lucide-react";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { resolveVariantStock } from "@/modules/customer/context/CartContext";
+import { cn } from "@/lib/utils";
 
 /**
  * CheckoutCartSummary
@@ -76,22 +78,53 @@ const CheckoutCartSummary = React.memo(function CheckoutCartSummary({
               <div className="flex items-center gap-2 bg-primary rounded-lg px-2 py-1">
                 <button
                   onClick={() => {
+                    if (item.quantity <= 1) return;
                     const productId = item.id || item._id;
-                    return item.quantity > 1
-                      ? onUpdateQuantity(productId, -1, item.variantSku)
-                      : onRemoveFromCart(productId, item.variantSku);
+                    onUpdateQuantity(productId, -1, item.variantSku);
                   }}
-                  className="text-white p-1 hover:bg-white/20 rounded transition-colors">
+                  disabled={item.quantity <= 1}
+                  className={cn(
+                    "p-1 rounded transition-colors",
+                    item.quantity <= 1
+                      ? "opacity-30 cursor-not-allowed text-white/50"
+                      : "text-white hover:bg-white/20 cursor-pointer"
+                  )}
+                  title={item.quantity <= 1 ? "Minimum quantity is 1" : "Decrease quantity"}
+                >
                   <Minus size={14} strokeWidth={3} />
                 </button>
                 <span className="text-white font-bold min-w-[20px] text-center">
                   {item.quantity}
                 </span>
-                <button
-                  onClick={() => onUpdateQuantity(item.id || item._id, 1, item.variantSku)}
-                  className="text-white p-1 hover:bg-white/20 rounded transition-colors">
-                  <Plus size={14} strokeWidth={3} />
-                </button>
+                {(() => {
+                  const itemStock = resolveVariantStock(item, String(item.variantSku || '').trim());
+                  const maxAllowed = itemStock > 0 ? Math.min(itemStock, 10) : 0;
+                  const isMax = item.quantity >= maxAllowed;
+                  return (
+                    <button
+                      onClick={() => {
+                        if (isMax) return;
+                        onUpdateQuantity(item.id || item._id, 1, item.variantSku);
+                      }}
+                      disabled={isMax}
+                      className={cn(
+                        "p-1 rounded transition-colors",
+                        isMax
+                          ? "opacity-30 cursor-not-allowed text-white/50"
+                          : "text-white hover:bg-white/20 cursor-pointer"
+                      )}
+                      title={
+                        item.quantity >= itemStock
+                          ? `Max available stock reached (${itemStock} units)`
+                          : isMax
+                          ? "Max allowed quantity reached (10 units)"
+                          : "Increase quantity"
+                      }
+                    >
+                      <Plus size={14} strokeWidth={3} />
+                    </button>
+                  );
+                })()}
               </div>
             {(() => {
               const mrp = Number(item.price || 0);

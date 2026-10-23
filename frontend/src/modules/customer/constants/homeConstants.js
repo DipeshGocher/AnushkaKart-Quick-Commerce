@@ -1,23 +1,3 @@
-import DevicesIcon from "@mui/icons-material/Devices";
-import HomeIcon from "@mui/icons-material/Home";
-import CheckroomIcon from "@mui/icons-material/Checkroom";
-import LocalCafeIcon from "@mui/icons-material/LocalCafe";
-import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
-import MenuBookIcon from "@mui/icons-material/MenuBook";
-import SpaIcon from "@mui/icons-material/Spa";
-import ToysIcon from "@mui/icons-material/Toys";
-import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
-import PetsIcon from "@mui/icons-material/Pets";
-import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
-import YardIcon from "@mui/icons-material/Yard";
-import BusinessCenterIcon from "@mui/icons-material/BusinessCenter";
-import MusicNoteIcon from "@mui/icons-material/MusicNote";
-import DiamondIcon from "@mui/icons-material/Diamond";
-import ChildCareIcon from "@mui/icons-material/ChildCare";
-import BuildIcon from "@mui/icons-material/Build";
-import LuggageIcon from "@mui/icons-material/Luggage";
-import ColorLensIcon from "@mui/icons-material/ColorLens";
-import LocalGroceryStoreIcon from "@mui/icons-material/LocalGroceryStore";
 
 export const MARQUEE_MESSAGES = [
   "24/7 Delivery",

@@ -9,7 +9,7 @@ const legalPageSchema = new mongoose.Schema(
         },
         audience: {
             type: String,
-            enum: ["customer", "seller", "warehouse", "delivery"],
+            enum: ["customer", "seller", "delivery"],
             required: true,
         },
         title: {

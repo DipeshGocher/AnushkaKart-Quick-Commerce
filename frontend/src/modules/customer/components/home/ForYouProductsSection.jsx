@@ -59,23 +59,25 @@ const ForYouProductsSection = React.memo(({ categories: propCategories, latitude
   useEffect(() => {
     let isMounted = true;
 
-    if (Array.isArray(propCategories) && propCategories.length > 0) {
-      const headers = propCategories
-        .filter(
-          (c) =>
-            (c.type === "header" || !c.type) &&
-            c.slug?.toLowerCase() !== "all" &&
-            c.name?.toLowerCase() !== "all" &&
-            c.id !== "all" &&
-            c._id !== "all"
-        )
-        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    if (propCategories !== undefined) {
+      if (Array.isArray(propCategories) && propCategories.length > 0) {
+        const headers = propCategories
+          .filter(
+            (c) =>
+              (c.type === "header" || !c.type) &&
+              c.slug?.toLowerCase() !== "all" &&
+              c.name?.toLowerCase() !== "all" &&
+              c.id !== "all" &&
+              c._id !== "all"
+          )
+          .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
-      if (headers.length > 0) {
-        setHeaderCategories(headers);
-        setDisplayHeaders(headers);
-        return;
+        if (headers.length > 0) {
+          setHeaderCategories(headers);
+          setDisplayHeaders(headers);
+        }
       }
+      return;
     }
 
     const fetchHeaders = async () => {

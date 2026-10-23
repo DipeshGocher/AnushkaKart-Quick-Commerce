@@ -78,22 +78,17 @@ async function computeDistanceKmForSeller({ sellerId, addressLocation, session =
   }
   const coords = seller?.location?.coordinates;
   if (!Array.isArray(coords) || coords.length < 2) {
-    if (!isLocal) {
-      return {
-        distanceKm: 0,
-        route: { distanceMeters: 0, duration: 0, polyline: '' },
-        sellerLocation: { lat: 0, lng: 0 },
-      };
-    }
-    const err = new Error("Store location is not configured for delivery distance");
-    err.statusCode = 400;
-    throw err;
+    return {
+      distanceKm: isLocal ? 5 : 0,
+      route: { distanceMeters: isLocal ? 5000 : 0, duration: 0, polyline: '' },
+      sellerLocation: { lat: 0, lng: 0 },
+    };
   }
 
   const [sellerLng, sellerLat] = coords;
   
-  // NEW: Get actual road distance
-  let distanceKm = 0;
+  // Get actual road distance
+  let distanceKm = isLocal ? 5 : 0;
   let finalRoute = null;
   try {
     const route = await getCachedRoute(
@@ -104,31 +99,25 @@ async function computeDistanceKmForSeller({ sellerId, addressLocation, session =
       distanceKm = Number((route.distanceMeters / 1000).toFixed(3));
       finalRoute = route;
     } else {
-      throw new Error("Route calculation degraded/failed");
+      distanceKm = isLocal ? 5 : 0;
+      finalRoute = { distanceMeters: isLocal ? 5000 : 0, duration: 0, polyline: '' };
     }
   } catch (error) {
-    if (isLocal) {
-      if (error.statusCode) throw error;
-      const err = new Error("Could not calculate actual route distance for delivery: " + error.message);
-      err.statusCode = 400;
-      throw err;
-    } else {
-      distanceKm = 0;
-      finalRoute = { distanceMeters: 0, duration: 0, polyline: '' };
-    }
+    // If route calculation fails or degrades, default gracefully without blocking local checkout
+    distanceKm = isLocal ? 5 : 0;
+    finalRoute = { distanceMeters: isLocal ? 5000 : 0, duration: 0, polyline: '' };
   }
   
-  const radius = Number(seller.serviceRadius || 5);
-  if (isLocal && distanceKm > radius) {
-    const storeName = seller.shopName || seller.name || "Store";
-    const err = new Error(`${storeName} does not deliver to your current location (Distance: ${distanceKm}km, Service Radius: ${radius}km)`);
-    err.statusCode = 400;
-    throw err;
-  }
+  // For local orders where customer and seller share approved local pincodes,
+  // do not block checkout with seller.serviceRadius (serviceRadius is reserved
+  // exclusively for matching nearby delivery riders to the store).
+  // If GPS coordinates have a wide disparity (> 25km) within the same local delivery zone,
+  // cap local billing distance to a standard local radius (5km) so customer is not overcharged.
+  const effectiveDistanceKm = isLocal ? (distanceKm > 25 ? 5 : Math.max(1, distanceKm)) : 0;
 
   return {
-    distanceKm,
-    route: finalRoute,
+    distanceKm: effectiveDistanceKm,
+    route: finalRoute || { distanceMeters: effectiveDistanceKm * 1000, duration: 0, polyline: '' },
     sellerLocation: { lat: Number(sellerLat), lng: Number(sellerLng) }
   };
 }

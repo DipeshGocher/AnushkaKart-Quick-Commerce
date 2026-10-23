@@ -156,14 +156,69 @@ const ProductManagement = () => {
   const [total, setTotal] = useState(0);
   const [summaryStats, setSummaryStats] = useState(null);
 
+  const [searchTerm, setSearchTerm] = useState(qFromUrl);
+  const [debouncedSearch, setDebouncedSearch] = useState(qFromUrl || "");
+
+  React.useEffect(() => {
+    if (qFromUrl !== searchTerm) setSearchTerm(qFromUrl);
+  }, [qFromUrl]);
+
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 350);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("All");
+  const [sortBy, setSortBy] = useState("newest");
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const filterDropdownRef = useRef(null);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [viewingVariants, setViewingVariants] = useState(null);
+  const [isVariantsViewModalOpen, setIsVariantsViewModalOpen] = useState(false);
+  const [variantImageFiles, setVariantImageFiles] = useState({});
+  const [editingItem, setEditingItem] = useState(null);
+  const [modalTab, setModalTab] = useState("general");
+
   const fetchProducts = async (requestedPage = 1) => {
     setIsLoading(true);
     try {
-      const res = await sellerApi.getProducts({
+      const params = {
         page: requestedPage,
         limit: pageSize,
         sort: sortBy,
-      });
+      };
+
+      if (debouncedSearch && debouncedSearch.trim()) {
+        params.search = debouncedSearch.trim();
+      }
+
+      if (filterCategory && filterCategory !== "all") {
+        params.category = filterCategory;
+      }
+
+      if (filterStatus === "Active") {
+        params.status = "active";
+      } else if (filterStatus === "Low Stock") {
+        params.stockStatus = "low";
+      } else if (filterStatus === "Out of Stock") {
+        params.stockStatus = "out";
+      }
+
+      if (priceMin !== "" && !isNaN(Number(priceMin))) {
+        params.minPrice = Number(priceMin);
+      }
+      if (priceMax !== "" && !isNaN(Number(priceMax))) {
+        params.maxPrice = Number(priceMax);
+      }
+
+      const res = await sellerApi.getProducts(params);
       if (res.data.success) {
         // Backend returns handleResponse(..., { items, page, limit, total, totalPages })
         const payload = res.data.result || {};
@@ -218,28 +273,6 @@ const ProductManagement = () => {
   }, []);
 
   const categories = dbCategories;
-
-  const [searchTerm, setSearchTerm] = useState(qFromUrl);
-
-  React.useEffect(() => {
-    if (qFromUrl !== searchTerm) setSearchTerm(qFromUrl);
-  }, [qFromUrl]);
-
-  const [filterCategory, setFilterCategory] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("All");
-  const [sortBy, setSortBy] = useState("newest");
-  const [priceMin, setPriceMin] = useState("");
-  const [priceMax, setPriceMax] = useState("");
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const filterDropdownRef = useRef(null);
-  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState(null);
-  const [viewingVariants, setViewingVariants] = useState(null);
-  const [isVariantsViewModalOpen, setIsVariantsViewModalOpen] = useState(false);
-  const [variantImageFiles, setVariantImageFiles] = useState({});
-  const [editingItem, setEditingItem] = useState(null);
-  const [modalTab, setModalTab] = useState("general");
 
   const makeSku = (name, index = 1) => {
     const prefix = String(name || "")
@@ -299,7 +332,7 @@ const ProductManagement = () => {
 
   React.useEffect(() => {
     fetchProducts(1);
-  }, [searchTerm, filterCategory, filterStatus, sortBy, pageSize]);
+  }, [debouncedSearch, filterCategory, filterStatus, sortBy, pageSize, priceMin, priceMax]);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -337,71 +370,7 @@ const ProductManagement = () => {
     [products]
   );
 
-  const filteredProducts = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    const min = priceMin ? Number(priceMin) : null;
-    const max = priceMax ? Number(priceMax) : null;
-
-    return safeProducts.filter((p) => {
-      const variantSkus = Array.isArray(p.variants)
-        ? p.variants
-          .map((v) => (v?.sku || "").toString().toLowerCase())
-          .filter(Boolean)
-        : [];
-      const skuCandidate =
-        (p.sku || "").toString().toLowerCase() ||
-        (variantSkus.length > 0 ? variantSkus[0] : "");
-
-      const matchesSearch =
-        !term ||
-        p.name.toLowerCase().includes(term) ||
-        (!!skuCandidate && skuCandidate.includes(term));
-      const matchesCategory =
-        filterCategory === "all" ||
-        (p.categoryId?._id || p.categoryId) === filterCategory ||
-        (p.headerId?._id || p.headerId) === filterCategory;
-
-      let matchesStatus = filterStatus === "All";
-      if (filterStatus === "Active") matchesStatus = p.status === "active";
-      if (filterStatus === "Low Stock")
-        matchesStatus = p.stock > 0 && p.stock <= resolveLowStockThreshold(p);
-      if (filterStatus === "Out of Stock") matchesStatus = p.stock === 0;
-
-      let matchesPrice = true;
-      const effectivePrice = Number(p.salePrice ?? p.price ?? 0);
-      if (min !== null && !Number.isNaN(min)) {
-        matchesPrice = matchesPrice && effectivePrice >= min;
-      }
-      if (max !== null && !Number.isNaN(max)) {
-        matchesPrice = matchesPrice && effectivePrice <= max;
-      }
-
-      return (
-        matchesSearch &&
-        matchesCategory &&
-        matchesStatus &&
-        matchesPrice
-      );
-    }).sort((a, b) => {
-      if (sortBy === "newest") return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-      if (sortBy === "oldest") return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
-      if (sortBy === "name-asc") return (a.name || "").localeCompare(b.name || "");
-      if (sortBy === "name-desc") return (b.name || "").localeCompare(a.name || "");
-      if (sortBy === "price-asc") return Number(a.salePrice ?? a.price ?? 0) - Number(b.salePrice ?? b.price ?? 0);
-      if (sortBy === "price-desc") return Number(b.salePrice ?? b.price ?? 0) - Number(a.salePrice ?? a.price ?? 0);
-      if (sortBy === "stock-asc") return Number(a.stock ?? 0) - Number(b.stock ?? 0);
-      if (sortBy === "stock-desc") return Number(b.stock ?? 0) - Number(a.stock ?? 0);
-      return 0;
-    });
-  }, [
-    safeProducts,
-    searchTerm,
-    filterCategory,
-    filterStatus,
-    sortBy,
-    priceMin,
-    priceMax,
-  ]);
+  const filteredProducts = safeProducts;
 
   const stats = useMemo(
     () => ({
@@ -927,16 +896,36 @@ const ProductManagement = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.map((p) => (
-                <SellerProductTableRow
-                  key={p._id || p.id}
-                  p={p}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onViewVariants={handleViewVariants}
-                  skuText={displaySku(p)}
-                />
-              ))}
+              {isLoading ? (
+                <tr>
+                  <td colSpan="8" className="px-6 py-12 text-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <HiOutlineArrowPath className="h-6 w-6 animate-spin text-brand-600" />
+                      <span className="text-sm font-medium">Loading products...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredProducts.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="px-6 py-12 text-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <HiOutlineCube className="h-8 w-8 text-slate-400" />
+                      <span className="text-sm font-medium">No products found matching your search or filters.</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredProducts.map((p) => (
+                  <SellerProductTableRow
+                    key={p._id || p.id}
+                    p={p}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onViewVariants={handleViewVariants}
+                    skuText={displaySku(p)}
+                  />
+                ))
+              )}
             </tbody>
           </table>
         </div>

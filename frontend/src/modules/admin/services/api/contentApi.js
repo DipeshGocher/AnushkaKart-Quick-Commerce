@@ -51,11 +51,6 @@ export const adminContentApi = {
     // Legal Pages (Terms & Conditions, Privacy Policy)
     getLegalPage: (params) => axiosInstance.get('/legal', { params }),
     upsertLegalPage: (data) => axiosInstance.put('/legal', data),
-
-    // Bestseller Config
-    getAllBestsellerConfigs: () => axiosInstance.get(`/bestsellers/admin`),
-    getBestsellerConfig: (headerId) => axiosInstance.get(`/bestsellers/admin/${headerId}`),
-    updateBestsellerConfig: (headerId, data) => axiosInstance.put(`/bestsellers/admin/${headerId}`, data),
 };
 
 export default adminContentApi;

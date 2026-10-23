@@ -23,12 +23,10 @@ import mediaRoute from "./mediaRoutes.js";
 import healthRoute from "./healthRoutes.js";
 import metricsRoute from "./metricsRoutes.js";
 
-import bestsellerRoute from "./bestsellerRoutes.js";
 import authOtpRoute from "../modules/otp/otp.routes.js";
 import employeeRoute from "./employeeRoutes.js";
 import translationRoute from "./translationRoutes.js";
 import legalPageRoute from "./legalPageRoutes.js";
-import festivalDealsRoute from "./festivalDealsRoutes.js";
 import attributeRoute from "./attributeRoutes.js";
 import shippingRoute from "./shippingRoutes.js";
 
@@ -40,8 +38,6 @@ const setupRoutes = (app) => {
     // Health and metrics endpoints (no /api prefix for standard paths)
     app.use("/api/health", healthRoute);
     app.use("/api/metrics", metricsRoute);
-
-    app.use("/api/bestsellers", bestsellerRoute);
 
     router.use("/customer", customerRoute);
     router.use("/delivery", deliveryRoute);
@@ -84,7 +80,6 @@ const setupRoutes = (app) => {
     router.use("/employees", employeeRoute);
     router.use("/translate", translationRoute);
     router.use("/legal", legalPageRoute);
-    router.use("/festival-deals", festivalDealsRoute);
     router.use("/attributes", attributeRoute);
     router.use("/shipping", shippingRoute);
 

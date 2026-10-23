@@ -7,6 +7,10 @@ export const deliveryApi = {
   verifyOtp: (data) => axiosInstance.post("/delivery/verify-otp", data),
   getProfile: () => axiosInstance.get("/delivery/profile"),
   updateProfile: (data) => axiosInstance.put("/delivery/profile", data),
+  uploadDocument: (formData) =>
+    axiosInstance.post("/delivery/upload-document", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
   deleteAccount: () => axiosInstance.delete("/delivery/delete-account"),
   getStats: () => axiosInstance.get("/delivery/stats"),
   getEarnings: (timeframe, date) => axiosInstance.get(`/delivery/earnings`, { params: { timeframe, date } }),
@@ -51,6 +55,7 @@ export const deliveryApi = {
     axiosInstance.put("/notifications/mark-all-read"),
   requestWithdrawal: (data) =>
     axiosInstance.post("/delivery/request-withdrawal", data),
+  getWithdrawals: () => axiosInstance.get("/delivery/withdrawals"),
   updateStatus: (orderId, data) =>
     axiosInstance.put(`/orders/status/${orderId}`, data),
   updateReturnStatus: (orderId, data) =>
@@ -79,4 +84,9 @@ export const deliveryApi = {
   warehouseCheckin: (data) => axiosInstance.post("/delivery/warehouse/checkin", data),
   warehouseCheckout: () => axiosInstance.post("/delivery/warehouse/checkout"),
   getCheckinStatus: () => axiosInstance.get("/delivery/warehouse/checkin-status"),
+
+  // Support & Tickets
+  createTicket: (data) => axiosInstance.post("/tickets/create", data),
+  getMyTickets: () => axiosInstance.get("/tickets/my-tickets"),
+  replyToTicket: (id, data) => axiosInstance.post(`/tickets/reply/${id}`, data),
 };

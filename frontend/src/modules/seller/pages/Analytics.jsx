@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Card from "@shared/components/ui/Card";
 import Badge from "@shared/components/ui/Badge";
@@ -11,11 +11,14 @@ import {
   HiOutlineArrowUpRight,
   HiOutlineArrowDownRight,
   HiOutlineCalendarDays,
-  HiOutlineFunnel,
   HiOutlineArrowDownTray,
   HiOutlineMapPin,
   HiOutlineClock,
   HiOutlineDevicePhoneMobile,
+  HiOutlineBanknotes,
+  HiOutlineCheckCircle,
+  HiOutlineCreditCard,
+  HiOutlineExclamationTriangle,
 } from "react-icons/hi2";
 import {
   AreaChart,
@@ -25,19 +28,15 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
   RadarChart,
   PolarGrid,
   PolarAngleAxis,
   PolarRadiusAxis,
   Radar,
-  Legend,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
-import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { BlurFade } from "@/components/ui/blur-fade";
 import { MagicCard } from "@/components/ui/magic-card";
@@ -46,12 +45,19 @@ import Modal from "@shared/components/ui/Modal";
 import { sellerApi } from "../services/sellerApi";
 import { toast } from "sonner";
 
+const TIME_RANGE_OPTIONS = [
+  { label: "All Time (Lifetime)", value: "all" },
+  { label: "Last 30 Days", value: "30d" },
+  { label: "Last 7 Days", value: "7d" },
+  { label: "This Month", value: "this_month" },
+  { label: "Today", value: "today" },
+];
 
 const Analytics = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [statsData, setStatsData] = useState(null);
-  const [timeRange, setTimeRange] = useState("Last 7 Days");
+  const [timeRange, setTimeRange] = useState("all");
   const [activeTab, setActiveTab] = useState("Overview");
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -66,7 +72,10 @@ const Analytics = () => {
         setLoading(true);
       }
       try {
-        const response = await sellerApi.getStats(chartRange.toLowerCase());
+        const response = await sellerApi.getStats({
+          range: chartRange.toLowerCase(),
+          timeRange,
+        });
         const raw = response?.data?.result ?? response?.data?.data ?? null;
         if (response?.data?.success && raw && typeof raw === "object") {
           setStatsData({
@@ -75,6 +84,8 @@ const Analytics = () => {
             categoryMix: Array.isArray(raw.categoryMix) ? raw.categoryMix : [],
             topProducts: Array.isArray(raw.topProducts) ? raw.topProducts : [],
             trafficSources: Array.isArray(raw.trafficSources) ? raw.trafficSources : [],
+            financials: raw.financials ?? {},
+            customerInsights: raw.customerInsights ?? {},
             insights: raw.insights ?? {},
           });
         } else if (response?.data?.success && raw) {
@@ -89,6 +100,8 @@ const Analytics = () => {
           categoryMix: [],
           topProducts: [],
           trafficSources: [],
+          financials: {},
+          customerInsights: {},
           insights: {},
         });
       } finally {
@@ -99,45 +112,55 @@ const Analytics = () => {
       }
     };
     fetchAnalytics();
-  }, [chartRange]);
+  }, [chartRange, timeRange]);
+
+  const overview = statsData?.overview ?? {};
+  const deliveredCount = overview.deliveredOrders ?? 0;
+  const activeCount = overview.activeOrders ?? 0;
+  const cancelledCount = overview.cancelledOrders ?? 0;
+  const totalCount = overview.totalOrdersRaw ?? overview.totalOrders ?? 0;
 
   const stats = [
     {
-      label: "Total Sales",
-      value: statsData?.overview?.totalSales || "₹0",
-      trend: statsData?.overview?.salesTrend || "0%",
+      label: "Net Revenue",
+      value: overview.totalSales || "₹0",
+      subtext: `From ${deliveredCount} Delivered Orders`,
+      trend: overview.salesTrend || "0%",
       icon: HiOutlineArrowTrendingUp,
       color: "text-brand-600",
       bg: "bg-brand-50",
     },
     {
       label: "Total Orders",
-      value: statsData?.overview?.totalOrders || "0",
-      trend: statsData?.overview?.ordersTrend || "0%",
+      value: overview.totalOrders || "0",
+      subtext: `${deliveredCount} Delivered • ${activeCount} Active • ${cancelledCount} Cancelled`,
+      trend: overview.ordersTrend || "0%",
       icon: HiOutlineShoppingBag,
       color: "text-brand-600",
       bg: "bg-brand-50",
     },
     {
       label: "Avg Order Value",
-      value: statsData?.overview?.avgOrderValue || "₹0",
-      trend: "0%", // Trend for AOV can be added later
+      value: overview.avgOrderValue || "₹0",
+      subtext: "Avg. per delivered order",
+      trend: null,
       icon: HiOutlineUsers,
       color: "text-amber-600",
       bg: "bg-amber-50",
     },
     {
-      label: "Conversion Rate",
-      value: statsData?.overview?.conversionRate || "0%",
-      trend: "0%",
-      icon: HiOutlineChartBar,
-      color: "text-rose-600",
-      bg: "bg-rose-50",
+      label: "Fulfillment Rate",
+      value: overview.fulfillmentRate || "0%",
+      subtext: `${deliveredCount} of ${totalCount} completed`,
+      trend: `Cancel: ${overview.cancellationRate || "0%"}`,
+      icon: HiOutlineCheckCircle,
+      color: "text-emerald-600",
+      bg: "bg-emerald-50",
     },
   ];
 
   const salesTrendArr = statsData?.salesTrend ?? [];
-  const hasNoData = !Number(statsData?.overview?.totalOrders) && (!salesTrendArr.length || salesTrendArr.every((d) => !d.sales));
+  const hasNoData = !Number(overview.totalOrders) && (!salesTrendArr.length || salesTrendArr.every((d) => !d.sales));
 
   const handleDownloadReport = () => {
     if (isExporting) return;
@@ -148,67 +171,77 @@ const Analytics = () => {
         return /[",\n\r]/.test(s) ? `"${s}"` : s;
       };
       const lines = [];
-      lines.push("Analytics Report");
-      lines.push(`Generated,${new Date().toISOString()}`);
+      lines.push("AnushkaKart - Seller Analytics & Sales Report");
+      lines.push(`Generated On,${new Date().toLocaleString()}`);
+      lines.push(`Time Range Selected,${timeRange.toUpperCase()}`);
       lines.push("");
 
-      const ov = statsData?.overview ?? {};
-      lines.push("Overview");
-      lines.push("Metric,Value");
-      ["Total Sales", "Total Orders", "Avg Order Value", "Conversion Rate"].forEach((label, i) => {
-        const key = ["totalSales", "totalOrders", "avgOrderValue", "conversionRate"][i];
-        lines.push(`${escapeCsv(label)},${escapeCsv(ov[key] ?? "—")}`);
-      });
+      lines.push("1. Overview & Key Performance Indicators");
+      lines.push("Metric,Value,Details");
+      lines.push(`Net Revenue,${escapeCsv(overview.totalSales || "₹0")},${escapeCsv(`From ${deliveredCount} Delivered Orders`)}`);
+      lines.push(`Total Orders,${escapeCsv(overview.totalOrders || "0")},${escapeCsv(`${deliveredCount} Delivered / ${cancelledCount} Cancelled`)}`);
+      lines.push(`Avg Order Value (AOV),${escapeCsv(overview.avgOrderValue || "₹0")},Per Delivered Order`);
+      lines.push(`Fulfillment Rate,${escapeCsv(overview.fulfillmentRate || "0%")},Completed Orders Ratio`);
+      lines.push(`Cancellation Rate,${escapeCsv(overview.cancellationRate || "0%")},Cancelled Orders Ratio`);
+      lines.push("");
+
+      const fin = statsData?.financials ?? {};
+      lines.push("2. Financial & Payment Mode Breakdown");
+      lines.push("Category,Amount,Orders");
+      lines.push(`Gross Order Value,₹${(fin.grossSales || 0).toLocaleString()},—`);
+      lines.push(`Net Seller Payout,₹${(fin.netPayout || 0).toLocaleString()},${deliveredCount}`);
+      lines.push(`Cash on Delivery (COD),₹${(fin.codAmount || 0).toLocaleString()},${fin.codOrders || 0}`);
+      lines.push(`Prepaid / Online UPI,₹${(fin.onlineAmount || 0).toLocaleString()},${fin.onlineOrders || 0}`);
       lines.push("");
 
       const trend = statsData?.salesTrend ?? [];
       if (trend.length) {
-        lines.push("Sales Trend");
-        lines.push("Period,Sales,Traffic");
+        lines.push("3. Sales & Revenue Trend");
+        lines.push("Time Period,Sales (₹),Orders Count");
         trend.forEach((d) => {
-          lines.push(`${escapeCsv(d.name)},${escapeCsv(d.sales)},${escapeCsv(d.traffic)}`);
+          lines.push(`${escapeCsv(d.name)},${escapeCsv(d.sales)},${escapeCsv(d.orders || 0)}`);
         });
         lines.push("");
       }
 
       const top = statsData?.topProducts ?? [];
       if (top.length) {
-        lines.push("Top Products");
-        lines.push("Product,Sales,Revenue,Trend %");
-        top.forEach((p) => {
-          lines.push(`${escapeCsv(p.name)},${escapeCsv(p.sales)},${escapeCsv(p.revenue)},${escapeCsv(p.trend)}`);
+        lines.push("4. Top Selling Products");
+        lines.push("Rank,Product Name,Units Sold,Revenue Generated,Current Stock");
+        top.forEach((p, idx) => {
+          lines.push(`${idx + 1},${escapeCsv(p.name)},${escapeCsv(p.sales)},${escapeCsv(p.revenue)},${escapeCsv(p.stock ?? "N/A")}`);
         });
         lines.push("");
       }
 
       const cat = statsData?.categoryMix ?? [];
       if (cat.length) {
-        lines.push("Category Mix");
-        lines.push("Category,Volume");
+        lines.push("5. Category Performance Mix");
+        lines.push("Category Name,Revenue / Volume,Share %");
         cat.forEach((c) => {
-          lines.push(`${escapeCsv(c.subject)},${escapeCsv(c.A)}`);
+          lines.push(`${escapeCsv(c.subject || c.name)},${escapeCsv(c.revenue || c.A)},${escapeCsv(c.percentage ? `${c.percentage}%` : "—")}`);
         });
         lines.push("");
       }
 
-      const traffic = statsData?.trafficSources ?? [];
-      if (traffic.length) {
-        lines.push("Traffic Sources");
-        lines.push("Source,Value");
-        traffic.forEach((t) => {
-          lines.push(`${escapeCsv(t.name)},${escapeCsv(t.value)}`);
-        });
-      }
+      const cust = statsData?.customerInsights ?? {};
+      lines.push("6. Customer Insights");
+      lines.push("Metric,Value");
+      lines.push(`Unique Buyers,${cust.uniqueCustomers || 0}`);
+      lines.push(`Repeat Buyers,${cust.repeatCustomers || 0}`);
+      lines.push(`Repeat Customer Rate,${cust.repeatRate || "0%"}`);
+      lines.push(`Top Delivery City,${cust.topCity || "N/A"}`);
+      lines.push(`Peak Order Hours,${cust.peakTime || "N/A"}`);
 
       const csvContent = lines.join("\n");
       const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `analytics-report-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `sales-report-${timeRange}-${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success("Report downloaded successfully!");
+      toast.success("Sales report downloaded successfully!");
     } catch (e) {
       console.error(e);
       toast.error("Failed to download report");
@@ -218,108 +251,120 @@ const Analytics = () => {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen font-black text-slate-600">LOADING ANALYTICS...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] gap-3">
+        <div className="h-10 w-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="font-black text-slate-600 text-sm tracking-wider uppercase">Loading Analytics Data...</p>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-20 sm:pb-16">
-      <BlurFade delay={0.1}>
-        {/* Header */}
-        <div className="flex flex-col gap-4">
+      <BlurFade delay={0.05}>
+        {/* Header with Title and Global Time Filter */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 flex flex-wrap items-center gap-2">
-              Advanced Analytics
+              Advanced Analytics & Reports
               <Badge
                 variant="success"
-                className="text-[9px] px-1.5 py-0 font-bold tracking-wider uppercase bg-brand-100 text-brand-700">
-                Real-time Insights
+                className="text-[10px] px-2 py-0.5 font-bold tracking-wider uppercase bg-emerald-100 text-emerald-800 border-none">
+                Live Data
               </Badge>
             </h1>
             <p className="text-slate-600 text-sm sm:text-base mt-0.5 font-medium">
-              Detailed breakdown of your business performance and customer
-              behavior.
+              Transparent breakdown of your orders, payouts, revenue trends, and customer insights.
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 w-full sm:w-auto overflow-x-auto scrollbar-hide min-w-0">
-              {["Overview", "Sales", "Customers"].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={cn(
-                    "px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm sm:text-xs font-bold transition-all whitespace-nowrap shrink-0",
-                    activeTab === tab
-                      ? "bg-white text-slate-900 shadow-sm border border-slate-200"
-                      : "text-slate-600 hover:text-slate-700",
-                  )}>
-                  {tab}
-                </button>
-              ))}
+
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Dynamic Time Filter Dropdown */}
+            <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
+              <HiOutlineCalendarDays className="h-4 w-4 text-primary shrink-0" />
+              <select
+                value={timeRange}
+                onChange={(e) => setTimeRange(e.target.value)}
+                className="bg-transparent text-xs sm:text-sm font-bold text-slate-800 outline-none cursor-pointer pr-1">
+                {TIME_RANGE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
+
+            {/* Download Report Button */}
             <ShimmerButton
               onClick={handleDownloadReport}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 sm:px-5 rounded-lg text-xs sm:text-sm sm:text-xs font-bold text-white shadow-lg disabled:opacity-50 shrink-0"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white shadow-md disabled:opacity-50 shrink-0"
               disabled={isExporting}>
               <HiOutlineArrowDownTray className="h-4 w-4 shrink-0" />
-              <span>{isExporting ? "DOWNLOADING..." : "DOWNLOAD REPORT"}</span>
+              <span>{isExporting ? "EXPORTING..." : "DOWNLOAD REPORT"}</span>
             </ShimmerButton>
           </div>
         </div>
+
+        {/* Navigation Tabs */}
+        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 w-full sm:w-fit mt-4">
+          {["Overview", "Sales", "Customers"].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={cn(
+                "px-5 py-2 rounded-lg text-xs sm:text-sm font-black transition-all shrink-0",
+                activeTab === tab
+                  ? "bg-white text-slate-900 shadow-sm border border-slate-200"
+                  : "text-slate-600 hover:text-slate-800",
+              )}>
+              {tab === "Sales" ? "Sales & Payouts" : tab === "Customers" ? "Customers & Localities" : tab}
+            </button>
+          ))}
+        </div>
       </BlurFade>
 
-      {/* Quick Stats Grid - show for all tabs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats
-          .filter((_, i) => {
-            if (activeTab === "Customers") return i === 0 || i === 1; // Total Sales, Total Orders only
-            return true;
-          })
-          .map((stat, i) => (
+      {/* 4 Core KPI Stat Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        {stats.map((stat, i) => (
           <BlurFade key={stat.label} delay={0.1 + i * 0.05}>
             <MagicCard
-              className="border-none shadow-md overflow-hidden group bg-white p-0"
-              gradientColor={
-                stat.bg.includes("emerald")
-                  ? "#ecfdf5"
-                  : stat.bg.includes("indigo")
-                    ? "#eef2ff"
-                    : stat.bg.includes("amber")
-                      ? "#fffbeb"
-                      : "#fff1f2"
-              }>
-              <div className="p-6 relative z-10 flex items-start justify-between">
-                <div>
-                  <p className="text-xs font-black text-slate-600 uppercase tracking-widest">
+              className="border-none shadow-md overflow-hidden group bg-white p-0 rounded-2xl"
+              gradientColor="#f8fafc">
+              <div className="p-5 relative z-10 flex items-start justify-between">
+                <div className="space-y-1.5 flex-1 pr-2">
+                  <p className="text-[11px] font-black text-slate-500 uppercase tracking-wider">
                     {stat.label}
                   </p>
-                  <h4 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">
+                  <h4 className="text-2xl font-black text-slate-900 tracking-tight">
                     {stat.value}
                   </h4>
-                  <div
-                    className={cn(
-                      "flex items-center mt-3 text-xs sm:text-sm font-black px-2 py-0.5 rounded-full w-fit",
-                      stat.trend.startsWith("+")
-                        ? "text-brand-600 bg-brand-50"
-                        : "text-rose-600 bg-rose-50",
-                    )}>
-                    {stat.trend.startsWith("+") ? (
-                      <HiOutlineArrowUpRight className="mr-0.5" />
-                    ) : (
-                      <HiOutlineArrowDownRight className="mr-0.5" />
-                    )}
-                    {stat.trend}
-                    <span className="text-slate-600 ml-1 font-medium">
-                      vs prev 7d
-                    </span>
-                  </div>
+                  <p className="text-[11px] font-bold text-slate-500">
+                    {stat.subtext}
+                  </p>
+                  {stat.trend && (
+                    <div
+                      className={cn(
+                        "flex items-center mt-2 text-[10px] font-black px-2 py-0.5 rounded-full w-fit",
+                        stat.trend.startsWith("+")
+                          ? "text-emerald-700 bg-emerald-50 border border-emerald-100"
+                          : stat.trend.startsWith("-")
+                            ? "text-rose-700 bg-rose-50 border border-rose-100"
+                            : "text-slate-600 bg-slate-100",
+                      )}>
+                      {stat.trend.startsWith("+") && <HiOutlineArrowUpRight className="mr-0.5 h-3 w-3" />}
+                      {stat.trend.startsWith("-") && <HiOutlineArrowDownRight className="mr-0.5 h-3 w-3" />}
+                      {stat.trend}
+                      <span className="text-slate-500 ml-1 font-semibold">vs prev period</span>
+                    </div>
+                  )}
                 </div>
                 <div
                   className={cn(
-                    "h-12 w-12 rounded-lg flex items-center justify-center shadow-inner",
+                    "h-12 w-12 rounded-xl flex items-center justify-center shrink-0 shadow-inner",
                     stat.bg,
                     stat.color,
                   )}>
-                  <stat.icon className="h-6 w-6 transition-transform group-hover:scale-125 duration-300" />
+                  <stat.icon className="h-6 w-6 transition-transform group-hover:scale-110 duration-300" />
                 </div>
               </div>
             </MagicCard>
@@ -327,407 +372,486 @@ const Analytics = () => {
         ))}
       </div>
 
-      {hasNoData && (activeTab === "Overview" || activeTab === "Sales") && (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-6 py-4 flex items-center gap-3">
-          <HiOutlineChartBar className="h-6 w-6 text-slate-600 shrink-0" />
-          <p className="text-sm font-semibold text-slate-600">
-            Sales report is connected. Data will appear here once you have orders.
-          </p>
-        </div>
-      )}
-
-      {(activeTab === "Overview" || activeTab === "Sales") && (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Sales Performance Chart */}
-        <BlurFade delay={0.4} className="lg:col-span-2">
-          <Card className="border-none shadow-xl shadow-slate-200/50 rounded-3xl p-6 bg-white overflow-hidden group h-full">
-            <div className="flex items-center justify-between mb-8">
+      {/* SALES TAB SPECIFIC: Financial Settlement Split Cards */}
+      {activeTab === "Sales" && (
+        <BlurFade delay={0.25}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <Card className="border border-slate-200 shadow-sm rounded-2xl p-5 bg-white flex items-center gap-4">
+              <div className="h-12 w-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                <HiOutlineBanknotes className="h-6 w-6" />
+              </div>
               <div>
-                <h3 className="text-lg font-black text-slate-900">
-                  Revenue & Trends
-                </h3>
-                <p className="text-xs text-slate-600 font-bold uppercase tracking-widest">
-                  Performance Insights
+                <p className="text-xs font-bold text-slate-500 uppercase">Gross Order Value</p>
+                <h4 className="text-xl font-black text-slate-900 mt-0.5">
+                  ₹{(statsData?.financials?.grossSales || 0).toLocaleString()}
+                </h4>
+                <p className="text-[11px] text-slate-500 font-medium">Total customer checkout value</p>
+              </div>
+            </Card>
+
+            <Card className="border border-slate-200 shadow-sm rounded-2xl p-5 bg-white flex items-center gap-4">
+              <div className="h-12 w-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                <HiOutlineCreditCard className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-500 uppercase">Prepaid / Online UPI</p>
+                <h4 className="text-xl font-black text-slate-900 mt-0.5">
+                  ₹{(statsData?.financials?.onlineAmount || 0).toLocaleString()}
+                </h4>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  {statsData?.financials?.onlineOrders || 0} online paid orders
                 </p>
               </div>
-              <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100">
-                {["Daily", "Weekly", "Monthly"].map((range) => (
-                  <button
-                    key={range}
-                    onClick={() => setChartRange(range)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
-                      chartRange === range
-                        ? "bg-white text-primary shadow-sm"
-                        : "text-slate-600 hover:text-slate-600",
-                    )}>
-                    {range}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="h-[400px] w-full mt-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={statsData?.salesTrend || []}
-                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6666FF" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#6666FF" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient
-                      id="colorTraffic"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1">
-                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.1} />
-                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="#f1f5f9"
-                  />
-                  <XAxis
-                    dataKey="name"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 700 }}
-                    dy={10}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 700 }}
-                    dx={-10}
-                    tickFormatter={(value) => `₹${value}`}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#fff",
-                      borderRadius: "20px",
-                      border: "none",
-                      boxShadow:
-                        "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
-                    }}
-                    itemStyle={{ fontSize: "11px", fontWeight: 900 }}
-                    cursor={{
-                      stroke: "#3b82f6",
-                      strokeWidth: 1,
-                      strokeDasharray: "4 4",
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="sales"
-                    stroke="#6666FF"
-                    strokeWidth={4}
-                    fillOpacity={1}
-                    fill="url(#colorSales)"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="traffic"
-                    stroke="#8b5cf6"
-                    strokeWidth={2}
-                    strokeDasharray="5 5"
-                    fillOpacity={1}
-                    fill="url(#colorTraffic)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-        </BlurFade>
+            </Card>
 
-        {/* Category Mix (Radar Chart) */}
-        <BlurFade delay={0.5} className="lg:col-span-1">
-          <Card className="border-none shadow-xl shadow-slate-200/50 rounded-lg p-6 bg-white flex flex-col items-center justify-center group h-full">
-            <div className="w-full text-center mb-6">
-              <h3 className="text-lg font-black text-slate-900">
-                Category Mix
-              </h3>
-              <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">
-                Inventory Distribution
-              </p>
-            </div>
-            <div className="h-[350px] w-full flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart
-                  cx="50%"
-                  cy="50%"
-                  outerRadius="70%"
-                  data={statsData?.categoryMix || []}>
-                  <PolarGrid stroke="#e2e8f0" />
-                  <PolarAngleAxis
-                    dataKey="subject"
-                    tick={{ fill: "#64748b", fontSize: 10, fontWeight: 800 }}
-                  />
-                  <PolarRadiusAxis
-                    angle={30}
-                    domain={[0, 150]}
-                    tick={false}
-                    axisLine={false}
-                  />
-                  <Radar
-                    name="Volume"
-                    dataKey="A"
-                    stroke="#10b981"
-                    strokeWidth={3}
-                    fill="#10b981"
-                    fillOpacity={0.15}
-                  />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="grid grid-cols-3 gap-2 w-full mt-4">
-              {(statsData?.categoryMix || []).slice(0, 3).map((cat, idx) => (
-                <div
-                  key={idx}
-                  className="bg-slate-50 p-3 rounded-lg flex flex-col items-center border border-slate-100/50">
-                  <p className="text-[10px] font-black text-slate-900">
-                    {cat.A}
-                  </p>
-                  <p className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase">
-                    {cat.subject}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </Card>
+            <Card className="border border-slate-200 shadow-sm rounded-2xl p-5 bg-white flex items-center gap-4">
+              <div className="h-12 w-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                <HiOutlineBanknotes className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-500 uppercase">Cash on Delivery (COD)</p>
+                <h4 className="text-xl font-black text-slate-900 mt-0.5">
+                  ₹{(statsData?.financials?.codAmount || 0).toLocaleString()}
+                </h4>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  {statsData?.financials?.codOrders || 0} cash orders collected
+                </p>
+              </div>
+            </Card>
+          </div>
         </BlurFade>
-      </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Top Selling Products - Overview & Sales */}
-        {(activeTab === "Overview" || activeTab === "Sales") && (
-        <BlurFade delay={0.6}>
-          <Card className="border-none shadow-xl shadow-slate-200/50 rounded-lg p-0 overflow-hidden bg-white">
-            <div className="p-6 border-b border-slate-50">
-              <h3 className="text-lg font-black text-slate-900">
-                Top Performing Products
-              </h3>
-              <p className="text-xs text-slate-600 font-medium">
-                Bestsellers by sales volume and revenue generation.
-              </p>
-            </div>
-            <div className="divide-y divide-slate-50">
-              {(statsData?.topProducts || []).map((product, i) => (
-                <div
-                  key={i}
-                  onClick={() => {
-                    setSelectedProduct(product);
-                    setIsProductModalOpen(true);
-                  }}
-                  className="px-6 py-5 flex items-center justify-between hover:bg-slate-50/50 transition-colors group cursor-pointer">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-600 font-black text-xs group-hover:bg-primary group-hover:text-white transition-all">
-                      {i + 1}
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-black text-slate-900">
-                        {product.name}
-                      </h4>
-                      <p className="text-xs sm:text-sm text-slate-600 font-bold">
-                        {product.sales} units sold
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-black text-slate-900">
-                      {product.revenue}
-                    </p>
-                    <div
-                      className={cn(
-                        "flex items-center justify-end text-[10px] font-black mt-0.5",
-                        product.trend > 0
-                          ? "text-brand-600"
-                          : "text-rose-600",
-                      )}>
-                      {product.trend > 0 ? (
-                        <HiOutlineArrowUpRight className="h-3 w-3 mr-0.5" />
-                      ) : (
-                        <HiOutlineArrowDownRight className="h-3 w-3 mr-0.5" />
-                      )}
-                      {Math.abs(product.trend)}%
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="p-4 bg-slate-50/50 border-t border-slate-50 text-center">
-              <button
-                onClick={() => navigate("/seller/products")}
-                className="text-xs font-black text-primary uppercase tracking-widest hover:underline">
-                View All Products Analytics
-              </button>
-            </div>
-          </Card>
+      {/* CUSTOMERS TAB SPECIFIC: Customer Intelligence Cards */}
+      {activeTab === "Customers" && (
+        <BlurFade delay={0.25}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <Card className="border border-slate-200 shadow-sm rounded-2xl p-5 bg-white flex items-center gap-4">
+              <div className="h-12 w-12 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center shrink-0">
+                <HiOutlineUsers className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-500 uppercase">Unique Buyers</p>
+                <h4 className="text-xl font-black text-slate-900 mt-0.5">
+                  {statsData?.customerInsights?.uniqueCustomers || 0} Customers
+                </h4>
+                <p className="text-[11px] text-slate-500 font-medium">Distinct buyers placed orders</p>
+              </div>
+            </Card>
+
+            <Card className="border border-slate-200 shadow-sm rounded-2xl p-5 bg-white flex items-center gap-4">
+              <div className="h-12 w-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                <HiOutlineArrowTrendingUp className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-500 uppercase">Repeat Customer Rate</p>
+                <h4 className="text-xl font-black text-slate-900 mt-0.5">
+                  {statsData?.customerInsights?.repeatRate || "0%"}
+                </h4>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  {statsData?.customerInsights?.repeatCustomers || 0} customers with multiple orders
+                </p>
+              </div>
+            </Card>
+
+            <Card className="border border-slate-200 shadow-sm rounded-2xl p-5 bg-white flex items-center gap-4">
+              <div className="h-12 w-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                <HiOutlineMapPin className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-500 uppercase">Top Delivery Location</p>
+                <h4 className="text-xl font-black text-slate-900 mt-0.5">
+                  {statsData?.customerInsights?.topCity || "N/A"}
+                </h4>
+                <p className="text-[11px] text-slate-500 font-medium">Primary order destination</p>
+              </div>
+            </Card>
+          </div>
         </BlurFade>
-        )}
+      )}
 
-        {/* Traffic Sources & Customer Insights - Overview & Customers */}
-        {(activeTab === "Overview" || activeTab === "Customers") && (
-        <BlurFade delay={0.7}>
-          <Card className="border-none shadow-xl shadow-slate-200/50 rounded-3xl p-6 bg-white overflow-hidden group h-full">
-            <div className="mb-8">
-              <h3 className="text-lg font-black text-slate-900">
-                New Customers
-              </h3>
-              <p className="text-xs text-slate-600 font-bold uppercase tracking-widest">
-                Traffic Origin Analysis
-              </p>
-            </div>
+      {/* Main Charts Grid: Revenue & Trends + Category Mix */}
+      {(activeTab === "Overview" || activeTab === "Sales") && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Revenue & Trends Chart */}
+          <BlurFade delay={0.3} className="lg:col-span-2">
+            <Card className="border border-slate-200 shadow-md rounded-2xl p-6 bg-white overflow-hidden h-full flex flex-col justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="text-lg font-black text-slate-900">
+                    Revenue & Sales Trends
+                  </h3>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-0.5">
+                    {timeRange === "all" ? "Lifetime Sales Timeline" : `Sales Trend for ${timeRange.toUpperCase()}`}
+                  </p>
+                </div>
+                <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 w-fit">
+                  {["Daily", "Weekly", "Monthly"].map((range) => (
+                    <button
+                      key={range}
+                      onClick={() => setChartRange(range)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                        chartRange === range
+                          ? "bg-white text-slate-900 shadow-sm"
+                          : "text-slate-600 hover:text-slate-800",
+                      )}>
+                      {range}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-            <div className="flex flex-col md:flex-row items-center gap-8">
-              <div className="h-[250px] w-full md:w-1/2">
+              <div className="h-[360px] w-full mt-2">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={statsData?.trafficSources || []}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={8}
-                      dataKey="value">
-                      {(statsData?.trafficSources || []).map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={entry.color}
-                          strokeWidth={0}
-                        />
-                      ))}
-                    </Pie>
+                  <AreaChart
+                    data={salesTrendArr}
+                    margin={{ top: 10, right: 15, left: -10, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis
+                      dataKey="name"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#64748b", fontSize: 11, fontWeight: 700 }}
+                      dy={10}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#64748b", fontSize: 11, fontWeight: 700 }}
+                      tickFormatter={(value) => `₹${Number(value).toLocaleString()}`}
+                      domain={[0, (dataMax) => (dataMax > 0 ? Math.ceil(dataMax * 1.2) : 500)]}
+                    />
                     <Tooltip
                       contentStyle={{
-                        borderRadius: "15px",
+                        backgroundColor: "#1e293b",
+                        color: "#fff",
+                        borderRadius: "12px",
                         border: "none",
-                        boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
+                        boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.2)",
+                        fontSize: "12px",
+                        fontWeight: 700,
                       }}
-                      itemStyle={{ fontSize: "10px", fontWeight: 900 }}
+                      itemStyle={{ color: "#fff" }}
+                      formatter={(value, name) => [
+                        name === "sales" ? `₹${Number(value).toLocaleString()}` : value,
+                        name === "sales" ? "Payout Revenue" : name === "orders" ? "Orders Count" : name,
+                      ]}
                     />
-                  </PieChart>
+                    <Area
+                      type="monotone"
+                      dataKey="sales"
+                      stroke="#2563eb"
+                      strokeWidth={3}
+                      fillOpacity={1}
+                      fill="url(#colorSales)"
+                    />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
-              <div className="w-full md:w-1/2 space-y-4">
-                {(statsData?.trafficSources || []).map((source, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-3 w-3 rounded-full"
-                        style={{ backgroundColor: source.color }}
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-semibold">
+                <span>Showing net delivered order payouts</span>
+                <span>Currency: INR (₹)</span>
+              </div>
+            </Card>
+          </BlurFade>
+
+          {/* Category Performance Mix */}
+          <BlurFade delay={0.35} className="lg:col-span-1">
+            <Card className="border border-slate-200 shadow-md rounded-2xl p-6 bg-white flex flex-col justify-between h-full">
+              <div>
+                <div className="text-left mb-4">
+                  <h3 className="text-lg font-black text-slate-900">
+                    Category Mix
+                  </h3>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-0.5">
+                    Product Distribution & Sales
+                  </p>
+                </div>
+
+                <div className="h-[280px] w-full flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart cx="50%" cy="50%" outerRadius="75%" data={statsData?.categoryMix || []}>
+                      <PolarGrid stroke="#e2e8f0" />
+                      <PolarAngleAxis
+                        dataKey="subject"
+                        tick={{ fill: "#475569", fontSize: 10, fontWeight: 700 }}
                       />
-                      <span className="text-xs font-bold text-slate-600">
-                        {source.name}
-                      </span>
-                    </div>
-                    <span className="text-xs font-black text-slate-900">
-                      {((source.value / (statsData?.trafficSources?.reduce((a, b) => a + b.value, 0) || 1)) * 100).toFixed(0)}%
+                      <PolarRadiusAxis angle={30} domain={[0, "auto"]} tick={false} axisLine={false} />
+                      <Radar
+                        name="Volume"
+                        dataKey="A"
+                        stroke="#10b981"
+                        strokeWidth={2.5}
+                        fill="#10b981"
+                        fillOpacity={0.2}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Top Categories Badges */}
+              <div className="grid grid-cols-2 gap-2 w-full mt-3 pt-3 border-t border-slate-100">
+                {(statsData?.categoryMix || []).slice(0, 4).map((cat, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-slate-50 p-2.5 rounded-xl flex items-center justify-between border border-slate-100">
+                    <span className="text-[11px] font-bold text-slate-700 truncate max-w-[100px]">
+                      {cat.subject}
+                    </span>
+                    <span className="text-[11px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                      {cat.A}
                     </span>
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
+          </BlurFade>
+        </div>
+      )}
 
-            <div className="mt-8 grid grid-cols-3 gap-4 border-t border-slate-50 pt-8">
-              <div className="text-center">
-                <div className="h-10 w-10 bg-brand-50 text-brand-600 rounded-xl flex items-center justify-center mx-auto mb-2">
-                  <HiOutlineMapPin className="h-5 w-5" />
+      {/* Top Products & Customer Details Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Performing Products */}
+        {(activeTab === "Overview" || activeTab === "Sales") && (
+          <BlurFade delay={0.4}>
+            <Card className="border border-slate-200 shadow-md rounded-2xl p-0 overflow-hidden bg-white h-full flex flex-col justify-between">
+              <div>
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900">
+                      Top Performing Products
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Bestsellers ranked by sales volume & total revenue.
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="text-xs font-bold text-slate-600">
+                    {(statsData?.topProducts || []).length} Products
+                  </Badge>
                 </div>
-                <p className="text-[10px] font-black text-slate-900 tracking-tight">
-                  {statsData?.insights?.topCity || "N/A"}
-                </p>
-                <p className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest">
-                  Top City
-                </p>
-              </div>
-              <div className="text-center">
-                <div className="h-10 w-10 bg-brand-50 text-brand-600 rounded-xl flex items-center justify-center mx-auto mb-2">
-                  <HiOutlineClock className="h-5 w-5" />
+
+                <div className="divide-y divide-slate-100">
+                  {(statsData?.topProducts || []).length === 0 ? (
+                    <div className="p-8 text-center text-slate-400 font-semibold text-xs">
+                      No product sales recorded in the selected period.
+                    </div>
+                  ) : (
+                    (statsData?.topProducts || []).map((product, i) => (
+                      <div
+                        key={i}
+                        onClick={() => {
+                          setSelectedProduct(product);
+                          setIsProductModalOpen(true);
+                        }}
+                        className="px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer group">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-600 font-black text-xs shrink-0 group-hover:bg-primary group-hover:text-white transition-all overflow-hidden">
+                            {product.image ? (
+                              <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+                            ) : (
+                              i + 1
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-black text-slate-900 group-hover:text-primary transition-colors">
+                              {product.name}
+                            </h4>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-xs text-slate-500 font-semibold">
+                                {product.sales} units sold
+                              </span>
+                              {product.isLowStock && (
+                                <span className="text-[10px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                                  Low Stock
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-sm font-black text-slate-900">
+                            {product.revenue}
+                          </p>
+                          <span className="text-[10px] font-bold text-emerald-600 flex items-center justify-end">
+                            <HiOutlineArrowUpRight className="h-3 w-3 mr-0.5" />
+                            {product.trend}%
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
-                <p className="text-[10px] font-black text-slate-900 tracking-tight">
-                  {statsData?.insights?.peakTime || "N/A"}
-                </p>
-                <p className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest">
-                  Peak Time
-                </p>
               </div>
-              <div className="text-center">
-                <div className="h-10 w-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center mx-auto mb-2">
-                  <HiOutlineDevicePhoneMobile className="h-5 w-5" />
+
+              <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
+                <button
+                  onClick={() => navigate("/seller/products")}
+                  className="text-xs font-black text-primary uppercase tracking-wider hover:underline">
+                  Manage Product Inventory →
+                </button>
+              </div>
+            </Card>
+          </BlurFade>
+        )}
+
+        {/* Traffic Sources & Origin Insights */}
+        {(activeTab === "Overview" || activeTab === "Customers") && (
+          <BlurFade delay={0.45}>
+            <Card className="border border-slate-200 shadow-md rounded-2xl p-6 bg-white overflow-hidden h-full flex flex-col justify-between">
+              <div>
+                <div className="mb-4">
+                  <h3 className="text-lg font-black text-slate-900">
+                    Customer Channels & Geography
+                  </h3>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-0.5">
+                    Order Sources & Origin Analysis
+                  </p>
                 </div>
-                <p className="text-[10px] font-black text-slate-900 tracking-tight">
-                  {statsData?.insights?.topDevice || "N/A"}
-                </p>
-                <p className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest">
-                  Top Device
-                </p>
+
+                <div className="flex flex-col sm:flex-row items-center gap-6 my-2">
+                  <div className="h-[200px] w-full sm:w-1/2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={statsData?.trafficSources || []}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={50}
+                          outerRadius={75}
+                          paddingAngle={6}
+                          dataKey="value">
+                          {(statsData?.trafficSources || []).map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="w-full sm:w-1/2 space-y-3">
+                    {(statsData?.trafficSources || []).map((source, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="h-3 w-3 rounded-full shrink-0"
+                            style={{ backgroundColor: source.color }}
+                          />
+                          <span className="font-bold text-slate-700">{source.name}</span>
+                        </div>
+                        <span className="font-black text-slate-900">
+                          {((source.value / (statsData?.trafficSources?.reduce((a, b) => a + b.value, 0) || 1)) * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          </Card>
-        </BlurFade>
+
+              {/* Geographic & Device Summary */}
+              <div className="mt-6 grid grid-cols-3 gap-3 border-t border-slate-100 pt-5 text-center">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <div className="h-8 w-8 bg-brand-50 text-brand-600 rounded-lg flex items-center justify-center mx-auto mb-1.5">
+                    <HiOutlineMapPin className="h-4 w-4" />
+                  </div>
+                  <p className="text-xs font-black text-slate-900 truncate">
+                    {statsData?.insights?.topCity || "N/A"}
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase">Top City</p>
+                </div>
+
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <div className="h-8 w-8 bg-brand-50 text-brand-600 rounded-lg flex items-center justify-center mx-auto mb-1.5">
+                    <HiOutlineClock className="h-4 w-4" />
+                  </div>
+                  <p className="text-xs font-black text-slate-900 truncate">
+                    {statsData?.insights?.peakTime || "N/A"}
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase">Peak Time</p>
+                </div>
+
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <div className="h-8 w-8 bg-amber-50 text-amber-600 rounded-lg flex items-center justify-center mx-auto mb-1.5">
+                    <HiOutlineDevicePhoneMobile className="h-4 w-4" />
+                  </div>
+                  <p className="text-xs font-black text-slate-900 truncate">
+                    {statsData?.insights?.topDevice || "Mobile"}
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase">Device</p>
+                </div>
+              </div>
+            </Card>
+          </BlurFade>
         )}
       </div>
+
       {/* Product Detail Modal */}
       <Modal
         isOpen={isProductModalOpen}
         onClose={() => setIsProductModalOpen(false)}
-        title="Product Insights">
+        title="Product Performance Insights">
         {selectedProduct && (
           <div className="space-y-6">
-            <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl">
-              <div className="h-16 w-16 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-600">
-                <HiOutlineShoppingBag className="h-8 w-8" />
+            <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+              <div className="h-16 w-16 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-600 shrink-0 overflow-hidden">
+                {selectedProduct.image ? (
+                  <img src={selectedProduct.image} alt={selectedProduct.name} className="h-full w-full object-cover" />
+                ) : (
+                  <HiOutlineShoppingBag className="h-8 w-8" />
+                )}
               </div>
               <div>
-                <h3 className="font-black text-slate-900">
+                <h3 className="font-black text-slate-900 text-base">
                   {selectedProduct.name}
                 </h3>
-                <p className="text-xs text-slate-600 font-bold uppercase tracking-widest mt-1">
-                  Product ID: {selectedProduct._id || "N/A"}
+                <p className="text-xs text-slate-500 font-bold mt-0.5">
+                  Stock on hand: {selectedProduct.stock ?? "N/A"} units
                 </p>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-brand-50 rounded-2xl">
-                <p className="text-[10px] font-black text-brand-700 uppercase tracking-widest">
-                  Revenue
+              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                <p className="text-[10px] font-black text-emerald-700 uppercase tracking-wider">
+                  Total Revenue
                 </p>
-                <p className="text-xl font-black text-brand-900">
+                <p className="text-xl font-black text-emerald-950 mt-1">
                   {selectedProduct.revenue}
                 </p>
               </div>
-              <div className="p-4 bg-brand-50 rounded-2xl">
-                <p className="text-[10px] font-black text-brand-700 uppercase tracking-widest">
+              <div className="p-4 bg-brand-50 rounded-2xl border border-brand-100">
+                <p className="text-[10px] font-black text-brand-700 uppercase tracking-wider">
                   Units Sold
                 </p>
-                <p className="text-xl font-black text-brand-900">
-                  {selectedProduct.sales}
+                <p className="text-xl font-black text-brand-950 mt-1">
+                  {selectedProduct.sales} units
                 </p>
               </div>
             </div>
 
             <div className="space-y-2">
-              <p className="text-xs font-black text-slate-900 uppercase tracking-widest pl-1">
-                Sales velocity
-              </p>
-              <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                <div className="h-full bg-primary w-[75%]" />
+              <div className="flex items-center justify-between text-xs font-black">
+                <span className="text-slate-700 uppercase tracking-wider">Sales Velocity</span>
+                <span className="text-emerald-700">+{selectedProduct.trend}% active</span>
               </div>
-              <p className="text-[10px] text-slate-600 font-bold text-right pt-1">
-                +{selectedProduct.trend}% faster than last week
-              </p>
+              <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-primary w-[80%]" />
+              </div>
             </div>
 
             <Button
               onClick={() => setIsProductModalOpen(false)}
-              className="w-full py-4 rounded-2xl font-black shadow-xl shadow-primary/20">
+              className="w-full py-3.5 rounded-xl font-black shadow-lg shadow-primary/20">
               CLOSE DETAILS
             </Button>
           </div>

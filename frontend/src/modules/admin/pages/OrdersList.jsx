@@ -61,6 +61,11 @@ const AdminOrderTableRow = React.memo(({ order, status, onNavigate, onStatusUpda
                                     Local
                                 </span>
                             )}
+                            {order.escalated && (
+                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-300 animate-pulse">
+                                    ⚠️ Rider Needed
+                                </span>
+                            )}
                             <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-all text-slate-400" />
                         </h4>
                         <div className="flex items-center gap-2 mt-1">
@@ -265,6 +270,7 @@ const OrdersList = () => {
                     payment: o.payment?.method === 'cod' ? 'COD' : 'Digital',
                     fulfillmentType: o.fulfillmentType || 'LOCAL',
                     shiprocket: o.shiprocket || null,
+                    escalated: Boolean(o.deliverySearchMeta?.escalated),
                 }));
                 setOrders(formatted);
                 setSummary({

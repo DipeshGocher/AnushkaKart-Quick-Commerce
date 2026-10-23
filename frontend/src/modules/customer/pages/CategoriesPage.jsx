@@ -9,6 +9,8 @@ import { useCart } from '../context/CartContext';
 import CategoryIcon from '@shared/components/CategoryIcon';
 import { slugify } from '@/core/utils/productUrl';
 
+let memoryCategoriesCache = null;
+
 const isAllOrForYou = (cat) => {
     if (!cat) return false;
     const name = String(cat.name || '').trim().toLowerCase();
@@ -17,11 +19,11 @@ const isAllOrForYou = (cat) => {
 };
 
 const CategoriesPage = () => {
-    const [sections, setSections] = useState([]);
-    const [forYouImage, setForYouImage] = useState(null);
-    const [forYouIconId, setForYouIconId] = useState('');
+    const [sections, setSections] = useState(() => memoryCategoriesCache?.sections || []);
+    const [forYouImage, setForYouImage] = useState(() => memoryCategoriesCache?.forYouImage || null);
+    const [forYouIconId, setForYouIconId] = useState(() => memoryCategoriesCache?.forYouIconId || '');
     const [activeHeaderId, setActiveHeaderId] = useState('for_you');
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(() => !memoryCategoriesCache);
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isListening, setIsListening] = useState(false);
@@ -34,7 +36,9 @@ const CategoriesPage = () => {
     useEffect(() => {
         let isMounted = true;
         const fetchCategories = async () => {
-            setIsLoading(true);
+            if (!memoryCategoriesCache) {
+                setIsLoading(true);
+            }
             try {
                 const response = await customerApi.getCategories({ tree: 'true', catalogType: 'all' });
                 if (!response.data?.success) return;
@@ -101,11 +105,16 @@ const CategoriesPage = () => {
                     .filter((header) => header.categories.length > 0)
                     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 
+                memoryCategoriesCache = {
+                    sections: parsed,
+                    forYouImage: forYouImg,
+                    forYouIconId: forYouIcon
+                };
+
                 if (isMounted) {
                     setSections(parsed);
                     setForYouImage(forYouImg);
                     setForYouIconId(forYouIcon);
-                    setActiveHeaderId('for_you');
                 }
             } catch (error) {
                 console.error('Error fetching categories:', error);

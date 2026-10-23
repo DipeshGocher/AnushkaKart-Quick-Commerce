@@ -55,6 +55,24 @@ const deliverySchema = new mongoose.Schema(
             trim: true,
         },
 
+        bankName: {
+            type: String,
+            trim: true,
+        },
+
+        upiId: {
+            type: String,
+            trim: true,
+        },
+
+        bankDetails: {
+            accountHolder: { type: String, trim: true },
+            accountNumber: { type: String, trim: true },
+            ifsc: { type: String, trim: true },
+            bankName: { type: String, trim: true },
+            upiId: { type: String, trim: true },
+        },
+
         documents: {
             aadhar: { type: String },
             pan: { type: String },

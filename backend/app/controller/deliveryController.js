@@ -22,6 +22,7 @@ import {
     getDeliveryEarnings as getDeliveryEarningsFromService,
     getDeliveryCodCashSummary as getDeliveryCodCashSummaryFromService,
 } from "../services/delivery/deliveryEarningsService.js";
+import { buildKey, del } from "../services/cacheService.js";
 
 /* ===============================
    GET DELIVERY DASHBOARD STATS
@@ -77,10 +78,9 @@ export const submitDeliveryCodCashToAdmin = async (req, res) => {
         const deliveryBoyId = new mongoose.Types.ObjectId(String(rawId));
         const orders = await Order.find({
             deliveryBoy: deliveryBoyId,
-            paymentMode: "COD",
+            paymentMode: { $in: ["COD", "cod"] },
             status: { $ne: "cancelled" },
             orderStatus: { $ne: "cancelled" },
-            "financeFlags.codMarkedCollected": true,
             "paymentBreakdown.codPendingAmount": { $gt: 0 },
         })
             .select("orderId paymentBreakdown.codPendingAmount")
@@ -91,7 +91,7 @@ export const submitDeliveryCodCashToAdmin = async (req, res) => {
             return handleResponse(
                 res,
                 400,
-                "No collected COD cash is ready to submit yet. Mark customer cash as collected first.",
+                "No collected COD cash is ready to submit. Mark customer cash as collected first.",
             );
         }
 
@@ -116,80 +116,70 @@ export const submitDeliveryCodCashToAdmin = async (req, res) => {
             return handleResponse(
                 res,
                 400,
-                "No collected COD cash is ready to submit yet. Mark customer cash as collected first.",
+                "No collected COD cash is ready to submit.",
             );
         }
         if (amountToSubmit > totalAvailable) {
             return handleResponse(
                 res,
                 400,
-                `You can submit up to ${String.fromCharCode(8377)}${totalAvailable.toLocaleString()}`,
+                `You can submit up to ₹${totalAvailable.toLocaleString()}`,
             );
         }
 
-        const settledOrders = [];
-        let totalSubmitted = 0;
-        let remaining = amountToSubmit;
+        // Generate clean 4-digit deposit slip reference (e.g. DEP-8942)
+        const slipCode = Math.floor(1000 + Math.random() * 9000);
+        const depositRef = `DEP-${slipCode}`;
 
-        for (const order of orders) {
-            const amount = roundCurrency(order?.paymentBreakdown?.codPendingAmount || 0);
-            if (amount <= 0 || remaining <= 0) continue;
-            const settleAmount = roundCurrency(Math.min(amount, remaining));
-
-            await reconcileCodCash(
-                order._id,
-                settleAmount,
-                deliveryBoyId,
-                {
-                    actorId: req.user?.id || null,
-                    metadata: {
-                        source: "delivery_cod_cash_page",
-                        initiatedBy: "delivery_partner",
-                    },
-                },
-            );
-
-            totalSubmitted = roundCurrency(totalSubmitted + settleAmount);
-            remaining = roundCurrency(remaining - settleAmount);
-            settledOrders.push({
-                orderId: order.orderId,
-                amount: settleAmount,
-            });
-        }
-
-        if (totalSubmitted <= 0) {
-            return handleResponse(
-                res,
-                400,
-                "No collected COD cash is ready to submit yet. Mark customer cash as collected first.",
-            );
-        }
-
-        await Transaction.create({
+        // Check if there is an existing pending handover transaction, update it or create new
+        let handoverTx = await Transaction.findOne({
             user: deliveryBoyId,
             userModel: "Delivery",
             type: "Cash Settlement",
-            amount: -Math.abs(totalSubmitted),
-            status: "Settled",
-            reference: `CSH-SET-${deliveryBoyId}-${Date.now()}`,
-            meta: {
-                source: "delivery_cod_cash_page",
-                orders: settledOrders.map((item) => item.orderId),
-            },
+            status: { $in: ["Pending", "Processing"] },
         });
 
-        const wallet = await Wallet.findOne({
-            ownerType: "DELIVERY_PARTNER",
-            ownerId: deliveryBoyId,
-        })
-            .select("cashInHand")
-            .lean();
+        if (handoverTx) {
+            handoverTx.amount = -Math.abs(amountToSubmit);
+            handoverTx.reference = depositRef;
+            handoverTx.notes = req.body?.notes || `Deposit Handover Slip #${depositRef} at Hub Counter`;
+            handoverTx.meta = {
+                source: "delivery_cod_cash_page",
+                depositRef,
+                orderCount: orders.length,
+                orderIds: orders.map((o) => o.orderId),
+            };
+            await handoverTx.save();
+        } else {
+            handoverTx = await Transaction.create({
+                user: deliveryBoyId,
+                userModel: "Delivery",
+                type: "Cash Settlement",
+                amount: -Math.abs(amountToSubmit),
+                status: "Pending",
+                reference: depositRef,
+                notes: req.body?.notes || `Deposit Handover Slip #${depositRef} at Hub Counter`,
+                meta: {
+                    source: "delivery_cod_cash_page",
+                    depositRef,
+                    orderCount: orders.length,
+                    orderIds: orders.map((o) => o.orderId),
+                },
+            });
+        }
 
-        return handleResponse(res, 200, "COD cash submitted to admin successfully", {
-            totalSubmitted,
-            orderCount: settledOrders.length,
-            orders: settledOrders,
-            cashInHand: roundCurrency(wallet?.cashInHand || 0),
+        // Clear cache so rider app gets updated pendingHandover immediately
+        try {
+            const cacheKey = buildKey("delivery", "codSummary", String(deliveryBoyId));
+            await del(cacheKey);
+        } catch (cErr) {}
+
+        return handleResponse(res, 200, "Cash handover request created successfully", {
+            reference: depositRef,
+            amount: amountToSubmit,
+            orderCount: orders.length,
+            status: "Pending",
+            message: "Show this deposit reference to the Hub Manager to verify & settle cash.",
         });
     } catch (error) {
         return handleResponse(res, error.statusCode || 500, error.message);
@@ -325,7 +315,96 @@ export const requestWithdrawal = async (req, res) => {
             reference: `WDR-DL-${Date.now()}`
         });
 
+        // 3. Sync Wallet for DELIVERY_PARTNER
+        try {
+            const wallet = await Wallet.findOne({
+                ownerType: { $in: ["DELIVERY_PARTNER", "DELIVERY"] },
+                ownerId: deliveryBoyId,
+            });
+            if (wallet) {
+                wallet.availableBalance = Math.max(0, (wallet.availableBalance || 0) - Math.abs(amount));
+                wallet.pendingBalance = (wallet.pendingBalance || 0) + Math.abs(amount);
+                await wallet.save();
+            }
+        } catch (wErr) {
+            logger.warn("Wallet sync warning on delivery withdrawal request:", wErr?.message || wErr);
+        }
+
         return handleResponse(res, 201, "Withdrawal request submitted successfully", withdrawal);
+    } catch (error) {
+        return handleResponse(res, 500, error.message);
+    }
+};
+
+/* ===============================
+   GET DELIVERY WITHDRAWALS & BALANCE
+================================ */
+export const getDeliveryWithdrawals = async (req, res) => {
+    try {
+        const rawId = req.user?.id ?? req.user?._id;
+        if (!rawId) {
+            return handleResponse(res, 401, "Unauthorized");
+        }
+        const deliveryBoyId = new mongoose.Types.ObjectId(String(rawId));
+
+        // 1. Fetch all transactions for this rider (to get complete history & true financial balance)
+        const allTransactions = await Transaction.find({
+            user: deliveryBoyId,
+            userModel: "Delivery",
+        }).sort({ createdAt: -1 }).lean();
+
+        // Settled earnings from delivery, bonus, incentives
+        const settledEarnings = allTransactions
+            .filter((t) => t.status === "Settled" && ["Delivery Earning", "Incentive", "Bonus"].includes(t.type))
+            .reduce((acc, t) => acc + (t.amount || 0), 0);
+
+        // Settled withdrawals (money already paid out by Admin)
+        const settledWithdrawals = allTransactions
+            .filter((t) => t.status === "Settled" && t.type === "Withdrawal")
+            .reduce((acc, t) => acc + Math.abs(t.amount || 0), 0);
+
+        // Pending withdrawals (currently awaiting Admin settlement)
+        const pendingWithdrawals = allTransactions
+            .filter((t) => (t.status === "Pending" || t.status === "Processing") && t.type === "Withdrawal")
+            .reduce((acc, t) => acc + Math.abs(t.amount || 0), 0);
+
+        // Also check Wallet collection in case wallet.availableBalance is explicitly maintained
+        const wallet = await Wallet.findOne({
+            ownerType: { $in: ["DELIVERY_PARTNER", "DELIVERY"] },
+            ownerId: deliveryBoyId,
+        }).lean();
+
+        // Available balance ready to withdraw
+        const calculatedAvailable = Math.max(0, settledEarnings - settledWithdrawals - pendingWithdrawals);
+        const availableBalance = wallet && typeof wallet.availableBalance === 'number' && wallet.availableBalance > 0
+            ? wallet.availableBalance
+            : calculatedAvailable;
+        const finalPendingWithdrawals = wallet && typeof wallet.pendingBalance === 'number' && wallet.pendingBalance > 0
+            ? wallet.pendingBalance
+            : pendingWithdrawals;
+
+        // Withdrawal history list
+        const history = allTransactions
+            .filter((t) => t.type === "Withdrawal")
+            .map((t) => ({
+                id: t.reference || String(t._id),
+                _id: t._id,
+                amount: Math.abs(t.amount),
+                status: t.status,
+                createdAt: t.createdAt,
+                date: t.createdAt,
+                reference: t.reference || `WDR-DL-${String(t._id).slice(-6).toUpperCase()}`,
+                notes: t.notes || "",
+            }));
+
+        return handleResponse(res, 200, "Withdrawals data fetched successfully", {
+            availableBalance,
+            settledEarnings,
+            settledWithdrawals,
+            pendingWithdrawals: finalPendingWithdrawals,
+            history,
+            transactions: history,
+        });
     } catch (error) {
         return handleResponse(res, 500, error.message);
     }

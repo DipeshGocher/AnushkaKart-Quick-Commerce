@@ -217,7 +217,11 @@ export const getDeliveryProfile = async (req, res) => {
 ================================ */
 export const updateDeliveryProfile = async (req, res) => {
     try {
-        const { name, email, address, dob, bloodGroup, vehicleType, vehicleNumber, drivingLicenseNumber, currentArea, isOnline } = req.body;
+        const { 
+            name, email, address, dob, bloodGroup, vehicleType, 
+            vehicleNumber, drivingLicenseNumber, currentArea, isOnline,
+            bankDetails, accountHolder, accountNumber, ifsc, bankName, upiId
+        } = req.body;
 
         const delivery = await Delivery.findById(req.user.id);
         if (!delivery) {
@@ -233,6 +237,37 @@ export const updateDeliveryProfile = async (req, res) => {
         if (vehicleNumber !== undefined) delivery.vehicleNumber = vehicleNumber;
         if (drivingLicenseNumber !== undefined) delivery.drivingLicenseNumber = drivingLicenseNumber;
         if (currentArea !== undefined) delivery.currentArea = currentArea;
+
+        // Process Bank Details & UPI ID (mirror root & nested bankDetails)
+        const rawBank = (bankDetails && typeof bankDetails === 'object') ? bankDetails : {};
+        const accHolder = rawBank.accountHolder || rawBank.accountHolderName || accountHolder;
+        const accNumber = rawBank.accountNumber || accountNumber;
+        const ifscVal = rawBank.ifsc || rawBank.ifscCode || ifsc;
+        const bName = rawBank.bankName || bankName;
+        const upi = rawBank.upiId || rawBank.upi || upiId;
+
+        if (accHolder !== undefined) {
+            delivery.accountHolder = String(accHolder || '').trim();
+        }
+        if (accNumber !== undefined) {
+            delivery.accountNumber = String(accNumber || '').trim();
+        }
+        if (ifscVal !== undefined) {
+            delivery.ifsc = String(ifscVal || '').trim().toUpperCase();
+        }
+        if (bName !== undefined) {
+            delivery.bankName = String(bName || '').trim();
+        }
+        if (upi !== undefined) {
+            delivery.upiId = String(upi || '').trim();
+        }
+
+        if (!delivery.bankDetails) delivery.bankDetails = {};
+        if (delivery.accountHolder) delivery.bankDetails.accountHolder = delivery.accountHolder;
+        if (delivery.accountNumber) delivery.bankDetails.accountNumber = delivery.accountNumber;
+        if (delivery.ifsc) delivery.bankDetails.ifsc = delivery.ifsc;
+        if (delivery.bankName) delivery.bankDetails.bankName = delivery.bankName;
+        if (delivery.upiId) delivery.bankDetails.upiId = delivery.upiId;
 
         // Capture going-offline transition before the save so we know whether
         // to drop the rider's realtime presence nodes after the write.
@@ -250,6 +285,49 @@ export const updateDeliveryProfile = async (req, res) => {
         }
 
         return handleResponse(res, 200, "Profile updated successfully", delivery);
+    } catch (error) {
+        return handleResponse(res, 500, error.message);
+    }
+};
+
+/* ===============================
+   UPLOAD DOCUMENT (Aadhar, PAN, Driving License)
+================================ */
+export const uploadDeliveryDocument = async (req, res) => {
+    try {
+        const { docType } = req.body;
+        const validTypes = ["aadhar", "pan", "drivingLicense", "dl"];
+        const normalizedType = docType === "dl" ? "drivingLicense" : docType;
+
+        if (!validTypes.includes(docType)) {
+            return handleResponse(res, 400, "Invalid document type. Allowed types: aadhar, pan, drivingLicense");
+        }
+
+        if (!req.file) {
+            return handleResponse(res, 400, "Please upload a document file (image or PDF)");
+        }
+
+        const delivery = await Delivery.findById(req.user.id);
+        if (!delivery) {
+            return handleResponse(res, 404, "Delivery partner not found");
+        }
+
+        const fileUrl = await uploadToCloudinary(req.file.buffer, "delivery/documents", {
+            mimeType: req.file.mimetype,
+            originalName: req.file.originalname,
+        });
+
+        if (!delivery.documents) delivery.documents = {};
+        delivery.documents[normalizedType] = fileUrl;
+
+        await delivery.save();
+
+        return handleResponse(res, 200, "Document uploaded successfully", {
+            docType: normalizedType,
+            url: fileUrl,
+            documents: delivery.documents,
+            delivery,
+        });
     } catch (error) {
         return handleResponse(res, 500, error.message);
     }

@@ -55,6 +55,16 @@ const ProductCard = ({ product, className, priority = false }) => {
   const productId = product?.id || product?._id;
   const isWishlisted = isInWishlist(productId);
 
+  const totalStock = React.useMemo(() => {
+    if (Array.isArray(product?.variants) && product.variants.length > 0) {
+      return product.variants.reduce((acc, v) => acc + (typeof v.stock === 'number' ? v.stock : 0), 0);
+    }
+    return Math.max(0, Number(product?.stock ?? 0));
+  }, [product]);
+
+  const isSoldOut = totalStock <= 0;
+  const isLowStock = totalStock > 0 && totalStock <= 2;
+
   const { currentPrice, originalPrice, hasDiscount } = getProductPriceInfo(product);
 
   const ratingVal =
@@ -99,14 +109,8 @@ const ProductCard = ({ product, className, priority = false }) => {
       }
 
       toggleWishlistGlobal(product);
-      showToast(
-        isWishlisted
-          ? `${product?.name} removed from wishlist`
-          : `${product?.name} added to wishlist`,
-        isWishlisted ? "info" : "success"
-      );
     },
-    [isAuthenticated, navigate, isWishlisted, toggleWishlistGlobal, product, showToast]
+    [isAuthenticated, navigate, isWishlisted, toggleWishlistGlobal, product]
   );
 
   return (
@@ -123,12 +127,25 @@ const ProductCard = ({ product, className, priority = false }) => {
         style={{ aspectRatio: "0.88" }}
       >
         {/* Out of Zone Delivery Badge (Top-Left) */}
-        {deliveryBadge && deliveryBadge.type === "unserviceable" && (
+        {deliveryBadge && deliveryBadge.type === "unserviceable" ? (
           <div
             className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider shadow-xs flex items-center gap-1 bg-red-500 text-white shadow-red-600/20"
           >
             <span>{deliveryBadge.label || "❌ Out of Zone"}</span>
           </div>
+        ) : isSoldOut ? (
+          <div className="absolute top-2 left-2 z-20 px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider shadow-xs flex items-center gap-1 bg-slate-700/90 text-white shadow-slate-800/20">
+            <span>Sold Out</span>
+          </div>
+        ) : isLowStock ? (
+          <div className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider shadow-xs flex items-center gap-1 bg-amber-500 text-white shadow-amber-600/20">
+            <span>Only {totalStock} left</span>
+          </div>
+        ) : null}
+
+        {/* Sold Out Darkened Tint */}
+        {isSoldOut && (
+          <div className="absolute inset-0 bg-white/40 pointer-events-none z-10" />
         )}
 
         {/* Wishlist Heart Button */}
@@ -219,6 +236,18 @@ const ProductCard = ({ product, className, priority = false }) => {
           </span>
         )}
       </div>
+
+      {/* Stock Urgency / Sold Out Text */}
+      {isLowStock && (
+        <p className="mt-1 px-0.5 text-[11px] font-bold text-amber-600 leading-tight">
+          Hurry, only {totalStock} left in stock!
+        </p>
+      )}
+      {isSoldOut && (
+        <p className="mt-1 px-0.5 text-[11px] font-bold text-rose-600 leading-tight">
+          Sold Out
+        </p>
+      )}
     </div>
   );
 };

@@ -80,12 +80,12 @@ const Orders = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Subsequent changes (page, date filters, sorting): update data without full page "refresh"
+    // Subsequent changes (page, tab, date filters, sorting): update data without full page "refresh"
     useEffect(() => {
         if (!hasMountedRef.current) return;
         fetchOrders(page, false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, startDate, endDate, sortBy]);
+    }, [page, activeTab, startDate, endDate, sortBy]);
 
     // Real-time updates: when global context detects new orders, refresh current page silently
     useEffect(() => {
@@ -104,21 +104,24 @@ const Orders = () => {
         }, 15000);
         return () => clearInterval(interval);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, startDate, endDate, sortBy]);
+    }, [page, activeTab, startDate, endDate, sortBy]);
 
     const fetchOrders = async (requestedPage = 1, showPageLoader = false, silent = false) => {
         try {
             if (showPageLoader) {
                 setLoading(true);
             }
-            const params = { page: requestedPage };
+            const params = { page: requestedPage, limit: pageSize };
+            if (activeTab && activeTab !== 'All') {
+                params.status = activeTab === 'Out for Delivery' ? 'out_for_delivery' : activeTab.toLowerCase();
+            }
             if (startDate) params.startDate = startDate;
             if (endDate) params.endDate = endDate;
             if (sortBy) params.sort = sortBy;
 
             const response = await sellerApi.getOrders(params);
 
-            // Backend returns handleResponse(..., { items, page, limit, total, totalPages })
+            // Backend returns handleResponse(..., { items, page, limit, total, totalPages, summary })
             const payload = response.data.result || {};
             const rawOrders = Array.isArray(payload.items)
                 ? payload.items
@@ -139,10 +142,12 @@ const Orders = () => {
                     image: item.image
                 })),
                 total: order.pricing?.total || 0,
+                pricing: order.pricing || {},
                 status: getLegacyStatusFromOrder(order),
                 fulfillmentType: order.fulfillmentType || 'LOCAL',
                 workflowStatus: order.workflowStatus,
                 workflowVersion: order.workflowVersion,
+                rawCreatedAt: order.createdAt ? new Date(order.createdAt).getTime() : 0,
                 date: order.createdAt
                     ? new Date(order.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
                     : '',
@@ -199,14 +204,15 @@ const Orders = () => {
 
     const filteredOrders = useMemo(() => {
         return safeOrders.filter(order => {
-            const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            const matchesSearch = !searchTerm ||
+                order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 order.customer.name.toLowerCase().includes(searchTerm.toLowerCase());
             const statusToMatch = activeTab === 'Out for Delivery' ? 'out_for_delivery' : activeTab.toLowerCase();
             const matchesTab = activeTab === 'All' || order.status.toLowerCase() === statusToMatch;
             return matchesSearch && matchesTab;
         }).sort((a, b) => {
-            if (sortBy === 'newest') return new Date(b.date || 0) - new Date(a.date || 0);
-            if (sortBy === 'oldest') return new Date(a.date || 0) - new Date(b.date || 0);
+            if (sortBy === 'newest') return (b.rawCreatedAt || 0) - (a.rawCreatedAt || 0);
+            if (sortBy === 'oldest') return (a.rawCreatedAt || 0) - (b.rawCreatedAt || 0);
             if (sortBy === 'amount-desc') return Number(b.total || 0) - Number(a.total || 0);
             if (sortBy === 'amount-asc') return Number(a.total || 0) - Number(b.total || 0);
             return 0;
@@ -453,7 +459,10 @@ const Orders = () => {
                                     {tabs.map((tab) => (
                                         <button
                                             key={tab}
-                                            onClick={() => setActiveTab(tab)}
+                                            onClick={() => {
+                                                setActiveTab(tab);
+                                                setPage(1);
+                                            }}
                                             className={cn(
                                                 "relative py-3 sm:py-4 px-2.5 sm:px-4 text-xs sm:text-sm font-bold whitespace-nowrap transition-all duration-300",
                                                 activeTab === tab
@@ -621,27 +630,43 @@ const Orders = () => {
                                                     <p className="text-sm font-black text-slate-900 mt-2">₹{order.total.toLocaleString()}</p>
                                                 </div>
                                                 <div className="flex flex-col items-end gap-2 shrink-0">
-                                                    <Badge variant={getStatusColor(order.status)} className="text-[10px] font-black uppercase px-2 py-0">
-                                                        {order.status}
+                                                    <Badge variant={getStatusColor(order.status)} className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md shadow-sm">
+                                                        {order.status === 'out_for_delivery' ? 'Out for Delivery' : order.status}
                                                     </Badge>
-                                                    <select
-                                                        value={order.status}
-                                                        onChange={(e) => handleStatusUpdate(order.id, e.target.value)}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                        className={cn(
-                                                            "w-full min-w-[100px] text-[10px] pl-2 pr-6 py-1.5 rounded-lg font-black uppercase cursor-pointer appearance-none border outline-none",
-                                                            order.status === 'pending' ? "bg-amber-100 text-amber-700" :
-                                                                order.status === 'delivered' ? "bg-brand-100 text-brand-700" :
-                                                                    order.status === 'cancelled' ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-700"
-                                                        )}
-                                                    >
-                                                        <option value="pending">Pending</option>
-                                                        <option value="confirmed">Confirmed</option>
-                                                        <option value="packed">Packed</option>
-                                                        <option value="out_for_delivery">Out</option>
-                                                        <option value="delivered">Delivered</option>
-                                                        <option value="cancelled">Cancelled</option>
-                                                    </select>
+                                                    {!['delivered', 'cancelled', 'out_for_delivery'].includes(order.status) && (
+                                                        <select
+                                                            value={order.status}
+                                                            onChange={(e) => handleStatusUpdate(order.id, e.target.value)}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            className={cn(
+                                                                "w-full min-w-[100px] text-[10px] pl-2 pr-6 py-1.5 rounded-lg font-black uppercase cursor-pointer appearance-none border outline-none",
+                                                                order.status === 'pending' ? "bg-amber-100 text-amber-700" :
+                                                                    order.status === 'confirmed' ? "bg-brand-100 text-brand-700" :
+                                                                        order.status === 'packed' ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-700"
+                                                            )}
+                                                        >
+                                                            {order.status === 'pending' && (
+                                                                <>
+                                                                    <option value="pending">Pending</option>
+                                                                    <option value="confirmed">Confirm</option>
+                                                                    <option value="cancelled">Cancel</option>
+                                                                </>
+                                                            )}
+                                                            {order.status === 'confirmed' && (
+                                                                <>
+                                                                    <option value="confirmed">Confirmed</option>
+                                                                    <option value="packed">Packed</option>
+                                                                    <option value="cancelled">Cancel</option>
+                                                                </>
+                                                            )}
+                                                            {order.status === 'packed' && (
+                                                                <>
+                                                                    <option value="packed">Packed</option>
+                                                                    <option value="cancelled">Cancel</option>
+                                                                </>
+                                                            )}
+                                                        </select>
+                                                    )}
                                                     <button
                                                         onClick={() => handleViewDetails(order)}
                                                         className="p-2 hover:bg-slate-100 rounded-lg text-slate-600"
@@ -714,62 +739,53 @@ const Orders = () => {
                                                         </div>
                                                     </td>
                                                     <td className="px-4 lg:px-6 py-3 lg:py-4">
-                                                        <div className="relative inline-block w-36">
-                                                            <select
-                                                                value={order.status}
-                                                                disabled={order.status === 'delivered' || order.status === 'cancelled' || order.status === 'out_for_delivery'}
-                                                                onChange={(e) => handleStatusUpdate(order.id, e.target.value)}
-                                                                className={cn(
-                                                                    "w-full text-[10px] pl-2.5 pr-8 py-1.5 rounded-full font-black uppercase tracking-widest appearance-none focus:ring-2 focus:ring-offset-1 transition-all border-none outline-none shadow-sm",
-                                                                    (order.status === 'delivered' || order.status === 'cancelled' || order.status === 'out_for_delivery') ? "cursor-default opacity-80" : "cursor-pointer",
-                                                                    order.status === 'pending' ? "bg-amber-100 text-amber-700 focus:ring-amber-200" :
-                                                                        order.status === 'confirmed' ? "bg-brand-100 text-brand-700 focus:ring-brand-200" :
-                                                                            order.status === 'packed' ? "bg-indigo-100 text-indigo-700 focus:ring-indigo-200" :
-                                                                                order.status === 'out_for_delivery' ? "bg-purple-100 text-purple-700 focus:ring-purple-200" :
-                                                                                    order.status === 'delivered' ? "bg-emerald-100 text-emerald-700 focus:ring-emerald-200" :
-                                                                                        order.status === 'cancelled' ? "bg-rose-100 text-rose-700 focus:ring-rose-200" :
-                                                                                            "bg-slate-100 text-slate-700 focus:ring-slate-200"
-                                                                )}
+                                                        {['delivered', 'cancelled', 'out_for_delivery'].includes(order.status) ? (
+                                                            <Badge
+                                                                variant={getStatusColor(order.status)}
+                                                                className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm"
                                                             >
-                                                                {order.status === 'pending' && (
-                                                                    <>
-                                                                        <option value="pending">Pending</option>
-                                                                        <option value="confirmed">Confirm</option>
-                                                                        <option value="cancelled">Cancel Order</option>
-                                                                    </>
-                                                                )}
-                                                                {order.status === 'confirmed' && (
-                                                                    <>
-                                                                        <option value="confirmed">Confirmed</option>
-                                                                        <option value="packed">Mark Packed</option>
-                                                                        <option value="cancelled">Cancel Order</option>
-                                                                    </>
-                                                                )}
-                                                                {order.status === 'packed' && (
-                                                                    <>
-                                                                        <option value="packed">Packed</option>
-                                                                        <option value="cancelled">Cancel Order</option>
-                                                                    </>
-                                                                )}
-                                                                {order.status === 'out_for_delivery' && (
-                                                                    <option value="out_for_delivery">Out for Delivery</option>
-                                                                )}
-                                                                {order.status === 'delivered' && (
-                                                                    <option value="delivered">Delivered</option>
-                                                                )}
-                                                                {order.status === 'cancelled' && (
-                                                                    <option value="cancelled">Cancelled</option>
-                                                                )}
-                                                                {!['pending', 'confirmed', 'packed', 'out_for_delivery', 'delivered', 'cancelled'].includes(order.status) && (
-                                                                    <>
-                                                                        <option value="pending">Pending</option>
-                                                                        <option value="confirmed">Confirmed</option>
-                                                                        <option value="cancelled">Cancelled</option>
-                                                                    </>
-                                                                )}
-                                                            </select>
-                                                            <HiOutlineChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-60" />
-                                                        </div>
+                                                                {order.status === 'out_for_delivery' ? 'Out for Delivery' : order.status}
+                                                            </Badge>
+                                                        ) : (
+                                                            <div className="relative inline-block w-36">
+                                                                <select
+                                                                    value={order.status}
+                                                                    onChange={(e) => handleStatusUpdate(order.id, e.target.value)}
+                                                                    className={cn(
+                                                                        "w-full text-[10px] pl-2.5 pr-8 py-1.5 rounded-full font-black uppercase tracking-widest appearance-none focus:ring-2 focus:ring-offset-1 transition-all border-none outline-none shadow-sm cursor-pointer",
+                                                                        order.status === 'pending' ? "bg-amber-100 text-amber-700 focus:ring-amber-200" :
+                                                                            order.status === 'confirmed' ? "bg-brand-100 text-brand-700 focus:ring-brand-200" :
+                                                                                order.status === 'packed' ? "bg-indigo-100 text-indigo-700 focus:ring-indigo-200" :
+                                                                                    "bg-slate-100 text-slate-700 focus:ring-slate-200"
+                                                                    )}
+                                                                >
+                                                                    {order.status === 'pending' && (
+                                                                        <>
+                                                                            <option value="pending">Pending</option>
+                                                                            <option value="confirmed">Confirm</option>
+                                                                            <option value="cancelled">Cancel Order</option>
+                                                                        </>
+                                                                    )}
+                                                                    {order.status === 'confirmed' && (
+                                                                        <>
+                                                                            <option value="confirmed">Confirmed</option>
+                                                                            <option value="packed">Mark Packed</option>
+                                                                            <option value="cancelled">Cancel Order</option>
+                                                                        </>
+                                                                    )}
+                                                                    {order.status === 'packed' && (
+                                                                        <>
+                                                                            <option value="packed">Packed</option>
+                                                                            <option value="cancelled">Cancel Order</option>
+                                                                        </>
+                                                                    )}
+                                                                    {!['pending', 'confirmed', 'packed'].includes(order.status) && (
+                                                                        <option value={order.status}>{order.status}</option>
+                                                                    )}
+                                                                </select>
+                                                                <HiOutlineChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-60 text-slate-600" />
+                                                            </div>
+                                                        )}
                                                     </td>
                                                     <td className="px-4 lg:px-6 py-3 lg:py-4 text-right">
                                                         <div className="flex items-center justify-end space-x-1.5">
@@ -780,66 +796,6 @@ const Orders = () => {
                                                             >
                                                                 <HiOutlineEye className="h-4 w-4" />
                                                             </button>
-                                                            {order.status?.toLowerCase() === 'pending' && (
-                                                                <>
-                                                                    <button
-                                                                        title="Confirm Order"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            handleStatusUpdate(order.id, 'confirmed');
-                                                                        }}
-                                                                        className="p-1.5 hover:bg-brand-50 hover:text-brand-600 rounded-lg transition-all text-slate-600 shadow-sm ring-1 ring-slate-100"
-                                                                    >
-                                                                        <HiOutlineCheck className="h-4 w-4" />
-                                                                    </button>
-                                                                    <button
-                                                                        title="Cancel Order"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            handleStatusUpdate(order.id, 'cancelled');
-                                                                        }}
-                                                                        className="p-1.5 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all text-slate-600 shadow-sm ring-1 ring-slate-100"
-                                                                    >
-                                                                        <HiOutlineXMark className="h-4 w-4" />
-                                                                    </button>
-                                                                </>
-                                                            )}
-                                                            {order.status?.toLowerCase() === 'confirmed' && (
-                                                                <>
-                                                                    <button
-                                                                        title="Mark Packed"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            handleStatusUpdate(order.id, 'packed');
-                                                                        }}
-                                                                        className="p-1.5 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-all text-slate-600 shadow-sm ring-1 ring-slate-100"
-                                                                    >
-                                                                        <HiOutlineCheck className="h-4 w-4" />
-                                                                    </button>
-                                                                    <button
-                                                                        title="Cancel Order"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            handleStatusUpdate(order.id, 'cancelled');
-                                                                        }}
-                                                                        className="p-1.5 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all text-slate-600 shadow-sm ring-1 ring-slate-100"
-                                                                    >
-                                                                        <HiOutlineXMark className="h-4 w-4" />
-                                                                    </button>
-                                                                </>
-                                                            )}
-                                                            {order.status?.toLowerCase() === 'packed' && (
-                                                                <button
-                                                                    title="Cancel Order"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        handleStatusUpdate(order.id, 'cancelled');
-                                                                    }}
-                                                                    className="p-1.5 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all text-slate-600 shadow-sm ring-1 ring-slate-100"
-                                                                >
-                                                                    <HiOutlineXMark className="h-4 w-4" />
-                                                                </button>
-                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -856,16 +812,6 @@ const Orders = () => {
                                         <Button variant="outline" className="mt-6 rounded-xl text-xs" onClick={() => { setActiveTab('All'); setSearchTerm(''); }}>CLEAR ALL FILTERS</Button>
                                     </div>
                                 )}
-                            </div>
-
-                            <div className="p-3 sm:p-4 border-t border-slate-50 bg-slate-50/30 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 px-3 sm:px-6">
-                                <p className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest text-center sm:text-left">
-                                    Showing {filteredOrders.length} of {total || summary.totalOrders || filteredOrders.length} Orders
-                                </p>
-                                <div className="flex gap-1 justify-center sm:justify-end">
-                                    <button className="p-1.5 rounded-lg border border-slate-200 text-slate-600 opacity-50 cursor-not-allowed" aria-hidden><HiOutlineChevronRight className="h-3.5 w-3.5 rotate-180" /></button>
-                                    <button className="p-1.5 rounded-lg border border-slate-200 text-slate-600 opacity-50 cursor-not-allowed" aria-hidden><HiOutlineChevronRight className="h-3.5 w-3.5" /></button>
-                                </div>
                             </div>
                         </Card>
                     </BlurFade>
@@ -930,7 +876,7 @@ const Orders = () => {
                                             </div>
                                             <div className="p-3 sm:p-4 rounded-2xl bg-brand-50 border border-brand-100">
                                                 <p className="text-[10px] sm:text-xs font-bold text-brand-400 uppercase tracking-widest mb-1">Avg. Order Value</p>
-                                                <p className="text-base sm:text-xl font-black text-brand-700">₹{summary.totalOrders ? (summary.totalAmount / summary.totalOrders).toFixed(0) : '0'}</p>
+                                                <p className="text-base sm:text-xl font-black text-brand-700">₹{summary.delivered > 0 ? (summary.totalAmount / summary.delivered).toFixed(0) : (summary.totalOrders > 0 ? (summary.totalAmount / summary.totalOrders).toFixed(0) : '0')}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -1054,16 +1000,36 @@ const Orders = () => {
                                                     <div className="space-y-2">
                                                         <div className="flex justify-between text-xs">
                                                             <span className="font-bold text-slate-600">Subtotal</span>
-                                                            <span className="font-black text-slate-900">₹{(selectedOrder.total - 10).toFixed(2)}</span>
+                                                            <span className="font-black text-slate-900">
+                                                                ₹{Number(selectedOrder.pricing?.subtotal != null ? selectedOrder.pricing.subtotal : (selectedOrder.total - (selectedOrder.pricing?.deliveryFee || 0))).toFixed(2)}
+                                                            </span>
                                                         </div>
                                                         <div className="flex justify-between text-xs">
                                                             <span className="font-bold text-slate-600">Delivery Fee</span>
-                                                            <span className="font-black text-brand-600">₹10.00</span>
+                                                            <span className="font-black text-brand-600">
+                                                                ₹{Number(selectedOrder.pricing?.deliveryFee ?? 0).toFixed(2)}
+                                                            </span>
                                                         </div>
+                                                        {Number(selectedOrder.pricing?.platformFee || 0) > 0 && (
+                                                            <div className="flex justify-between text-xs">
+                                                                <span className="font-bold text-slate-600">Platform / Handling Fee</span>
+                                                                <span className="font-black text-slate-900">
+                                                                    ₹{Number(selectedOrder.pricing.platformFee).toFixed(2)}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {Number(selectedOrder.pricing?.discount || 0) > 0 && (
+                                                            <div className="flex justify-between text-xs">
+                                                                <span className="font-bold text-slate-600">Discount</span>
+                                                                <span className="font-black text-emerald-600">
+                                                                    -₹{Number(selectedOrder.pricing.discount).toFixed(2)}
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                         <div className="h-px bg-primary/10 my-2" />
                                                         <div className="flex justify-between text-sm">
                                                             <span className="font-black text-slate-900">Total</span>
-                                                            <span className="font-black text-primary">₹{selectedOrder.total.toFixed(2)}</span>
+                                                            <span className="font-black text-primary">₹{Number(selectedOrder.total || 0).toFixed(2)}</span>
                                                         </div>
                                                     </div>
                                                 </div>

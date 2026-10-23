@@ -1,50 +1,20 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useLocation as useRouterLocation, useParams } from "react-router-dom";
 import { slugify } from "@/core/utils/productUrl";
-import { useInViewAnimation } from "@/core/hooks/useInViewAnimation";
-import { Sparkles, Heart, Snowflake, ChevronLeft, ChevronRight } from "lucide-react";
-
-// MUI Icons (shared with admin & icon selector)
-import HomeIcon from "@mui/icons-material/Home";
-import DevicesIcon from "@mui/icons-material/Devices";
-import LocalGroceryStoreIcon from "@mui/icons-material/LocalGroceryStore";
-import KitchenIcon from "@mui/icons-material/Kitchen";
-import ChildCareIcon from "@mui/icons-material/ChildCare";
-import PetsIcon from "@mui/icons-material/Pets";
-import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
-import CardGiftcardIcon from "@mui/icons-material/CardGiftcard";
-import VerifiedIcon from "@mui/icons-material/Verified";
-
-import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { isMobileOrWebView } from "@/core/utils/deviceUtils";
 import { customerApi } from "../services/customerApi";
-import { toast } from "sonner";
-import ProductCard from "../components/shared/ProductCard";
 import MainLocationHeader from "../components/shared/MainLocationHeader";
-import { useProductDetail } from "../context/ProductDetailContext";
-import { cn } from "@/lib/utils";
-import CardBanner from "@/assets/CardBanner.jpg";
 import ExperienceBannerCarousel from "../components/experience/ExperienceBannerCarousel";
 import { useLocation } from "../context/LocationContext";
 import { useSettings } from "@core/context/SettingsContext";
 import { useAuth } from "@core/context/AuthContext";
-import Lottie from "lottie-react";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
-import { getJSON, remove as removeStorage, STORAGE_KEYS } from "@core/utils/storage";
+import { getJSON, STORAGE_KEYS } from "@core/utils/storage";
 import { useTranslation } from "@core/context/LanguageContext";
 import { usePageTranslation } from "@/core/hooks/usePageTranslation";
 import { useDynamicTranslation } from "@/core/hooks/useDynamicTranslation";
-
-import {
-  MARQUEE_MESSAGES,
-  ICON_COMPONENTS,
-} from "../constants/homeConstants";
-import PromoMarquee from "../components/home/PromoMarquee";
-import QuickCategorySlider from "../components/home/QuickCategorySlider";
-import LowestPriceSection from "../components/home/LowestPriceSection";
-import BestsellersSection from "../components/home/BestsellersSection";
-import CategoryShowcase from "../components/home/CategoryShowcase";
-import FestivalDealsSection from "../components/home/FestivalDealsSection";
+import { ICON_COMPONENTS } from "../constants/homeConstants";
 import AllCategoriesGreeting from "../components/home/AllCategoriesGreeting";
 import CuratedCategoryDealsSection from "../components/home/CuratedCategoryDealsSection";
 import TopDealsOnProducts from "../components/home/TopDealsOnProducts";
@@ -54,122 +24,13 @@ import quickCommerceBanner from "@/assets/quick_commerce_banner.png";
 import ForYouProductsSection from "../components/home/ForYouProductsSection";
 import HeaderCategoryPageView from "../components/home/HeaderCategoryPageView";
 import PageSkeleton from '@/shared/components/PageSkeleton';
-import { getDefaultHomeHeroBanners, MIN_HOME_HERO_BANNERS } from '@shared/constants/homeHeroDefaults';
+import { getDefaultHomeHeroBanners } from '@shared/constants/homeHeroDefaults';
 import { clearAllCache, invalidateCache } from "@core/api/dedupe";
 
 const DEFAULT_CATEGORY_THEME = {
   gradient: "linear-gradient(to bottom, var(--primary), var(--brand-400))",
   shadow: "shadow-brand-500/20",
   accent: "text-[#1A1A1A]",
-};
-
-const CATEGORY_METADATA = {
-  All: {
-    icon: "🏪",
-    theme: DEFAULT_CATEGORY_THEME,
-    banner: {
-      title: "HOUSEFULL",
-      subtitle: "SALE",
-      floatingElements: "sparkles",
-    },
-  },
-  Grocery: {
-    icon: "🛒",
-    theme: {
-      gradient: "linear-gradient(to bottom, #FF9F1C, #FFBF69)",
-      shadow: "shadow-orange-500/20",
-      accent: "text-orange-900",
-    },
-    banner: {
-      title: "SUPERSAVER",
-      subtitle: "FRESH & FAST",
-      floatingElements: "leaves",
-    },
-  },
-  "Home Appliances": {
-    icon: "🍳",
-    theme: {
-      gradient: "linear-gradient(to bottom, #BC6C25, #DDA15E)",
-      shadow: "shadow-amber-500/20",
-      accent: "text-amber-900",
-    },
-    banner: { title: "HOME", subtitle: "APPLIANCES", floatingElements: "smoke" },
-  },
-  "Home & Kitchen": {
-    icon: "🍳",
-    theme: {
-      gradient: "linear-gradient(to bottom, #BC6C25, #DDA15E)",
-      shadow: "shadow-amber-500/20",
-      accent: "text-amber-900",
-    },
-    banner: { title: "HOME", subtitle: "KITCHEN", floatingElements: "smoke" },
-  },
-  Electronics: {
-    icon: "📱",
-    theme: {
-      gradient: "linear-gradient(to bottom, #7209B7, #B5179E)",
-      shadow: "shadow-purple-500/20",
-      accent: "text-purple-900",
-    },
-    banner: {
-      title: "TECH FEST",
-      subtitle: "GADGETS",
-      floatingElements: "tech",
-    },
-  },
-  Fashion: {
-    icon: "👗",
-    theme: {
-      gradient: "linear-gradient(to bottom, #9333EA, #C084FC)",
-      shadow: "shadow-purple-500/20",
-      accent: "text-purple-900",
-    },
-    banner: {
-      title: "TRENDY",
-      subtitle: "FASHION",
-      floatingElements: "confetti",
-    },
-  },
-  Kids: {
-    icon: "🧸",
-    theme: {
-      gradient: "linear-gradient(to bottom, #4CC9F0, #A0E7E5)",
-      shadow: "shadow-brand-500/20",
-      accent: "text-brand-900",
-    },
-    banner: {
-      title: "LITTLE ONE",
-      subtitle: "CARE",
-      floatingElements: "bubbles",
-    },
-  },
-  "Pet Supplies": {
-    icon: "🐾",
-    theme: {
-      gradient: "linear-gradient(to bottom, #FB8500, #FFB703)",
-      shadow: "shadow-yellow-500/20",
-      accent: "text-yellow-900",
-    },
-    banner: { title: "PAWSOME", subtitle: "DEALS", floatingElements: "bones" },
-  },
-  Mobile: {
-    icon: "📱",
-    theme: {
-      gradient: "linear-gradient(to bottom, #0284C7, #38BDF8)",
-      shadow: "shadow-sky-500/20",
-      accent: "text-sky-900",
-    },
-    banner: { title: "LATEST", subtitle: "MOBILES", floatingElements: "tech" },
-  },
-  Sports: {
-    icon: "⚽",
-    theme: {
-      gradient: "linear-gradient(to bottom, #4361EE, #4895EF)",
-      shadow: "shadow-brand-500/20",
-      accent: "text-brand-900",
-    },
-    banner: { title: "SPORTS", subtitle: "GEAR", floatingElements: "confetti" },
-  },
 };
 
 const ALL_CATEGORY = {
@@ -195,10 +56,9 @@ const EMPTY_HERO_CONFIG = {
 };
 
 const homePageDataCache = new Map();
-const headerSectionsMemoryCache = {};
 const heroConfigMemoryCache = {};
 
-const HOME_PAGE_PERSISTENT_CACHE_KEY = "anushkakart:home_cache:v7";
+const HOME_PAGE_PERSISTENT_CACHE_KEY = "anushkakart:home_cache:v8";
 
 const readPersistentHomeCache = (key) => {
   try {
@@ -207,7 +67,7 @@ const readPersistentHomeCache = (key) => {
     const store = JSON.parse(raw);
     if (!store || typeof store !== "object") return null;
     const entry = store[key] || store["home:no-location"] || Object.values(store)[0] || null;
-    if (entry && ((!entry.categories || entry.categories.length <= 1) || (!entry.products || entry.products.length === 0))) {
+    if (entry && (!entry.categories || entry.categories.length <= 1)) {
       return null;
     }
     return entry;
@@ -218,17 +78,17 @@ const readPersistentHomeCache = (key) => {
 
 const writePersistentHomeCache = (key, data) => {
   try {
-    if (!data) return;
-    if ((!data.categories || data.categories.length <= 1) || (!data.products || data.products.length === 0)) {
-      return;
-    }
+    if (!data || !data.categories || data.categories.length <= 1) return;
     const raw = localStorage.getItem(HOME_PAGE_PERSISTENT_CACHE_KEY);
     const store = raw ? JSON.parse(raw) : {};
-    const lightweightData = {
-      ...data,
-      products: Array.isArray(data.products) ? data.products.slice(0, 24) : [],
+    store[key] = {
+      categories: data.categories,
+      activeCategory: data.activeCategory,
+      categoryMap: data.categoryMap,
+      subcategoryMap: data.subcategoryMap,
+      formattedHeaders: data.formattedHeaders,
+      heroConfig: data.heroConfig,
     };
-    store[key] = lightweightData;
     const keys = Object.keys(store);
     if (keys.length > 3) {
       delete store[keys[0]];
@@ -270,21 +130,16 @@ const Home = () => {
   const { headerSlug } = useParams();
   const { scrollY } = useScroll();
   const { user } = useAuth();
-  const { isOpen: isProductDetailOpen } = useProductDetail();
   const { currentLocation } = useLocation();
   const { settings } = useSettings();
   const navigate = useNavigate();
   const routerLocation = useRouterLocation();
-  const quickCatsRef = useRef(null);
   const cachedHomePageData = getCachedHomePageData(currentLocation);
-
-
 
   const { language } = useTranslation();
   const { getTranslatedText } = usePageTranslation(homeStaticTexts);
   const { translateObject } = useDynamicTranslation();
 
-  const { ref: particleContainerRef, isVisible: particlesVisible } = useInViewAnimation();
   const heroRef = useRef(null);
   const [heroVisible, setHeroVisible] = useState(true);
 
@@ -301,6 +156,14 @@ const Home = () => {
 
   const [categories, setCategories] = useState(() => cachedHomePageData?.categories || [ALL_CATEGORY]);
   const [activeCategory, setActiveCategory] = useState(() => cachedHomePageData?.activeCategory || ALL_CATEGORY);
+  const [isLoading, setIsLoading] = useState(() => !cachedHomePageData);
+  const [heroConfig, setHeroConfig] = useState(() => cachedHomePageData?.heroConfig || heroConfigMemoryCache.__home__ || EMPTY_HERO_CONFIG);
+  const [categoryMap, setCategoryMap] = useState(() => cachedHomePageData?.categoryMap || {});
+  const [subcategoryMap, setSubcategoryMap] = useState(() => cachedHomePageData?.subcategoryMap || {});
+
+  const [displayCategories, setDisplayCategories] = useState(categories);
+  const [displayCategoryMap, setDisplayCategoryMap] = useState(categoryMap);
+  const [displaySubcategoryMap, setDisplaySubcategoryMap] = useState(subcategoryMap);
 
   // Synchronize activeCategory with URL route :headerSlug
   useEffect(() => {
@@ -363,39 +226,12 @@ const Home = () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [routerLocation.state, categories, headerSlug, navigate]);
-  const [products, setProducts] = useState(() => cachedHomePageData?.products || []);
-  const productsRef = useRef(cachedHomePageData?.products || []);
-  const [quickCategories, setQuickCategories] = useState(() => cachedHomePageData?.quickCategories || []);
-  const [isLoading, setIsLoading] = useState(() => !cachedHomePageData);
-  const [experienceSections, setExperienceSections] = useState(() => cachedHomePageData?.experienceSections || []);
-  const [headerSections, setHeaderSections] = useState([]);
-  const [heroConfig, setHeroConfig] = useState(() => cachedHomePageData?.heroConfig || heroConfigMemoryCache.__home__ || EMPTY_HERO_CONFIG);
-  const [expandedCategoryId, setExpandedCategoryId] = useState(() => {
-    return cachedHomePageData?.quickCategories?.[0]?.id || cachedHomePageData?.quickCategories?.[0]?._id || null;
-  });
-  const [categoryMap, setCategoryMap] = useState(() => cachedHomePageData?.categoryMap || {});
-  const [subcategoryMap, setSubcategoryMap] = useState(() => cachedHomePageData?.subcategoryMap || {});
-  const [pendingReturn, setPendingReturn] = useState(null);
-  const [bestsellerConfig, setBestsellerConfig] = useState(() => cachedHomePageData?.bestsellerConfig || null);
-  const [noServiceData, setNoServiceData] = useState(null);
-
-  const [displayCategories, setDisplayCategories] = useState(categories);
-  const [displayProducts, setDisplayProducts] = useState(products);
-  const [displayQuickCategories, setDisplayQuickCategories] = useState(quickCategories);
-  const [displayCategoryMap, setDisplayCategoryMap] = useState(categoryMap);
-  const [displaySubcategoryMap, setDisplaySubcategoryMap] = useState(subcategoryMap);
-  const [displayExperienceSections, setDisplayExperienceSections] = useState(experienceSections);
-  const [displayHeaderSections, setDisplayHeaderSections] = useState(headerSections);
 
   useEffect(() => {
     if (language === "en") {
       setDisplayCategories(categories);
-      setDisplayProducts(products);
-      setDisplayQuickCategories(quickCategories);
       setDisplayCategoryMap(categoryMap);
       setDisplaySubcategoryMap(subcategoryMap);
-      setDisplayExperienceSections(experienceSections);
-      setDisplayHeaderSections(headerSections);
       return;
     }
 
@@ -403,12 +239,7 @@ const Home = () => {
     const translateHomeContent = async () => {
       try {
         const txCategories = await translateObject(categories, ["name"]);
-        const txProducts = await translateObject(products, ["name", "weight", "description"]);
-        const txQuickCats = await translateObject(quickCategories, ["name"]);
-        const txExperienceSections = await translateObject(experienceSections, ["title", "subtitle"]);
-        const txHeaderSections = await translateObject(headerSections, ["title", "subtitle"]);
 
-        // Maps
         const catArray = Object.values(categoryMap);
         const txCatArray = await translateObject(catArray, ["name"]);
         const txCatMap = {};
@@ -421,12 +252,8 @@ const Home = () => {
 
         if (isMounted) {
           setDisplayCategories(txCategories);
-          setDisplayProducts(txProducts);
-          setDisplayQuickCategories(txQuickCats);
           setDisplayCategoryMap(txCatMap);
           setDisplaySubcategoryMap(txSubcatMap);
-          setDisplayExperienceSections(txExperienceSections);
-          setDisplayHeaderSections(txHeaderSections);
         }
       } catch (err) {
         console.error("Translation of home content failed:", err);
@@ -437,41 +264,13 @@ const Home = () => {
     return () => {
       isMounted = false;
     };
-  }, [
-    language,
-    categories,
-    products,
-    quickCategories,
-    categoryMap,
-    subcategoryMap,
-    experienceSections,
-    headerSections,
-  ]);
-
-  useEffect(() => {
-    productsRef.current = products || [];
-  }, [products]);
-
-  useEffect(() => {
-    if (products.length === 0 && !isLoading) {
-      import("@/assets/lottie/animation.json").then((m) => setNoServiceData(m.default)).catch(() => { });
-    }
-  }, [products.length, isLoading]);
+  }, [language, categories, categoryMap, subcategoryMap]);
 
   const applyHomePageData = (data, { cacheKey, persist = true } = {}) => {
     if (!data) return;
     setCategoryMap(data.categoryMap || {});
     setSubcategoryMap(data.subcategoryMap || {});
     setCategories(data.categories || [ALL_CATEGORY]);
-    setQuickCategories(data.quickCategories || []);
-    setExpandedCategoryId(prev => {
-      if (!prev && data.quickCategories?.length > 0) {
-        return data.quickCategories[0].id || data.quickCategories[0]._id;
-      }
-      return prev;
-    });
-    setProducts(data.products || []);
-    setExperienceSections(data.experienceSections || []);
     if (data.heroConfig) setHeroConfig(data.heroConfig);
     setActiveCategory((prev) => {
       if (headerSlug && headerSlug.toLowerCase() !== 'all') {
@@ -506,14 +305,7 @@ const Home = () => {
     }
 
     try {
-      const hasValidLocation = Number.isFinite(currentLocation?.latitude) && Number.isFinite(currentLocation?.longitude);
-      const productParams = { limit: 20, allProducts: "true" };
-      if (hasValidLocation) {
-        productParams.lat = currentLocation.latitude;
-        productParams.lng = currentLocation.longitude;
-      }
-
-      // Priority 1: Fast endpoints for Hero config & Categories (instant unblock of banners & categories)
+      // Fast endpoints for Hero config & Categories in parallel
       const [heroRes, catRes] = await Promise.all([
         customerApi.getHeroConfig({ pageType: "home" }).catch(() => null),
         customerApi.getCategories().catch(() => null),
@@ -522,9 +314,6 @@ const Home = () => {
       const partialHomeData = {
         categories: [ALL_CATEGORY],
         activeCategory: ALL_CATEGORY,
-        products: cached?.products || [],
-        quickCategories: cached?.quickCategories || [],
-        experienceSections: cached?.experienceSections || [],
         categoryMap: cached?.categoryMap || {},
         subcategoryMap: cached?.subcategoryMap || {},
         formattedHeaders: cached?.formattedHeaders || [],
@@ -546,10 +335,15 @@ const Home = () => {
         partialHomeData.subcategoryMap = subMap;
         const formattedHeaders = dbCats.filter((cat) => cat.type === "header").map((cat) => {
           const catName = cat.name;
-          const meta = CATEGORY_METADATA[catName] || CATEGORY_METADATA[catName.toUpperCase()] || { icon: "✨", theme: DEFAULT_CATEGORY_THEME, banner: { title: catName.toUpperCase(), subtitle: "TOP PICKS", floatingElements: "sparkles" } };
-          const IconComp = (cat.iconId && ICON_COMPONENTS[cat.iconId]) || meta.icon || "✨";
+          const IconComp = (cat.iconId && ICON_COMPONENTS[cat.iconId]) || cat.icon || "✨";
           const imageIcon = cat.iconImage || cat.iconUrl || null;
-          return { ...cat, id: cat._id, icon: imageIcon || IconComp, theme: meta.theme, banner: { ...meta.banner, textColor: "text-white" } };
+          return {
+            ...cat,
+            id: cat._id,
+            icon: imageIcon || IconComp,
+            theme: DEFAULT_CATEGORY_THEME,
+            banner: { title: catName.toUpperCase(), subtitle: "TOP PICKS", textColor: "text-white" },
+          };
         });
         partialHomeData.formattedHeaders = formattedHeaders;
         const allHeaderFromAdmin = formattedHeaders.find((h) => (h.slug?.toLowerCase() === "all") || (h.name?.toLowerCase() === "all"));
@@ -575,7 +369,6 @@ const Home = () => {
 
         partialHomeData.categories = [mergedAllCategory, ...syncedHeaders.filter((h) => !((h.slug?.toLowerCase() === "all") || (h.name?.toLowerCase() === "all")))];
         partialHomeData.activeCategory = mergedAllCategory;
-        partialHomeData.quickCategories = dbCats.filter((cat) => cat.type === "category").map((cat) => ({ id: cat._id, name: cat.name, image: cat.image || "https://cdn-icons-png.flaticon.com/128/2321/2321831.png" }));
 
         setCategories(partialHomeData.categories);
         setActiveCategory((currentActive) => {
@@ -587,29 +380,12 @@ const Home = () => {
           );
           return fresh ? { ...fresh, headerColor: masterHeaderColor, headerFontColor: "#FFFFFF", headerIconColor: "#FFFFFF" } : currentActive;
         });
-        setQuickCategories(partialHomeData.quickCategories);
         setCategoryMap(catMap);
         setSubcategoryMap(subMap);
       }
 
-      // Priority 1 complete: Unblock UI skeleton immediately so banners and categories display!
       setIsLoading(false);
-
-      // Priority 2: Products stream in progressively
-      const prodRes = await customerApi.getProducts(productParams).catch(() => null);
-
-      const nextHomeData = {
-        ...partialHomeData,
-        products: [],
-      };
-
-      if (prodRes?.data?.success) {
-        const rawResult = prodRes.data.result;
-        const dbProds = Array.isArray(prodRes.data.results) ? prodRes.data.results : Array.isArray(rawResult?.items) ? rawResult.items : Array.isArray(rawResult) ? rawResult : [];
-        nextHomeData.products = dbProds.map((p) => ({ ...p, id: p._id, image: p.mainImage || (p.variants?.[0]?.images?.[0]) || p.image || "", price: p.salePrice || p.price, originalPrice: p.price, weight: p.weight || "1 unit", deliveryTime: "8-15 mins" }));
-      }
-
-      applyHomePageData(nextHomeData, { cacheKey, persist: true });
+      applyHomePageData(partialHomeData, { cacheKey, persist: true });
     } catch (error) {
       console.error("Error fetching home data:", error);
     } finally {
@@ -638,8 +414,10 @@ const Home = () => {
         if (!force) {
           if (heroConfigCache.current[cacheKey]) {
             setHeroConfig(heroConfigCache.current[cacheKey]);
+            return;
           } else if (!isHeader && heroConfigMemoryCache.__home__) {
             setHeroConfig(heroConfigMemoryCache.__home__);
+            return;
           }
         }
         let payload = null;
@@ -678,25 +456,7 @@ const Home = () => {
         setHeroConfig(EMPTY_HERO_CONFIG);
       }
     };
-
-    const fetchBestsellerConfig = async () => {
-      try {
-        const isHeader = activeCategory && activeCategory._id !== "all";
-        let bestsellerPayload = null;
-        if (isHeader) {
-          const bRes = await customerApi.getBestsellerConfig(activeCategory._id);
-          if (bRes.data?.success && bRes.data?.result) bestsellerPayload = bRes.data.result;
-        }
-        if (!bestsellerPayload || !bestsellerPayload.mainCategoryIds || bestsellerPayload.mainCategoryIds.length === 0) {
-          const bHomeRes = await customerApi.getBestsellerConfig("all");
-          if (bHomeRes.data?.success && bHomeRes.data?.result) bestsellerPayload = bHomeRes.data.result;
-        }
-        setBestsellerConfig(bestsellerPayload);
-      } catch (e) { setBestsellerConfig(null); }
-    };
-
     fetchHeroConfig();
-    fetchBestsellerConfig();
 
     const handleCmsUpdate = () => {
       clearAllCache();
@@ -708,7 +468,6 @@ const Home = () => {
         localStorage.removeItem(HOME_PAGE_PERSISTENT_CACHE_KEY);
       } catch (_) {}
       fetchHeroConfig(true);
-      fetchBestsellerConfig();
       fetchData({ forceRefresh: true });
     };
 
@@ -751,7 +510,6 @@ const Home = () => {
     return () => { if (link.parentNode) link.parentNode.removeChild(link); };
   }, [heroConfig?.banners?.items?.[0]?.imageUrl]);
 
-  const productsById = useMemo(() => { const map = {}; displayProducts.forEach((p) => { map[p._id || p.id] = p; }); return map; }, [displayProducts]);
   const isAllCategorySelected = !activeCategory || activeCategory._id === "all" || activeCategory.id === "all";
   const firstName = String(user?.firstName || user?.name || '').trim().split(/\s+/)[0] || 'Guest';
   const allMainCategories = useMemo(() => {
@@ -767,81 +525,12 @@ const Home = () => {
       })
       .map((category) => ({ id: category._id || category.id, name: category.name, image: category.image || category.iconImage || '' }));
   }, [displayCategories, displayCategoryMap]);
-  const effectiveQuickCategories = useMemo(() => {
-    if (activeCategory && activeCategory._id !== "all" && activeCategory.id !== "all") {
-      const activeHeaderId = String(activeCategory._id || activeCategory.id);
-
-      const filteredByParent = Object.values(displayCategoryMap)
-        .filter(
-          (c) =>
-            c.type === "category" &&
-            String(c.parentId || c.headerId) === activeHeaderId
-        )
-        .map((c) => ({
-          id: c._id,
-          name: c.name,
-          image: c.image || "https://cdn-icons-png.flaticon.com/128/2321/2321831.png",
-          parentId: c.parentId,
-        }));
-
-      if (filteredByParent.length > 0) {
-        const heroIds = heroConfig?.categoryIds || [];
-        if (heroIds.length > 0) {
-          const heroIdSet = new Set(heroIds.map(String));
-          const heroMatched = filteredByParent.filter((c) => heroIdSet.has(String(c.id)));
-          if (heroMatched.length > 0) return heroMatched;
-        }
-        return filteredByParent;
-      }
-
-      return [];
-    }
-
-    const ids = heroConfig?.categoryIds || [];
-    if (ids.length > 0) {
-      const resolved = ids
-        .map((id) => displayCategoryMap[id])
-        .filter(Boolean)
-        .map((c) => ({
-          id: c._id,
-          name: c.name,
-          image: c.image || "https://cdn-icons-png.flaticon.com/128/2321/2321831.png",
-          parentId: c.parentId,
-        }));
-      if (resolved.length > 0) return resolved;
-    }
-    return displayQuickCategories;
-  }, [
-    activeCategory,
-    heroConfig?.categoryIds,
-    displayCategoryMap,
-    displayQuickCategories,
-  ]);
-
-  useEffect(() => {
-    if (activeCategory && activeCategory._id !== "all" && activeCategory.id !== "all") {
-      if (effectiveQuickCategories.length > 0) {
-        setExpandedCategoryId(
-          effectiveQuickCategories[0].id || effectiveQuickCategories[0]._id
-        );
-      } else {
-        setExpandedCategoryId(null);
-      }
-    } else {
-      setExpandedCategoryId(null);
-    }
-  }, [activeCategory, effectiveQuickCategories]);
 
   const isMobile = useMemo(() => isMobileOrWebView(), []);
   const opacity = useTransform(scrollY, (heroVisible && !isMobile) ? [0, 300] : [0, 0], [1, 0.6]);
   const y = useTransform(scrollY, (heroVisible && !isMobile) ? [0, 300] : [0, 0], [0, 0]);
   const scale = useTransform(scrollY, (heroVisible && !isMobile) ? [0, 300] : [0, 0], [1, 0.95]);
   const pointerEvents = useTransform(scrollY, (heroVisible && !isMobile) ? [0, 100] : [0, 0], ["auto", "none"]);
-
-  const renderFloatingElements = (type, isVisible = true) => {
-    if (isMobile) return null;
-    return null; // Particles were already simplified out earlier
-  };
 
   const handleCategorySelect = (cat) => {
     const isAll = !cat || cat.id === "all" || cat._id === "all" || cat.slug === "all" || (cat.name && cat.name.toLowerCase() === "all");
@@ -911,9 +600,20 @@ const Home = () => {
           />
         )}
         {isAllCategorySelected && (
-          <CuratedCategoryDealsSection pageType="home" heroConfig={heroConfig} />
+          <CuratedCategoryDealsSection
+            pageType="home"
+            heroConfig={heroConfig}
+            subCategories={Object.values(displaySubcategoryMap || {})}
+          />
         )}
-        {isAllCategorySelected && <TopDealsOnProducts latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} />}
+        {isAllCategorySelected && (
+          <TopDealsOnProducts
+            latitude={currentLocation?.latitude}
+            longitude={currentLocation?.longitude}
+            subcategoryMap={displaySubcategoryMap}
+            categoryMap={displayCategoryMap}
+          />
+        )}
         {isAllCategorySelected && <HeaderCategoryProductsSection latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} heroConfig={heroConfig} />}
         {isAllCategorySelected && (
           <div className="w-full max-w-none px-0 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">

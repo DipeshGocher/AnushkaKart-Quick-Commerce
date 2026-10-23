@@ -6,6 +6,9 @@ const ScrollToTop = () => {
 
     useEffect(() => {
         try {
+            if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                document.activeElement.blur();
+            }
             window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
         } catch {
             window.scrollTo(0, 0);

@@ -30,26 +30,34 @@ function normalizeSellerStatusFilter(statusParam) {
     return {};
   }
 
-  if (statusParam === "pending") {
+  const normalized = String(statusParam).toLowerCase().trim().replace(/_/g, "-");
+
+  if (normalized === "pending") {
     return { status: "pending" };
   }
-  if (statusParam === "processed") {
+  if (normalized === "confirmed") {
+    return { status: "confirmed" };
+  }
+  if (normalized === "packed") {
+    return { status: "packed" };
+  }
+  if (normalized === "processed") {
     return { status: { $in: ["confirmed", "packed"] } };
   }
-  if (statusParam === "out-for-delivery") {
+  if (normalized === "out-for-delivery") {
     return { status: "out_for_delivery" };
   }
-  if (statusParam === "delivered") {
+  if (normalized === "delivered") {
     return { status: "delivered" };
   }
-  if (statusParam === "cancelled") {
+  if (normalized === "cancelled") {
     return { status: "cancelled" };
   }
-  if (statusParam === "returned") {
+  if (normalized === "returned") {
     return { returnStatus: { $ne: "none" } };
   }
 
-  return {};
+  return { status: statusParam };
 }
 
 function appendDateRange(query, { startDate, endDate }) {
@@ -126,8 +134,8 @@ export async function fetchSellerOrdersPage({
       .limit(limit)
       .populate("customer", "name phone")
       .populate("items.product", "name mainImage price salePrice")
-      .populate("deliveryBoy", "name phone")
-      .populate("seller", "shopName name")
+      .populate("deliveryBoy", "name phone profileImage image location vehicleType")
+      .populate("seller", "shopName name location address")
       .lean(),
     Order.countDocuments(query),
     Order.aggregate([
@@ -444,7 +452,7 @@ export async function getCustomerOrders(customerId, pagination) {
       const [orders, total] = await Promise.all([
         Order.find({ customer: customerId })
           .select(
-            "orderId checkoutGroupId customer seller items address payment pricing status workflowStatus workflowVersion returnStatus timeSlot createdAt",
+            "orderId checkoutGroupId customer seller items address payment pricing status workflowStatus workflowVersion returnStatus timeSlot createdAt paymentMode paymentStatus fulfillmentType expiresAt stockReservation cancelReason",
           )
           .sort({ createdAt: -1, _id: -1 })
           .skip(skip)

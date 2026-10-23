@@ -49,13 +49,23 @@ export const SettingsProvider = ({ children }) => {
     fetchSettings();
   }, [fetchSettings]);
 
+  const updateSettingsLocal = useCallback((partial) => {
+    if (!partial || typeof partial !== 'object') return;
+    setSettings((prev) => {
+      const merged = { ...prev, ...partial };
+      applyThemeVariables(merged);
+      return merged;
+    });
+  }, []);
+
   // UseMemo to avoid rerenders of children if values haven't changed
   const value = useMemo(() => ({
     settings,
     loading,
     error,
     refetch: fetchSettings,
-  }), [settings, loading, error, fetchSettings]);
+    updateSettingsLocal,
+  }), [settings, loading, error, fetchSettings, updateSettingsLocal]);
 
   return (
     <SettingsContext.Provider value={value}>

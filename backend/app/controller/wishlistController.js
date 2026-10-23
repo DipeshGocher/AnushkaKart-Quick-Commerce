@@ -104,7 +104,10 @@ export const addToWishlist = async (req, res) => {
       wishlist = new Wishlist({ customerId, products: [] });
     }
 
-    if (!wishlist.products.includes(productId)) {
+    const alreadyExists = wishlist.products.some(
+      (id) => id && id.toString() === productId.toString()
+    );
+    if (!alreadyExists) {
       wishlist.products.push(productId);
     }
 
@@ -137,7 +140,7 @@ export const removeFromWishlist = async (req, res) => {
     }
 
     wishlist.products = wishlist.products.filter(
-      (id) => id.toString() !== productId,
+      (id) => id && id.toString() !== productId.toString(),
     );
 
     await wishlist.save();
@@ -161,7 +164,6 @@ export const toggleWishlist = async (req, res) => {
   try {
     const customerId = req.user.id;
     const { productId } = req.body;
-    const product = await findCustomerVisibleProductById(productId);
 
     let wishlist = await Wishlist.findOne({ customerId });
 
@@ -169,13 +171,16 @@ export const toggleWishlist = async (req, res) => {
       wishlist = new Wishlist({ customerId, products: [] });
     }
 
-    const index = wishlist.products.indexOf(productId);
+    const index = wishlist.products.findIndex(
+      (id) => id && id.toString() === productId.toString()
+    );
     let message = "";
 
     if (index > -1) {
       wishlist.products.splice(index, 1);
       message = "Product removed from wishlist";
     } else {
+      const product = await findCustomerVisibleProductById(productId);
       if (!product) {
         return handleResponse(res, 404, "Product is not available for wishlist");
       }

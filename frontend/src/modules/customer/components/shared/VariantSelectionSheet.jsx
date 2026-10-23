@@ -7,6 +7,7 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '@core/context/AuthContext';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 import { useDeliveryEligibility } from '../../hooks/useDeliveryEligibility';
+import { toast } from 'sonner';
 
 const VariantSelectionSheet = () => {
     const { selectedProduct, isOpen, closeVariantSelection } = useVariantSelection();
@@ -69,7 +70,25 @@ const VariantSelectionSheet = () => {
 
         const productId = selectedProduct.id || selectedProduct._id;
         const variantKey = String(variant?.sku || variant?.name || "").trim();
+        const vStock = typeof variant?.stock === "number" ? variant.stock : Number(selectedProduct?.stock ?? 0);
         const qty = getCartQuantity(variantKey);
+        const maxPerOrder = 10;
+        const maxAllowed = vStock > 0 ? Math.min(vStock, maxPerOrder) : 0;
+
+        if (vStock <= 0) {
+            toast.error("This variant is currently sold out.");
+            return;
+        }
+
+        if (qty >= vStock) {
+            toast.error(`You cannot add more than available stock (${vStock} units)`);
+            return;
+        }
+
+        if (qty >= maxAllowed) {
+            toast.error(`Maximum allowed order quantity is ${maxAllowed} units per item`);
+            return;
+        }
 
         if (qty === 0) {
             addToCart({
@@ -77,8 +96,6 @@ const VariantSelectionSheet = () => {
                 conditionType: isRefurbished ? 'refurbished' : (selectedProduct.conditionType || 'new'),
                 variantSku: variantKey,
                 variantName: String(variant?.name || "").trim(),
-                // Optionally pass variant specific price if needed, but CartContext usually handles this or uses the product base if identical.
-                // We should pass the specific price override if the variant has it.
                 price: variant.salePrice > 0 && variant.salePrice < variant.price ? variant.salePrice : variant.price,
                 originalPrice: variant.price
             });
@@ -202,51 +219,85 @@ const VariantSelectionSheet = () => {
                                                             </span>
                                                         )}
                                                     </div>
+                                                    {(() => {
+                                                        const vStock = typeof variant?.stock === 'number' ? variant.stock : Number(selectedProduct?.stock ?? 0);
+                                                        if (vStock <= 0) {
+                                                            return <p className="text-[11px] font-bold text-rose-600 mt-1">Sold Out</p>;
+                                                        }
+                                                        if (vStock > 0 && vStock <= 2) {
+                                                            return <p className="text-[11px] font-bold text-amber-600 mt-1">Hurry, only {vStock} left!</p>;
+                                                        }
+                                                        return null;
+                                                    })()}
                                                 </div>
 
                                                 {/* Quantity Control */}
                                                 <div className="shrink-0">
-                                                    {qty > 0 ? (
-                                                        <div className={`flex items-center rounded-full p-1 shadow-md ${
-                                                            isRefurbished
-                                                                ? 'bg-blue-600 shadow-blue-500/20 text-white'
-                                                                : 'bg-primary shadow-primary/20 text-white'
-                                                        }`}>
-                                                            <button
-                                                                onClick={() => handleDecrement(variant)}
-                                                                className="w-7 h-7 flex items-center justify-center text-white hover:bg-white/20 rounded-full transition-colors"
-                                                            >
-                                                                <Minus size={16} strokeWidth={3} />
-                                                            </button>
-                                                            <span className="w-7 text-center font-bold text-white text-sm">
-                                                                {qty}
-                                                            </span>
+                                                    {(() => {
+                                                        const vStock = typeof variant?.stock === 'number' ? variant.stock : Number(selectedProduct?.stock ?? 0);
+                                                        const maxAllowed = vStock > 0 ? Math.min(vStock, 10) : 0;
+                                                        const isMax = qty >= maxAllowed;
+                                                        if (qty > 0) {
+                                                            return (
+                                                                <div className={`flex items-center rounded-full p-1 shadow-md ${
+                                                                    isRefurbished
+                                                                        ? 'bg-blue-600 shadow-blue-500/20 text-white'
+                                                                        : 'bg-primary shadow-primary/20 text-white'
+                                                                }`}>
+                                                                    <button
+                                                                        onClick={() => handleDecrement(variant)}
+                                                                        className="w-7 h-7 flex items-center justify-center text-white hover:bg-white/20 rounded-full transition-colors cursor-pointer"
+                                                                    >
+                                                                        <Minus size={16} strokeWidth={3} />
+                                                                    </button>
+                                                                    <span className="w-7 text-center font-bold text-white text-sm">
+                                                                        {qty}
+                                                                    </span>
+                                                                    <button
+                                                                        onClick={() => handleIncrement(variant)}
+                                                                        disabled={isMax}
+                                                                        className={`w-7 h-7 flex items-center justify-center text-white rounded-full transition-colors ${
+                                                                            isMax ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/20 cursor-pointer'
+                                                                        }`}
+                                                                    >
+                                                                        <Plus size={16} strokeWidth={3} />
+                                                                    </button>
+                                                                </div>
+                                                            );
+                                                        }
+                                                        if (vStock <= 0) {
+                                                            return (
+                                                                <button
+                                                                    disabled
+                                                                    className="px-4 py-2 rounded-full border border-slate-300 bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-xs cursor-not-allowed uppercase"
+                                                                >
+                                                                    Sold Out
+                                                                </button>
+                                                            );
+                                                        }
+                                                        if (!canAddToCart) {
+                                                            return (
+                                                                <button
+                                                                    disabled
+                                                                    className="px-4 py-2 rounded-full border border-slate-200 bg-slate-100 text-slate-400 flex items-center justify-center font-bold text-xs cursor-not-allowed uppercase"
+                                                                >
+                                                                    Unavailable
+                                                                </button>
+                                                            );
+                                                        }
+                                                        return (
                                                             <button
                                                                 onClick={() => handleIncrement(variant)}
-                                                                className="w-7 h-7 flex items-center justify-center text-white hover:bg-white/20 rounded-full transition-colors"
+                                                                className={`px-5 py-2.5 rounded-full border flex items-center justify-center font-extrabold text-sm transition-all shadow-xs cursor-pointer ${
+                                                                    isRefurbished
+                                                                        ? 'bg-blue-50 text-blue-600 border-blue-300 hover:bg-blue-600 hover:text-white'
+                                                                        : 'bg-brand-50 text-primary border-brand-200 hover:bg-primary hover:text-white'
+                                                                }`}
                                                             >
-                                                                <Plus size={16} strokeWidth={3} />
+                                                                ADD
                                                             </button>
-                                                        </div>
-                                                    ) : !canAddToCart ? (
-                                                        <button
-                                                            disabled
-                                                            className="px-4 py-2 rounded-full border border-slate-200 bg-slate-100 text-slate-400 flex items-center justify-center font-bold text-xs cursor-not-allowed uppercase"
-                                                        >
-                                                            Unavailable
-                                                        </button>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() => handleIncrement(variant)}
-                                                            className={`px-5 py-2.5 rounded-full border flex items-center justify-center font-extrabold text-sm transition-all shadow-xs cursor-pointer ${
-                                                                isRefurbished
-                                                                    ? 'bg-blue-50 text-blue-600 border-blue-300 hover:bg-blue-600 hover:text-white'
-                                                                    : 'bg-brand-50 text-primary border-brand-200 hover:bg-primary hover:text-white'
-                                                            }`}
-                                                        >
-                                                            ADD
-                                                        </button>
-                                                    )}
+                                                        );
+                                                    })()}
                                                 </div>
                                             </div>
                                         );

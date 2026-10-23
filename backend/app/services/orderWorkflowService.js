@@ -654,18 +654,19 @@ export async function processDeliveryTimeoutJob({ orderId, attempt }) {
     return;
   }
 
+  // Broadcast attempts exhausted: Auto-Escalate to Admin for manual rider assignment
   const updated = await Order.findOneAndUpdate(
     {
       orderId,
       workflowVersion: { $gte: 2 },
       workflowStatus: WORKFLOW_STATUS.DELIVERY_SEARCH,
+      deliveryBoy: null,
     },
     {
       $set: {
-        workflowStatus: WORKFLOW_STATUS.CANCELLED,
-        status: "cancelled",
-        cancelledBy: "system",
-        cancelReason: "No delivery partner (timeout)",
+        "deliverySearchMeta.escalated": true,
+        "deliverySearchMeta.escalatedAt": now,
+        deliverySearchExpiresAt: null, // Clear timer to stop automated retry loop
       },
     },
     { new: true },
@@ -673,17 +674,26 @@ export async function processDeliveryTimeoutJob({ orderId, attempt }) {
 
   if (!updated) return;
 
-  await compensateOrderCancellation(updated, orderId);
-  emitOrderStatusUpdate(orderId, { workflowStatus: WORKFLOW_STATUS.CANCELLED }, updated.customer);
-  emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_CANCELLED, {
+  logger.warn("Order rider search broadcast exhausted; auto-escalated to admin for manual assignment", {
+    jobName: "processDeliveryTimeoutJob",
+    orderId,
+    attempts: currentAttempt,
+  });
+
+  emitOrderStatusUpdate(
+    orderId,
+    {
+      workflowStatus: updated.workflowStatus,
+      status: updated.status,
+      escalated: true,
+    },
+    updated.customer,
+  );
+
+  emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_ESCALATED, {
     orderId: updated.orderId,
-    customerId: updated.customer,
-    userId: updated.customer,
     sellerId: updated.seller,
-    customerMessage:
-      "Order was cancelled because no delivery partner was available.",
-    sellerMessage:
-      `Order #${updated.orderId} was cancelled because no delivery partner was available.`,
+    adminMessage: `Order #${updated.orderId} automated rider search exhausted. Admin manual rider assignment required.`,
   });
 }
 

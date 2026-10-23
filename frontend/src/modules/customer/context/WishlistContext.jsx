@@ -105,11 +105,13 @@ export const WishlistProvider = ({ children }) => {
 
   const addToWishlist = async (product) => {
     const isRefurb = isRefurbishedItem(product) || (product?.conditionType !== 'new' && typeof window !== 'undefined' && (window.location.pathname.startsWith('/marketplace') || window.location.pathname.startsWith('/refurbished')));
-    const id = product.id || product._id;
+    const id = product?.id || product?._id || (typeof product === 'string' ? product : null);
+    if (!id) return;
+
     if (isAuthenticated) {
       try {
         const response = await customerApi.addToWishlist({
-          productId: id,
+          productId: String(id),
         });
         const backendWishlist = (response.data.result.products || []).map(mapWishlistProduct).filter(Boolean);
         setWishlist(backendWishlist);
@@ -119,16 +121,19 @@ export const WishlistProvider = ({ children }) => {
       }
     } else {
       setWishlist((prev) => {
-        if (prev.some((item) => (item.id || item._id) === id)) return prev;
-        return [...prev, { ...product, id, conditionType: isRefurb ? 'refurbished' : 'new' }];
+        if (prev.some((item) => String(item?.id || item?._id || "").trim() === String(id).trim())) return prev;
+        return [...prev, { ...(typeof product === 'object' ? product : {}), id: String(id), _id: String(id), conditionType: isRefurb ? 'refurbished' : 'new' }];
       });
     }
   };
 
   const removeFromWishlist = async (productId) => {
+    const id = productId?.id || productId?._id || (typeof productId === 'string' ? productId : null);
+    if (!id) return;
+
     if (isAuthenticated) {
       try {
-        const response = await customerApi.removeFromWishlist(productId);
+        const response = await customerApi.removeFromWishlist(String(id));
         const backendWishlist = (response.data.result.products || []).map(mapWishlistProduct).filter(Boolean);
         setWishlist(backendWishlist);
         setIsFullDataFetched(true);
@@ -137,37 +142,61 @@ export const WishlistProvider = ({ children }) => {
       }
     } else {
       setWishlist((prev) =>
-        prev.filter((item) => (item.id || item._id) !== productId),
+        prev.filter((item) => String(item?.id || item?._id || "").trim() !== String(id).trim()),
       );
     }
   };
 
   const toggleWishlist = async (product) => {
-    const id = product.id || product._id;
+    const id = product?.id || product?._id || (typeof product === 'string' ? product : null);
+    if (!id) return;
     const isRefurb = isRefurbishedItem(product) || (product?.conditionType !== 'new' && typeof window !== 'undefined' && (window.location.pathname.startsWith('/marketplace') || window.location.pathname.startsWith('/refurbished')));
+    const currentlyInWishlist = isInWishlist(id);
+
+    // Optimistic UI update for instant visual feedback on heart icon
+    setWishlist((prev) => {
+      if (currentlyInWishlist) {
+        return prev.filter((item) => {
+          const itemId = String(item?.id || item?._id || item?.productId || (typeof item === 'string' ? item : "")).trim();
+          return itemId !== String(id).trim();
+        });
+      } else {
+        return [
+          ...prev,
+          {
+            ...(typeof product === 'object' ? product : {}),
+            id: String(id),
+            _id: String(id),
+            conditionType: isRefurb ? 'refurbished' : (product?.conditionType || 'new'),
+          },
+        ];
+      }
+    });
+
     if (isAuthenticated) {
       try {
-        const response = await customerApi.toggleWishlist({ productId: id });
+        const response = await customerApi.toggleWishlist({ productId: String(id) });
         const backendWishlist = (response.data.result.products || []).map(mapWishlistProduct).filter(Boolean);
         setWishlist(backendWishlist);
         setIsFullDataFetched(true);
       } catch (error) {
         console.error("Error toggling wishlist on backend", error);
-      }
-    } else {
-      if (isInWishlist(id)) {
-        removeFromWishlist(id);
-      } else {
-        addToWishlist({
-          ...product,
-          conditionType: isRefurb ? 'refurbished' : (product.conditionType || 'new'),
-        });
+        fetchWishlistIds();
       }
     }
   };
 
   const isInWishlist = (productId) => {
-    return wishlist.some((item) => (item.id || item._id) === productId);
+    if (!productId) return false;
+    const target = (typeof productId === 'object'
+      ? String(productId?._id || productId?.id || "")
+      : String(productId)
+    ).trim();
+    if (!target) return false;
+    return wishlist.some((item) => {
+      const itemId = String(item?.id || item?._id || item?.productId || (typeof item === 'string' ? item : "")).trim();
+      return itemId && itemId === target;
+    });
   };
 
   const clearWishlist = async () => {

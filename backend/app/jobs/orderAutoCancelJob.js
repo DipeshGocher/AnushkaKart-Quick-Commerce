@@ -96,12 +96,42 @@ const autoCancelExpiredOrders = async () => {
     }
 
     const paymentExpiredOrders = await Order.find({
-      workflowVersion: { $gte: 2 },
-      workflowStatus: WORKFLOW_STATUS.CREATED,
-      paymentMode: "ONLINE",
-      paymentStatus: { $ne: "PAID" },
-      "stockReservation.status": { $ne: "RELEASED" },
-      "stockReservation.expiresAt": { $lte: now },
+      $and: [
+        {
+          $or: [
+            { workflowStatus: WORKFLOW_STATUS.CREATED },
+            { workflowStatus: "CREATED" },
+            { workflowStatus: "created" },
+            { status: "pending" },
+          ],
+        },
+        {
+          $or: [
+            { paymentMode: { $in: ["ONLINE", "online"] } },
+            { "payment.method": "online" },
+          ],
+        },
+        {
+          paymentStatus: { $nin: ["PAID", "completed", "CAPTURED"] },
+          "payment.status": { $nin: ["completed", "refunded"] },
+        },
+        {
+          status: { $ne: "cancelled" },
+        },
+        {
+          $or: [
+            { "stockReservation.status": { $ne: "RELEASED" } },
+            { "stockReservation.status": { $exists: false } },
+            { stockReservation: null },
+          ],
+        },
+        {
+          $or: [
+            { "stockReservation.expiresAt": { $lte: now } },
+            { expiresAt: { $lte: now } },
+          ],
+        },
+      ],
     })
       .select("_id orderId")
       .lean();
@@ -111,8 +141,8 @@ const autoCancelExpiredOrders = async () => {
         const updated = await Order.findOneAndUpdate(
           {
             _id: row._id,
-            workflowStatus: WORKFLOW_STATUS.CREATED,
-            paymentStatus: { $ne: "PAID" },
+            paymentStatus: { $nin: ["PAID", "completed", "CAPTURED"] },
+            status: { $ne: "cancelled" },
           },
           {
             $set: {
@@ -120,7 +150,7 @@ const autoCancelExpiredOrders = async () => {
               status: "cancelled",
               orderStatus: "cancelled",
               cancelledBy: "system",
-              cancelReason: "Payment timeout",
+              cancelReason: "Payment timeout (15 mins expired)",
             },
           },
           { new: true },
@@ -182,12 +212,89 @@ const autoCancelExpiredOrders = async () => {
       });
     }
 
+    // Stale orders cleanup:
+    // 1. Local delivery orders unfulfilled (>24 hours) or stuck out_for_delivery (>12 hours)
+    // 2. Shiprocket / General unfulfilled orders (>48 hours)
+    const nowMs = Date.now();
+    const localCutoff24h = new Date(nowMs - 24 * 60 * 60 * 1000);
+    const localOutForDeliveryCutoff12h = new Date(nowMs - 12 * 60 * 60 * 1000);
+    const generalCutoff48h = new Date(nowMs - 48 * 60 * 60 * 1000);
+
+    const staleOrders = await Order.find({
+      status: { $nin: ["delivered", "cancelled"] },
+      workflowStatus: { $nin: [WORKFLOW_STATUS.DELIVERED, WORKFLOW_STATUS.CANCELLED] },
+      $or: [
+        // Local orders: unfulfilled > 24 hours
+        {
+          fulfillmentType: { $ne: "SHIPROCKET" },
+          $expr: { $lte: [{ $toDate: "$createdAt" }, localCutoff24h] },
+        },
+        // Local orders: out for delivery > 12 hours
+        {
+          fulfillmentType: { $ne: "SHIPROCKET" },
+          status: "out_for_delivery",
+          $expr: {
+            $lte: [
+              { $toDate: { $ifNull: ["$outForDeliveryAt", "$updatedAt"] } },
+              localOutForDeliveryCutoff12h,
+            ],
+          },
+        },
+        // Shiprocket & general orders: unfulfilled > 48 hours
+        {
+          $expr: { $lte: [{ $toDate: "$createdAt" }, generalCutoff48h] },
+        },
+      ],
+    });
+
+    for (const order of staleOrders) {
+      try {
+        const isLocal = order.fulfillmentType !== "SHIPROCKET";
+        let reason = "Order delivery expired (>48 hours undelivered)";
+        if (isLocal) {
+          if (order.status === "out_for_delivery") {
+            reason = "Local delivery attempt expired (>12h out for delivery without completion)";
+          } else {
+            reason = "Local delivery unfulfilled / unassigned (>24h)";
+          }
+        } else {
+          reason = "Shiprocket order delivery window expired (>48h)";
+        }
+
+        order.status = "cancelled";
+        order.workflowStatus = WORKFLOW_STATUS.CANCELLED;
+        order.cancelledBy = "system";
+        order.cancelReason = reason;
+        await order.save();
+
+        await compensateOrderCancellation(order, order.orderId, {
+          reason,
+        });
+
+        emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_CANCELLED, {
+          orderId: order.orderId,
+          customerId: order.customer,
+          userId: order.customer,
+          sellerId: order.seller,
+          customerMessage: "Order cancelled as delivery window expired.",
+          sellerMessage: `Order #${order.orderId} cancelled: ${reason}.`,
+        });
+      } catch (err) {
+        logger.error('stale order auto-cancel failed', {
+          jobName: 'orderAutoCancelJob',
+          orderId: order.orderId,
+          error: err.message,
+        });
+      }
+    }
+
     const n =
       v2Expired.length +
       v2DeliveryExpired.length +
       returnPickupExpired.length +
       paymentExpiredOrders.length +
-      legacyExpired.length;
+      legacyExpired.length +
+      staleOrders.length;
 
     const duration = Date.now() - startTime;
 

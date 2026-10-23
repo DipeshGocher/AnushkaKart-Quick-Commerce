@@ -29,51 +29,59 @@ export const ProductDetailProvider = ({ children }) => {
     const [error, setError] = useState(null);
     const [searchParams, setSearchParams] = useSearchParams();
 
+    const currentOpenProductRef = React.useRef(null);
     const { currentLocation } = useAppLocation();
 
     useEffect(() => {
         const productParam = searchParams.get('product');
         if (productParam) {
-            const currentIdOrSlug = selectedProduct?.slug || selectedProduct?._id || selectedProduct?.id;
-            if (currentIdOrSlug !== productParam) {
-                // Check if already in cache for instant display
-                if (productSummaryCache.has(productParam)) {
-                    setSelectedProduct(productSummaryCache.get(productParam));
-                    setIsOpen(true);
-                }
-
-                const params = {};
-                if (currentLocation?.latitude && currentLocation?.longitude) {
-                    params.lat = currentLocation.latitude;
-                    params.lng = currentLocation.longitude;
-                }
-
-                setIsLoading(!productSummaryCache.has(productParam));
-                setError(null);
-
-                customerApi.getProductById(productParam, params)
-                    .then(res => {
-                        if (res.data?.success) {
-                            const p = res.data.result || res.data.results || res.data.data || res.data;
-                            if (p) {
-                                const pid = p._id || p.id;
-                                if (pid) productSummaryCache.set(String(pid), p);
-                                if (p.slug) productSummaryCache.set(String(p.slug), p);
-                                setSelectedProduct(p);
-                                setIsOpen(true);
-                                setError(null);
-                            }
-                        }
-                    })
-                    .catch(err => {
-                        console.error("Failed to fetch product from URL", err);
-                        setError(err.response?.data?.message || "Failed to load product");
-                    })
-                    .finally(() => {
-                        setIsLoading(false);
-                    });
+            const currentIdOrSlug = currentOpenProductRef.current?.slug || currentOpenProductRef.current?._id || currentOpenProductRef.current?.id || selectedProduct?.slug || selectedProduct?._id || selectedProduct?.id;
+            if (currentIdOrSlug === productParam) {
+                // Already loaded in memory by openProduct — skip duplicate API fetch
+                return;
             }
+
+            // Check if already in cache for instant display
+            if (productSummaryCache.has(productParam)) {
+                const cached = productSummaryCache.get(productParam);
+                currentOpenProductRef.current = cached;
+                setSelectedProduct(cached);
+                setIsOpen(true);
+            }
+
+            const params = {};
+            if (currentLocation?.latitude && currentLocation?.longitude) {
+                params.lat = currentLocation.latitude;
+                params.lng = currentLocation.longitude;
+            }
+
+            setIsLoading(!productSummaryCache.has(productParam));
+            setError(null);
+
+            customerApi.getProductById(productParam, params)
+                .then(res => {
+                    if (res.data?.success) {
+                        const p = res.data.result || res.data.results || res.data.data || res.data;
+                        if (p) {
+                            const pid = p._id || p.id;
+                            if (pid) productSummaryCache.set(String(pid), p);
+                            if (p.slug) productSummaryCache.set(String(p.slug), p);
+                            currentOpenProductRef.current = p;
+                            setSelectedProduct(p);
+                            setIsOpen(true);
+                            setError(null);
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error("Failed to fetch product from URL", err);
+                    setError(err.response?.data?.message || "Failed to load product");
+                })
+                .finally(() => {
+                    setIsLoading(false);
+                });
         } else if (!productParam && isOpen) {
+            currentOpenProductRef.current = null;
             setIsOpen(false);
             setTimeout(() => {
                 setSelectedProduct(null);
@@ -84,6 +92,7 @@ export const ProductDetailProvider = ({ children }) => {
 
     const openProduct = (product) => {
         if (!product) return;
+        currentOpenProductRef.current = product;
         const pid = product._id || product.id;
         const slug = product.slug;
         if (pid) productSummaryCache.set(String(pid), product);

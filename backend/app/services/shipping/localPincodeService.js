@@ -387,12 +387,24 @@ export async function evaluateDeliveryEligibility({
   const isSellerLocal = cleanSeller ? await isPincodeLocal(cleanSeller) : false;
 
   const localDetails = isCustomerLocal ? await getLocalPincodeDetails(cleanCustomer) : null;
-  const localEstimate = localDetails?.deliveryTimeEstimate || "15-20 mins";
+  const sellerDetails = isSellerLocal ? await getLocalPincodeDetails(cleanSeller) : null;
+  const localEstimate = localDetails?.deliveryTimeEstimate || "20-35 mins";
+
+  // Hyperlocal rider delivery is only possible if customer and seller are in the same local zone/city.
+  // A local rider cannot deliver across distant cities (e.g. Indore to Mauranipur).
+  const isSameZone =
+    isCustomerLocal &&
+    isSellerLocal &&
+    (cleanCustomer === cleanSeller ||
+      (!localDetails?.city && !sellerDetails?.city) ||
+      (localDetails?.city &&
+        sellerDetails?.city &&
+        localDetails.city.trim().toLowerCase() === sellerDetails.city.trim().toLowerCase()));
 
   // Mode 1: Quick Delivery Only (Perishables/Grocery/Local Riders)
   if (deliveryMode === "quick_only") {
-    // Both endpoints MUST be within active admin local delivery pincodes
-    if (isCustomerLocal && isSellerLocal) {
+    // Both endpoints MUST be within active admin local delivery pincodes in the same city/zone
+    if (isCustomerLocal && isSellerLocal && isSameZone) {
       return {
         isDeliverable: true,
         fulfillmentType: "LOCAL_RIDERS",
@@ -434,7 +446,7 @@ export async function evaluateDeliveryEligibility({
       };
     }
 
-    // Customer is local, but seller is outside local delivery zone (e.g. Indore)
+    // Customer is local, but seller is outside local delivery zone (e.g. Indore) or different city
     return {
       isDeliverable: false,
       fulfillmentType: null,
@@ -448,8 +460,8 @@ export async function evaluateDeliveryEligibility({
     };
   }
 
-  // Mode 2: Both / Hybrid (Local 15-min riders if both endpoints are local, else Shiprocket standard courier)
-  if (isCustomerLocal && isSellerLocal) {
+  // Mode 2: Both / Hybrid (Local riders if both endpoints are local AND in the same zone, else Shiprocket standard courier)
+  if (isCustomerLocal && isSellerLocal && isSameZone) {
     return {
       isDeliverable: true,
       fulfillmentType: "LOCAL_RIDERS",
@@ -463,7 +475,7 @@ export async function evaluateDeliveryEligibility({
     };
   }
 
-  // Either customer or seller is outside -> Shiprocket Pan-India courier
+  // Either customer or seller is outside (or in different cities) -> Shiprocket Pan-India courier
   return {
     isDeliverable: true,
     fulfillmentType: "SHIPROCKET",

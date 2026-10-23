@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ShoppingBag, Sun, ChevronLeft, ChevronRight } from 'lucide-react';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 import { slugify } from '@/core/utils/productUrl';
+import { cn } from '@/lib/utils';
 
 const AllCategoriesGreeting = ({ categories, firstName, greetingConfig }) => {
   const scrollRef = useRef(null);
@@ -187,12 +188,15 @@ const AllCategoriesGreeting = ({ categories, firstName, greetingConfig }) => {
                     referrerPolicy="no-referrer"
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';
+                      const fallback = e.currentTarget.parentElement?.querySelector('.category-img-fallback');
+                      if (fallback) fallback.classList.remove('hidden');
                     }}
                     className="h-full w-full object-contain transform-gpu transition-transform duration-200 group-hover:scale-105"
                   />
-                ) : (
-                  <ShoppingBag size={32} className="text-slate-400" aria-hidden="true" />
-                )}
+                ) : null}
+                <div className={cn("category-img-fallback w-full h-full flex items-center justify-center bg-slate-50/80 rounded-xl", category.image ? "hidden" : "flex")}>
+                  <ShoppingBag size={30} className="text-slate-400 opacity-60" aria-hidden="true" />
+                </div>
               </div>
 
               {/* 2. Bottom Colored Strip with Category Name matching Furnishing deals image */}

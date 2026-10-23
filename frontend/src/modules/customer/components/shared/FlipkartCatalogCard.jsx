@@ -26,6 +26,16 @@ const FlipkartCatalogCard = ({ product, onProductClick }) => {
     const productId = product.id || product._id;
     const isWishlisted = isInWishlist(productId);
 
+    const totalStock = React.useMemo(() => {
+        if (Array.isArray(product?.variants) && product.variants.length > 0) {
+            return product.variants.reduce((acc, v) => acc + (typeof v.stock === 'number' ? v.stock : 0), 0);
+        }
+        return Math.max(0, Number(product?.stock ?? 0));
+    }, [product]);
+
+    const isSoldOut = totalStock <= 0;
+    const isLowStock = totalStock > 0 && totalStock <= 2;
+
     const price = Number(product.price || product.salePrice || 0);
     const originalPrice = Number(product.originalPrice || 0);
     const discount = originalPrice > price && originalPrice > 0
@@ -46,7 +56,6 @@ const FlipkartCatalogCard = ({ product, onProductClick }) => {
             return;
         }
         toggleWishlist(product);
-        showToast(isWishlisted ? 'Removed from wishlist' : 'Added to wishlist', 'info');
     };
 
     return (
@@ -57,12 +66,29 @@ const FlipkartCatalogCard = ({ product, onProductClick }) => {
             {/* Top: Full Card Image Area with visible off-white / grey background and border */}
             <div className="customer-product-clean-image relative w-full aspect-square bg-[#f1f3f6] border border-[#e0e3e8] rounded-xl sm:rounded-2xl p-0 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:scale-[1.01] shadow-2xs">
                 {/* Out of Zone Delivery Badge (Top-Left) */}
-                {deliveryBadge && deliveryBadge.type === "unserviceable" && (
+                {deliveryBadge && deliveryBadge.type === "unserviceable" ? (
                     <div
                         className="absolute top-1.5 left-1.5 z-10 px-1.5 sm:px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider shadow-xs flex items-center gap-1 bg-red-500 text-white shadow-red-600/20"
                     >
                         <span>{deliveryBadge.label || "❌ Out of Zone"}</span>
                     </div>
+                ) : isSoldOut ? (
+                    <div
+                        className="absolute top-1.5 left-1.5 z-10 px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider shadow-xs flex items-center gap-1 bg-slate-700/90 text-white shadow-slate-800/20"
+                    >
+                        <span>Sold Out</span>
+                    </div>
+                ) : isLowStock ? (
+                    <div
+                        className="absolute top-1.5 left-1.5 z-10 px-1.5 sm:px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider shadow-xs flex items-center gap-1 bg-amber-500 text-white shadow-amber-600/20"
+                    >
+                        <span>Only {totalStock} left</span>
+                    </div>
+                ) : null}
+
+                {/* Sold Out Tint */}
+                {isSoldOut && (
+                    <div className="absolute inset-0 bg-white/40 pointer-events-none z-5" />
                 )}
 
                 {/* Wishlist Heart Button (Top Right) */}
@@ -127,6 +153,18 @@ const FlipkartCatalogCard = ({ product, onProductClick }) => {
                         </span>
                     )}
                 </div>
+
+                {/* Stock status text */}
+                {isLowStock && (
+                    <p className="text-[9.5px] sm:text-[10px] font-bold text-amber-600 mt-0.5 leading-tight">
+                        Hurry, only {totalStock} left in stock!
+                    </p>
+                )}
+                {isSoldOut && (
+                    <p className="text-[9.5px] sm:text-[10px] font-bold text-rose-600 mt-0.5 leading-tight">
+                        Sold Out
+                    </p>
+                )}
             </div>
         </div>
     );

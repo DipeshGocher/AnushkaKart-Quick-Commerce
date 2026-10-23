@@ -27,7 +27,62 @@ import { exportToCSV } from "@/lib/exportUtils";
 import { useSellerEarnings } from "../context/SellerEarningsContext";
 import Pagination from "@shared/components/ui/Pagination";
 
+const formatINR = (val) => {
+  const num = Number(val ?? 0);
+  return num.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
 const TransactionTableRow = React.memo(({ txn, onSelect, onDownloadReceipt }) => {
+  const isCancelled = txn.status === "Cancelled" || txn.status === "Failed";
+  const isWithdrawal = txn.type === "Withdrawal";
+  const isSettled = txn.status === "Settled";
+  const isPending = txn.status === "Pending" || txn.status === "Processing";
+
+  let iconBg = "bg-emerald-50 text-emerald-600";
+  let icon = <HiOutlineArrowDownLeft className="h-5 w-5" />;
+  let amountColor = "text-emerald-600 font-black";
+  let amountPrefix = "+";
+  let settlementSubtext = "Settled";
+  let badgeClass = "bg-emerald-50 text-emerald-700 border-emerald-200";
+  let badgeIcon = <HiOutlineCheckCircle className="mr-1 h-3 w-3 text-emerald-600" />;
+  let badgeText = "Settled";
+
+  if (isCancelled) {
+    iconBg = "bg-slate-100 text-slate-400";
+    icon = <HiOutlineXCircle className="h-5 w-5" />;
+    amountColor = "text-slate-400 line-through font-semibold";
+    amountPrefix = "";
+    settlementSubtext = "Order Cancelled";
+    badgeClass = "bg-slate-100 text-slate-600 border-slate-200";
+    badgeIcon = <HiOutlineXCircle className="mr-1 h-3 w-3 text-slate-500" />;
+    badgeText = "Cancelled";
+  } else if (isWithdrawal) {
+    iconBg = "bg-rose-50 text-rose-600";
+    icon = <HiOutlineArrowUpRight className="h-5 w-5" />;
+    amountColor = "text-rose-600 font-black";
+    amountPrefix = "-";
+    settlementSubtext = isSettled ? "Payout to Bank" : "Awaiting Approval";
+    badgeClass = isSettled
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+      : "bg-amber-50 text-amber-700 border-amber-200";
+    badgeIcon = isSettled
+      ? <HiOutlineCheckCircle className="mr-1 h-3 w-3 text-emerald-600" />
+      : <HiOutlineClock className="mr-1 h-3 w-3 text-amber-600" />;
+    badgeText = isSettled ? "Settled" : "Pending";
+  } else if (isPending) {
+    iconBg = "bg-amber-50 text-amber-600";
+    icon = <HiOutlineClock className="h-5 w-5" />;
+    amountColor = "text-amber-600 font-black";
+    amountPrefix = "+";
+    settlementSubtext = "Settlement: T+2";
+    badgeClass = "bg-amber-50 text-amber-700 border-amber-200";
+    badgeIcon = <HiOutlineClock className="mr-1 h-3 w-3 text-amber-600" />;
+    badgeText = "Pending";
+  }
+
   return (
     <tr
       onClick={() => onSelect(txn)}
@@ -37,23 +92,17 @@ const TransactionTableRow = React.memo(({ txn, onSelect, onDownloadReceipt }) =>
         <div className="flex items-center gap-4">
           <div
             className={cn(
-              "h-10 w-10 rounded-lg flex items-center justify-center font-black transition-all group-hover:scale-110",
-              txn.amount > 0
-                ? "bg-brand-50 text-brand-600"
-                : "bg-rose-50 text-rose-600",
+              "h-10 w-10 rounded-lg flex items-center justify-center font-black transition-all group-hover:scale-110 shrink-0",
+              iconBg,
             )}>
-            {txn.amount > 0 ? (
-              <HiOutlineArrowDownLeft className="h-5 w-5" />
-            ) : (
-              <HiOutlineArrowUpRight className="h-5 w-5" />
-            )}
+            {icon}
           </div>
           <div>
             <p className="text-sm font-black text-slate-900 group-hover:text-primary transition-colors">
-              {txn.id ?? txn.ref ?? "—"}
+              {txn.type ?? "Order Payment"}
             </p>
-            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-              {txn.type ?? "—"}
+            <p className="text-[10px] font-semibold text-slate-500 tracking-tight mt-0.5">
+              {txn.date ?? "—"} • {txn.time ?? "—"}
             </p>
           </div>
         </div>
@@ -63,46 +112,32 @@ const TransactionTableRow = React.memo(({ txn, onSelect, onDownloadReceipt }) =>
           {txn.customer ?? "—"}
         </p>
         <div className="flex items-center gap-1.5 mt-1">
-          <Badge className="text-[10px] sm:text-xs px-1 py-0 bg-slate-100 text-slate-600 font-bold border-none">
-            {txn.ref ?? "—"}
+          <Badge className="text-[10px] sm:text-xs px-1.5 py-0.5 bg-slate-100 text-slate-700 font-bold border border-slate-200">
+            {txn.ref ?? txn.id ?? "—"}
           </Badge>
-          <span className="text-[10px] sm:text-xs text-slate-600 font-bold uppercase tracking-tighter">
-            {txn.date ?? (txn.createdAt ? new Date(txn.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : "—")} • {txn.time ?? (txn.createdAt ? new Date(txn.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—")}
-          </span>
         </div>
       </td>
       <td className="px-6 py-5">
+        <p className={cn("text-sm tracking-tight", amountColor)}>
+          {amountPrefix}₹{formatINR(Math.abs(Number(txn.amount ?? 0)))}
+        </p>
         <p
           className={cn(
-            "text-sm font-black tracking-tight",
-            Number(txn.amount ?? 0) > 0
-              ? "text-brand-600"
-              : "text-rose-600",
+            "text-[10px] sm:text-xs font-bold mt-0.5",
+            isCancelled ? "text-slate-400" : isWithdrawal ? "text-slate-500 font-medium" : isSettled ? "text-emerald-700" : "text-amber-700",
           )}>
-          {Number(txn.amount ?? 0) > 0 ? "+" : ""}₹
-          {Math.abs(Number(txn.amount ?? 0)).toLocaleString()}
-        </p>
-        <p className="text-[10px] sm:text-xs font-bold text-slate-600 mt-0.5">
-          Settlement: {(txn.status ?? "") === "Settled" ? "Complete" : "T+2"}
+          {settlementSubtext}
         </p>
       </td>
       <td className="px-6 py-5">
-        <Badge
-          variant={
-            txn.status === "Settled"
-              ? "success"
-              : txn.status === "Pending" || txn.status === "Processing"
-                ? "warning"
-                : "default"
-          }
-          className="text-[10px] sm:text-xs font-black uppercase tracking-widest px-2-5 py-0.5 rounded-lg">
-          {txn.status === "Settled" ? (
-            <HiOutlineCheckCircle className="mr-1 h-3 w-3" />
-          ) : (
-            <HiOutlineClock className="mr-1 h-3 w-3" />
-          )}
-          {txn.status}
-        </Badge>
+        <span
+          className={cn(
+            "inline-flex items-center text-[10px] sm:text-xs font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border",
+            badgeClass,
+          )}>
+          {badgeIcon}
+          {badgeText}
+        </span>
       </td>
       <td className="px-6 py-5 text-right">
         <button
@@ -110,7 +145,8 @@ const TransactionTableRow = React.memo(({ txn, onSelect, onDownloadReceipt }) =>
             e.stopPropagation();
             onDownloadReceipt(txn);
           }}
-          className="h-9 w-9 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all ml-auto">
+          title="Download Receipt"
+          className="h-9 w-9 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-900 transition-all ml-auto">
           <HiOutlineArrowDownTray className="h-5 w-5" />
         </button>
       </td>
@@ -131,21 +167,24 @@ const Transactions = () => {
   const stats = [
     {
       label: "Settled Balance",
-      value: `₹${(data?.balances?.settledBalance || 0).toLocaleString()}`,
+      value: `₹${formatINR(data?.balances?.settledBalance || 0)}`,
+      sub: "Net available payout balance",
       icon: HiOutlineBanknotes,
-      color: "text-brand-600",
-      bg: "bg-brand-50",
+      color: "text-emerald-600",
+      bg: "bg-emerald-50",
     },
     {
-      label: "Pending Payouts",
-      value: `₹${(data?.balances?.pendingPayouts || 0).toLocaleString()}`,
+      label: "Pending Orders (T+2)",
+      value: `₹${formatINR(data?.balances?.pendingOrdersPayout ?? data?.balances?.pendingPayouts ?? 0)}`,
+      sub: "Active in-transit settlements",
       icon: HiOutlineClock,
       color: "text-amber-600",
       bg: "bg-amber-50",
     },
     {
-      label: "Total Revenue",
-      value: `₹${(data?.balances?.totalRevenue || 0).toLocaleString()}`,
+      label: "Total Delivered Revenue",
+      value: `₹${formatINR(data?.balances?.totalRevenue || 0)}`,
+      sub: "Gross revenue of delivered orders",
       icon: HiOutlineCreditCard,
       color: "text-brand-600",
       bg: "bg-brand-50",
@@ -156,7 +195,6 @@ const Transactions = () => {
   const filteredTransactions = useMemo(() => {
     const term = searchTerm.toLowerCase();
     const result = ledger.filter((txn) => {
-      if (!term && activeTab === "All") return true;
       const id = (txn.id ?? txn.ref ?? "").toString().toLowerCase();
       const customer = (txn.customer ?? "").toString().toLowerCase();
       const ref = (txn.ref ?? "").toString().toLowerCase();
@@ -171,8 +209,16 @@ const Transactions = () => {
         status.includes(term) ||
         type.includes(term) ||
         amount.includes(term);
-      const txnType = (txn.type ?? "").toString();
-      const matchesType = activeTab === "All" || txnType === activeTab;
+
+      let matchesType = true;
+      if (activeTab === "Order Payment") {
+        matchesType = txn.type === "Order Payment" && txn.status !== "Cancelled";
+      } else if (activeTab === "Withdrawal") {
+        matchesType = txn.type === "Withdrawal";
+      } else if (activeTab === "Cancelled") {
+        matchesType = txn.status === "Cancelled";
+      }
+
       return matchesSearch && matchesType;
     });
     const totalPages = Math.max(1, Math.ceil(result.length / pageSize));
@@ -198,7 +244,7 @@ const Transactions = () => {
       const record = {
         id: txn.id ?? txn.ref ?? "",
         type: txn.type ?? "",
-        amount: `₹${Math.abs(Number(txn.amount ?? 0)).toLocaleString()}`,
+        amount: `₹${formatINR(Math.abs(Number(txn.amount ?? 0)))}`,
         status: txn.status ?? "",
         date:
           txn.date ??
@@ -263,7 +309,7 @@ const Transactions = () => {
                   const exportData = filteredTransactions.map((txn) => ({
                     id: txn.id ?? txn.ref ?? "",
                     type: txn.type ?? "",
-                    amount: `₹${Number(txn.amount ?? 0).toLocaleString()}`,
+                    amount: `₹${formatINR(Math.abs(Number(txn.amount ?? 0)))}`,
                     status: txn.status ?? "",
                     date: txn.date ?? (txn.createdAt ? new Date(txn.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ""),
                     time: txn.time ?? (txn.createdAt ? new Date(txn.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""),
@@ -333,7 +379,7 @@ const Transactions = () => {
           {/* Toolbar */}
           <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row gap-4 items-center justify-between bg-white">
             <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 shrink-0">
-              {["All", "Order Payment", "Withdrawal", "Refund"].map((tab) => (
+              {["All", "Order Payment", "Withdrawal", "Cancelled"].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -434,12 +480,24 @@ const Transactions = () => {
               <h2
                 className={cn(
                   "text-4xl font-black tracking-tight",
-                  Number(selectedTxn.amount ?? 0) > 0 ? "text-brand-600" : "text-rose-600",
+                  selectedTxn.status === "Cancelled" || selectedTxn.status === "Failed"
+                    ? "text-slate-400 line-through"
+                    : Number(selectedTxn.amount ?? 0) > 0
+                      ? "text-emerald-600"
+                      : "text-rose-600",
                 )}>
-                {Number(selectedTxn.amount ?? 0) > 0 ? "+" : ""}₹
-                {Math.abs(Number(selectedTxn.amount ?? 0)).toLocaleString()}
+                {selectedTxn.status !== "Cancelled" && selectedTxn.status !== "Failed" && Number(selectedTxn.amount ?? 0) > 0 ? "+" : ""}
+                {selectedTxn.status !== "Cancelled" && selectedTxn.status !== "Failed" && Number(selectedTxn.amount ?? 0) < 0 ? "-" : ""}
+                ₹{formatINR(Math.abs(Number(selectedTxn.amount ?? 0)))}
               </h2>
-              <Badge className="mt-4 uppercase font-black text-[10px] sm:text-xs px-3 py-1">
+              <Badge
+                className={cn(
+                  "mt-4 uppercase font-black text-[10px] sm:text-xs px-3 py-1",
+                  selectedTxn.status === "Settled" && "bg-emerald-50 text-emerald-700 border-emerald-200",
+                  (selectedTxn.status === "Cancelled" || selectedTxn.status === "Failed") && "bg-slate-100 text-slate-600 border-slate-300",
+                  (selectedTxn.status === "Pending" || selectedTxn.status === "Processing") && "bg-amber-50 text-amber-700 border-amber-200"
+                )}
+                variant="outline">
                 {selectedTxn.status ?? "—"}
               </Badge>
             </div>
@@ -483,14 +541,37 @@ const Transactions = () => {
               </div>
             </div>
 
-            <div className="p-4 bg-amber-50 rounded-lg border border-amber-100 flex gap-3">
-              <HiOutlineClock className="h-5 w-5 text-amber-600 shrink-0" />
-              <p className="text-[10px] text-amber-800 font-bold leading-relaxed">
-                This transaction is scheduled for settlement in your bank
-                account via T+2 rolling cycle. Settlements usually occur before
-                6:00 PM.
-              </p>
-            </div>
+            {selectedTxn.status === "Cancelled" || selectedTxn.status === "Failed" ? (
+              <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 flex items-center gap-3">
+                <HiOutlineXCircle className="h-5 w-5 text-slate-500 shrink-0" />
+                <p className="text-xs text-slate-700 font-semibold leading-relaxed">
+                  Order was cancelled by customer. No payout applicable.
+                </p>
+              </div>
+            ) : selectedTxn.status === "Settled" ? (
+              <div className="p-4 bg-emerald-50/80 rounded-lg border border-emerald-200/60 flex items-center gap-3">
+                <HiOutlineCheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
+                <p className="text-xs text-emerald-800 font-semibold leading-relaxed">
+                  {selectedTxn.type === "Withdrawal"
+                    ? "Payout successfully transferred to your bank account."
+                    : "Payout settled to your balance."}
+                </p>
+              </div>
+            ) : selectedTxn.type === "Withdrawal" ? (
+              <div className="p-4 bg-amber-50/80 rounded-lg border border-amber-200/60 flex items-center gap-3">
+                <HiOutlineClock className="h-5 w-5 text-amber-600 shrink-0" />
+                <p className="text-xs text-amber-800 font-semibold leading-relaxed">
+                  Withdrawal request submitted. Awaiting bank settlement / admin approval.
+                </p>
+              </div>
+            ) : (
+              <div className="p-4 bg-amber-50/80 rounded-lg border border-amber-200/60 flex items-center gap-3">
+                <HiOutlineClock className="h-5 w-5 text-amber-600 shrink-0" />
+                <p className="text-xs text-amber-800 font-semibold leading-relaxed">
+                  Settlement Scheduled (T+2 rolling cycle). Funds will be credited once order delivery is confirmed.
+                </p>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3 pt-2">
               <Button

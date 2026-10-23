@@ -273,9 +273,10 @@ export async function processShiprocketOrder(orderParam) {
   }
   if (order.workflowVersion >= 2 &&
       [WORKFLOW_STATUS.CREATED, WORKFLOW_STATUS.SELLER_PENDING].includes(order.workflowStatus)) {
-    const err = new Error("Wait for seller or warehouse acceptance before booking a courier");
-    err.statusCode = 409;
-    throw err;
+    order.workflowStatus = WORKFLOW_STATUS.SELLER_ACCEPTED;
+    order.status = "confirmed";
+    order.orderStatus = "confirmed";
+    order.sellerAcceptedAt = new Date();
   }
   if (order.shiprocket?.shipmentId) {
     return { success: true, mode: "EXISTING", message: "Shiprocket shipment already exists", shipment: order.shiprocket };
@@ -942,12 +943,16 @@ export async function updateShiprocketManualStatus(orderId, { status, remarks = 
       order.workflowStatus = WORKFLOW_STATUS.PICKUP_READY;
     }
     if (!order.shiprocket.pickupScheduledAt) order.shiprocket.pickupScheduledAt = new Date();
-  } else if (upperStatus === "CANCELLED") {
+  } else if (upperStatus === "CANCELLED" || upperStatus === "RTO_DELIVERED" || upperStatus === "RTO_ACKNOWLEDGED") {
     order.status = "cancelled";
     order.orderStatus = "cancelled";
     if (order.workflowVersion >= 2) {
       order.workflowStatus = WORKFLOW_STATUS.CANCELLED;
     }
+    order.cancelledBy = "system";
+    order.cancelReason = upperStatus === "CANCELLED"
+      ? (remarks || "Shiprocket shipment cancelled")
+      : (remarks || "Package returned to seller (RTO delivered)");
   }
 
   order.shiprocket.history.push({
@@ -972,10 +977,10 @@ export async function updateShiprocketManualStatus(orderId, { status, remarks = 
       userId: order.customer?._id || order.customer,
       sellerId: order.seller?._id || order.seller,
     });
-  } else if (upperStatus === "CANCELLED") {
+  } else if (upperStatus === "CANCELLED" || upperStatus === "RTO_DELIVERED" || upperStatus === "RTO_ACKNOWLEDGED") {
     try {
       await compensateOrderCancellation(order, order.orderId, {
-        reason: remarks || "Shiprocket courier shipment cancelled",
+        reason: order.cancelReason || remarks || "Shiprocket shipment cancelled or returned to seller (RTO)",
       });
     } catch (cancelErr) {
       console.error("[Shiprocket] compensateOrderCancellation error:", cancelErr.message);
@@ -985,8 +990,10 @@ export async function updateShiprocketManualStatus(orderId, { status, remarks = 
       customerId: order.customer?._id || order.customer,
       userId: order.customer?._id || order.customer,
       sellerId: order.seller?._id || order.seller,
-      customerMessage: "Your order shipment was cancelled.",
-      sellerMessage: `Order #${order.orderId} shipment was cancelled.`,
+      customerMessage: upperStatus.includes("RTO")
+        ? "Your order was returned to seller."
+        : "Your order shipment was cancelled.",
+      sellerMessage: `Order #${order.orderId} was marked as ${upperStatus}.`,
     });
   } else if (upperStatus === "OUT_FOR_DELIVERY") {
     emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_OUT_FOR_DELIVERY, {
@@ -1141,10 +1148,28 @@ export async function processShiprocketWebhook(payload = {}, headers = {}) {
       userId: order.customer?._id || order.customer,
       sellerId: order.seller?._id || order.seller,
     });
-  } else if (statusRaw.includes("CANCELLED") || statusRaw === "CANCELLED") {
+  } else if (
+    statusRaw.includes("CANCELLED") ||
+    statusRaw === "CANCELLED" ||
+    statusRaw.includes("RTO DELIVERED") ||
+    statusRaw === "RTO_DELIVERED" ||
+    statusRaw.includes("RTO ACKNOWLEDGED")
+  ) {
+    const isRto = statusRaw.includes("RTO");
+    order.status = "cancelled";
+    order.orderStatus = "cancelled";
+    if (order.workflowVersion >= 2) {
+      order.workflowStatus = WORKFLOW_STATUS.CANCELLED;
+    }
+    order.cancelledBy = "system";
+    order.cancelReason = isRto
+      ? (remarks || "Package returned to seller (RTO delivered)")
+      : (remarks || "Shiprocket shipment cancelled");
+    await order.save();
+
     try {
       await compensateOrderCancellation(order, order.orderId, {
-        reason: remarks || "Shiprocket webhook cancelled shipment",
+        reason: order.cancelReason,
       });
     } catch (cancelErr) {
       console.error("[Shiprocket Webhook] compensateOrderCancellation error:", cancelErr.message);
@@ -1154,8 +1179,8 @@ export async function processShiprocketWebhook(payload = {}, headers = {}) {
       customerId: order.customer?._id || order.customer,
       userId: order.customer?._id || order.customer,
       sellerId: order.seller?._id || order.seller,
-      customerMessage: "Your order shipment was cancelled.",
-      sellerMessage: `Order #${order.orderId} shipment was cancelled.`,
+      customerMessage: isRto ? "Your order was returned to seller." : "Your order shipment was cancelled.",
+      sellerMessage: `Order #${order.orderId} shipment was marked ${statusRaw}.`,
     });
   } else if (statusRaw.includes("OUT FOR DELIVERY") || statusRaw === "OUT_FOR_DELIVERY") {
     emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_OUT_FOR_DELIVERY, {

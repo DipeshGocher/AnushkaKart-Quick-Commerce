@@ -37,7 +37,9 @@ const ExperienceBannerCarousel = ({
   const viewportRef = React.useRef(null);
   const cardRef = React.useRef(null);
   const [cardStep, setCardStep] = React.useState(0);
-  const [containerWidth, setContainerWidth] = React.useState(0);
+  const [containerWidth, setContainerWidth] = React.useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 380
+  );
   const [mobileCardHeight, setMobileCardHeight] = React.useState(0);
   const [isPaused, setIsPaused] = React.useState(false);
   const [bannerAspectRatios, setBannerAspectRatios] = React.useState({});
@@ -269,7 +271,14 @@ const ExperienceBannerCarousel = ({
     >
       <div
         ref={viewportRef}
-        style={isMobile && mobileCardHeight > 0 ? { height: mobileCardHeight } : undefined}
+        style={
+          isMobile
+            ? {
+                height: mobileCardHeight > 0 ? `${mobileCardHeight}px` : undefined,
+                minHeight: isSectionBanner ? "115px" : "120px",
+              }
+            : undefined
+        }
         className={cn(
           "w-full min-w-0 overflow-hidden touch-pan-y",
           edgeToEdge || stretchSingle
@@ -323,11 +332,11 @@ const ExperienceBannerCarousel = ({
                   ? {
                       width: `${desktopCardWidth}px`,
                       height: "auto",
-                      aspectRatio: bannerAspectRatios[bannerKey] || 3,
+                      aspectRatio: bannerAspectRatios[bannerKey] || (isSectionBanner ? "2.85/1" : "3/1"),
                     }
                   : (isMobile && (stretchSingle || (edgeToEdge && !peekNext)))
-                  ? { width: containerWidth ? `${containerWidth}px` : "100vw", height: "auto", aspectRatio: bannerAspectRatios[bannerKey] || 3 }
-                  : { height: "auto", aspectRatio: bannerAspectRatios[bannerKey] || 2 }
+                  ? { width: containerWidth ? `${containerWidth}px` : "100vw", height: "auto", aspectRatio: bannerAspectRatios[bannerKey] || "2.85/1" }
+                  : { height: "auto", aspectRatio: bannerAspectRatios[bannerKey] || "2.85/1" }
               }
               className={cn(
                 "relative shrink-0 overflow-hidden flex items-center justify-center cursor-pointer transition-shadow",

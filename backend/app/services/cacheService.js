@@ -71,6 +71,17 @@ function labelsFromKey(key = "") {
   };
 }
 
+// In-Memory L1 Cache for zero-latency (<0.1ms) reads
+const l1Cache = new Map();
+const L1_MAX_SIZE = 1000;
+
+function cleanL1() {
+  if (l1Cache.size > L1_MAX_SIZE) {
+    const oldestKey = l1Cache.keys().next().value;
+    if (oldestKey) l1Cache.delete(oldestKey);
+  }
+}
+
 /**
  * Get cached value
  * @param {string} key - Cache key
@@ -81,11 +92,25 @@ export async function get(key) {
     return null;
   }
   
+  // 1. Check ultra-fast L1 In-Memory cache (<0.1ms)
+  const l1Entry = l1Cache.get(key);
+  if (l1Entry) {
+    if (Date.now() < l1Entry.expiresAt) {
+      incrementCounter("cache_hit_total", labelsFromKey(key));
+      return l1Entry.value;
+    }
+    l1Cache.delete(key);
+  }
+
+  // 2. Redis fallback with timeout protection (never block user > 120ms)
   try {
     const redis = getRedisClient();
     if (!redis) return null;
     
-    const data = await redis.get(key);
+    const data = await Promise.race([
+      redis.get(key),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Redis timeout")), 120)),
+    ]);
     
     if (!data) {
       logger.debug(`[Cache] Miss: ${key}`);
@@ -95,12 +120,13 @@ export async function get(key) {
     
     logger.debug(`[Cache] Hit: ${key}`);
     incrementCounter("cache_hit_total", labelsFromKey(key));
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    l1Cache.set(key, { value: parsed, expiresAt: Date.now() + 60000 });
+    cleanL1();
+    return parsed;
     
   } catch (error) {
-    logger.error(`[Cache] Error getting key ${key}:`, error);
-    incrementCounter("cache_error_total", { operation: "get", ...labelsFromKey(key) });
-    // Graceful fallback: return null to trigger database query
+    logger.debug(`[Cache] Redis skipped for ${key}:`, error?.message);
     return null;
   }
 }
@@ -112,31 +138,35 @@ export async function get(key) {
  * @param {number} ttlSeconds - TTL in seconds
  * @returns {Promise<void>}
  */
-export async function set(key, value, ttlSeconds) {
+export async function set(key, value, ttlSeconds = 300) {
   if (!CACHE_ENABLED) {
     return;
   }
   
+  // 1. Immediate L1 in-memory write (<0.1ms)
+  if (ttlSeconds <= 0) {
+    l1Cache.delete(key);
+  } else {
+    l1Cache.set(key, { value, expiresAt: Date.now() + ttlSeconds * 1000 });
+    cleanL1();
+  }
+
+  // 2. Fire-and-forget Redis write (non-blocking)
   try {
     const redis = getRedisClient();
     if (!redis) return;
     
     if (ttlSeconds <= 0) {
-      await redis.del(key);
-      logger.debug(`[Cache] Deleted: ${key}`);
+      redis.del(key).catch(() => {});
       return;
     }
 
     const serialized = JSON.stringify(value);
-    
-    await redis.setex(key, ttlSeconds, serialized);
-    logger.debug(`[Cache] Set: ${key}, TTL: ${ttlSeconds}s`);
+    redis.setex(key, ttlSeconds, serialized).catch(() => {});
     incrementCounter("cache_set_total", labelsFromKey(key));
     
   } catch (error) {
-    logger.error(`[Cache] Error setting key ${key}:`, error);
-    incrementCounter("cache_error_total", { operation: "set", ...labelsFromKey(key) });
-    // Graceful fallback: don't throw, just log
+    // Non-blocking fallback
   }
 }
 
@@ -146,6 +176,7 @@ export async function set(key, value, ttlSeconds) {
  * @returns {Promise<void>}
  */
 export async function del(key) {
+  l1Cache.delete(key);
   if (!CACHE_ENABLED) {
     return;
   }
@@ -154,14 +185,10 @@ export async function del(key) {
     const redis = getRedisClient();
     if (!redis) return;
     
-    await redis.del(key);
-    logger.debug(`[Cache] Deleted: ${key}`);
+    redis.del(key).catch(() => {});
     incrementCounter("cache_delete_total", labelsFromKey(key));
-    
   } catch (error) {
-    logger.error(`[Cache] Error deleting key ${key}:`, error);
-    incrementCounter("cache_error_total", { operation: "del", ...labelsFromKey(key) });
-    // Graceful fallback: don't throw, just log
+    // Non-blocking fallback
   }
 }
 
@@ -172,6 +199,17 @@ export async function del(key) {
  * @returns {Promise<number>} Number of keys deleted
  */
 export async function delPattern(pattern) {
+  try {
+    const basePrefix = pattern.replace(/[*].*$/, "");
+    const escaped = pattern.replace(/[*]/g, ".*");
+    const regex = new RegExp(`^${escaped}$`);
+    for (const k of l1Cache.keys()) {
+      if ((basePrefix && k.startsWith(basePrefix)) || regex.test(k)) {
+        l1Cache.delete(k);
+      }
+    }
+  } catch {}
+
   if (!CACHE_ENABLED) {
     return 0;
   }
@@ -252,9 +290,6 @@ export async function invalidate(key) {
   }
   
   try {
-    const redis = getRedisClient();
-    if (!redis) return;
-    
     const patterns = [key];
     if (
       CACHE_KEY_VERSION &&
@@ -264,7 +299,7 @@ export async function invalidate(key) {
       patterns.push(String(key).replace(/^cache:/, `cache:${CACHE_KEY_VERSION}:`));
     }
     
-    // Delete the key(s)
+    // Always delete the key(s) from local L1 cache and Redis (if connected)
     for (const candidate of patterns) {
       if (candidate.includes("*")) {
         await delPattern(candidate);
@@ -272,6 +307,9 @@ export async function invalidate(key) {
         await del(candidate);
       }
     }
+
+    const redis = getRedisClient();
+    if (!redis) return;
     
     // Publish invalidation event to all instances
     const message = JSON.stringify({

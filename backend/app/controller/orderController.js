@@ -21,6 +21,7 @@ import {
   startReturnPickupBroadcast,
   removeReturnPickupTimeoutJob,
 } from "../services/orderWorkflowService.js";
+import { compensateOrderCancellation } from "../services/orderCompensation.js";
 import { applyDeliveredSettlement } from "../services/orderSettlement.js";
 import {
   freezeFinancialSnapshot,
@@ -48,6 +49,7 @@ import {
   retractDeliveryBroadcastForOrder,
   emitToSeller,
   emitToDelivery,
+  emitOrderStatusUpdate,
 } from "../services/orderSocketEmitter.js";
 import * as walletService from "../services/finance/walletService.js";
 import { OWNER_TYPE } from "../constants/finance.js";
@@ -548,7 +550,44 @@ export const updateOrderStatus = async (req, res) => {
       order.status = status;
       order.orderStatus = status;
     }
-    if (deliveryBoyId) order.deliveryBoy = deliveryBoyId;
+    if (deliveryBoyId) {
+      order.deliveryBoy = deliveryBoyId;
+      order.assignedAt = new Date();
+      if (!order.deliveryRiderStep) order.deliveryRiderStep = 1;
+      if (order.workflowVersion >= 2) {
+        if (
+          order.workflowStatus === WORKFLOW_STATUS.DELIVERY_SEARCH ||
+          order.workflowStatus === WORKFLOW_STATUS.SELLER_ACCEPTED ||
+          order.workflowStatus === WORKFLOW_STATUS.PICKUP_READY ||
+          !order.workflowStatus
+        ) {
+          order.workflowStatus = WORKFLOW_STATUS.DELIVERY_ASSIGNED;
+        }
+      }
+      if (order.status === "pending") {
+        order.status = "confirmed";
+        order.orderStatus = "confirmed";
+      }
+      if (order.deliverySearchMeta) {
+        order.deliverySearchMeta.escalated = false;
+      }
+      emitNotificationEvent(NOTIFICATION_EVENTS.DELIVERY_ASSIGNED, {
+        orderId: canonicalOrderId,
+        deliveryId: deliveryBoyId,
+        customerId: order.customer,
+        sellerId: order.seller,
+      });
+      emitOrderStatusUpdate(
+        canonicalOrderId,
+        {
+          workflowStatus: order.workflowStatus,
+          status: order.status,
+          deliveryBoy: deliveryBoyId,
+          escalated: false,
+        },
+        order.customer,
+      );
+    }
 
     // Legacy orders: keep rider UI step in sync with status (delivery app refresh-safe)
     if (
@@ -561,8 +600,16 @@ export const updateOrderStatus = async (req, res) => {
       else if (status === "out_for_delivery") order.deliveryRiderStep = 3;
     }
 
-    // Handle Cancellation (Stock Reversal & Transaction Update)
+    // Handle Cancellation (Stock Reversal & Transaction Update & Compensation)
     if (status === "cancelled" && oldStatus !== "cancelled") {
+      order.status = "cancelled";
+      order.orderStatus = "cancelled";
+      if (order.workflowVersion >= 2) {
+        order.workflowStatus = WORKFLOW_STATUS.CANCELLED;
+      }
+      order.cancelledBy = role || "system";
+      order.cancelReason = req.body?.reason || `Order cancelled by ${role}`;
+
       // 1. Reverse Stock
       for (const item of order.items) {
         await Product.findByIdAndUpdate(item.product, {
@@ -584,6 +631,15 @@ export const updateOrderStatus = async (req, res) => {
         { reference: canonicalOrderId },
         { status: "Failed" },
       );
+
+      // 3. Compensate Finance & Wallet/Refund
+      try {
+        await compensateOrderCancellation(order, canonicalOrderId, {
+          reason: order.cancelReason,
+        });
+      } catch (cancelErr) {
+        console.error("[updateOrderStatus] compensateOrderCancellation error:", cancelErr.message);
+      }
 
       emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_CANCELLED, {
         orderId: canonicalOrderId,

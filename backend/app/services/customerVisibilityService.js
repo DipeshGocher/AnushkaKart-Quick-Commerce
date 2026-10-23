@@ -33,50 +33,16 @@ function buildNearbySellersKey(lat, lng) {
 export async function getNearbySellerIdsForCustomer(lat, lng) {
   const fetchFn = async () => {
     const [sellers, warehouses] = await Promise.all([
-      Seller.find({
-        isActive: true,
-        location: {
-          $near: {
-            $geometry: {
-              type: "Point",
-              coordinates: [lng, lat],
-            },
-            $maxDistance: MAX_SELLER_SEARCH_DISTANCE_M,
-          },
-        },
-      })
-        .select("_id location serviceRadius")
+      Seller.find({ isActive: true })
+        .select("_id")
         .lean(),
-      Warehouse.find({
-        isActive: true,
-        location: {
-          $near: {
-            $geometry: {
-              type: "Point",
-              coordinates: [lng, lat],
-            },
-            $maxDistance: MAX_SELLER_SEARCH_DISTANCE_M,
-          },
-        },
-      })
-        .select("_id location serviceRadius")
+      Warehouse.find({ isActive: true })
+        .select("_id")
         .lean()
     ]);
 
     const allEntities = [...sellers, ...warehouses];
-
-    return allEntities
-      .filter((entity) => {
-        const coords = entity?.location?.coordinates;
-        if (!Array.isArray(coords) || coords.length < 2) return false;
-        const [entityLng, entityLat] = coords;
-        if (!Number.isFinite(entityLat) || !Number.isFinite(entityLng)) {
-          return false;
-        }
-        const distanceKm = calculateDistance(lat, lng, entityLat, entityLng);
-        return distanceKm <= (entity.serviceRadius || 5);
-      })
-      .map((entity) => String(entity._id));
+    return allEntities.map((entity) => String(entity._id));
   };
 
   return getOrSet(buildNearbySellersKey(lat, lng), fetchFn, getTTL("nearbySellers"));

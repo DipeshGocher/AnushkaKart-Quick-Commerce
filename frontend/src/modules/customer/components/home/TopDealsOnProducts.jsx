@@ -8,10 +8,55 @@ import { cn } from '@/lib/utils';
 
 let cachedTopDealsSubs = null;
 
-const TopDealsOnProducts = () => {
+const processSubcategoriesFromItems = (allItems, settings) => {
+  const subs = allItems.filter(
+    (c) => (c.type === 'subcategory' || !c.type) && c.status !== 'inactive' && c.catalogType !== 'refurbished'
+  );
+
+  // 1. Check if admin configured explicit category IDs in settings
+  const explicitIds = Array.isArray(settings?.bestSellingCategoryIds) && settings.bestSellingCategoryIds.length > 0
+    ? settings.bestSellingCategoryIds.map(String)
+    : [];
+
+  if (explicitIds.length > 0) {
+    const itemMap = new Map(allItems.map((c) => [String(c._id || c.id), c]));
+    const explicitItems = explicitIds.map((id) => itemMap.get(id)).filter(Boolean);
+    if (explicitItems.length > 0) {
+      return explicitItems;
+    }
+  }
+
+  // 2. Filter subcategories marked as featured in admin panel
+  const featured = subs.filter((c) => c.isFeatured === true);
+
+  // 3. Fallback to active subcategories
+  if (featured.length > 0) {
+    return featured;
+  } else {
+    const withImages = subs.filter((s) => s.image && typeof s.image === 'string' && s.image.trim() !== '');
+    const others = subs.filter((s) => !s.image || typeof s.image !== 'string' || s.image.trim() === '');
+    const combined = [...withImages, ...others];
+    return combined.slice(0, 24);
+  }
+};
+
+const TopDealsOnProducts = ({ subcategoryMap = null, categoryMap = null }) => {
   const { settings } = useSettings();
   const sectionTitle = settings?.bestSellingTitle?.trim() || 'Best Selling Categories';
-  const [subcategories, setSubcategories] = useState(() => cachedTopDealsSubs || []);
+
+  const [subcategories, setSubcategories] = useState(() => {
+    if (cachedTopDealsSubs && cachedTopDealsSubs.length > 0) return cachedTopDealsSubs;
+    if (subcategoryMap && Object.keys(subcategoryMap).length > 0) {
+      const items = [...Object.values(categoryMap || {}), ...Object.values(subcategoryMap || {})];
+      const initial = processSubcategoriesFromItems(items, settings);
+      if (initial.length > 0) {
+        cachedTopDealsSubs = initial;
+        return initial;
+      }
+    }
+    return [];
+  });
+
   const [isLoading, setIsLoading] = useState(() => !cachedTopDealsSubs || cachedTopDealsSubs.length === 0);
   const [retryCount, setRetryCount] = useState(0);
   const scrollRef = useRef(null);
@@ -20,6 +65,18 @@ const TopDealsOnProducts = () => {
   const rafRef = useRef(null);
 
   useEffect(() => {
+    // If subcategories were passed down from Home parent, process them immediately without network request
+    if (subcategoryMap && Object.keys(subcategoryMap).length > 0) {
+      const items = [...Object.values(categoryMap || {}), ...Object.values(subcategoryMap || {})];
+      const processed = processSubcategoriesFromItems(items, settings);
+      if (processed.length > 0) {
+        cachedTopDealsSubs = processed;
+        setSubcategories(processed);
+        setIsLoading(false);
+        return;
+      }
+    }
+
     let cancelled = false;
     const fetchSubcategories = async () => {
       if (!cachedTopDealsSubs || cachedTopDealsSubs.length === 0) {
@@ -37,40 +94,9 @@ const TopDealsOnProducts = () => {
           : [];
 
         if (!cancelled) {
-          const subs = allItems.filter(
-            (c) => c.type === 'subcategory' && c.status !== 'inactive' && c.catalogType !== 'refurbished'
-          );
-
-          // 1. Check if admin configured explicit category IDs in settings
-          const explicitIds = Array.isArray(settings?.bestSellingCategoryIds) && settings.bestSellingCategoryIds.length > 0
-            ? settings.bestSellingCategoryIds.map(String)
-            : [];
-
-          if (explicitIds.length > 0) {
-            const itemMap = new Map(allItems.map((c) => [String(c._id || c.id), c]));
-            const explicitItems = explicitIds.map((id) => itemMap.get(id)).filter(Boolean);
-            if (explicitItems.length > 0) {
-              cachedTopDealsSubs = explicitItems;
-              setSubcategories(explicitItems);
-              return;
-            }
-          }
-
-          // 2. Filter subcategories marked as featured in admin panel
-          const featured = subs.filter((c) => c.isFeatured === true);
-
-          // 3. Fallback to active subcategories
-          if (featured.length > 0) {
-            cachedTopDealsSubs = featured;
-            setSubcategories(featured);
-          } else {
-            const withImages = subs.filter((s) => s.image && typeof s.image === 'string' && s.image.trim() !== '');
-            const others = subs.filter((s) => !s.image || typeof s.image !== 'string' || s.image.trim() === '');
-            const combined = [...withImages, ...others];
-            const finalSubs = combined.slice(0, 24);
-            cachedTopDealsSubs = finalSubs;
-            setSubcategories(finalSubs);
-          }
+          const finalItems = processSubcategoriesFromItems(allItems, settings);
+          cachedTopDealsSubs = finalItems;
+          setSubcategories(finalItems);
         }
       } catch (error) {
         if (!cancelled) {
@@ -91,7 +117,7 @@ const TopDealsOnProducts = () => {
     return () => {
       cancelled = true;
     };
-  }, [settings?.bestSellingCategoryIds, retryCount]);
+  }, [subcategoryMap, categoryMap, settings?.bestSellingCategoryIds, retryCount]);
 
   // Organize subcategories into columns of 2 rows (3 columns visible per swipe screen)
   const columns = useMemo(() => {

@@ -14,7 +14,8 @@ import {
   UserX,
   Sun,
   Flame,
-  ChevronRight
+  ChevronRight,
+  Clock,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -43,12 +44,15 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("delivery"); // 'delivery' or 'return'
   const [availableOrders, setAvailableOrders] = useState([]);
   const [checkinStatus, setCheckinStatus] = useState(null);
-  const [pendingOffer, setPendingOffer] = useState(null); // active queue order offer
+  const [pendingOffer, setPendingOffer] = useState(null);
   const [earnings, setEarnings] = useState({
     today: 0,
+    todayDeliveries: 0,
     deliveries: 0,
     pendingDeliveries: 0,
     cancelledDeliveries: 0,
+    yesterdayEarnings: 0,
+    growthPercentage: 0,
     incentives: 0,
     cashCollected: 0,
   });
@@ -174,7 +178,16 @@ const Dashboard = () => {
         navigate(`/delivery/order-details/${orderId}`);
       } else {
         // Broadcast fallback accept
-        acceptOrder(orderId);
+        try {
+          const res = await deliveryApi.acceptOrder(orderId);
+          if (res?.data?.success) {
+            toast.success("Order accepted! Preparing for pickup...");
+            setPendingOffer(null);
+            navigate(`/delivery/order-details/${orderId}`);
+          }
+        } catch (err) {
+          toast.error(err.response?.data?.message || "Failed to accept order");
+        }
       }
     }
   };
@@ -326,12 +339,24 @@ const Dashboard = () => {
 
             <div className="mb-2">
               <span className="text-[2.2rem] font-black tracking-tight leading-none">
-                ₹{earnings.today?.toLocaleString()}
+                ₹{Number(earnings.today || 0).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
               </span>
             </div>
 
             <div className="flex items-center text-[10px] font-bold text-[#EEEEFF] mb-5">
-              <Flame size={13} className="mr-1 fill-yellow-300 text-yellow-300" /> 5% more than yesterday
+              {earnings.today > 0 ? (
+                <>
+                  <Flame size={13} className="mr-1 fill-yellow-300 text-yellow-300" />
+                  {earnings.todayDeliveries > 0
+                    ? `${earnings.todayDeliveries} order${earnings.todayDeliveries > 1 ? "s" : ""} completed today`
+                    : "Active earnings today"}
+                </>
+              ) : (
+                <>
+                  <Flame size={13} className="mr-1 text-yellow-200" />
+                  Start delivering to earn today
+                </>
+              )}
             </div>
 
             <button 
@@ -343,9 +368,16 @@ const Dashboard = () => {
           </div>
 
           <div className="relative z-10 flex flex-col items-end justify-between shrink-0 ml-4">
-            <span className="text-white bg-white/25 text-[10px] font-black flex items-center px-2.5 py-1 rounded-full border border-white/30 backdrop-blur-md mb-2 shadow-2xs">
-              <TrendingUp size={12} className="mr-1 text-white" /> +12% ⇧
-            </span>
+            {earnings.today > 0 ? (
+              <span className="text-white bg-white/25 text-[10px] font-black flex items-center px-2.5 py-1 rounded-full border border-white/30 backdrop-blur-md mb-2 shadow-2xs">
+                <TrendingUp size={12} className="mr-1 text-white" />
+                {earnings.growthPercentage > 0 ? `+${earnings.growthPercentage}% ⇧` : `${earnings.growthPercentage}%`}
+              </span>
+            ) : (
+              <span className="text-white/85 bg-white/15 text-[10px] font-bold flex items-center px-2.5 py-1 rounded-full border border-white/20 backdrop-blur-md mb-2">
+                <Clock size={11} className="mr-1 text-white/80" /> Today
+              </span>
+            )}
             <div className="w-[80px] h-[70px] mt-auto">
                 <img 
                     src="/wallet iamge .png" 
@@ -357,32 +389,49 @@ const Dashboard = () => {
         </div>
 
         {/* Orders Summary Row */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white rounded-2xl p-4 text-center shadow-sm border border-slate-200/70 flex flex-col items-center justify-between">
-            <p className="text-[10px] font-black text-gray-700 uppercase tracking-wider mb-2">Completed</p>
-            <div className="flex justify-center mb-1 text-[#6666FF] bg-[#EEEEFF]/60 rounded-xl p-2">
-              <CheckSquare size={20} strokeWidth={2.5} />
-            </div>
-            <p className="text-xl font-black text-gray-900 mb-0.5">{earnings.deliveries}</p>
-            <p className="text-[10px] text-gray-400 font-bold">Orders</p>
+        <div>
+          <div className="flex items-center justify-between mb-2 px-1">
+            <h4 className="text-[11px] font-black text-gray-700 uppercase tracking-wider">
+              Total Orders (All-Time)
+            </h4>
+            {earnings.todayDeliveries > 0 ? (
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                {earnings.todayDeliveries} today
+              </span>
+            ) : (
+              <span className="text-[10px] font-semibold text-gray-400">
+                0 today
+              </span>
+            )}
           </div>
-          
-          <div className="bg-white rounded-2xl p-4 text-center shadow-sm border border-slate-200/70 flex flex-col items-center justify-between">
-            <p className="text-[10px] font-black text-gray-700 uppercase tracking-wider mb-2">Pending</p>
-            <div className="flex justify-center mb-1 text-amber-600 bg-amber-50 rounded-xl p-2">
-              <Package size={20} strokeWidth={2.5} />
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white rounded-2xl p-4 text-center shadow-sm border border-slate-200/70 flex flex-col items-center justify-between">
+              <p className="text-[10px] font-black text-gray-700 uppercase tracking-wider mb-2">Completed</p>
+              <div className="flex justify-center mb-1 text-[#6666FF] bg-[#EEEEFF]/60 rounded-xl p-2">
+                <CheckSquare size={20} strokeWidth={2.5} />
+              </div>
+              <p className="text-xl font-black text-gray-900 mb-0.5">{earnings.deliveries}</p>
+              <p className="text-[10px] text-gray-400 font-bold">Total Orders</p>
             </div>
-            <p className="text-xl font-black text-gray-900 mb-0.5">{earnings.pendingDeliveries || 0}</p>
-            <p className="text-[10px] text-gray-400 font-bold">Orders</p>
-          </div>
-          
-          <div className="bg-white rounded-2xl p-4 text-center shadow-sm border border-slate-200/70 flex flex-col items-center justify-between">
-            <p className="text-[10px] font-black text-gray-700 uppercase tracking-wider mb-2">Cancelled</p>
-            <div className="flex justify-center mb-1 text-slate-500 bg-slate-100 rounded-xl p-2">
-              <UserX size={20} strokeWidth={2.5} />
+            
+            <div className="bg-white rounded-2xl p-4 text-center shadow-sm border border-slate-200/70 flex flex-col items-center justify-between">
+              <p className="text-[10px] font-black text-gray-700 uppercase tracking-wider mb-2">Pending</p>
+              <div className="flex justify-center mb-1 text-amber-600 bg-amber-50 rounded-xl p-2">
+                <Package size={20} strokeWidth={2.5} />
+              </div>
+              <p className="text-xl font-black text-gray-900 mb-0.5">{earnings.pendingDeliveries || 0}</p>
+              <p className="text-[10px] text-gray-400 font-bold">In-Transit</p>
             </div>
-            <p className="text-xl font-black text-gray-900 mb-0.5">{earnings.cancelledDeliveries || 0}</p>
-            <p className="text-[10px] text-gray-400 font-bold">Orders</p>
+            
+            <div className="bg-white rounded-2xl p-4 text-center shadow-sm border border-slate-200/70 flex flex-col items-center justify-between">
+              <p className="text-[10px] font-black text-gray-700 uppercase tracking-wider mb-2">Cancelled</p>
+              <div className="flex justify-center mb-1 text-slate-500 bg-slate-100 rounded-xl p-2">
+                <UserX size={20} strokeWidth={2.5} />
+              </div>
+              <p className="text-xl font-black text-gray-900 mb-0.5">{earnings.cancelledDeliveries || 0}</p>
+              <p className="text-[10px] text-gray-400 font-bold">Total Orders</p>
+            </div>
           </div>
         </div>
 

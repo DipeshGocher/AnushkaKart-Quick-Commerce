@@ -29,19 +29,6 @@ export function getClientIp(req) {
 }
 
 async function incrementCount({ key, windowSec }) {
-  const redis = getRedisClient();
-  if (redis) {
-    try {
-      const [count] = await Promise.all([
-        redis.incr(key),
-        redis.expire(key, windowSec),
-      ]);
-      return Number(count);
-    } catch {
-      // fallback below
-    }
-  }
-
   cleanupLocalStore();
   const now = nowMs();
   const existing = localStore.get(key);

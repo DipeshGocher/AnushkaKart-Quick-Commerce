@@ -1,5 +1,6 @@
 import Payout from "../models/payout.js";
 import Wallet from "../models/wallet.js";
+import Transaction from "../models/transaction.js";
 import Seller from "../models/seller.js";
 import Delivery from "../models/delivery.js";
 import handleResponse from "../utils/helper.js";
@@ -203,17 +204,49 @@ export const getSellerWalletSummaryController = async (req, res) => {
 
 export const getRiderWalletSummaryController = async (req, res) => {
   try {
-    const riderId = req.user?.id;
+    const rawId = req.user?.id ?? req.user?._id;
+    if (!rawId) {
+      return handleResponse(res, 401, "Unauthorized");
+    }
+
     const wallet = await Wallet.findOne({
-      ownerType: "DELIVERY_PARTNER",
-      ownerId: riderId,
+      ownerType: { $in: ["DELIVERY_PARTNER", "DELIVERY"] },
+      ownerId: rawId,
     }).lean();
+
+    const allTransactions = await Transaction.find({
+      user: rawId,
+      userModel: "Delivery",
+    }).lean();
+
+    const settledEarnings = allTransactions
+      .filter((t) => t.status === "Settled" && ["Delivery Earning", "Incentive", "Bonus"].includes(t.type))
+      .reduce((acc, t) => acc + (t.amount || 0), 0);
+
+    const settledWithdrawals = allTransactions
+      .filter((t) => t.status === "Settled" && t.type === "Withdrawal")
+      .reduce((acc, t) => acc + Math.abs(t.amount || 0), 0);
+
+    const pendingWithdrawals = allTransactions
+      .filter((t) => (t.status === "Pending" || t.status === "Processing") && t.type === "Withdrawal")
+      .reduce((acc, t) => acc + Math.abs(t.amount || 0), 0);
+
+    const calculatedAvailable = Math.max(0, settledEarnings - settledWithdrawals - pendingWithdrawals);
+
+    const availableBalance = wallet && typeof wallet.availableBalance === "number" && wallet.availableBalance > 0
+      ? wallet.availableBalance
+      : calculatedAvailable;
+
+    const pendingBalance = wallet && typeof wallet.pendingBalance === "number" && wallet.pendingBalance > 0
+      ? wallet.pendingBalance
+      : pendingWithdrawals;
+
     return handleResponse(res, 200, "Rider wallet summary fetched", {
-      availableBalance: wallet?.availableBalance || 0,
-      pendingBalance: wallet?.pendingBalance || 0,
+      availableBalance,
+      pendingBalance,
       cashInHand: wallet?.cashInHand || 0,
-      totalCredited: wallet?.totalCredited || 0,
-      totalDebited: wallet?.totalDebited || 0,
+      totalCredited: wallet?.totalCredited || settledEarnings,
+      totalDebited: wallet?.totalDebited || settledWithdrawals,
     });
   } catch (error) {
     return handleResponse(res, 500, error.message);

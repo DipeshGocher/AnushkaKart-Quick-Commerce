@@ -517,11 +517,67 @@ const OrderDetailPage = () => {
     return status;
   }, [order, status]);
 
-  const isAwaitingOnlinePayment =
-    Boolean(order) &&
-    order.paymentMode === "ONLINE" &&
-    order.paymentStatus !== "PAID" &&
-    status !== "cancelled";
+  const isAwaitingOnlinePayment = useMemo(() => {
+    if (!order) return false;
+    const isOnline =
+      order.paymentMode === "ONLINE" ||
+      order.paymentMode === "online" ||
+      order.payment?.method === "online";
+    const isPaid =
+      order.paymentStatus === "PAID" ||
+      order.paymentStatus === "completed" ||
+      order.payment?.status === "completed";
+    const isCancelled =
+      status === "cancelled" ||
+      order.status === "cancelled" ||
+      order.workflowStatus === "CANCELLED";
+    return isOnline && !isPaid && !isCancelled;
+  }, [order, status]);
+
+  // 15-Minute Online Payment Expiry Countdown Timer
+  const [paymentTimeLeft, setPaymentTimeLeft] = useState(null);
+  const [isPaymentWindowExpired, setIsPaymentWindowExpired] = useState(false);
+
+  useEffect(() => {
+    if (!isAwaitingOnlinePayment || !order) {
+      setPaymentTimeLeft(null);
+      setIsPaymentWindowExpired(false);
+      return;
+    }
+
+    const expiryTime =
+      order.expiresAt
+        ? new Date(order.expiresAt).getTime()
+        : order.stockReservation?.expiresAt
+        ? new Date(order.stockReservation.expiresAt).getTime()
+        : order.createdAt
+        ? new Date(order.createdAt).getTime() + 15 * 60 * 1000
+        : null;
+
+    if (!expiryTime) {
+      setPaymentTimeLeft(null);
+      return;
+    }
+
+    const tick = () => {
+      const remainingMs = expiryTime - Date.now();
+      if (remainingMs <= 0) {
+        setPaymentTimeLeft("00:00");
+        setIsPaymentWindowExpired(true);
+        return;
+      }
+      setIsPaymentWindowExpired(false);
+      const minutes = Math.floor(remainingMs / 60000);
+      const seconds = Math.floor((remainingMs % 60000) / 1000);
+      setPaymentTimeLeft(
+        `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+      );
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [isAwaitingOnlinePayment, order]);
   const sellerLocation =
     coordsToLatLng(order?.seller?.location?.coordinates) ||
     coordsToLatLng(order?.warehouseId?.location?.coordinates) ||
@@ -944,32 +1000,60 @@ const OrderDetailPage = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-brand-50 rounded-3xl p-5 shadow-sm border border-brand-100 relative overflow-hidden"
+            className="bg-amber-50 rounded-3xl p-5 shadow-sm border border-amber-200 relative overflow-hidden"
           >
             <div className="absolute top-0 right-0 p-4 opacity-10">
-              <CreditCard size={64} className="text-brand-600" />
+              <CreditCard size={64} className="text-amber-800" />
             </div>
-            <div className="relative z-10 flex items-center justify-between gap-4">
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
-                  <h3 className="text-sm font-black text-brand-900 uppercase tracking-tight">Payment Required</h3>
+                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+                  <h3 className="text-sm font-black text-amber-900 uppercase tracking-tight">
+                    {isPaymentWindowExpired ? "Payment Window Expired" : "Payment Pending"}
+                  </h3>
+                  {paymentTimeLeft && !isPaymentWindowExpired && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                      <Clock size={12} className="stroke-[2.2]" /> Expires in {paymentTimeLeft}
+                    </span>
+                  )}
                 </div>
-                <p className="text-xs text-brand-700 font-medium leading-relaxed">
-                  Complete your payment of <span className="font-bold">₹{order.pricing.total}</span> to proceed with this order.
+                <p className="text-xs text-amber-800 font-medium leading-relaxed">
+                  {isPaymentWindowExpired
+                    ? "The 15-minute payment window has expired. Reserved items will be released."
+                    : `Complete your payment of ₹${order.pricing?.total || order.total || 0} to proceed with this order.`}
                 </p>
               </div>
-              <button
-                onClick={handleRetryPayment}
-                className="bg-black  hover:bg-brand-700 text-primary-foreground px-5 py-2.5 rounded-xl text-xs font-black shadow-lg shadow-brand-200 transition-all active:scale-95 flex items-center gap-2 uppercase tracking-wide shrink-0"
-              >
-                Pay Now <ArrowRight size={14} />
-              </button>
+              {!isPaymentWindowExpired && (
+                <button
+                  onClick={handleRetryPayment}
+                  className="bg-black hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-lg shadow-amber-200 transition-all active:scale-95 flex items-center justify-center gap-2 uppercase tracking-wide shrink-0 cursor-pointer"
+                >
+                  Pay Now <ArrowRight size={14} />
+                </button>
+              )}
             </div>
           </motion.div>
         )}
 
-
+        {/* Awaiting Payment notice card - shown while payment is pending */}
+        {isAwaitingOnlinePayment && (
+          <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
+              <Truck size={20} />
+            </div>
+            <div className="flex-1">
+              <h4 className="text-[14px] font-bold text-slate-800">
+                {order.fulfillmentType === "SHIPROCKET"
+                  ? "Courier Shipment on Hold"
+                  : "Order Dispatch on Hold"}
+              </h4>
+              <p className="text-[12px] text-slate-500 mt-1 leading-relaxed">
+                Awaiting payment. Complete payment to dispatch your {order.fulfillmentType === "SHIPROCKET" ? "shipment via Courier" : "order"}.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Order Progress Tracker */}
         {!isAwaitingOnlinePayment && (
@@ -983,8 +1067,8 @@ const OrderDetailPage = () => {
 
         {/* Live Tracking Map removed per user request */}
 
-        {/* Proximity-based Delivery OTP Display - Only for Local Quick Commerce orders */}
-        {order.fulfillmentType !== "SHIPROCKET" && (
+        {/* Proximity-based Delivery OTP Display - Only for Local Quick Commerce orders when payment is complete */}
+        {!isAwaitingOnlinePayment && order.fulfillmentType !== "SHIPROCKET" && (
           <DeliveryOtpDisplay
             orderId={order?.orderId || orderId}
             checkoutGroupId={order?.checkoutGroupId || orderId}
@@ -992,8 +1076,8 @@ const OrderDetailPage = () => {
           />
         )}
 
-        {/* Shiprocket Courier Tracking Card - Pan-India Courier Orders */}
-        {order.fulfillmentType === "SHIPROCKET" && (
+        {/* Shiprocket Courier Tracking Card - Pan-India Courier Orders when payment is complete */}
+        {!isAwaitingOnlinePayment && order.fulfillmentType === "SHIPROCKET" && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

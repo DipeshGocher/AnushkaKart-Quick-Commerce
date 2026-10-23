@@ -64,6 +64,8 @@ const formatPrice = (value) =>
     maximumFractionDigits: 0,
   }).format(value);
 
+let categoryTreeMemoryCache = null;
+
 const CategoryProductsPage = () => {
   const {
     headerCategory: routeHeaderParam,
@@ -81,15 +83,15 @@ const CategoryProductsPage = () => {
   const { openProduct } = useProductDetail();
 
   // State
-  const [allCategoriesTree, setAllCategoriesTree] = useState([]);
-  const [headerCategories, setHeaderCategories] = useState([]);
+  const [allCategoriesTree, setAllCategoriesTree] = useState(() => categoryTreeMemoryCache?.tree || []);
+  const [headerCategories, setHeaderCategories] = useState(() => categoryTreeMemoryCache?.headers || []);
   const [activeHeader, setActiveHeader] = useState(null);
   const [mainCategories, setMainCategories] = useState([]);
   const [selectedMainCatId, setSelectedMainCatId] = useState('all');
   const [selectedSubCatId, setSelectedSubCatId] = useState('all');
   const [products, setProducts] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => !categoryTreeMemoryCache);
   const [isProductsLoading, setIsProductsLoading] = useState(true);
   const [sortBy, setSortBy] = useState('relevance');
 
@@ -100,12 +102,10 @@ const CategoryProductsPage = () => {
     let isMounted = true;
     const fetchTree = async () => {
       try {
-        setIsLoading(true);
+        if (!categoryTreeMemoryCache) setIsLoading(true);
         const res = await customerApi.getCategories({ tree: true });
         const tree = res?.data?.results || res?.data?.result || res?.data?.data || [];
         if (!isMounted) return;
-
-        setAllCategoriesTree(tree);
 
         // Header categories are top-level or items with type === 'header' (never 'all')
         const headers = tree.filter(
@@ -114,6 +114,9 @@ const CategoryProductsPage = () => {
             c.slug !== 'all' &&
             c.name?.toLowerCase() !== 'all'
         );
+
+        categoryTreeMemoryCache = { tree, headers };
+        setAllCategoriesTree(tree);
         setHeaderCategories(headers);
       } catch (err) {
         console.error('Failed to load category tree:', err);

@@ -101,9 +101,19 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
 
     // Synchronize Mobile Status Bar (Android / Flutter WebView / PWA)
     useEffect(() => {
-        // Priority 1: When Product Detail Sheet is open, match its search header color (#3478d3)
+        // Priority 1: When Product Detail Sheet is open, match its header color with parent route
         if (isProductDetailOpen) {
-            setStatusBarColor('#3478d3', false);
+            const currentPath = location.pathname.replace(/\/$/, '') || '/';
+            let sheetColor = '#0ea5e9';
+            if (currentPath.startsWith('/category/')) {
+                sheetColor = '#028ce8';
+            } else if (currentPath === '/' || isHeaderCategoryRoute) {
+                const activeHomeColor = typeof document !== 'undefined'
+                    ? document.documentElement.style.getPropertyValue('--customer-header-base-color')?.trim()
+                    : null;
+                sheetColor = activeHomeColor || '#0A24AC';
+            }
+            setStatusBarColor(sheetColor, false);
             return;
         }
 
@@ -143,7 +153,7 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
             const activeHomeColor = document.documentElement.style.getPropertyValue('--customer-header-base-color')?.trim();
             setStatusBarColor(activeHomeColor || '#0A24AC', false);
         }
-    }, [location.pathname, isProductDetailOpen, isHeaderCategoryRoute]);
+    }, [location.pathname, location.search, isProductDetailOpen, isHeaderCategoryRoute]);
 
     // Condition to hide the MobileFooterMessage ("Sab kuchh ek basket mein") on specific pages
     const hideFooterMessageRoutes = ['/profile', '/profile/edit', '/categories'];

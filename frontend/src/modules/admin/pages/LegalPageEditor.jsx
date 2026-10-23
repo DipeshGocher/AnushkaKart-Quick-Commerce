@@ -13,7 +13,6 @@ const TABS = [
 const AUDIENCES = [
     { key: 'customer', label: 'Customer' },
     { key: 'seller', label: 'Seller' },
-    { key: 'warehouse', label: 'Warehouse' },
     { key: 'delivery', label: 'Delivery' },
 ];
 

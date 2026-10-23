@@ -31,8 +31,24 @@ async function getCustomerVisibleProductById(productId) {
     _id: productId,
     ...CUSTOMER_VISIBLE_PRODUCT_MATCH,
   })
-    .select("_id sellerId warehouseId conditionType catalogType")
+    .select("_id sellerId warehouseId conditionType catalogType stock variants")
     .lean();
+}
+
+function getAvailableStock(product, variantSku) {
+  if (!product) return 0;
+  const normalizedSku = String(variantSku || "").trim();
+  if (normalizedSku && Array.isArray(product.variants) && product.variants.length > 0) {
+    const variant = product.variants.find(
+      (v) =>
+        String(v.sku || "").trim().toLowerCase() === normalizedSku.toLowerCase() ||
+        String(v.name || "").trim().toLowerCase() === normalizedSku.toLowerCase()
+    );
+    if (variant && typeof variant.stock === "number") {
+      return Math.max(0, variant.stock);
+    }
+  }
+  return Math.max(0, Number(product.stock || 0));
 }
 
 async function assertProductInCustomerRadius(product, lat, lng) {
@@ -152,21 +168,43 @@ export const addToCart = async (req, res) => {
         String(item.variantSku || "").trim() === normalizedVariantSku,
     );
 
+    const availableStock = getAvailableStock(customerVisibleProduct, normalizedVariantSku);
+    const requestedAddition = Number(quantity);
+
+    if (requestedAddition > 0 && availableStock <= 0) {
+      return handleResponse(res, 400, "This product is currently sold out.");
+    }
+
     if (itemIndex > -1) {
       // quantity 0 + kitAddons = patch addons only (used by basket sheet live updates)
-      if (Number(quantity) === 0 && kitAddons !== undefined) {
+      if (requestedAddition === 0 && kitAddons !== undefined) {
         cart.items[itemIndex].kitAddons = kitAddons;
       } else {
-        cart.items[itemIndex].quantity += quantity;
+        const targetQty = (cart.items[itemIndex].quantity || 0) + requestedAddition;
+        if (targetQty > availableStock) {
+          return handleResponse(
+            res,
+            400,
+            `Cannot add more items. Only ${availableStock} unit(s) available in stock.`,
+          );
+        }
+        cart.items[itemIndex].quantity = targetQty;
         if (kitAddons !== undefined) {
           cart.items[itemIndex].kitAddons = kitAddons;
         }
       }
     } else {
-      if (Number(quantity) < 1) {
+      if (requestedAddition < 1) {
         return handleResponse(res, 400, "Quantity must be at least 1 for new cart items");
       }
-      cart.items.push({ productId, variantSku: normalizedVariantSku, quantity, kitAddons: kitAddons || [] });
+      if (requestedAddition > availableStock) {
+        return handleResponse(
+          res,
+          400,
+          `Cannot add ${requestedAddition} items. Only ${availableStock} unit(s) available in stock.`,
+        );
+      }
+      cart.items.push({ productId, variantSku: normalizedVariantSku, quantity: requestedAddition, kitAddons: kitAddons || [] });
     }
 
     await cart.save();
@@ -201,6 +239,21 @@ export const updateQuantity = async (req, res) => {
     );
 
     if (itemIndex > -1) {
+      const requestedQty = Number(quantity);
+      if (requestedQty > 0) {
+        const product = await Product.findById(productId).select("stock variants").lean();
+        const availableStock = getAvailableStock(product, normalizedVariantSku);
+        if (availableStock <= 0) {
+          return handleResponse(res, 400, "This product is currently sold out.");
+        }
+        if (requestedQty > availableStock) {
+          return handleResponse(
+            res,
+            400,
+            `Cannot update quantity. Only ${availableStock} unit(s) available in stock.`,
+          );
+        }
+      }
       cart.items[itemIndex].quantity = quantity;
       if (cart.items[itemIndex].quantity <= 0) {
         cart.items.splice(itemIndex, 1);

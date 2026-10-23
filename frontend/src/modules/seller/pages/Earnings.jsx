@@ -9,7 +9,8 @@ import {
   Download,
   Banknote,
   ArrowDownToLine,
-  Building2,
+  Clock,
+  CheckCircle2,
 } from "lucide-react";
 import {
   BarChart,
@@ -20,66 +21,58 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
-
-import { MagicCard } from "@/components/ui/magic-card";
 import { BlurFade } from "@/components/ui/blur-fade";
 import ShimmerButton from "@/components/ui/shimmer-button";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { exportToCSV } from "@/lib/exportUtils";
 import { useSellerEarnings } from "../context/SellerEarningsContext";
+import { cn } from "@/lib/utils";
+
+const formatCurrency = (val) => {
+  const n = Number(val || 0);
+  return n.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return String(dateStr);
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
 
 const Earnings = () => {
   const navigate = useNavigate();
-  const { earningsData: data, earningsLoading: loading, refreshEarnings } = useSellerEarnings();
-  const [withdrawAmount, setWithdrawAmount] = React.useState("");
-  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = React.useState(false);
-  const [isWithdrawing, setIsWithdrawing] = React.useState(false);
-
-  React.useEffect(() => {
-    if (data?.balances != null && withdrawAmount === "") {
-      const settled = Number(data.balances?.settledBalance ?? 0);
-      setWithdrawAmount(settled > 0 ? String(settled) : "");
-    }
-  }, [data?.balances]);
-
-  const handleWithdraw = () => {
-    const totalBalance = Number(data?.balances?.settledBalance ?? 0);
-    const amount = parseFloat(withdrawAmount);
-    if (isNaN(amount) || amount <= 0 || amount > totalBalance) {
-      alert(
-        "Please enter a valid amount between ₹0.01 and ₹" +
-        totalBalance.toLocaleString(),
-      );
-      return;
-    }
-
-    setIsWithdrawing(true);
-    setTimeout(() => {
-      setIsWithdrawing(false);
-      setIsWithdrawModalOpen(false);
-      alert(
-        `Withdrawal request of ₹${amount.toLocaleString()} submitted successfully!`,
-      );
-    }, 1500);
-  };
-
-  const exportReport = () => {
-    alert("Exporting monthly earnings report as PDF (Simulation)");
-  };
+  const { earningsData: data, earningsLoading: loading } = useSellerEarnings();
+  const [tableFilter, setTableFilter] = React.useState("all");
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen font-black text-slate-600">LOADING EARNINGS...</div>;
+    return (
+      <div className="flex items-center justify-center h-screen font-black text-slate-600">
+        LOADING EARNINGS...
+      </div>
+    );
   }
+
   return (
     <div className="space-y-8 pb-16">
       <BlurFade delay={0.1}>
         <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-gray-800 hidden md:block">
-            Earnings Overview
-          </h2>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 hidden md:block">
+              Earnings Overview
+            </h2>
+            <p className="text-xs text-gray-500 font-medium hidden md:block mt-0.5">
+              Real-time revenue, in-transit payouts and withdrawal balance
+            </p>
+          </div>
           <div className="flex space-x-3">
             <Button
               onClick={() => {
@@ -91,9 +84,9 @@ const Earnings = () => {
                 const exportData = ledger.map((txn) => ({
                   id: txn.id ?? txn.ref ?? "",
                   type: txn.type ?? "",
-                  amount: `₹${Number(txn.amount ?? 0).toLocaleString()}`,
+                  amount: `₹${Number(txn.amount ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                   status: txn.status ?? "",
-                  date: txn.date ?? (txn.createdAt ? new Date(txn.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ""),
+                  date: formatDate(txn.date || txn.createdAt),
                   customer: txn.customer ?? "",
                   ref: txn.ref ?? "",
                 }));
@@ -110,7 +103,7 @@ const Earnings = () => {
               }}
               variant="outline"
               className="border-gray-200">
-              <Download className="mr-2 h-5 w-5" />
+              <Download className="mr-2 h-4 w-4" />
               Download Report
             </Button>
             <ShimmerButton
@@ -122,25 +115,58 @@ const Earnings = () => {
         </div>
       </BlurFade>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Financial Metric Cards (3 Columns) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Card 1: Total Delivered Revenue */}
         <BlurFade delay={0.2}>
-          <Card className="bg-gradient-to-br from-brand-600 to-teal-700 text-white border-none shadow-lg h-full">
+          <Card className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-teal-800 text-white border-none shadow-lg h-full p-6 flex flex-col justify-between">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-brand-100 font-medium">Total Revenue</p>
-                <h3 className="text-4xl font-bold mt-2">₹{Number(data?.balances?.totalRevenue ?? 0).toLocaleString()}</h3>
+                <p className="text-indigo-100 font-semibold text-xs uppercase tracking-wider">
+                  Total Delivered Revenue
+                </p>
+                <h3 className="text-3xl font-black mt-2 tracking-tight">
+                  ₹{formatCurrency(data?.balances?.totalRevenue)}
+                </h3>
               </div>
-              <div className="p-3 bg-white/20 rounded-xl">
-                <DollarSign className="h-8 w-8 text-white" />
+              <div className="p-3 bg-white/15 rounded-xl">
+                <DollarSign className="h-6 w-6 text-white" />
               </div>
             </div>
-            <div className="mt-8 flex items-center text-brand-100 bg-white/10 w-fit px-3 py-1 rounded-full text-sm">
-              <TrendingUp className="mr-2" />
-              <span>Real-time earnings data</span>
+            <div className="mt-6 flex items-center text-emerald-200 bg-white/10 w-fit px-3 py-1 rounded-full text-xs font-semibold">
+              <CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-emerald-300" />
+              <span>Settled from completed orders</span>
             </div>
           </Card>
         </BlurFade>
 
+        {/* Card 2: Pending Orders (T+2) */}
+        <BlurFade delay={0.25}>
+          <Card className="h-full border-none shadow-md bg-white p-6 flex flex-col justify-between group hover:shadow-xl transition-all duration-300">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-xs font-black text-amber-700 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-amber-600" />
+                  Pending Orders (T+2)
+                </p>
+                <h2 className="text-3xl font-black text-slate-900 tracking-tight">
+                  ₹{formatCurrency(data?.balances?.pendingOrdersPayout)}
+                </h2>
+              </div>
+              <div className="p-3 bg-amber-50 rounded-xl group-hover:scale-110 transition-transform duration-300">
+                <TrendingUp className="h-6 w-6 text-amber-600" />
+              </div>
+            </div>
+            <div className="mt-6 flex items-center justify-between text-xs">
+              <span className="text-slate-500 font-medium">In-transit awaiting delivery</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                Settles on Delivery
+              </span>
+            </div>
+          </Card>
+        </BlurFade>
+
+        {/* Card 3: Total Withdrawn & Available Balance */}
         <BlurFade delay={0.3}>
           <Card className="h-full border-none shadow-md bg-white p-6 flex flex-col justify-between group hover:shadow-xl transition-all duration-300">
             <div className="flex justify-between items-start">
@@ -149,43 +175,54 @@ const Earnings = () => {
                   Total Withdrawn
                 </p>
                 <h2 className="text-3xl font-black text-slate-900 tracking-tight">
-                  ₹{Number(data?.balances?.totalWithdrawn ?? 0).toLocaleString()}
+                  ₹{formatCurrency(data?.balances?.totalWithdrawn)}
                 </h2>
               </div>
-              <div className="p-3 bg-brand-50 rounded-lg group-hover:scale-110 transition-transform duration-300">
+              <div className="p-3 bg-brand-50 rounded-xl group-hover:scale-110 transition-transform duration-300">
                 <Banknote className="h-6 w-6 text-brand-500" />
               </div>
             </div>
-            <div className="mt-4">
+            <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xs">
-                  <ArrowDownToLine className="h-4 w-4" />
+                <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xs">
+                  <ArrowDownToLine className="h-3.5 w-3.5" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-600 uppercase">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase">
                     Available to Withdraw
                   </p>
                   <p className="text-xs font-black text-slate-900">
-                    ₹{Number(data?.balances?.settledBalance ?? 0).toLocaleString()}
+                    ₹{formatCurrency(data?.balances?.settledBalance)}
                   </p>
                 </div>
               </div>
+              <button
+                onClick={() => navigate("/seller/withdrawals")}
+                className="text-xs font-bold text-brand-600 hover:text-brand-700 underline underline-offset-2">
+                Payouts &rarr;
+              </button>
             </div>
           </Card>
         </BlurFade>
       </div>
 
+      {/* Monthly Revenue Performance Chart */}
       <BlurFade delay={0.4}>
         <Card className="p-6 border-none shadow-md bg-white">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-brand-500" />
-              Monthly Revenue Performance
-            </h3>
+            <div>
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-brand-500" />
+                Monthly Revenue Performance
+              </h3>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Delivered order payouts aggregated over the past 6 months
+              </p>
+            </div>
           </div>
           <div className="h-[300px] w-full min-h-[200px] flex items-center justify-center">
             {(Array.isArray(data?.monthlyChart) ? data.monthlyChart : []).length === 0 ? (
-              <p className="text-slate-600 text-sm font-medium">No monthly revenue data yet.</p>
+              <p className="text-slate-500 text-sm font-medium">No monthly revenue data yet.</p>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data.monthlyChart}>
@@ -198,14 +235,14 @@ const Earnings = () => {
                     dataKey="name"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 700 }}
+                    tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 700 }}
                     dy={10}
                   />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 700 }}
-                    tickFormatter={(value) => `₹${value}`}
+                    tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 700 }}
+                    tickFormatter={(value) => `₹${Number(value).toLocaleString("en-IN")}`}
                   />
                   <Tooltip
                     cursor={{ fill: "#f8fafc" }}
@@ -216,7 +253,10 @@ const Earnings = () => {
                       fontSize: "12px",
                       fontWeight: "700",
                     }}
-                    formatter={(value) => [`₹${value.toLocaleString()}`, "Revenue"]}
+                    formatter={(value) => [
+                      `₹${Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                      "Delivered Revenue",
+                    ]}
                   />
                   <Bar
                     dataKey="revenue"
@@ -226,8 +266,8 @@ const Earnings = () => {
                   />
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6666FF" stopOpacity={1} />
-                      <stop offset="95%" stopColor="#5555EE" stopOpacity={1} />
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={1} />
+                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={1} />
                     </linearGradient>
                   </defs>
                 </BarChart>
@@ -237,16 +277,51 @@ const Earnings = () => {
         </Card>
       </BlurFade>
 
+      {/* Recent Per-Order Earnings Table */}
       <BlurFade delay={0.5}>
         <Card className="p-6 border-none shadow-md bg-white">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-              <Banknote className="h-5 w-5 text-brand-500" />
-              Recent Per-Order Earnings
-            </h3>
-            <Button variant="ghost" onClick={() => navigate("/seller/transactions")} className="text-sm font-bold text-brand-600">
-              View All
-            </Button>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <Banknote className="h-5 w-5 text-brand-500" />
+                Recent Per-Order Earnings
+              </h3>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Breakdown of individual order settlements and cancelled orders
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setTableFilter("all")}
+                  className={cn(
+                    "px-3 py-1 text-xs font-bold rounded-lg transition-all",
+                    tableFilter === "all"
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-500 hover:text-slate-800"
+                  )}>
+                  All Recent
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTableFilter("settled")}
+                  className={cn(
+                    "px-3 py-1 text-xs font-bold rounded-lg transition-all",
+                    tableFilter === "settled"
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "text-slate-500 hover:text-slate-800"
+                  )}>
+                  Settled Only
+                </button>
+              </div>
+              <Button
+                variant="ghost"
+                onClick={() => navigate("/seller/transactions")}
+                className="text-xs font-bold text-brand-600 hover:text-brand-700">
+                View All &rarr;
+              </Button>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -260,37 +335,76 @@ const Earnings = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {(Array.isArray(data?.ledger) ? data.ledger : [])
-                  .filter(txn => txn.type === "Order Payment" || (txn.amount > 0 && txn.type !== "Withdrawal"))
-                  .slice(0, 5)
-                  .map((txn, i) => (
-                    <tr key={txn.id || i} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="py-3 px-4 text-sm font-bold text-slate-900">
-                        {txn.ref || txn.id || "N/A"}
-                      </td>
-                      <td className="py-3 px-4 text-sm font-medium text-slate-500">
-                        {txn.date || (txn.createdAt ? new Date(txn.createdAt).toLocaleDateString() : "-")}
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge
-                          variant="secondary"
-                          className={cn(
-                            "px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase",
-                            txn.status === "Settled"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-amber-100 text-amber-700"
+                  .filter((txn) => txn.type === "Order Payment" || (txn.amount !== 0 && txn.type !== "Withdrawal"))
+                  .filter((txn) => {
+                    if (tableFilter === "settled") return txn.status === "Settled";
+                    return true;
+                  })
+                  .slice(0, 10)
+                  .map((txn, i) => {
+                    const isCancelled = txn.status === "Cancelled";
+                    const isSettled = txn.status === "Settled";
+
+                    return (
+                      <tr
+                        key={txn.id || i}
+                        className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3 px-4 text-sm font-bold text-slate-900">
+                          {txn.ref || txn.id || "N/A"}
+                        </td>
+                        <td className="py-3 px-4 text-xs font-medium text-slate-500">
+                          {formatDate(txn.date || txn.createdAt)}
+                        </td>
+                        <td className="py-3 px-4">
+                          {isSettled ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              Settled
+                            </span>
+                          ) : isCancelled ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase bg-slate-100 text-slate-500 border border-slate-200">
+                              Cancelled
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase bg-amber-50 text-amber-700 border border-amber-200">
+                              Pending (T+2)
+                            </span>
                           )}
-                        >
-                          {txn.status || "Pending"}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4 text-sm font-black text-slate-900 text-right">
-                        ₹{Number(txn.amount || 0).toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                {(Array.isArray(data?.ledger) ? data.ledger : []).filter(txn => txn.type === "Order Payment" || (txn.amount > 0 && txn.type !== "Withdrawal")).length === 0 && (
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          {isCancelled ? (
+                            <div>
+                              <span className="text-slate-400 line-through text-xs font-semibold mr-1.5">
+                                ₹{formatCurrency(txn.amount)}
+                              </span>
+                              <span className="text-xs font-bold text-slate-500">₹0.00</span>
+                              <p className="text-[10px] text-slate-400 font-medium">Order Cancelled</p>
+                            </div>
+                          ) : isSettled ? (
+                            <div>
+                              <span className="text-sm font-black text-emerald-700">
+                                +₹{formatCurrency(txn.amount)}
+                              </span>
+                              <p className="text-[10px] text-emerald-600 font-medium">Settled to balance</p>
+                            </div>
+                          ) : (
+                            <div>
+                              <span className="text-sm font-bold text-amber-700">
+                                +₹{formatCurrency(txn.amount)}
+                              </span>
+                              <p className="text-[10px] text-amber-600 font-medium">Payout on delivery</p>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                {(Array.isArray(data?.ledger) ? data.ledger : []).filter(
+                  (txn) => txn.type === "Order Payment" || (txn.amount !== 0 && txn.type !== "Withdrawal")
+                ).length === 0 && (
                   <tr>
-                    <td colSpan={4} className="py-8 text-center text-sm font-medium text-slate-500">
+                    <td
+                      colSpan={4}
+                      className="py-8 text-center text-sm font-medium text-slate-500">
                       No order earnings found.
                     </td>
                   </tr>
@@ -300,91 +414,9 @@ const Earnings = () => {
           </div>
         </Card>
       </BlurFade>
-
-      {/* Withdrawal Modal */}
-      <AnimatePresence>
-        {isWithdrawModalOpen && (
-          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="w-full max-w-md relative z-10 bg-white rounded-lg shadow-2xl overflow-hidden p-8 text-center">
-              <div className="h-16 w-16 bg-brand-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-                <Banknote className="h-8 w-8 text-brand-600" />
-              </div>
-
-              <h2 className="text-2xl font-black text-slate-900 mb-2">
-                Withdraw Funds
-              </h2>
-              <p className="text-sm text-slate-600 font-medium mb-8">
-                Available Balance:{" "}
-                <span className="text-brand-600 font-bold">
-                  ₹{Number(data?.balances?.settledBalance ?? 0).toLocaleString()}
-                </span>
-              </p>
-
-              <div className="space-y-4 text-left">
-                <div>
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5 block">
-                    Amount
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 font-bold">
-                      ₹
-                    </span>
-                    <input
-                      type="number"
-                      className="w-full pl-8 pr-4 py-3 rounded-lg border-slate-200 bg-slate-50 font-bold text-slate-900 focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none"
-                      placeholder="0.00"
-                      value={withdrawAmount}
-                      onChange={(e) => setWithdrawAmount(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5 block">
-                    Select Bank Account
-                  </label>
-                  <div className="p-4 border border-slate-200 rounded-lg flex items-center gap-4 cursor-pointer hover:border-brand-500 hover:bg-brand-50/10 transition-all group">
-                    <div className="h-10 w-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-600 group-hover:bg-brand-100 group-hover:text-brand-600 transition-colors">
-                      <Building2 className="h-5 w-5" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-black text-slate-900">
-                        HDFC Bank **** 4589
-                      </p>
-                      <p className="text-xs text-slate-600 font-bold">
-                        Primary Account
-                      </p>
-                    </div>
-                    <div className="h-5 w-5 rounded-full border-2 border-slate-200 group-hover:border-brand-500 group-hover:bg-brand-500 transition-all"></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mt-8">
-                <button
-                  onClick={() => setIsWithdrawModalOpen(false)}
-                  className="py-3 rounded-lg font-black text-slate-600 hover:bg-slate-50 transition-colors">
-                  CANCEL
-                </button>
-                <button
-                  onClick={() => {
-                    setIsWithdrawModalOpen(false);
-                    alert("Withdrawal request submitted!");
-                  }}
-                  className="py-3 rounded-lg bg-black  text-primary-foreground font-black shadow-lg shadow-brand-200 hover:bg-brand-700 hover:shadow-brand-300 transition-all">
-                  CONFIRM
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };
 
 export default Earnings;
+

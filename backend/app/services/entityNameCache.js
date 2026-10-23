@@ -86,14 +86,18 @@ export async function resolveCategoryMeta(id) {
     () => Category.findById(id).select("name slug deliveryMode catalogType").lean(),
     getTTL("categoryName"),
   );
-  return cat
-    ? {
-        name: cat.name ?? null,
-        slug: cat.slug ?? null,
-        deliveryMode: cat.deliveryMode || "both",
-        catalogType: cat.catalogType ?? null,
-      }
-    : null;
+  if (!cat) return null;
+  const slug = String(cat.slug || "").toLowerCase();
+  const name = String(cat.name || "").toLowerCase();
+  const isGrocery = slug === "grocery" || slug === "kirana" || slug === "fresh" || name.includes("grocery") || name.includes("kirana");
+  const defaultMode = isGrocery ? "quick_only" : "both";
+
+  return {
+    name: cat.name ?? null,
+    slug: cat.slug ?? null,
+    deliveryMode: cat.deliveryMode || defaultMode,
+    catalogType: cat.catalogType ?? null,
+  };
 }
 
 /**

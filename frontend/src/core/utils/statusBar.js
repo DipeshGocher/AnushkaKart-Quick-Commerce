@@ -77,40 +77,85 @@ export function setStatusBarColor(rawColor, forceDarkIcons = null) {
   currentAppliedColor = `${hexColor}_${darkIcons}`;
 
   try {
-    // 1. Update or create <meta name="theme-color">
-    let metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (!metaTheme) {
-      metaTheme = document.createElement('meta');
-      metaTheme.name = 'theme-color';
-      document.head.appendChild(metaTheme);
-    }
-    metaTheme.setAttribute('content', hexColor);
+    // 1. Force Chromium / Android WebView to update theme-color by replacing existing meta elements
+    const existingMetas = document.querySelectorAll('meta[name="theme-color"]');
+    existingMetas.forEach((el) => {
+      try {
+        el.remove();
+      } catch (_) {}
+    });
+
+    const newMeta = document.createElement('meta');
+    newMeta.name = 'theme-color';
+    newMeta.content = hexColor;
+    document.head.appendChild(newMeta);
 
     // 2. iOS Safari Web App status bar style
     let metaApple = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-    if (metaApple) {
-      metaApple.setAttribute('content', darkIcons ? 'default' : 'black-translucent');
+    if (!metaApple) {
+      metaApple = document.createElement('meta');
+      metaApple.name = 'apple-mobile-web-app-status-bar-style';
+      document.head.appendChild(metaApple);
     }
+    metaApple.setAttribute('content', darkIcons ? 'default' : 'black-translucent');
 
     // 3. CSS root variables
     document.documentElement.style.setProperty('--app-status-bar-color', hexColor);
     document.documentElement.style.setProperty('--app-status-bar-icon-theme', darkIcons ? 'dark' : 'light');
 
-    // 4. Send to Flutter Native Wrapper (AppZetoBridge)
+    // 4. Flutter Native Wrapper (window.Flutter) - Send both JSON and string command formats
     if (typeof window !== 'undefined' && window.Flutter && typeof window.Flutter.postMessage === 'function') {
       try {
         window.Flutter.postMessage(JSON.stringify({
           type: 'set_status_bar',
+          action: 'set_status_bar',
           color: hexColor,
           darkIcons: darkIcons,
           statusBarColor: hexColor,
           isDark: darkIcons,
         }));
-      } catch (_) {
-        try {
-          window.Flutter.postMessage(`set_status_bar:${hexColor}`);
-        } catch (__) {}
+      } catch (_) {}
+
+      try {
+        window.Flutter.postMessage(`set_status_bar:${hexColor}`);
+      } catch (_) {}
+
+      try {
+        window.Flutter.postMessage(`set_status_bar:${hexColor}:${darkIcons ? 'dark' : 'light'}`);
+      } catch (_) {}
+    }
+
+    // 5. Flutter InAppWebView (window.flutter_inappwebview)
+    if (typeof window !== 'undefined' && window.flutter_inappwebview && typeof window.flutter_inappwebview.callHandler === 'function') {
+      try {
+        window.flutter_inappwebview.callHandler('setStatusBarColor', hexColor, darkIcons);
+        window.flutter_inappwebview.callHandler('set_status_bar', { color: hexColor, darkIcons });
+      } catch (_) {}
+    }
+
+    // 6. Native Android Webview bridges (window.Android, window.AppZeto)
+    if (typeof window !== 'undefined') {
+      if (window.Android) {
+        if (typeof window.Android.setStatusBarColor === 'function') {
+          try { window.Android.setStatusBarColor(hexColor, darkIcons); } catch (_) {}
+        }
+        if (typeof window.Android.postMessage === 'function') {
+          try { window.Android.postMessage(`set_status_bar:${hexColor}`); } catch (_) {}
+        }
       }
+      if (window.AppZeto && typeof window.AppZeto.setStatusBarColor === 'function') {
+        try { window.AppZeto.setStatusBarColor(hexColor, darkIcons); } catch (_) {}
+      }
+    }
+
+    // 7. Capacitor Plugins
+    if (typeof window !== 'undefined' && window.Capacitor?.Plugins?.StatusBar) {
+      try {
+        window.Capacitor.Plugins.StatusBar.setBackgroundColor({ color: hexColor });
+      } catch (_) {}
+      try {
+        window.Capacitor.Plugins.StatusBar.setStyle({ style: darkIcons ? 'DARK' : 'LIGHT' });
+      } catch (_) {}
     }
   } catch (err) {
     console.warn('[statusBar] Failed to update status bar:', err);

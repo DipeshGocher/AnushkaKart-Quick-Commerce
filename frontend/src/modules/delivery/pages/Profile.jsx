@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import {
   User,
   Phone,
-  Truck,
+  Bike,
   CreditCard,
   ClipboardCheck,
   LifeBuoy,
@@ -11,7 +11,6 @@ import {
   ChevronRight,
   ShieldCheck,
   Bell,
-  Settings,
   Wallet,
   Banknote,
   ChevronDown,
@@ -149,9 +148,9 @@ const Profile = () => {
               badgeBg="bg-purple-50/80 border-purple-100/70 text-purple-700"
           />
           <MenuItem
-              icon={Truck}
+              icon={Bike}
               label="Vehicle Information"
-              sub="Bike, License, Insurance"
+              sub="Bike & Driving License"
               path="/delivery/profile/vehicle-info"
               badgeBg="bg-[#EEEEFF]/80 border-[#6666FF]/20 text-[#6666FF]"
           />
@@ -178,17 +177,10 @@ const Profile = () => {
           />
           <MenuItem
               icon={ShieldCheck}
-              label="Safety & Privacy"
-              sub="Emergency contacts, App permissions"
+              label="Emergency & Safety"
+              sub="Instant SOS alert, Emergency contacts & Helplines"
               path="/delivery/profile/safety-privacy"
               badgeBg="bg-red-50/80 border-red-100/70 text-red-700"
-          />
-          <MenuItem
-              icon={Settings}
-              label="Settings"
-              sub="Notifications, Language, Theme"
-              path="/delivery/profile/settings"
-              badgeBg="bg-gray-50/80 border-gray-100/70 text-gray-700"
           />
           <MenuItem
               icon={LifeBuoy}

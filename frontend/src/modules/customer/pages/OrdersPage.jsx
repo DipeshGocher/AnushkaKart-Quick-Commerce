@@ -10,7 +10,8 @@ import {
   Package, 
   X, 
   RotateCcw,
-  CheckCircle2
+  CheckCircle2,
+  ArrowRight
 } from 'lucide-react';
 import { customerApi } from '../services/customerApi';
 import { getOrderStatusLabel, getLegacyStatusFromOrder } from '@/shared/utils/orderStatus';
@@ -259,6 +260,23 @@ const OrdersPage = () => {
             const isRefundCompleted = rs === 'refund_completed' || order.status === 'refunded' || order.isRefunded;
             const isReturned = rs && rs !== 'none';
 
+            const isOnline = 
+              order.paymentMode === 'ONLINE' || 
+              order.paymentMode === 'online' ||
+              order.payment?.method === 'online';
+
+            const isPaid = 
+              order.paymentStatus === 'PAID' || 
+              order.paymentStatus === 'completed' ||
+              order.payment?.status === 'completed';
+
+            const isCancelled = 
+              legacy === 'cancelled' || 
+              order.status === 'cancelled' || 
+              order.workflowStatus === 'CANCELLED';
+
+            const isAwaitingOnlinePayment = isOnline && !isPaid && !isCancelled;
+
             // Status title & subtitle logic matching Flipkart UI reference
             let statusTitle = `Delivered on ${formattedDate}`;
             let statusDesc = firstItem.name || 'Order Item';
@@ -269,12 +287,15 @@ const OrdersPage = () => {
             } else if (isReturned) {
               statusTitle = getOrderStatusLabel(order);
               statusDesc = firstItem.name || 'Order Item';
+            } else if (isCancelled) {
+              statusTitle = `Cancelled on ${formattedDate}`;
+              statusDesc = order.cancelReason || 'Your order was cancelled as per your request';
+            } else if (isAwaitingOnlinePayment) {
+              statusTitle = 'Payment Pending';
+              statusDesc = `Complete payment of ₹${order.pricing?.total || order.total || 0} to confirm order`;
             } else if (legacy === 'delivered') {
               statusTitle = `Delivered on ${formattedDate}`;
               statusDesc = firstItem.name || 'Order Item';
-            } else if (legacy === 'cancelled') {
-              statusTitle = `Cancelled on ${formattedDate}`;
-              statusDesc = order.cancelReason || 'Your order was cancelled as per your request';
             } else if (legacy === 'out_for_delivery') {
               statusTitle = 'Out for Delivery';
               statusDesc = firstItem.name || 'Order Item';
@@ -310,9 +331,17 @@ const OrdersPage = () => {
                   {/* Middle: Status & Product Description */}
                   <div className="flex-1 min-w-0 pr-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <h3 className="text-[14.5px] sm:text-[15px] font-semibold text-slate-900 leading-tight">
+                      <h3 className={cn(
+                        "text-[14.5px] sm:text-[15px] font-semibold leading-tight",
+                        isAwaitingOnlinePayment ? "text-amber-700" : "text-slate-900"
+                      )}>
                         {statusTitle}
                       </h3>
+                      {isAwaitingOnlinePayment && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                          Pending
+                        </span>
+                      )}
                       {order.fulfillmentType === "SHIPROCKET" && (
                         <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                           Courier
@@ -325,8 +354,15 @@ const OrdersPage = () => {
                     </p>
                   </div>
 
-                  {/* Right: Chevron */}
-                  <ChevronRight size={17} className="text-slate-800 shrink-0 stroke-[2.2]" />
+                  {/* Right: Pay Now button (if pending) & Chevron */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {isAwaitingOnlinePayment && (
+                      <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-black hover:bg-slate-800 transition active:scale-95 shadow-2xs flex items-center gap-1">
+                        Pay Now <ArrowRight size={12} />
+                      </span>
+                    )}
+                    <ChevronRight size={17} className="text-slate-800 shrink-0 stroke-[2.2]" />
+                  </div>
                 </div>
 
                 {/* Refund strip if refunded (matching reference screenshot) */}

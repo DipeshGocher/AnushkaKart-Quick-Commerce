@@ -149,6 +149,7 @@ function CuratedCategoryDealsSection({
   useEffect(() => {
     if (pageType !== "home") return;
     if (loadedConfig?.curatedDeals?.items?.length > 0) return;
+    if (Array.isArray(subCategories) && subCategories.length > 0) return;
 
     let isMounted = true;
     customerApi
@@ -175,7 +176,7 @@ function CuratedCategoryDealsSection({
     return () => {
       isMounted = false;
     };
-  }, [pageType, loadedConfig?.curatedDeals?.items?.length, fallbackRetry]);
+  }, [pageType, loadedConfig?.curatedDeals?.items?.length, subCategories, fallbackRetry]);
 
   const defaultTheme = useMemo(() => {
     if (pageType === "home") return DEFAULT_CATEGORY_THEMES.all;
@@ -243,9 +244,12 @@ function CuratedCategoryDealsSection({
         }));
     }
 
-    // 3. Fallback for Home page: use fetched platform subcategories
-    if (pageType === "home" && allFallbackSubcategories.length > 0) {
-      return allFallbackSubcategories.slice(0, 10).map((sub, idx) => ({
+    // 3. Fallback for Home page: use passed subCategories prop or fetched platform subcategories
+    const homeFallback = (Array.isArray(subCategories) && subCategories.length > 0)
+      ? subCategories
+      : allFallbackSubcategories;
+    if (pageType === "home" && homeFallback.length > 0) {
+      return homeFallback.slice(0, 10).map((sub, idx) => ({
         id: sub._id || sub.id,
         slug: sub.slug || "",
         name: sub.name,

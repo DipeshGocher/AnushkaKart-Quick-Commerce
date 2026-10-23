@@ -61,7 +61,24 @@ const CustomerAuth = () => {
         }
     }, [location.pathname, location.state]);
 
+    const dismissKeyboard = () => {
+        try {
+            if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                document.activeElement.blur();
+            }
+        } catch (e) {
+            // ignore
+        }
+    };
+
+    useEffect(() => {
+        return () => {
+            dismissKeyboard();
+        };
+    }, []);
+
     const handleToggleMode = () => {
+        dismissKeyboard();
         const nextMode = !isLogin;
         setIsLogin(nextMode);
         navigate(nextMode ? '/login' : '/signup', {
@@ -72,6 +89,7 @@ const CustomerAuth = () => {
 
     const handleSendOtp = async (e) => {
         e.preventDefault();
+        dismissKeyboard();
         if (!formData.phone || formData.phone.length !== 10) {
             toast.error(t('enterValidPhone') || 'Enter valid 10-digit number');
             return;
@@ -93,6 +111,8 @@ const CustomerAuth = () => {
                 });
             }
             toast.success(t('otpSentSuccess') || 'OTP sent successfully!');
+
+            dismissKeyboard();
 
             // Store in sessionStorage as fallback for page reload
             sessionStorage.setItem('anushka_pending_auth', JSON.stringify({

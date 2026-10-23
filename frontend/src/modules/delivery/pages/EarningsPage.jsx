@@ -1,14 +1,26 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   BarChart,
   Bar,
   XAxis,
   Tooltip,
   ResponsiveContainer,
-  CartesianGrid,
 } from "recharts";
-import { TrendingUp, ArrowUpRight, ChevronLeft, ChevronRight, Download } from "lucide-react";
-import { motion } from "framer-motion";
+import {
+  ArrowUpRight,
+  ArrowDownRight,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Package,
+  MapPin,
+  Gift,
+  Award,
+  Wallet,
+  Calendar,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import Button from "@/shared/components/ui/Button";
 import Card from "@/shared/components/ui/Card";
@@ -25,20 +37,24 @@ const resolveTipAmount = (txn) =>
       0,
   );
 
-import { useNavigate } from "react-router-dom";
-
 const EarningsPage = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("daily");
   const [targetDate, setTargetDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
+  const [showBreakdownModal, setShowBreakdownModal] = useState(false);
   const [earningsData, setEarningsData] = useState({
     totalEarnings: 0,
     incentives: 0,
     bonuses: 0,
     tipsReceived: 0,
+    cashCollected: 0,
     chartData: [],
     recentTransactions: [],
+    growthPercentage: 0,
+    prevEarnings: 0,
+    comparisonLabel: "yesterday",
+    breakdown: null,
   });
 
   const fetchEarnings = async () => {
@@ -52,8 +68,13 @@ const EarningsPage = () => {
           incentives: result.incentives || 0,
           bonuses: result.bonuses || 0,
           tipsReceived: result.tipsReceived || 0,
+          cashCollected: result.cashCollected || 0,
           chartData: result.chartData || [],
           recentTransactions: result.transactions || result.recentTransactions || [],
+          growthPercentage: result.growthPercentage ?? 0,
+          prevEarnings: result.prevEarnings ?? 0,
+          comparisonLabel: result.comparisonLabel || (activeTab === "daily" ? "yesterday" : activeTab === "weekly" ? "last week" : "last month"),
+          breakdown: result.breakdown || null,
         });
       }
     } catch {
@@ -188,9 +209,28 @@ const EarningsPage = () => {
             </div>
             
             <div className="flex items-center mt-3 mb-6 text-[13px] font-bold">
-              <ArrowUpRight size={16} className="text-[#4ade80] mr-1" strokeWidth={3} />
-              <span className="text-[#4ade80] mr-1">12%</span>
-              <span className="text-slate-400 font-medium">vs yesterday</span>
+              {Number(earningsData.totalEarnings || 0) === 0 ? (
+                <span className="text-slate-400 font-medium bg-slate-100 px-3 py-1 rounded-full text-xs">
+                  No deliveries completed in this period
+                </span>
+              ) : earningsData.growthPercentage > 0 ? (
+                <>
+                  <ArrowUpRight size={16} className="text-[#22c55e] mr-1" strokeWidth={3} />
+                  <span className="text-[#22c55e] mr-1">+{earningsData.growthPercentage}%</span>
+                  <span className="text-slate-400 font-medium">vs {earningsData.comparisonLabel || (activeTab === "daily" ? "yesterday" : activeTab === "weekly" ? "last week" : "last month")}</span>
+                </>
+              ) : earningsData.growthPercentage < 0 ? (
+                <>
+                  <ArrowDownRight size={16} className="text-rose-500 mr-1" strokeWidth={3} />
+                  <span className="text-rose-500 mr-1">{earningsData.growthPercentage}%</span>
+                  <span className="text-slate-400 font-medium">vs {earningsData.comparisonLabel || (activeTab === "daily" ? "yesterday" : activeTab === "weekly" ? "last week" : "last month")}</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-slate-500 mr-1">0%</span>
+                  <span className="text-slate-400 font-medium">vs {earningsData.comparisonLabel || (activeTab === "daily" ? "yesterday" : activeTab === "weekly" ? "last week" : "last month")}</span>
+                </>
+              )}
             </div>
 
             <div className="w-full h-[1px] bg-slate-100 mb-6"></div>
@@ -249,11 +289,17 @@ const EarningsPage = () => {
                   />
                 </BarChart>
               </ResponsiveContainer>
+              {Number(earningsData.totalEarnings || 0) === 0 && (
+                <p className="text-center text-[11px] text-slate-400 font-medium mt-1">
+                  No delivery earnings recorded for this date
+                </p>
+              )}
             </div>
 
             <button 
-              className="text-[#22c55e] font-bold text-[14px] flex items-center justify-center"
-              onClick={() => toast.info("Detailed breakdown coming soon!")}
+              type="button"
+              className="text-[#22c55e] font-bold text-[14px] flex items-center justify-center hover:opacity-80 transition-opacity"
+              onClick={() => setShowBreakdownModal(true)}
             >
               View Detailed Breakdown <ChevronRight size={16} className="ml-1" strokeWidth={2.5} />
             </button>
@@ -264,15 +310,20 @@ const EarningsPage = () => {
           <Card className="overflow-hidden">
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
               <h3 className="font-bold text-gray-800">Recent Earnings</h3>
-              <Button variant="link" className="text-primary text-xs font-bold h-auto p-0" onClick={() => toast.info("Full history coming soon!")}>
+              <button 
+                type="button"
+                className="text-[#6666FF] hover:text-[#5555EE] text-xs font-bold hover:underline transition-colors py-1 px-2.5 rounded-lg hover:bg-[#6666FF]/10" 
+                onClick={() => navigate("/delivery/history")}
+              >
                 View All
-              </Button>
+              </button>
             </div>
             <div className="divide-y divide-gray-100">
               {Array.isArray(earningsData.recentTransactions) && earningsData.recentTransactions.length > 0 ? (
                 earningsData.recentTransactions.map((txn, idx) => (
                   <div
                     key={txn._id || txn.id || `txn-${idx}`}
+                    onClick={() => navigate("/delivery/history")}
                     className="p-4 flex justify-between items-center hover:bg-gray-50 transition-colors cursor-pointer"
                   >
                     <div className="flex items-center">
@@ -328,6 +379,145 @@ const EarningsPage = () => {
           </Card>
         </motion.div>
       </motion.div>
+
+      {/* Detailed Breakdown Bottom Sheet / Modal */}
+      <AnimatePresence>
+        {showBreakdownModal && (
+          <div 
+            className="fixed inset-0 z-[600] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setShowBreakdownModal(false);
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 100 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 100 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-6 pb-8 sm:pb-6 shadow-2xl max-h-[85vh] overflow-y-auto flex flex-col"
+            >
+              {/* Header */}
+              <div className="flex justify-between items-center pb-4 border-b border-gray-100">
+                <div>
+                  <h3 className="text-lg font-black text-gray-900">Earnings Breakdown</h3>
+                  <p className="text-xs text-gray-500 font-medium capitalize">{formatTargetDate()} ({activeTab})</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowBreakdownModal(false)}
+                  className="p-1.5 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Total Card */}
+              <div className="my-5 p-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 text-white flex justify-between items-center shadow-sm">
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-emerald-100">Total Settled Earning</span>
+                  <p className="text-2xl font-black">{RUPEE}{Number(earningsData.totalEarnings || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-[11px] font-bold bg-white/20 px-2.5 py-1 rounded-full">
+                    {Number(earningsData.totalEarnings || 0) === 0
+                      ? `0% vs ${earningsData.comparisonLabel || "yesterday"}`
+                      : earningsData.growthPercentage > 0
+                        ? `+${earningsData.growthPercentage}% vs ${earningsData.comparisonLabel}`
+                        : `${earningsData.growthPercentage}% vs ${earningsData.comparisonLabel}`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Itemized Breakdown List */}
+              <div className="space-y-3 mb-6">
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-gray-50 border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                      <Package size={18} />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-gray-900">Base Order Payout</p>
+                      <p className="text-[11px] text-gray-400">Fixed rate per successful delivery</p>
+                    </div>
+                  </div>
+                  <span className="font-bold text-sm text-gray-900">
+                    {RUPEE}{Number(earningsData.breakdown?.baseEarnings ?? Math.max(0, (earningsData.totalEarnings || 0) - (earningsData.incentives || 0) - (earningsData.tipsReceived || 0))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-gray-50 border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center">
+                      <MapPin size={18} />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-gray-900">Distance Payout</p>
+                      <p className="text-[11px] text-gray-400">Extra per-kilometer travel rate</p>
+                    </div>
+                  </div>
+                  <span className="font-bold text-sm text-gray-900">
+                    {RUPEE}{Number(earningsData.breakdown?.distanceEarnings || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-gray-50 border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
+                      <Gift size={18} />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-gray-900">Customer Tips</p>
+                      <p className="text-[11px] text-gray-400">Directly transferred 100% to partner</p>
+                    </div>
+                  </div>
+                  <span className="font-bold text-sm text-gray-900">
+                    {RUPEE}{Number(earningsData.tipsReceived || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-gray-50 border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
+                      <Award size={18} />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-gray-900">Target & Surge Incentives</p>
+                      <p className="text-[11px] text-gray-400">Peak hours and milestone rewards</p>
+                    </div>
+                  </div>
+                  <span className="font-bold text-sm text-gray-900">
+                    {RUPEE}{Number(earningsData.incentives || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-amber-50/50 border border-amber-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+                      <Wallet size={18} />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-amber-900">COD Cash In Hand</p>
+                      <p className="text-[11px] text-amber-600">Collected from customers to remit</p>
+                    </div>
+                  </div>
+                  <span className="font-bold text-sm text-amber-900">
+                    {RUPEE}{Number(earningsData.cashCollected || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={() => setShowBreakdownModal(false)}
+                className="w-full h-12 rounded-xl bg-[#6666FF] hover:bg-[#5555EE] active:scale-[0.99] text-white font-bold text-sm shadow-md transition-all shrink-0 mt-auto"
+              >
+                Close Breakdown
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
       <DeliveryFooter />
     </div>
   );

@@ -6,7 +6,7 @@ import {
   Ban, AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useCart } from '../context/CartContext';
+import { useCart, resolveVariantStock } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useLocation as useAppLocation } from '../context/LocationContext';
 import LocationDrawer from '../components/shared/LocationDrawer';
@@ -15,6 +15,7 @@ import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 import PageSkeleton from '@/shared/components/PageSkeleton';
 import { useDeliveryDecision } from '../services/useDeliveryDecision';
 import { motion, useReducedMotion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 const CartPage = ({ asOverlay = false, onClose }) => {
   const navigate = useNavigate();
@@ -91,36 +92,57 @@ const CartPage = ({ asOverlay = false, onClose }) => {
       );
       return false;
     }
+    const soldOutItems = activeCart.filter(
+      (item) => resolveVariantStock(item, String(item.variantSku || '').trim()) <= 0
+    );
+    if (soldOutItems.length > 0) {
+      if (e) e.preventDefault();
+      toast.error("Please remove sold out items from your cart before proceeding to checkout.");
+      return false;
+    }
+    const exceedingItems = activeCart.filter(
+      (item) => item.quantity > resolveVariantStock(item, String(item.variantSku || '').trim())
+    );
+    if (exceedingItems.length > 0) {
+      if (e) e.preventDefault();
+      toast.error("Some items in your cart exceed available stock. Please adjust quantities before checkout.");
+      return false;
+    }
     if (asOverlay && onClose) onClose();
     return true;
   };
 
   const handleQuantityMinus = (item) => {
+    if (item.quantity <= 1) return;
     const key = String(item.variantSku || '').trim();
-    if (item.quantity <= 1) {
-      removeFromCart(item.id || item._id, key);
-      toast.info(`${item.name} removed from cart`);
-    } else {
-      updateQuantity(item.id || item._id, -1, key);
-    }
+    updateQuantity(item.id || item._id, -1, key);
   };
 
   const handleQuantityPlus = (item) => {
     const key = String(item.variantSku || '').trim();
+    const itemStock = resolveVariantStock(item, key);
+    const maxPerOrder = 10;
+    const maxAllowed = itemStock > 0 ? Math.min(itemStock, maxPerOrder) : 0;
+    if (item.quantity >= itemStock) {
+      toast.error(`You cannot add more than available stock (${itemStock} units)`);
+      return;
+    }
+    if (item.quantity >= maxAllowed) {
+      toast.error(`Maximum allowed order quantity is ${maxAllowed} units per item`);
+      return;
+    }
     updateQuantity(item.id || item._id, 1, key);
   };
 
   const handleRemove = (item) => {
     const key = String(item.variantSku || '').trim();
     removeFromCart(item.id || item._id, key);
-    toast.info(`${item.name} removed from cart`);
   };
 
   const handleMoveToWishlist = (item) => {
     addToWishlist(item);
     const key = String(item.variantSku || '').trim();
     removeFromCart(item.id || item._id, key);
-    toast.success(`${item.name} moved to wishlist`);
   };
 
   const handleBuyNow = (item) => {
@@ -242,21 +264,47 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                           <div className="mt-2.5 flex items-center border border-[#d6d6d6] rounded-lg overflow-hidden bg-white">
                             <button
                               onClick={() => handleQuantityMinus(item)}
-                              className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition active:scale-90 cursor-pointer"
-                              title="Decrease quantity"
+                              disabled={item.quantity <= 1}
+                              className={cn(
+                                "w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center transition",
+                                item.quantity <= 1
+                                  ? "opacity-30 cursor-not-allowed text-slate-300 bg-slate-50"
+                                  : "text-slate-700 hover:bg-slate-100 active:scale-90 cursor-pointer"
+                              )}
+                              title={item.quantity <= 1 ? "Minimum quantity is 1" : "Decrease quantity"}
                             >
                               <Minus size={13} strokeWidth={2.5} />
                             </button>
                             <span className="w-8 sm:w-9 text-center text-xs sm:text-sm font-extrabold text-slate-900 select-none">
                               {item.quantity}
                             </span>
-                            <button
-                              onClick={() => handleQuantityPlus(item)}
-                              className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition active:scale-90 cursor-pointer"
-                              title="Increase quantity"
-                            >
-                              <Plus size={13} strokeWidth={2.5} />
-                            </button>
+                            {(() => {
+                              const itemStock = resolveVariantStock(item, String(item.variantSku || '').trim());
+                              const maxPerOrder = 10;
+                              const maxAllowed = itemStock > 0 ? Math.min(itemStock, maxPerOrder) : 0;
+                              const isMaxStock = item.quantity >= maxAllowed;
+                              return (
+                                <button
+                                  onClick={() => handleQuantityPlus(item)}
+                                  disabled={isMaxStock}
+                                  className={cn(
+                                    "w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center transition",
+                                    isMaxStock
+                                      ? "opacity-30 cursor-not-allowed text-slate-300 bg-slate-50"
+                                      : "text-slate-700 hover:bg-slate-100 active:scale-90 cursor-pointer"
+                                  )}
+                                  title={
+                                    item.quantity >= itemStock
+                                      ? `Max available stock reached (${itemStock} units)`
+                                      : item.quantity >= maxPerOrder
+                                      ? `Max allowed quantity is ${maxPerOrder} units per order`
+                                      : "Increase quantity"
+                                  }
+                                >
+                                  <Plus size={13} strokeWidth={2.5} />
+                                </button>
+                              );
+                            })()}
                           </div>
                         </div>
 
@@ -287,6 +335,31 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                                 ₹{unitPrice}
                               </span>
                             </div>
+
+                            {/* Stock Badge */}
+                            {(() => {
+                              const itemStock = resolveVariantStock(item, String(item.variantSku || '').trim());
+                              if (itemStock <= 0) {
+                                return (
+                                  <div className="mt-2">
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+                                      <AlertTriangle size={11} className="shrink-0" />
+                                      <span>Sold Out - Please remove to proceed</span>
+                                    </span>
+                                  </div>
+                                );
+                              }
+                              if (itemStock > 0 && itemStock <= 2) {
+                                return (
+                                  <div className="mt-2">
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                                      <span>Hurry, only {itemStock} left in stock!</span>
+                                    </span>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
 
                             {/* Delivery Restriction Badge (only if undeliverable) */}
                             {deliveryReady && !deliveryCheck?.isDeliverable && (

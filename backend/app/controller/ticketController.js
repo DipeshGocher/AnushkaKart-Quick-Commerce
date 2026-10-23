@@ -1,5 +1,6 @@
 import Ticket from "../models/ticket.js";
 import Admin from "../models/admin.js";
+import Delivery from "../models/delivery.js";
 import handleResponse from "../utils/helper.js";
 import getPagination from "../utils/pagination.js";
 import { emitTicketCreated, emitTicketMessage } from "../services/ticketSocketEmitter.js";
@@ -21,17 +22,30 @@ export const createTicket = async (req, res) => {
         const safeMediaType = String(mediaType || "").trim();
         const safeMimeType = String(mimeType || "").trim();
 
+        const isDeliveryRole = req.user.role === "delivery" || userType === "Delivery" || userType === "Rider";
+        const canonicalUserType = isDeliveryRole ? "Delivery" : (userType || "Customer");
+
+        let senderName = req.user.name;
+        if (!senderName) {
+            if (isDeliveryRole) {
+                const rider = await Delivery.findById(userId).select("name phone email").lean();
+                senderName = rider?.name || "Delivery Partner";
+            } else {
+                senderName = "User";
+            }
+        }
+
         const newTicket = new Ticket({
             userId,
-            userType: userType || "Customer",
+            userType: canonicalUserType,
             subject,
             description,
-            priority,
+            priority: priority || "medium",
             messages: [
                 {
-                    sender: req.user.name || "User",
+                    sender: senderName,
                     senderId: userId,
-                    senderType: "User",
+                    senderType: isDeliveryRole ? "Delivery" : "User",
                     text: description,
                     mediaUrl: safeMediaUrl,
                     mediaType: safeMediaUrl ? (safeMediaType || "image") : "",
@@ -48,12 +62,12 @@ export const createTicket = async (req, res) => {
             const savedMessage = newTicket.messages?.[newTicket.messages.length - 1];
             const adminIds = await getAdminIds();
             emitNotificationEvent(NOTIFICATION_EVENTS.SUPPORT_TICKET_MESSAGE, {
-                fromRole: "customer",
+                fromRole: isDeliveryRole ? "delivery" : "customer",
                 ticketId: newTicket._id,
                 messageId: savedMessage?._id,
                 messageCreatedAt: savedMessage?.createdAt,
                 userId,
-                userName: req.user.name || "User",
+                userName: senderName,
                 adminIds,
                 messageText: description || (safeMediaUrl ? "Sent an image" : ""),
                 data: {
@@ -86,9 +100,25 @@ export const getAllTickets = async (req, res) => {
         const { page, limit, skip } = getPagination(req, { defaultLimit: 25, maxLimit: 200 });
 
         const [tickets, total] = await Promise.all([
-            Ticket.find().populate("userId", "name email").sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+            Ticket.find().populate("userId", "name email phone").sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
             Ticket.countDocuments()
         ]);
+
+        const missingRiderIds = tickets
+            .filter((t) => (t.userType === "Delivery" || t.userType === "Rider") && (!t.userId || !t.userId.name))
+            .map((t) => String(t.userId?._id || t.userId))
+            .filter(Boolean);
+
+        if (missingRiderIds.length > 0) {
+            const riders = await Delivery.find({ _id: { $in: missingRiderIds } }).select("name email phone").lean();
+            const riderMap = new Map(riders.map((r) => [String(r._id), r]));
+            for (const t of tickets) {
+                const uid = String(t.userId?._id || t.userId || "");
+                if (riderMap.has(uid)) {
+                    t.userId = riderMap.get(uid);
+                }
+            }
+        }
 
         return handleResponse(res, 200, "All tickets fetched successfully", {
             items: tickets,
@@ -120,10 +150,20 @@ export const replyToTicket = async (req, res) => {
             return handleResponse(res, 400, "Message text or mediaUrl is required");
         }
 
+        let senderName = isAdmin ? "Admin" : req.user.name;
+        if (!isAdmin && !senderName) {
+            if (req.user.role === "delivery" || ticket.userType === "Delivery" || ticket.userType === "Rider") {
+                const rider = await Delivery.findById(req.user.id).select("name").lean();
+                senderName = rider?.name || "Delivery Partner";
+            } else {
+                senderName = "User";
+            }
+        }
+
         const newMessage = {
-            sender: isAdmin ? "Admin" : (req.user.name || "User"),
+            sender: senderName,
             senderId: req.user.id,
-            senderType: isAdmin ? "Admin" : "User",
+            senderType: isAdmin ? "Admin" : ((req.user.role === "delivery" || ticket.userType === "Delivery") ? "Delivery" : "User"),
             text: safeText,
             mediaUrl: safeMediaUrl,
             mediaType: safeMediaUrl ? (safeMediaType || "image") : "",

@@ -7,12 +7,16 @@ import {
   Clock,
   ChevronRight,
   Filter,
+  Package,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Card from "@/shared/components/ui/Card";
 import { deliveryApi } from "../services/deliveryApi";
 import { toast } from "sonner";
 import DeliveryFooter from "../components/DeliveryFooter";
+import { getOrderSocket } from "@core/services/orderSocket";
+import { createSocketTokenReader } from "@core/utils/authStorage";
+import { STORAGE_KEYS } from "@core/utils/storageKeys";
 
 const displayOrderStatus = (order) => {
   if (order?.workflowStatus === "DELIVERED" || order?.status === "delivered")
@@ -23,12 +27,32 @@ const displayOrderStatus = (order) => {
 };
 
 const getOrderEarnings = (order) => {
+  if (order?.workflowStatus === "CANCELLED" || order?.status === "cancelled") {
+    return 0;
+  }
   if (order?.returnStatus && order.returnStatus !== "none" && order.returnCommission != null) {
     return order.returnCommission;
   }
   if (order?.riderEarnings != null) return order.riderEarnings;
   if (order?.delivery?.riderEarning != null) return order.delivery.riderEarning;
   return Math.round((order?.pricing?.total || 0) * 0.1);
+};
+
+const getOrderDistanceText = (order) => {
+  if (order?.delivery?.routeDistanceKm) {
+    return `${order.delivery.routeDistanceKm} km`;
+  }
+  if (order?.delivery?.routeDistanceMeters) {
+    return `${(order.delivery.routeDistanceMeters / 1000).toFixed(1)} km`;
+  }
+  return null;
+};
+
+const getOrderDurationText = (order) => {
+  if (order?.delivery?.routeDurationMinutes) {
+    return `${order.delivery.routeDurationMinutes} min`;
+  }
+  return null;
 };
 
 const OrderHistory = () => {
@@ -134,6 +158,40 @@ const OrderHistory = () => {
       visibilityAbortRef.current?.abort();
     };
   }, [filter]);
+
+  // Live socket updates for order status changes across orders
+  useEffect(() => {
+    const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_DELIVERY);
+    const socket = getOrderSocket(getToken);
+    if (!socket) return;
+
+    const handleStatusUpdate = (payload) => {
+      if (!payload?.orderId) return;
+      const targetId = String(payload.orderId);
+      const ws = payload.workflowStatus;
+      const st = payload.status;
+
+      setOrders((prev) =>
+        prev.map((ord) => {
+          const ordId = String(ord.orderId || ord._id || "");
+          if (ordId === targetId || ordId.endsWith(targetId) || targetId.endsWith(ordId)) {
+            return {
+              ...ord,
+              ...payload,
+              status: st || (ws ? ws.toLowerCase() : ord.status),
+              workflowStatus: ws || ord.workflowStatus,
+            };
+          }
+          return ord;
+        }),
+      );
+    };
+
+    socket.on("order:status:update", handleStatusUpdate);
+    return () => {
+      socket.off("order:status:update", handleStatusUpdate);
+    };
+  }, []);
 
   const initialLoading = loading && orders.length === 0;
   const refreshing = loading && orders.length > 0;
@@ -257,10 +315,12 @@ const OrderHistory = () => {
                         </div>
                       </div>
                       <div className="text-left sm:text-right shrink-0">
-                        <span className="block font-black text-lg text-slate-900 whitespace-nowrap">
+                        <span className={`block font-black text-lg whitespace-nowrap ${displayOrderStatus(order) === "cancelled" ? "text-gray-400" : "text-slate-900"}`}>
                           ₹{getOrderEarnings(order)}
                         </span>
-                        <span className="ds-caption text-gray-400">Earnings</span>
+                        <span className="ds-caption text-gray-400">
+                          {displayOrderStatus(order) === "cancelled" ? "No Earnings" : "Earnings"}
+                        </span>
                       </div>
                     </div>
 
@@ -289,14 +349,30 @@ const OrderHistory = () => {
 
                     <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center text-xs text-gray-500">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="flex items-center bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                          <MapPin size={12} className="mr-1 text-gray-400" />{" "}
-                          2.4 km {/* Mock for now */}
-                        </span>
-                        <span className="flex items-center bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                          <Clock size={12} className="mr-1 text-gray-400" /> 15
-                          min
-                        </span>
+                        {displayOrderStatus(order) === "cancelled" ? (
+                          <span className="flex items-center bg-red-50 text-red-600 px-2 py-1 rounded border border-red-100 font-bold text-[11px]">
+                            Cancelled Order
+                          </span>
+                        ) : (
+                          <>
+                            {getOrderDistanceText(order) && (
+                              <span className="flex items-center bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                                <MapPin size={12} className="mr-1 text-gray-400" />{" "}
+                                {getOrderDistanceText(order)}
+                              </span>
+                            )}
+                            {getOrderDurationText(order) && (
+                              <span className="flex items-center bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                                <Clock size={12} className="mr-1 text-gray-400" />{" "}
+                                {getOrderDurationText(order)}
+                              </span>
+                            )}
+                            <span className="flex items-center bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                              <Package size={12} className="mr-1 text-gray-400" />{" "}
+                              {(order.items?.length || 1)} {(order.items?.length || 1) === 1 ? "item" : "items"}
+                            </span>
+                          </>
+                        )}
                       </div>
                       <div className="flex items-center text-[#6666FF] font-bold group-hover:underline self-end sm:self-auto">
                         View Details <ChevronRight size={14} className="ml-0.5" />

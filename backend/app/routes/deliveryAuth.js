@@ -6,6 +6,7 @@ import {
   getDeliveryProfile,
   updateDeliveryProfile,
   deleteDeliveryAccount,
+  uploadDeliveryDocument,
 } from "../controller/deliveryAuthController.js";
 import {
   getDeliveryStats,
@@ -14,6 +15,7 @@ import {
   submitDeliveryCodCashToAdmin,
   getMyDeliveryOrders,
   requestWithdrawal,
+  getDeliveryWithdrawals,
   updateDeliveryLocation,
 } from "../controller/deliveryController.js";
 import {
@@ -50,6 +52,7 @@ router.use(verifyToken, requireActiveDelivery);
 // Profile routes
 router.get("/profile", verifyToken, getDeliveryProfile);
 router.put("/profile", verifyToken, updateDeliveryProfile);
+router.post("/upload-document", verifyToken, upload.single("file"), uploadDeliveryDocument);
 router.delete("/delete-account", verifyToken, deleteDeliveryAccount);
 router.get("/stats", verifyToken, getDeliveryStats);
 router.get("/earnings", verifyToken, getDeliveryEarnings);
@@ -62,6 +65,7 @@ router.get(
   allowRoles("delivery"),
   getMyDeliveryOrders,
 );
+router.get("/withdrawals", verifyToken, getDeliveryWithdrawals);
 router.post("/request-withdrawal", verifyToken, requestWithdrawal);
 router.post("/location", verifyToken, updateDeliveryLocation);
 

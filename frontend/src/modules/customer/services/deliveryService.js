@@ -100,23 +100,51 @@ export function resolveProductDeliveryMode(product) {
     }
   }
 
-  // 4. Check category slug for grocery
+  // 4. Check active URL or query parameter (e.g. browsing /products?header=Grocery or /products?category=...)
+  if (typeof window !== "undefined") {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const headerParam = (params.get("header") || "").toLowerCase();
+      const catParam = (params.get("category") || "").toLowerCase();
+      const path = (window.location.pathname || "").toLowerCase();
+      if (
+        headerParam.includes("grocery") ||
+        headerParam.includes("kirana") ||
+        headerParam.includes("fresh") ||
+        catParam.includes("grocery") ||
+        catParam.includes("kirana") ||
+        path.includes("grocery")
+      ) {
+        return "quick_only";
+      }
+    } catch (_) {}
+  }
+
+  // 5. Check category slug and name for grocery
   for (const cat of candidateObjects) {
     if (cat && typeof cat === "object") {
       const slug = String(cat.slug || "").toLowerCase();
-      if (slug === "grocery" || slug === "kirana" || slug === "fresh") {
+      const name = String(cat.name || "").toLowerCase();
+      if (
+        slug === "grocery" || slug === "kirana" || slug === "fresh" ||
+        name.includes("grocery") || name.includes("kirana") || name.includes("fresh")
+      ) {
         return "quick_only";
       }
     }
   }
 
-  // 5. Check category names or product names
+  // 6. Check product and category text
   const textToCheck = [
     product.name,
     product.brand,
     product.headerId?.name,
+    product.headerId?.slug,
     product.categoryId?.name,
+    product.categoryId?.slug,
     product.subcategoryId?.name,
+    typeof product.headerId === "string" ? product.headerId : "",
+    typeof product.category === "string" ? product.category : "",
   ]
     .filter(Boolean)
     .join(" ")
@@ -124,7 +152,9 @@ export function resolveProductDeliveryMode(product) {
 
   const perishableKeywords = [
     "grocery", "kirana", "milk", "doodh", "paneer", "dahi", "curd", "vegetable", "sabzi",
-    "fruits", "bread", "dairy", "butter", "egg", "meat", "chicken"
+    "fruits", "bread", "dairy", "butter", "egg", "meat", "chicken", "oil", "flour", "atta",
+    "rice", "dal", "sugar", "salt", "masala", "spices", "tea", "chai", "coffee", "biscuit",
+    "namkeen", "snack"
   ];
   if (perishableKeywords.some((kw) => textToCheck.includes(kw))) {
     return "quick_only";

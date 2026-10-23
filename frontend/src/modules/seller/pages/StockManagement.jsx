@@ -51,9 +51,16 @@ const StockTableRow = React.memo(({ item, onAdjust }) => {
                         <h4 className="text-sm font-black text-slate-900 group-hover:text-primary transition-colors truncate">
                             {item.name}
                         </h4>
-                        <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest truncate">
-                            Product Code: {item.sku || 'N/A'}
-                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                            <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest truncate">
+                                Product Code: {item.sku || 'N/A'}
+                            </p>
+                            {(item.headerId?.name || item.categoryId?.name) && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                                    {item.headerId?.name || item.categoryId?.name}
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
             </td>
@@ -63,13 +70,13 @@ const StockTableRow = React.memo(({ item, onAdjust }) => {
                         <span
                             className={cn(
                                 "text-sm font-black",
-                                item.stock <= item.threshold ? "text-rose-600" : "text-slate-900"
+                                item.stock === 0 ? "text-slate-400" : (item.stock <= item.threshold ? "text-amber-600" : "text-slate-900")
                             )}
                         >
                             {item.stock} units
                         </span>
-                        {item.stock <= item.threshold && (
-                            <span className="text-[9px] font-bold text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded w-fit mt-0.5">
+                        {item.stock > 0 && item.stock <= item.threshold && (
+                            <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded w-fit mt-0.5">
                                 Low Stock
                             </span>
                         )}
@@ -78,14 +85,14 @@ const StockTableRow = React.memo(({ item, onAdjust }) => {
             </td>
             <td className="px-6 py-5">
                 <Badge
-                    variant={item.status === 'In Stock' ? 'success' : 'destructive'}
+                    variant={item.status === 'In Stock' ? 'success' : item.status === 'Low Stock' ? 'warning' : 'destructive'}
                     className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg"
                 >
                     {item.status}
                 </Badge>
             </td>
             <td className="px-6 py-5">
-                <p className="text-sm font-black text-slate-900">₹{item.price}</p>
+                <p className="text-sm font-black text-slate-900">₹{Number(item.price || 0).toLocaleString()}</p>
             </td>
             <td className="px-6 py-5 text-right">
                 <button
@@ -105,6 +112,8 @@ const StockManagement = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('All');
     const [sortBy, setSortBy] = useState('stock-asc');
+    const [headerCategories, setHeaderCategories] = useState([]);
+    const [selectedCategory, setSelectedCategory] = useState('all');
     const [inventory, setInventory] = useState([]);
     const [history, setHistory] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -116,6 +125,29 @@ const StockManagement = () => {
 
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
+
+    const fetchCategories = async () => {
+        try {
+            let res = await sellerApi.getCategoryTree({ catalogType: 'all' });
+            let list = res.data?.results || res.data?.result || [];
+            if (!Array.isArray(list) || list.length === 0) {
+                res = await sellerApi.getCategories({ type: 'header' });
+                list = res.data?.results || res.data?.result || [];
+            }
+            if (Array.isArray(list)) {
+                const filtered = list.filter(
+                    (h) => h.slug !== 'all' && String(h.name || '').trim().toLowerCase() !== 'all'
+                );
+                setHeaderCategories(filtered);
+            }
+        } catch (error) {
+            console.error("Failed to load header categories:", error);
+        }
+    };
+
+    useEffect(() => {
+        fetchCategories();
+    }, []);
 
     const fetchInventory = async (silent = false, stockStatus) => {
         if (!silent) setIsLoading(true);
@@ -156,15 +188,19 @@ const StockManagement = () => {
             const safeProducts = Array.isArray(rawProducts) ? rawProducts : [];
 
             setInventory(
-                safeProducts.map(p => ({
-                    ...p,
-                    id: p._id || p.id,
-                    threshold: p.lowStockAlert || 5,
-                    status:
-                        p.stock === 0
-                            ? 'Out of Stock'
-                            : (p.stock <= (p.lowStockAlert || 5) ? 'Low Stock' : 'In Stock')
-                }))
+                safeProducts.map(p => {
+                    const price = Number(p.salePrice || p.price || (p.variants?.[0]?.salePrice || p.variants?.[0]?.price) || 0);
+                    return {
+                        ...p,
+                        id: p._id || p.id,
+                        price,
+                        threshold: p.lowStockAlert || 5,
+                        status:
+                            p.stock === 0
+                                ? 'Out of Stock'
+                                : (p.stock <= (p.lowStockAlert || 5) ? 'Low Stock' : 'In Stock')
+                    };
+                })
             );
         } catch (error) {
             toast.error("Failed to load inventory");
@@ -189,15 +225,11 @@ const StockManagement = () => {
 
     useEffect(() => {
         if (activeView === 'inventory') {
-            let stockStatusParam;
-            if (filterStatus === 'In Stock') stockStatusParam = 'in';
-            else if (filterStatus === 'Out of Stock') stockStatusParam = 'out';
-            else stockStatusParam = undefined; // All / Low Stock -> no backend filter
-            fetchInventory(false, stockStatusParam);
+            fetchInventory();
         } else {
             fetchHistory();
         }
-    }, [activeView, filterStatus]);
+    }, [activeView]);
 
     const stats = useMemo(() => [
         { label: 'Total Inventory', value: inventory.reduce((acc, item) => acc + item.stock, 0), icon: HiOutlineCube, color: 'text-brand-600', bg: 'bg-brand-50', status: 'All' },
@@ -207,21 +239,57 @@ const StockManagement = () => {
     ], [inventory]);
 
     const filteredInventory = useMemo(() => {
-        const term = searchTerm.toLowerCase();
+        const term = searchTerm.toLowerCase().trim();
+        const selectedHeader = headerCategories.find(
+            (h) => String(h._id || h.id) === String(selectedCategory)
+        );
+        const childCategoryIds = new Set(
+            (selectedHeader?.children || []).map((c) => String(c._id || c.id))
+        );
+        const selectedHeaderName = selectedHeader?.name?.toLowerCase().trim();
+
         return inventory.filter(item => {
             const matchesSearch =
+                !term ||
                 item.name.toLowerCase().includes(term) ||
                 (item.sku || '').toString().toLowerCase().includes(term);
-            const matchesStatus = filterStatus === 'All' || item.status === filterStatus;
-            return matchesSearch && matchesStatus;
+
+            let matchesStatus = true;
+            if (filterStatus === 'In Stock') matchesStatus = item.stock > 0;
+            else if (filterStatus === 'Low Stock') matchesStatus = item.stock > 0 && item.stock <= item.threshold;
+            else if (filterStatus === 'Out of Stock') matchesStatus = item.stock === 0;
+
+            let matchesCategory = true;
+            if (selectedCategory !== 'all') {
+                const itemHeaderId = String(item.headerId?._id || item.headerId || item.headerCategoryId?._id || item.headerCategoryId || '');
+                const itemCategoryId = String(item.categoryId?._id || item.categoryId || '');
+                const itemHeaderName = String(item.headerId?.name || '').toLowerCase().trim();
+
+                matchesCategory =
+                    itemHeaderId === String(selectedCategory) ||
+                    childCategoryIds.has(itemCategoryId) ||
+                    (Boolean(selectedHeaderName) && itemHeaderName === selectedHeaderName);
+            }
+
+            return matchesSearch && matchesStatus && matchesCategory;
         }).sort((a, b) => {
             if (sortBy === 'stock-asc') return (a.stock ?? 0) - (b.stock ?? 0);
             if (sortBy === 'stock-desc') return (b.stock ?? 0) - (a.stock ?? 0);
             if (sortBy === 'name-asc') return (a.name || '').localeCompare(b.name || '');
             if (sortBy === 'name-desc') return (b.name || '').localeCompare(a.name || '');
+            if (sortBy === 'category-asc') {
+                const catA = a.headerId?.name || a.categoryId?.name || '';
+                const catB = b.headerId?.name || b.categoryId?.name || '';
+                return catA.localeCompare(catB);
+            }
+            if (sortBy === 'category-desc') {
+                const catA = a.headerId?.name || a.categoryId?.name || '';
+                const catB = b.headerId?.name || b.categoryId?.name || '';
+                return catB.localeCompare(catA);
+            }
             return 0;
         });
-    }, [inventory, searchTerm, filterStatus, sortBy]);
+    }, [inventory, searchTerm, filterStatus, sortBy, selectedCategory, headerCategories]);
 
     const handleFullAdjustment = async () => {
         const value = parseInt(adjustValue, 10);
@@ -281,6 +349,35 @@ const StockManagement = () => {
                             Monitor stock levels, manage restocks, and track movements.
                         </p>
                     </div>
+                    {/* View Switcher: Inventory vs Movement Log */}
+                    <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-sm shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => setActiveView('inventory')}
+                            className={cn(
+                                "flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all",
+                                activeView === 'inventory'
+                                    ? "bg-white text-slate-900 shadow-sm"
+                                    : "text-slate-600 hover:text-slate-800"
+                            )}
+                        >
+                            <HiOutlineCube className="h-4 w-4" />
+                            <span>Inventory</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveView('history')}
+                            className={cn(
+                                "flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all",
+                                activeView === 'history'
+                                    ? "bg-white text-slate-900 shadow-sm"
+                                    : "text-slate-600 hover:text-slate-800"
+                            )}
+                        >
+                            <HiOutlineClipboardDocumentList className="h-4 w-4" />
+                            <span>Movement Log</span>
+                        </button>
+                    </div>
                 </div>
             </BlurFade>
 
@@ -314,7 +411,7 @@ const StockManagement = () => {
                         <Card className="border-none shadow-xl shadow-slate-200/50 overflow-hidden rounded-3xl">
                             {/* Toolbox */}
                             <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row gap-4 items-center justify-between bg-slate-50/30">
-                                <div className="flex flex-col md:flex-row gap-3 items-center w-full">
+                                <div className="flex flex-col md:flex-row flex-wrap gap-3 items-center w-full">
                                     <div className="relative w-full md:w-72">
                                         <HiOutlineMagnifyingGlass className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-600" />
                                         <Input
@@ -324,8 +421,8 @@ const StockManagement = () => {
                                             onChange={(e) => setSearchTerm(e.target.value)}
                                         />
                                     </div>
-                                    <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-sm">
-                                        {['All', 'In Stock', 'Out of Stock'].map((status) => (
+                                    <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+                                        {['All', 'In Stock', 'Low Stock', 'Out of Stock'].map((status) => (
                                             <button
                                                 key={status}
                                                 onClick={() => {
@@ -333,7 +430,7 @@ const StockManagement = () => {
                                                     setPage(1);
                                                 }}
                                                 className={cn(
-                                                    "px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all",
+                                                    "px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all whitespace-nowrap",
                                                     filterStatus === status
                                                         ? "bg-white text-slate-900 shadow-md"
                                                         : "text-slate-600 hover:text-slate-700"
@@ -343,6 +440,27 @@ const StockManagement = () => {
                                             </button>
                                         ))}
                                     </div>
+                                    {/* Dynamic Header Categories Dropdown */}
+                                    <div className="relative shrink-0">
+                                        <select
+                                            value={selectedCategory}
+                                            onChange={(e) => {
+                                                setSelectedCategory(e.target.value);
+                                                setPage(1);
+                                            }}
+                                            className="pl-3.5 pr-8 py-2 bg-white ring-1 ring-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer max-w-[180px] sm:max-w-[220px] truncate"
+                                            title="Filter by Header Category"
+                                        >
+                                            <option value="all">All Categories</option>
+                                            {headerCategories.map((cat) => (
+                                                <option key={cat._id || cat.id} value={cat._id || cat.id}>
+                                                    {cat.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <HiOutlineChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                                    </div>
+                                    {/* Sort Dropdown */}
                                     <div className="relative shrink-0">
                                         <select
                                             value={sortBy}
@@ -356,6 +474,8 @@ const StockManagement = () => {
                                             <option value="stock-desc">Stock: High to Low</option>
                                             <option value="name-asc">Name: A to Z</option>
                                             <option value="name-desc">Name: Z to A</option>
+                                            <option value="category-asc">Category: A to Z</option>
+                                            <option value="category-desc">Category: Z to A</option>
                                         </select>
                                         <HiOutlineChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                                     </div>

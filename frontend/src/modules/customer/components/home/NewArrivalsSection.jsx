@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Sparkles, Plus, Minus, ImageOff } from "lucide-react";
 import { customerApi } from "../../services/customerApi";
 import { useProductDetail } from "../../context/ProductDetailContext";
-import { useCart } from "../../context/CartContext";
+import { useCart, resolveVariantStock } from "../../context/CartContext";
 import { useVariantSelection } from "../../context/VariantSelectionContext";
 import { useDeliveryEligibility } from "../../hooks/useDeliveryEligibility";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
@@ -101,13 +101,20 @@ const NewArrivalProductCard = React.memo(({ product }) => {
     [product, productId, variantKey, defaultVariant?.name, openVariantSelection, addToCart, canAddToCart, openProduct]
   );
 
+  const availableStock = useMemo(
+    () => resolveVariantStock(product, variantKey),
+    [product, variantKey]
+  );
+  const maxAllowed = availableStock > 0 ? Math.min(availableStock, 10) : 0;
+
   const handleIncrement = useCallback(
     (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (quantity >= maxAllowed) return;
       updateQuantity(productId, 1, variantKey);
     },
-    [updateQuantity, productId, variantKey]
+    [updateQuantity, productId, variantKey, quantity, maxAllowed]
   );
 
   const handleDecrement = useCallback(
@@ -173,8 +180,13 @@ const NewArrivalProductCard = React.memo(({ product }) => {
             <button
               type="button"
               onClick={handleIncrement}
-              className="w-4 h-full flex items-center justify-center hover:bg-white/20 rounded cursor-pointer transition-colors active:scale-90"
-              title="Increase quantity"
+              disabled={quantity >= maxAllowed}
+              className={`w-4 h-full flex items-center justify-center rounded transition-colors ${
+                quantity >= maxAllowed
+                  ? "opacity-30 cursor-not-allowed"
+                  : "hover:bg-white/20 cursor-pointer active:scale-90"
+              }`}
+              title={quantity >= maxAllowed ? "Max quantity reached" : "Increase quantity"}
             >
               <Plus size={11} strokeWidth={2.8} />
             </button>
@@ -229,19 +241,31 @@ const NewArrivalProductCard = React.memo(({ product }) => {
   );
 });
 
+let memoryNewArrivalsCache = null;
+
 const NewArrivalsSection = ({ latitude, longitude }) => {
-  const [products, setProducts] = useState([]);
-  const [displayProducts, setDisplayProducts] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [products, setProducts] = useState(() => memoryNewArrivalsCache || []);
+  const [displayProducts, setDisplayProducts] = useState(() => memoryNewArrivalsCache || []);
+  const [isLoading, setIsLoading] = useState(() => !memoryNewArrivalsCache || memoryNewArrivalsCache.length === 0);
   const [retryCount, setRetryCount] = useState(0);
   const { language } = useTranslation();
   const { translateObject } = useDynamicTranslation();
 
   useEffect(() => {
+    const handleCmsRefresh = () => {
+      memoryNewArrivalsCache = null;
+    };
+    window.addEventListener("anushkakart:cms_updated", handleCmsRefresh);
+    return () => window.removeEventListener("anushkakart:cms_updated", handleCmsRefresh);
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     const fetchNewArrivals = async () => {
-      setIsLoading(true);
+      if (!memoryNewArrivalsCache || memoryNewArrivalsCache.length === 0) {
+        setIsLoading(true);
+      }
       try {
         const params = {
           newArrivals: "true",
@@ -268,6 +292,7 @@ const NewArrivalsSection = ({ latitude, longitude }) => {
             originalPrice: Number(p.price || p.variants?.[0]?.price) || 0,
             rating: Number(p.rating) > 0 ? Number(p.rating) : 5.0,
           }));
+          memoryNewArrivalsCache = formatted;
           setProducts(formatted);
           setDisplayProducts(formatted);
           if (formatted.length === 0 && retryCount < 2) {

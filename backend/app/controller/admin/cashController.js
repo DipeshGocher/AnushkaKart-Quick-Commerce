@@ -24,8 +24,14 @@ export const getDeliveryCashBalances = async (req, res) => {
 
 export const settleRiderCash = async (req, res) => {
   try {
-    const { riderId, amount, method } = req.body;
-    const settlement = await settleRiderCashEntry({ riderId, amount, method });
+    const { riderId, amount, method, notes } = req.body;
+    const settlement = await settleRiderCashEntry({
+      riderId,
+      amount,
+      method,
+      notes,
+      actorId: req.user?.id,
+    });
 
     if (!settlement) {
       return handleResponse(res, 404, "Rider not found");

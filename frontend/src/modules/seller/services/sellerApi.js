@@ -21,7 +21,7 @@ export const sellerApi = {
     getCategoryTree: (params) => axiosInstance.get('/admin/categories?tree=true', { params }),
 
     // Others
-    getStats: (range) => axiosInstance.get('/seller/stats', { params: { range } }),
+    getStats: (params) => axiosInstance.get('/seller/stats', { params: typeof params === 'object' ? params : { range: params } }),
     getOrders: (params) => axiosInstance.get('/orders/seller-orders', { params }),
     updateOrderStatus: (orderId, data) => axiosInstance.put(`/orders/status/${orderId}`, data),
     getEarnings: () => axiosInstance.get('/seller/earnings'),
@@ -52,4 +52,7 @@ export const sellerApi = {
     processShiprocketOrder: (orderId) => axiosInstance.post(`/shipping/shiprocket/process/${orderId}`),
     scheduleShiprocketPickup: (orderId) => axiosInstance.post(`/shipping/shiprocket/pickup/${orderId}`),
     getShiprocketLabel: (orderId) => axiosInstance.get(`/shipping/shiprocket/label/${orderId}`),
+
+    // Live Tracking & Routes
+    getOrderRoute: (orderId, params) => axiosInstance.get(`/orders/workflow/${orderId}/route`, { params }),
 };

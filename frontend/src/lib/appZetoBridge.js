@@ -32,20 +32,29 @@ const AppZetoBridge = {
    * @param {boolean} darkIcons - Whether status bar icons should be dark/black
    */
   setStatusBarColor: (color, darkIcons = false) => {
+    if (typeof window === 'undefined') return;
     if (window.Flutter && typeof window.Flutter.postMessage === 'function') {
       try {
         window.Flutter.postMessage(JSON.stringify({
           type: 'set_status_bar',
+          action: 'set_status_bar',
           color: color,
           darkIcons: Boolean(darkIcons),
           statusBarColor: color,
           isDark: Boolean(darkIcons),
         }));
-      } catch (_) {
-        try {
-          window.Flutter.postMessage(`set_status_bar:${color}`);
-        } catch (__) {}
-      }
+      } catch (_) {}
+      try {
+        window.Flutter.postMessage(`set_status_bar:${color}`);
+      } catch (_) {}
+      try {
+        window.Flutter.postMessage(`set_status_bar:${color}:${darkIcons ? 'dark' : 'light'}`);
+      } catch (_) {}
+    }
+    if (window.flutter_inappwebview && typeof window.flutter_inappwebview.callHandler === 'function') {
+      try {
+        window.flutter_inappwebview.callHandler('setStatusBarColor', color, Boolean(darkIcons));
+      } catch (_) {}
     }
   },
 

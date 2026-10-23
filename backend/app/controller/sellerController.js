@@ -1,5 +1,7 @@
 import Seller from "../models/seller.js";
+import Order from "../models/order.js";
 import Transaction from "../models/transaction.js";
+import Wallet from "../models/wallet.js";
 import { handleResponse, calculateDistance } from "../utils/helper.js";
 import mongoose from "mongoose";
 import { invalidateSellerName } from "../services/entityNameCache.js";
@@ -72,22 +74,51 @@ export const requestWithdrawal = async (req, res) => {
     const sellerId = req.user.id;
     const { amount } = req.body;
 
-    if (!amount || amount <= 0) {
+    const parsedAmount = Number(amount);
+    if (!parsedAmount || parsedAmount <= 0) {
       return handleResponse(res, 400, "Please enter a valid amount");
     }
 
-    // 1. Calculate current available balance
-    // Consistent with getSellerEarnings logic in sellerStatsController.js
+    // 1. Verify seller has bank account added in Profile
+    const seller = await Seller.findById(sellerId).lean();
+    if (!seller) {
+      return handleResponse(res, 404, "Seller not found");
+    }
+
+    const bank = seller.bankDetails;
+    const bankAccount = bank?.accountNumber || seller.accountNumber;
+    const bankName = bank?.bankName || seller.bankName;
+    const ifsc = bank?.ifscCode || bank?.ifsc || seller.ifsc;
+    const accountHolder = bank?.accountHolderName || bank?.accountHolder || seller.accountHolder || seller.name;
+
+    if (!bankAccount || !bankName) {
+      return handleResponse(
+        res,
+        400,
+        "Please link your bank account in Profile before requesting a withdrawal",
+      );
+    }
+
+    // 2. Single source of truth available balance calculation
     const transactions = await Transaction.find({
       user: sellerId,
       userModel: "Seller",
     })
-      .select("status amount type")
+      .select("status amount type order")
+      .populate("order", "paymentBreakdown")
       .lean();
 
-    const settledBalance = transactions
-      .filter((t) => t.status === "Settled")
-      .reduce((acc, t) => acc + (t.amount || 0), 0);
+    const settledEarnings = transactions
+      .filter((t) => t.type === "Order Payment" && t.status === "Settled")
+      .reduce(
+        (acc, t) =>
+          acc + (t.order?.paymentBreakdown?.sellerPayoutTotal || t.amount || 0),
+        0,
+      );
+
+    const settledWithdrawals = transactions
+      .filter((t) => t.type === "Withdrawal" && t.status === "Settled")
+      .reduce((acc, t) => acc + Math.abs(t.amount || 0), 0);
 
     const pendingPayouts = transactions
       .filter(
@@ -97,26 +128,54 @@ export const requestWithdrawal = async (req, res) => {
       )
       .reduce((acc, t) => acc + Math.abs(t.amount || 0), 0);
 
-    const availableBalance = settledBalance - pendingPayouts;
+    const availableBalance = Math.max(
+      0,
+      settledEarnings - settledWithdrawals - pendingPayouts,
+    );
 
-    if (amount > availableBalance) {
+    if (parsedAmount > availableBalance) {
       return handleResponse(
         res,
         400,
-        `Insufficient balance. Available: ₹${availableBalance}`,
+        `Insufficient balance. Available: ₹${availableBalance.toLocaleString()}`,
       );
     }
 
-    // 2. Create Withdrawal Transaction
-    // Withdrawals have negative amounts per the model comment
+    // 3. Create Withdrawal Transaction with bank details snapshot in meta
+    const maskedAcc = String(bankAccount).slice(-4);
     const withdrawal = await Transaction.create({
       user: sellerId,
       userModel: "Seller",
       type: "Withdrawal",
-      amount: -Math.abs(amount),
+      amount: -Math.abs(parsedAmount),
       status: "Pending",
       reference: `WDR-${Date.now()}`,
+      meta: {
+        bankDetails: {
+          bankName,
+          accountNumber: bankAccount,
+          ifscCode: ifsc,
+          accountHolderName: accountHolder,
+          upiId: bank?.upiId || null,
+        },
+        requestedAt: new Date(),
+      },
+      notes: `Withdrawal to ${bankName} (Acct Ending in **** ${maskedAcc})`,
     });
+
+    // 4. Sync Wallet document in MongoDB
+    const remainingAvailable = Math.max(0, availableBalance - parsedAmount);
+    const newPending = pendingPayouts + parsedAmount;
+    await Wallet.findOneAndUpdate(
+      { ownerType: "SELLER", ownerId: sellerId },
+      {
+        $set: {
+          availableBalance: remainingAvailable,
+          pendingBalance: newPending,
+        },
+      },
+      { upsert: true },
+    );
 
     return handleResponse(
       res,
@@ -154,7 +213,7 @@ export const getSellerProfile = async (req, res) => {
 ================================ */
 export const updateSellerProfile = async (req, res) => {
   try {
-    const { name, shopName, phone, address, locality, pincode, city, state, lat, lng, radius } = req.body;
+    const { name, shopName, phone, address, locality, pincode, city, state, lat, lng, radius, bankDetails } = req.body;
 
     // Find seller
     const seller = await Seller.findById(req.user.id);
@@ -167,6 +226,33 @@ export const updateSellerProfile = async (req, res) => {
     if (shopName) seller.shopName = shopName;
     if (phone) seller.phone = phone;
     if (locality !== undefined) seller.locality = locality;
+
+    if (bankDetails && typeof bankDetails === "object") {
+      if (!seller.bankDetails) seller.bankDetails = {};
+      if (bankDetails.bankName !== undefined) {
+        seller.bankDetails.bankName = String(bankDetails.bankName || "").trim();
+        seller.bankName = seller.bankDetails.bankName;
+      }
+      if (bankDetails.accountNumber !== undefined) {
+        seller.bankDetails.accountNumber = String(bankDetails.accountNumber || "").trim();
+        seller.accountNumber = seller.bankDetails.accountNumber;
+      }
+      if (bankDetails.ifsc !== undefined || bankDetails.ifscCode !== undefined) {
+        const ifscVal = String(bankDetails.ifscCode || bankDetails.ifsc || "").trim().toUpperCase();
+        seller.bankDetails.ifsc = ifscVal;
+        seller.bankDetails.ifscCode = ifscVal;
+        seller.ifsc = ifscVal;
+      }
+      if (bankDetails.accountHolder !== undefined || bankDetails.accountHolderName !== undefined) {
+        const holder = String(bankDetails.accountHolderName || bankDetails.accountHolder || "").trim();
+        seller.bankDetails.accountHolder = holder;
+        seller.bankDetails.accountHolderName = holder;
+        seller.accountHolder = holder;
+      }
+      if (bankDetails.upiId !== undefined) {
+        seller.bankDetails.upiId = String(bankDetails.upiId || "").trim();
+      }
+    }
 
     if (pincode !== undefined) {
       const normPincode = String(pincode || "").trim();

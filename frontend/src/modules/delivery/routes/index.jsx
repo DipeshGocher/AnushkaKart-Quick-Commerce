@@ -17,7 +17,6 @@ import VehicleInfo from "../pages/profile/VehicleInfo";
 import BankAccount from "../pages/profile/BankAccount";
 import Documents from "../pages/profile/Documents";
 import SafetyPrivacy from "../pages/profile/SafetyPrivacy";
-import Settings from "../pages/profile/Settings";
 import HelpSupport from "../pages/profile/HelpSupport";
 import Withdrawals from "../pages/profile/Withdrawals";
 import Notifications from "../pages/Notifications";
@@ -40,7 +39,6 @@ export const deliveryRoutes = [
   { path: "profile/bank-account", element: <BankAccount /> },
   { path: "profile/documents", element: <Documents /> },
   { path: "profile/safety-privacy", element: <SafetyPrivacy /> },
-  { path: "profile/settings", element: <Settings /> },
   { path: "profile/help-support", element: <HelpSupport /> },
   { path: "profile/withdrawals", element: <Withdrawals /> },
   { path: "profile/cod-cash", element: <CodCash /> },

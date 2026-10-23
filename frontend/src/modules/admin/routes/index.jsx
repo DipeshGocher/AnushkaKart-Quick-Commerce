@@ -92,9 +92,6 @@ const AdminSettings = React.lazy(() => import("../pages/AdminSettings"));
 const AdminProfile = React.lazy(() => import("../pages/AdminProfile"));
 
 
-const BestsellerManagement = React.lazy(() => import("../pages/BestsellerManagement"));
-const FestivalDealsAdmin = React.lazy(() => import("../pages/FestivalDealsAdmin"));
-
 const SOSAlerts = React.lazy(() => import("../pages/SOSAlerts"));
 
 const EmployeeManagement = React.lazy(() => import("../pages/EmployeeManagement"));
@@ -233,15 +230,6 @@ const navItems = [
     color: "violet",
   },
   {
-    label: "Home Content",
-    icon: Sparkles,
-    color: "purple",
-    children: [
-      { label: "Bestsellers", path: "/admin/content/bestsellers" },
-      { label: "Festival Deals", path: "/admin/content/festival-deals" },
-    ],
-  },
-  {
     label: "FAQs",
     path: "/admin/faqs",
     icon: HelpCircle,
@@ -278,8 +266,8 @@ export const adminRoutes = [
   { path: "support-tickets", element: <SupportTickets /> },
   { path: "moderation", element: <ReviewModeration /> },
   { path: "monthly-baskets/*", element: <Navigate to="/admin/products" replace /> },
-  { path: "content/bestsellers", element: <BestsellerManagement /> },
-  { path: "content/festival-deals", element: <FestivalDealsAdmin /> },
+  { path: "content/bestsellers", element: <Navigate to="/admin" replace /> },
+  { path: "content/festival-deals", element: <Navigate to="/admin" replace /> },
   { path: "experience-studio", element: <Navigate to="/admin/hero-categories" replace /> },
   { path: "hero-categories", element: <HeroCategoriesPerPage /> },
   { path: "notifications", element: <NotificationComposer /> },

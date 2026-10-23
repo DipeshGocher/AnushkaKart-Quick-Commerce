@@ -18,9 +18,11 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import Button from "@/shared/components/ui/Button";
 import { deliveryApi } from "../../services/deliveryApi";
+import { useAuth } from "@core/context/AuthContext";
 
 const Withdrawals = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [amount, setAmount] = useState("");
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
@@ -34,28 +36,65 @@ const Withdrawals = () => {
     const fetchData = async () => {
         try {
             setFetching(true);
-            const res = await deliveryApi.getEarnings();
-            if (res.data.success) {
-                setStats({
-                    availableBalance: res.data.result.totalEarnings || 0,
-                    pendingWithdrawals: (res.data.result.recentTransactions || [])
-                        .filter(t => t.type.includes('Withdrawal') && (t.status === 'Pending' || t.status === 'Processing'))
-                        .reduce((acc, t) => acc + Math.abs(t.amount), 0),
-                    history: (res.data.result.recentTransactions || [])
-                        .filter(t => t.type.includes('Withdrawal'))
-                });
+            // Fetch both dedicated withdrawals endpoint and wallet summary for guaranteed consistency
+            const [wdrRes, walletRes] = await Promise.allSettled([
+                deliveryApi.getWithdrawals(),
+                deliveryApi.getWalletSummary()
+            ]);
+
+            let available = 0;
+            let pending = 0;
+            let historyList = [];
+
+            if (wdrRes.status === 'fulfilled' && wdrRes.value?.data?.success) {
+                const resData = wdrRes.value.data.result || {};
+                available = Number(resData.availableBalance) || 0;
+                pending = Number(resData.pendingWithdrawals) || 0;
+                const rawHistory = resData.history || resData.transactions || [];
+                historyList = Array.isArray(rawHistory) ? rawHistory : [];
+            } else {
+                // Secondary fallback: getEarnings
+                try {
+                    const earnRes = await deliveryApi.getEarnings();
+                    if (earnRes?.data?.success) {
+                        const result = earnRes.data.result || {};
+                        const txs = result.transactions || result.recentTransactions || [];
+                        const settledEarnings = (result.totalEarnings || 0);
+                        const settledWithdrawals = txs
+                            .filter(t => t.type?.includes('Withdrawal') && t.status === 'Settled')
+                            .reduce((acc, t) => acc + Math.abs(t.amount || 0), 0);
+                        const pendingPayouts = txs
+                            .filter(t => t.type?.includes('Withdrawal') && (t.status === 'Pending' || t.status === 'Processing'))
+                            .reduce((acc, t) => acc + Math.abs(t.amount || 0), 0);
+                        
+                        available = Math.max(0, settledEarnings - settledWithdrawals - pendingPayouts);
+                        pending = pendingPayouts;
+                        historyList = txs.filter(t => t.type?.includes('Withdrawal'));
+                    }
+                } catch (e) {
+                    console.error("Secondary earnings fetch failed:", e);
+                }
             }
+
+            // If wallet summary gave a verified positive availableBalance, prioritize or sync it
+            if (walletRes.status === 'fulfilled' && walletRes.value?.data?.success) {
+                const wSummary = walletRes.value.data.result || {};
+                if (typeof wSummary.availableBalance === 'number' && wSummary.availableBalance >= 0) {
+                    available = wSummary.availableBalance;
+                }
+                if (typeof wSummary.pendingBalance === 'number' && wSummary.pendingBalance >= 0) {
+                    pending = wSummary.pendingBalance;
+                }
+            }
+
+            setStats({
+                availableBalance: available,
+                pendingWithdrawals: pending,
+                history: historyList
+            });
         } catch (error) {
             console.error("Fetch Error:", error);
-            // Fallback with mock data for frontend demo if API fails
-            setStats({
-                availableBalance: 1250,
-                pendingWithdrawals: 0,
-                history: [
-                    { id: 'WDR123', amount: 500, status: 'Settled', date: '2024-03-20', type: 'Withdrawal' },
-                    { id: 'WDR124', amount: 300, status: 'Pending', date: '2024-03-21', type: 'Withdrawal' }
-                ]
-            });
+            toast.error("Failed to load withdrawal data");
         } finally {
             setFetching(false);
         }
@@ -66,20 +105,33 @@ const Withdrawals = () => {
     }, []);
 
     const handleRequest = async () => {
-        if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+        const numAmount = Number(amount);
+        if (!amount || isNaN(numAmount) || numAmount <= 0) {
             return toast.error("Please enter a valid amount");
         }
-        if (Number(amount) > stats.availableBalance) {
-            return toast.error("Insufficient balance");
+        if (numAmount > stats.availableBalance) {
+            return toast.error(`Insufficient balance. Max withdrawable: ₹${stats.availableBalance.toLocaleString()}`);
+        }
+
+        const hasPayoutDestination = Boolean(
+            user?.bankDetails?.accountNumber || user?.accountNumber ||
+            user?.bankDetails?.upiId || user?.upiId
+        );
+        if (!hasPayoutDestination) {
+            toast.error("Please link your Bank Account or UPI ID first in Bank Account page.");
+            setIsModalOpen(false);
+            navigate("/delivery/profile/bank-account");
+            return;
         }
 
         setLoading(true);
         try {
-            const res = await deliveryApi.requestWithdrawal({ amount: Number(amount) });
+            const res = await deliveryApi.requestWithdrawal({ amount: numAmount });
             if (res.data.success) {
                 toast.success("Withdrawal request submitted successfully!");
+                setIsModalOpen(false);
                 setAmount("");
-                fetchData();
+                await fetchData();
             } else {
                 toast.error(res.data.message || "Failed to submit request");
             }
@@ -91,7 +143,7 @@ const Withdrawals = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#f1f4f8] pb-16 font-['Outfit',_sans-serif]">
+        <div className="min-h-screen bg-[#f1f4f8] pb-36 font-['Outfit',_sans-serif]">
             {/* Top Header */}
             <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 pt-4 pb-2 border-b border-slate-100 mb-2 flex items-center gap-2">
                 <button
@@ -119,8 +171,14 @@ const Withdrawals = () => {
                         </div>
                         
                         <button 
-                            onClick={() => setIsModalOpen(true)}
-                            className="mt-4 h-9 px-4 rounded-full bg-gradient-to-r from-[#2e7d32] to-[#1b5e20] hover:from-[#2e7d32]/95 hover:to-[#1b5e20]/95 text-white font-black text-[11px] flex items-center gap-1.5 shadow-2xs hover:scale-105 active:scale-95 transition-all select-none"
+                            onClick={() => {
+                                if (stats.availableBalance <= 0) {
+                                    return toast.error("No available balance to withdraw");
+                                }
+                                setIsModalOpen(true);
+                            }}
+                            disabled={stats.availableBalance <= 0}
+                            className="mt-4 h-9 px-4 rounded-full bg-gradient-to-r from-[#2e7d32] to-[#1b5e20] hover:from-[#2e7d32]/95 hover:to-[#1b5e20]/95 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black text-[11px] flex items-center gap-1.5 shadow-2xs hover:scale-105 active:scale-95 transition-all select-none"
                         >
                             <span>Withdraw Funds</span>
                             <ArrowRight size={13} strokeWidth={3} />
@@ -151,34 +209,45 @@ const Withdrawals = () => {
 
                     <div className="divide-y divide-slate-100">
                         {stats.history.length > 0 ? (
-                            stats.history.map((item, idx) => (
-                                <div key={item.id} className="px-4 py-3.5 flex items-center justify-between hover:bg-slate-50/80 transition-colors">
-                                    <div className="flex items-center gap-3.5">
-                                        <div className={`w-11 h-11 rounded-full border flex items-center justify-center shadow-2xs shrink-0 ${
-                                            item.status === 'Settled' ? 'bg-teal-50/80 border-teal-100 text-teal-700' :
-                                            item.status === 'Failed' ? 'bg-red-50 border-red-100 text-red-700' :
-                                            'bg-amber-50 border-amber-100 text-amber-700'
+                            stats.history.map((item, idx) => {
+                                const itemId = item.reference || item.id || item._id || `WDR-${idx}`;
+                                const itemDate = item.createdAt || item.date;
+                                const formattedDate = itemDate
+                                    ? new Date(itemDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                                    : 'Recent';
+                                const itemAmount = Math.abs(Number(item.amount) || 0);
+                                const isSettled = item.status === 'Settled' || item.status === 'settled';
+                                const isFailed = item.status === 'Failed' || item.status === 'failed';
+
+                                return (
+                                    <div key={itemId} className="px-4 py-3.5 flex items-center justify-between hover:bg-slate-50/80 transition-colors">
+                                        <div className="flex items-center gap-3.5">
+                                            <div className={`w-11 h-11 rounded-full border flex items-center justify-center shadow-2xs shrink-0 ${
+                                                isSettled ? 'bg-teal-50/80 border-teal-100 text-teal-700' :
+                                                isFailed ? 'bg-red-50 border-red-100 text-red-700' :
+                                                'bg-amber-50 border-amber-100 text-amber-700'
+                                            }`}>
+                                                {isSettled ? <CheckCircle2 size={18} /> :
+                                                 isFailed ? <XCircle size={18} /> :
+                                                 <Clock size={18} />}
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-slate-800 text-sm">₹{itemAmount.toLocaleString()}</h4>
+                                                <p className="text-[11px] font-medium text-slate-500">
+                                                    {formattedDate} • {itemId}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className={`text-[10px] font-bold px-2 py-1 rounded leading-none ${
+                                            isSettled ? 'bg-emerald-50 text-emerald-700' : 
+                                            isFailed ? 'bg-red-50 text-red-600' : 
+                                            'bg-amber-50 text-amber-600'
                                         }`}>
-                                            {item.status === 'Settled' ? <CheckCircle2 size={18} /> :
-                                             item.status === 'Failed' ? <XCircle size={18} /> :
-                                             <Clock size={18} />}
-                                        </div>
-                                        <div>
-                                            <h4 className="font-bold text-slate-800 text-sm">₹{Math.abs(item.amount).toLocaleString()}</h4>
-                                            <p className="text-[11px] font-medium text-slate-500">
-                                                {new Date(item.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {item.id}
-                                            </p>
+                                            {(item.status || 'PENDING').toUpperCase()}
                                         </div>
                                     </div>
-                                    <div className={`text-[10px] font-bold px-2 py-1 rounded leading-none ${
-                                        item.status === 'Settled' ? 'bg-brand-50 text-brand-600' : 
-                                        item.status === 'Failed' ? 'bg-red-50 text-red-600' : 
-                                        'bg-amber-50 text-amber-600'
-                                    }`}>
-                                        {item.status.toUpperCase()}
-                                    </div>
-                                </div>
-                            ))
+                                );
+                            })
                         ) : (
                             <div className="py-8 flex flex-col items-center justify-center text-center px-6">
                                 <Clock className="mx-auto text-slate-300 mb-2" size={32} />
@@ -192,7 +261,7 @@ const Withdrawals = () => {
             {/* Withdrawal Modal */}
             <AnimatePresence>
                 {isModalOpen && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-[600] flex items-center justify-center p-4">
                         <motion.div 
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -217,9 +286,20 @@ const Withdrawals = () => {
                             </div>
                             <div className="p-5 space-y-5">
                                 <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">
-                                        Amount to Withdraw
-                                    </label>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                                            Amount to Withdraw
+                                        </label>
+                                        {stats.availableBalance > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setAmount(String(stats.availableBalance))}
+                                                className="text-[11px] font-bold text-[#6666FF] hover:text-[#5555EE] transition-colors"
+                                            >
+                                                Withdraw All (₹{stats.availableBalance.toLocaleString()})
+                                            </button>
+                                        )}
+                                    </div>
                                     <div className="relative">
                                         <IndianRupee className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                                         <input
@@ -232,22 +312,38 @@ const Withdrawals = () => {
                                     </div>
                                 </div>
 
+                                {user?.bankDetails?.upiId || user?.upiId || user?.bankDetails?.accountNumber || user?.accountNumber ? (
+                                    <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200/60 text-xs">
+                                        <p className="font-bold text-emerald-900 mb-0.5">Transfer Destination:</p>
+                                        {user?.bankDetails?.upiId || user?.upiId ? (
+                                            <p className="font-mono text-emerald-700 font-bold">UPI: {user?.bankDetails?.upiId || user?.upiId}</p>
+                                        ) : null}
+                                        {user?.bankDetails?.accountNumber || user?.accountNumber ? (
+                                            <p className="text-emerald-700">
+                                                {user?.bankDetails?.bankName || user?.bankName || "Bank"}: ••••{String(user?.bankDetails?.accountNumber || user?.accountNumber || "").slice(-4)} ({user?.bankDetails?.ifsc || user?.ifsc || ""})
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                ) : (
+                                    <div className="flex items-start gap-2 p-3 bg-rose-50 rounded-xl border border-rose-100/50">
+                                        <AlertCircle className="text-rose-500 shrink-0 mt-0.5" size={16} />
+                                        <p className="text-[11px] text-rose-700 font-medium leading-relaxed">
+                                            No bank account or UPI linked yet. Please add your payout details first.
+                                        </p>
+                                    </div>
+                                )}
+
                                 <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100/50">
                                     <AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={16} />
                                     <p className="text-[10px] text-amber-700 font-medium leading-relaxed">
-                                        Processing may take 24-48 business hours. Funds will be transferred to your primary bank account.
+                                        Processing may take 24-48 business hours. Funds will be manually transferred by Admin to your linked Bank/UPI.
                                     </p>
                                 </div>
 
                                 <Button
-                                    onClick={() => {
-                                        handleRequest();
-                                        if (amount && !isNaN(Number(amount)) && Number(amount) > 0 && Number(amount) <= stats.availableBalance) {
-                                            setIsModalOpen(false);
-                                        }
-                                    }}
-                                    disabled={loading || !amount || Number(amount) <= 0}
-                                    className="w-full py-3.5 rounded-xl font-bold text-sm shadow-md bg-[#6666FF] hover:bg-[#5555EE] text-white"
+                                    onClick={handleRequest}
+                                    disabled={loading || !amount || Number(amount) <= 0 || Number(amount) > stats.availableBalance}
+                                    className="w-full py-3.5 rounded-xl font-bold text-sm shadow-md bg-[#6666FF] hover:bg-[#5555EE] text-white disabled:opacity-50"
                                 >
                                     {loading ? <RotateCw className="animate-spin mr-2" size={18} /> : null}
                                     {loading ? "PROCESSING..." : "SUBMIT REQUEST"}

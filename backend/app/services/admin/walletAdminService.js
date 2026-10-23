@@ -1,5 +1,6 @@
 import Transaction from "../../models/transaction.js";
 import Notification from "../../models/notification.js";
+import Wallet from "../../models/wallet.js";
 import { getAdminFinanceSummary } from "../finance/walletService.js";
 import { getLedgerEntries } from "../finance/ledgerService.js";
 
@@ -232,7 +233,7 @@ export async function getDeliveryWithdrawalsData({ page, limit, skip, status }) 
 
   const [transactions, total] = await Promise.all([
     Transaction.find(query)
-      .populate("user", "name phone bankDetails accountHolder accountNumber ifsc bankName")
+      .populate("user", "name phone bankDetails accountHolder accountNumber ifsc bankName upiId")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -259,6 +260,7 @@ export async function updateWithdrawalStatusById({ id, status, reason }) {
     return null;
   }
 
+  const prevStatus = transaction.status;
   transaction.status = status;
   if (reason) {
     transaction.notes = reason;
@@ -267,6 +269,32 @@ export async function updateWithdrawalStatusById({ id, status, reason }) {
   }
 
   await transaction.save();
+
+  // Sync Wallet for Seller or Delivery User
+  const userId = transaction.user?._id || transaction.user;
+  const userModel = transaction.userModel || "Seller";
+  const ownerType = userModel === "Seller" ? "SELLER" : userModel === "Delivery" ? "DELIVERY_PARTNER" : null;
+
+  if (userId && ownerType) {
+    const amountAbs = Math.abs(transaction.amount || 0);
+    const wallet = await Wallet.findOne({
+      ownerType: { $in: [ownerType, "DELIVERY", "DELIVERY_PARTNER"] },
+      ownerId: userId,
+    });
+
+    if (wallet) {
+      if (status === "Settled" && prevStatus !== "Settled") {
+        wallet.pendingBalance = Math.max(0, (wallet.pendingBalance || 0) - amountAbs);
+        wallet.totalDebited = (wallet.totalDebited || 0) + amountAbs;
+        await wallet.save();
+      } else if (status === "Failed" && prevStatus !== "Failed") {
+        wallet.pendingBalance = Math.max(0, (wallet.pendingBalance || 0) - amountAbs);
+        wallet.availableBalance = (wallet.availableBalance || 0) + amountAbs;
+        await wallet.save();
+      }
+    }
+  }
+
   return transaction;
 }
 

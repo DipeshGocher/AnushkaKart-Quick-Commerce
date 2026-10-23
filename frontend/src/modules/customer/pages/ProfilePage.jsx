@@ -22,6 +22,23 @@ const ProfilePage = () => {
 
     React.useEffect(() => {
         setStatusBarColor('#FFFFFF', true);
+        try {
+            if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                document.activeElement.blur();
+            }
+        } catch (e) {
+            // ignore
+        }
+        const timer = setTimeout(() => {
+            try {
+                if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                    document.activeElement.blur();
+                }
+            } catch (e) {
+                // ignore
+            }
+        }, 50);
+        return () => clearTimeout(timer);
     }, []);
     const appName = settings?.appName || 'App';
     const [showLogoutModal, setShowLogoutModal] = React.useState(false);

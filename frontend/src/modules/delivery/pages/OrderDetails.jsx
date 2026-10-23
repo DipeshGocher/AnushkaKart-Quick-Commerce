@@ -38,6 +38,7 @@ import {
 } from "@/core/services/orderSocket";
 
 const getPublicStatusStage = (internalStep) => {
+  if (internalStep <= 0) return 0;
   if (internalStep >= 4) return 3;
   if (internalStep >= 3) return 2;
   return 1;
@@ -68,6 +69,13 @@ const PUBLIC_STATUS_STEPS = [
 const getPersistedRiderStep = (order) => {
   if (!order) return 1;
 
+  const workflowStatus = String(order.workflowStatus || "").toUpperCase();
+  const legacyStatus = String(order.status || "").toLowerCase();
+
+  if (workflowStatus === "CANCELLED" || legacyStatus === "cancelled") {
+    return 0;
+  }
+
   // Handle Return Flow Steps (5-step UI)
   if (order.returnStatus && order.returnStatus !== "none") {
     const rs = order.returnStatus.toLowerCase();
@@ -77,8 +85,6 @@ const getPersistedRiderStep = (order) => {
     if (rs === "return_pickup_assigned" || rs === "return_approved") return 1;
   }
 
-  const workflowStatus = String(order.workflowStatus || "").toUpperCase();
-  const legacyStatus = String(order.status || "").toLowerCase();
   const riderStep = Number(order.deliveryRiderStep) || 0;
 
   if (
@@ -204,7 +210,7 @@ const OrderDetails = () => {
     return () => clearInterval(iv);
   }, []);
 
-  // Listen for order:status:update — immediately hide map when delivered
+  // Listen for order:status:update — reactive across full order lifecycle
   useEffect(() => {
     if (!orderId) return undefined;
     const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_DELIVERY);
@@ -212,10 +218,31 @@ const OrderDetails = () => {
     joinOrderRoom(orderId, getToken);
 
     const off = onOrderStatusUpdate(getToken, (payload) => {
+      if (!payload) return;
       const ws = String(payload?.workflowStatus || "").toUpperCase();
-      if (ws === "DELIVERED") {
-        setStep(4);
-        setOrder((prev) => prev ? { ...prev, status: "delivered", workflowStatus: "DELIVERED" } : prev);
+      const st = String(payload?.status || "").toLowerCase();
+
+      setOrder((prev) => {
+        if (!prev) return prev;
+        const updated = {
+          ...prev,
+          ...payload,
+          status: payload.status || (ws ? ws.toLowerCase() : prev.status),
+          workflowStatus: payload.workflowStatus || prev.workflowStatus,
+        };
+        const nextStep = getPersistedRiderStep(updated);
+        setStep(nextStep);
+        return updated;
+      });
+
+      if (ws === "DELIVERED" || st === "delivered") {
+        toast.success("🎉 Order delivered successfully!");
+      } else if (ws === "CANCELLED" || st === "cancelled") {
+        toast.error("⚠️ Order has been cancelled.");
+      } else if (ws === "PICKUP_READY" || st === "packed") {
+        toast.info("📦 Store has packed the order! Ready for pickup.");
+      } else if (ws === "CONFIRMED") {
+        toast.info("✅ Order confirmed by seller.");
       }
     });
 
@@ -329,10 +356,19 @@ const OrderDetails = () => {
     }
 
     if (publicStatusStage === 3) {
+      const deliveredDist =
+        order?.delivery?.routeDistanceKm != null && order.delivery.routeDistanceKm > 0
+          ? `${order.delivery.routeDistanceKm} km`
+          : order?.delivery?.routeDistanceMeters != null && order.delivery.routeDistanceMeters > 0
+            ? formatDistance(order.delivery.routeDistanceMeters)
+            : routeStats?.routeDistanceMeters
+              ? formatDistance(routeStats.routeDistanceMeters)
+              : "Completed";
+
       return {
         arrivalTimeText: "Arrived",
         arrivingInText: isReturn ? "Return Complete" : "Delivered",
-        totalDistanceText: "0 km",
+        totalDistanceText: deliveredDist,
       };
     }
 
@@ -552,6 +588,18 @@ const OrderDetails = () => {
     }
   };
 
+  const isCancelled = useMemo(() => {
+    const ws = String(order?.workflowStatus || "").toUpperCase();
+    const st = String(order?.status || "").toLowerCase();
+    return ws === "CANCELLED" || st === "cancelled";
+  }, [order?.workflowStatus, order?.status]);
+
+  const isDelivered = useMemo(() => {
+    const ws = String(order?.workflowStatus || "").toUpperCase();
+    const st = String(order?.status || "").toLowerCase();
+    return ws === "DELIVERED" || st === "delivered";
+  }, [order?.workflowStatus, order?.status]);
+
   // Check if current rider is assigned to this return
   const isAssignedRider = useMemo(() => {
     if (!order || !user) return false;
@@ -605,14 +653,21 @@ const OrderDetails = () => {
         </div>
         <div className="flex flex-col items-end">
           <span
-            className={`text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wide ${publicStatusStage === 1
-                ? "bg-brand-100 text-brand-700"
-                : publicStatusStage === 2
-                  ? "bg-amber-100 text-amber-700"
-                  : "bg-brand-100 text-brand-700"
-              }`}
+            className={`text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wide ${
+              isCancelled
+                ? "bg-red-50 text-red-600 border border-red-200"
+                : isDelivered
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  : publicStatusStage === 1
+                    ? "bg-brand-100 text-brand-700"
+                    : publicStatusStage === 2
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-brand-100 text-brand-700"
+            }`}
           >
-            {isReturn ? (
+            {isCancelled ? (
+              "Cancelled"
+            ) : isReturn ? (
               publicStatusStage === 1 ? "Return Assigned" :
                 publicStatusStage === 2 ? "Out for Pickup" :
                   "Return Received"
@@ -625,6 +680,7 @@ const OrderDetails = () => {
           {(order.payment?.method?.toLowerCase() === "cash" ||
             order.payment?.method?.toLowerCase() === "cod") &&
             !isReturn &&
+            !isCancelled &&
             step < 4 && (
               <span className={`mt-1 text-white text-[10px] font-black px-2 py-0.5 rounded shadow-sm animate-pulse bg-[#6666FF]`}>
                 COLLECT CASH: ₹{Math.max(0, (order.pricing?.total || 0) - (order.pricing?.walletAmount || 0))}
@@ -747,8 +803,30 @@ const OrderDetails = () => {
         </AnimatePresence>
 
 
-        {/* Map Section - Hidden when completed */}
-        {(isReturn ? step < 5 : step < 4) && (!isReturn || isAssignedRider) && (
+        {/* Cancelled Banner */}
+        {isCancelled && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-red-50/90 rounded-3xl p-6 border border-red-200/80 shadow-sm text-center"
+          >
+            <div className="w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-3 text-red-600">
+              <AlertTriangle size={28} />
+            </div>
+            <h3 className="text-lg font-black text-red-900 mb-1">Order Cancelled</h3>
+            <p className="text-xs text-red-700 max-w-sm mx-auto leading-relaxed">
+              {order.cancellationReason || order.cancelReason || "This order was cancelled. No pickup or delivery action is required from your side."}
+            </p>
+            {order.cancelledAt && (
+              <p className="text-[10px] text-red-500 font-semibold mt-2">
+                Cancelled on: {new Date(order.cancelledAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+              </p>
+            )}
+          </motion.div>
+        )}
+
+        {/* Map Section - Hidden when completed or cancelled */}
+        {!isCancelled && (isReturn ? step < 5 : step < 4) && (!isReturn || isAssignedRider) && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -765,75 +843,123 @@ const OrderDetails = () => {
           </motion.div>
         )}
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-[#FFF8E8] rounded-3xl p-4 shadow-sm border border-[#F4D98B] flex items-center justify-between gap-4"
-        >
-          <div className="flex items-center gap-3">
-            <div className="h-11 w-11 bg-[#F6E7BF] rounded-xl flex items-center justify-center text-[#C87400]">
-              <Navigation size={20} />
+        {/* Delivered Summary Banner */}
+        {isDelivered && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-emerald-50/90 rounded-3xl p-6 border border-emerald-200/80 shadow-sm"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 shrink-0">
+                <CheckCircle size={26} />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-emerald-950">
+                  {isReturn ? "Return Completed" : "Order Delivered"}
+                </h3>
+                <p className="text-xs text-emerald-700">
+                  {order.deliveredAt || order.updatedAt
+                    ? `Delivered on ${new Date(order.deliveredAt || order.updatedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}`
+                    : "Package successfully handed over to customer."}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-[11px] font-bold text-[#C85D00] uppercase tracking-wider">
-                Estimated Time
-              </p>
-              <p className="text-xl font-black text-[#8B3F00] leading-none">
-                {summary.arrivalTimeText}
-              </p>
-            </div>
-          </div>
-          <div className="text-right flex flex-col items-end gap-2">
-            <div>
-              <p className="text-[11px] font-bold text-[#C85D00] uppercase tracking-wider">
-                Arriving in
-              </p>
-              <p className="text-xl font-black text-[#8B3F00] leading-none">
-                {summary.arrivingInText}
-              </p>
-            </div>
-            <div className="inline-flex items-center rounded-full bg-white/80 px-3 py-1.5 text-[11px] font-bold text-[#C87400] ring-1 ring-[#F4D98B]">
-              Total distance: {summary.totalDistanceText}
-            </div>
-          </div>
-        </motion.div>
 
-        <Card className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
-          <div className="flex justify-between items-center px-2 mb-2 relative">
-            <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-100 -z-10 rounded-full" />
-            <motion.div
-              className="absolute top-1/2 left-0 h-1 bg-brand-500 -z-10 rounded-full"
-              initial={{ width: "0%" }}
-              animate={{
-                width: `${((publicStatusStage - 1) / (PUBLIC_STATUS_STEPS.length - 1)) * 100}%`,
-              }}
-              transition={{ duration: 0.5, ease: "easeInOut" }}
-            />
-            {PUBLIC_STATUS_STEPS.map(({ id, label }) => (
+            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-emerald-100">
+              <div className="bg-white/80 rounded-2xl p-3 border border-emerald-100">
+                <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-0.5">Distance</p>
+                <p className="text-sm font-black text-emerald-950">
+                  {order.delivery?.routeDistanceKm
+                    ? `${order.delivery.routeDistanceKm} km`
+                    : (order.delivery?.routeDistanceMeters
+                      ? `${(order.delivery.routeDistanceMeters / 1000).toFixed(1)} km`
+                      : "Route Completed")}
+                </p>
+              </div>
+              <div className="bg-white/80 rounded-2xl p-3 border border-emerald-100">
+                <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-0.5">Earning</p>
+                <p className="text-sm font-black text-emerald-950">
+                  ₹{order.riderEarnings ?? order.delivery?.riderEarning ?? order.returnDeliveryCommission ?? 25}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {!isCancelled && !isDelivered && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-[#FFF8E8] rounded-3xl p-4 shadow-sm border border-[#F4D98B] flex items-center justify-between gap-4"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 bg-[#F6E7BF] rounded-xl flex items-center justify-center text-[#C87400]">
+                <Navigation size={20} />
+              </div>
+              <div>
+                <p className="text-[11px] font-bold text-[#C85D00] uppercase tracking-wider">
+                  Estimated Time
+                </p>
+                <p className="text-xl font-black text-[#8B3F00] leading-none">
+                  {summary.arrivalTimeText}
+                </p>
+              </div>
+            </div>
+            <div className="text-right flex flex-col items-end gap-2">
+              <div>
+                <p className="text-[11px] font-bold text-[#C85D00] uppercase tracking-wider">
+                  Arriving in
+                </p>
+                <p className="text-xl font-black text-[#8B3F00] leading-none">
+                  {summary.arrivingInText}
+                </p>
+              </div>
+              <div className="inline-flex items-center rounded-full bg-white/80 px-3 py-1.5 text-[11px] font-bold text-[#C87400] ring-1 ring-[#F4D98B]">
+                Total distance: {summary.totalDistanceText}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {!isCancelled && (
+          <Card className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+            <div className="flex justify-between items-center px-2 mb-2 relative">
+              <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-100 -z-10 rounded-full" />
               <motion.div
-                key={id}
-                initial={false}
+                className="absolute top-1/2 left-0 h-1 bg-brand-500 -z-10 rounded-full"
+                initial={{ width: "0%" }}
                 animate={{
-                  scale: id === publicStatusStage ? 1.15 : 1,
-                  backgroundColor: id <= publicStatusStage ? "var(--primary)" : "#ffffff",
-                  borderColor: id <= publicStatusStage ? "var(--primary)" : "#e5e7eb",
-                  color: id <= publicStatusStage ? "#ffffff" : "#9ca3af",
+                  width: `${((publicStatusStage - 1) / (PUBLIC_STATUS_STEPS.length - 1)) * 100}%`,
                 }}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 z-10 shadow-sm"
-                aria-label={label}
-              >
-                {id < publicStatusStage ? <CheckCircle size={16} /> : id}
-              </motion.div>
-            ))}
-          </div>
-          <div className="flex justify-between mt-2 text-xs text-slate-500 font-medium px-1">
-            {PUBLIC_STATUS_STEPS.map(({ id, label }) => (
-              <span key={id} className="text-center">
-                {label}
-              </span>
-            ))}
-          </div>
-        </Card>
+                transition={{ duration: 0.5, ease: "easeInOut" }}
+              />
+              {PUBLIC_STATUS_STEPS.map(({ id, label }) => (
+                <motion.div
+                  key={id}
+                  initial={false}
+                  animate={{
+                    scale: id === publicStatusStage ? 1.15 : 1,
+                    backgroundColor: id <= publicStatusStage ? "var(--primary)" : "#ffffff",
+                    borderColor: id <= publicStatusStage ? "var(--primary)" : "#e5e7eb",
+                    color: id <= publicStatusStage ? "#ffffff" : "#9ca3af",
+                  }}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 z-10 shadow-sm"
+                  aria-label={label}
+                >
+                  {id < publicStatusStage ? <CheckCircle size={16} /> : id}
+                </motion.div>
+              ))}
+            </div>
+            <div className="flex justify-between mt-2 text-xs text-slate-500 font-medium px-1">
+              {PUBLIC_STATUS_STEPS.map(({ id, label }) => (
+                <span key={id} className="text-center">
+                  {label}
+                </span>
+              ))}
+            </div>
+          </Card>
+        )}
 
         <AnimatePresence mode="wait">
           {/* Customer pickup card: show at return steps 1-2, standard delivery steps 1-2 */}
@@ -888,10 +1014,12 @@ const OrderDetails = () => {
                       ? order.address?.address || "Address not available"
                       : order.seller?.address || order.warehouseId?.address || "Address not available"}
                   </p>
-                  <Button onClick={handleNavigate} className="w-full" variant="outline">
-                    <Navigation size={18} className="mr-2" />{" "}
-                    {isReturn ? "Navigate to Customer" : (order?.warehouseId && !order?.seller ? "Navigate to Warehouse" : "Navigate to Store")}
-                  </Button>
+                  {!isCancelled && (
+                    <Button onClick={handleNavigate} className="w-full" variant="outline">
+                      <Navigation size={18} className="mr-2" />{" "}
+                      {isReturn ? "Navigate to Customer" : (order?.warehouseId && !order?.seller ? "Navigate to Warehouse" : "Navigate to Store")}
+                    </Button>
+                  )}
                 </div>
               </Card>
             </motion.div>
@@ -923,13 +1051,20 @@ const OrderDetails = () => {
                       </h2>
                       <div className="flex items-center space-x-2 mt-0.5">
                         <p
-                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${order.payment?.method?.toLowerCase() === "cash" ||
-                              order.payment?.method?.toLowerCase() === "cod"
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                            isDelivered
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : order.payment?.method?.toLowerCase() === "cash" ||
+                                order.payment?.method?.toLowerCase() === "cod"
                               ? "bg-amber-50 text-amber-700 border-amber-200"
                               : "bg-brand-50 text-brand-700 border-brand-200"
-                            }`}
+                          }`}
                         >
-                          {order.payment?.method?.toUpperCase() || "PENDING"}
+                          {isDelivered
+                            ? (order.payment?.method?.toLowerCase() === "cash" || order.payment?.method?.toLowerCase() === "cod"
+                              ? "CASH (COLLECTED)"
+                              : "PAID ONLINE")
+                            : (order.payment?.method?.toUpperCase() || "PENDING")}
                         </p>
                         <p className="text-[10px] text-gray-400 font-medium">Bill: Rs.{order.pricing?.total}</p>
                       </div>
@@ -972,10 +1107,12 @@ const OrderDetails = () => {
                   <p className="text-gray-500 text-sm mb-4">
                     {isReturn ? order.seller?.address : order.address?.city}
                   </p>
-                  <Button onClick={handleNavigate} className="w-full bg-black  hover:bg-brand-700 text-primary-foreground border-none">
-                    <Navigation size={18} className="mr-2" />{" "}
-                    {isReturn ? "Navigate to Seller" : "Navigate to Customer"}
-                  </Button>
+                  {!isDelivered && !isCancelled && (
+                    <Button onClick={handleNavigate} className="w-full bg-black  hover:bg-brand-700 text-primary-foreground border-none">
+                      <Navigation size={18} className="mr-2" />{" "}
+                      {isReturn ? "Navigate to Seller" : "Navigate to Customer"}
+                    </Button>
+                  )}
                 </div>
               </Card>
             </motion.div>
@@ -1155,7 +1292,7 @@ const OrderDetails = () => {
       </div>
 
       {/* Slide button: for returns shown at steps 1 and 3 (navigation steps); for standard shown at steps 1-2 */}
-      {((isReturn && (step === 1 || step === 3) && isAssignedRider) || (!isReturn && step <= 2)) && (
+      {!isCancelled && ((isReturn && (step === 1 || step === 3) && isAssignedRider) || (!isReturn && step >= 1 && step <= 2)) && (
         <div 
           className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur-md shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)]"
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
@@ -1173,6 +1310,23 @@ const OrderDetails = () => {
                   : step === 3 ? "ARRIVED AT SELLER"
                     : steps[step - 1]?.action
                 : steps[step - 1]?.action}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Cancelled Order bottom action: Back to Order History */}
+      {isCancelled && (
+        <div 
+          className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur-md shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)]"
+          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        >
+          <div className="max-w-2xl mx-auto p-4">
+            <Button 
+              onClick={() => navigate("/delivery/history")}
+              className="w-full h-14 rounded-xl font-bold text-base text-gray-800 bg-gray-100 hover:bg-gray-200 border border-gray-300 shadow-sm transition-all"
+            >
+              Back to Order History
             </Button>
           </div>
         </div>

@@ -5,6 +5,7 @@ import { useToast } from '@shared/components/ui/Toast';
 import { cn } from '@/lib/utils';
 import { useSettings } from '@core/context/SettingsContext';
 import { applyFavicon } from '@core/context/SettingsDefaults';
+import { invalidateCache } from '@core/api/dedupe';
 import { adminApi } from '../services/adminApi';
 import {
     Palette,
@@ -82,7 +83,7 @@ const BADGE_BG_PRESETS = [
 
 export default function LayoutBranding() {
     const { showToast } = useToast();
-    const { refetch: refetchSettings } = useSettings() || {};
+    const { refetch: refetchSettings, updateSettingsLocal } = useSettings() || {};
     const [activeTab, setActiveTab] = useState('branding');
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -390,13 +391,33 @@ export default function LayoutBranding() {
                 footerEnabled: settings.footerEnabled !== false
             };
 
-            await adminApi.updateSettings(payload);
-            if (payload.faviconUrl) {
-                applyFavicon(payload.faviconUrl);
+            const res = await adminApi.updateSettings(payload);
+            const savedData = res.data?.result || res.data || payload;
+
+            // 1. Immediately update SettingsContext so Topbar, Sidebar, and App UI reflect the new logo/colors in real-time
+            if (updateSettingsLocal) {
+                updateSettingsLocal(savedData);
             }
+
+            // 2. Invalidate in-memory frontend dedupe cache for /settings
+            invalidateCache('/settings');
+
+            // 3. Apply browser favicon immediately
+            if (savedData.faviconUrl || payload.faviconUrl) {
+                applyFavicon(savedData.faviconUrl || payload.faviconUrl);
+            }
+
+            // 4. Trigger full context refetch with forceRefresh: true
             if (refetchSettings) {
                 await refetchSettings({ forceRefresh: true });
             }
+
+            // 5. Update local component state
+            setSettings(prev => ({
+                ...prev,
+                ...savedData
+            }));
+
             showToast('Layout & branding settings saved successfully!', 'success');
         } catch (err) {
             console.error(err);

@@ -9,6 +9,8 @@ import Badge from '@shared/components/ui/Badge';
 import AdminLiveTrackingSection from '../components/orders/AdminLiveTrackingSection';
 import { adminApi } from '../services/adminApi';
 import { adminShippingApi } from '../services/api/shippingApi';
+import { adminDeliveryApi } from '../services/api/deliveryApi';
+import { adminOrdersApi } from '../services/api/ordersApi';
 import {
     ChevronLeft,
     Box,
@@ -51,6 +53,54 @@ const OrderDetail = () => {
         location: '',
     });
     const [isSubmittingManualStatus, setIsSubmittingManualStatus] = useState(false);
+
+    // Manual Rider Assignment states (Auto-Escalation resolution)
+    const [isAssignRiderModalOpen, setIsAssignRiderModalOpen] = useState(false);
+    const [availableRiders, setAvailableRiders] = useState([]);
+    const [isLoadingRiders, setIsLoadingRiders] = useState(false);
+    const [selectedRiderId, setSelectedRiderId] = useState('');
+    const [isAssigningRider, setIsAssigningRider] = useState(false);
+
+    const handleOpenAssignRiderModal = async () => {
+        setIsAssignRiderModalOpen(true);
+        setIsLoadingRiders(true);
+        try {
+            const res = await adminDeliveryApi.getDeliveryPartners({ verified: 'true', limit: 100 });
+            const items = res.data?.data?.items || res.data?.result?.items || res.data?.items || [];
+            setAvailableRiders(items);
+            if (items.length > 0 && !selectedRiderId) {
+                setSelectedRiderId(items[0]._id);
+            }
+        } catch (err) {
+            showToast(err.response?.data?.message || "Failed to fetch delivery partners", "error");
+        } finally {
+            setIsLoadingRiders(false);
+        }
+    };
+
+    const handleAssignRiderSubmit = async (e) => {
+        e.preventDefault();
+        if (!selectedRiderId) {
+            showToast("Please select a delivery partner", "error");
+            return;
+        }
+        try {
+            setIsAssigningRider(true);
+            const targetId = order._id || order.orderId;
+            const res = await adminOrdersApi.updateOrderStatus(targetId, {
+                deliveryBoyId: selectedRiderId,
+            });
+            if (res.data?.success) {
+                showToast(res.data.message || "Delivery partner assigned successfully", "success");
+                setIsAssignRiderModalOpen(false);
+                fetchDetail();
+            }
+        } catch (err) {
+            showToast(err.response?.data?.message || "Failed to assign delivery partner", "error");
+        } finally {
+            setIsAssigningRider(false);
+        }
+    };
 
     const handleProcessShiprocket = async () => {
         try {
@@ -697,11 +747,24 @@ const OrderDetail = () => {
                                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                         <Bike className="h-3.5 w-3.5 text-emerald-600" /> In-House Delivery Boy (Local)
                                     </h4>
-                                    <Badge variant={order.deliveryBoy ? "success" : "secondary"} className="text-[8px] font-black uppercase tracking-widest">
-                                        {order.deliveryBoy ? "ASSIGNED" : "UNASSIGNED"}
+                                    <Badge 
+                                        variant={order.deliveryBoy ? "success" : (order.deliverySearchMeta?.escalated ? "destructive" : "secondary")} 
+                                        className="text-[8px] font-black uppercase tracking-widest"
+                                    >
+                                        {order.deliveryBoy ? "ASSIGNED" : (order.deliverySearchMeta?.escalated ? "ESCALATED" : "UNASSIGNED")}
                                     </Badge>
                                 </div>
-                                <div className="flex items-center gap-3 mt-2">
+
+                                {order.deliverySearchMeta?.escalated && !order.deliveryBoy && (
+                                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-semibold flex items-start gap-2">
+                                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                                        <div>
+                                            <span className="font-bold">Auto-Escalation Active:</span> Automated rider search expired. Manual assignment required.
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="flex items-center gap-3 mt-1">
                                     <div className="h-10 w-10 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center text-slate-300 overflow-hidden">
                                         {order.deliveryBoy ? (
                                             <div className="h-full w-full flex items-center justify-center font-black text-slate-400 bg-brand-50 ds-h3">{order.deliveryBoy.name.charAt(0)}</div>
@@ -714,6 +777,17 @@ const OrderDetail = () => {
                                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">CONTACT: {order.deliveryBoy?.phone || "N/A"}</p>
                                     </div>
                                 </div>
+
+                                {order.status !== 'delivered' && order.status !== 'cancelled' && (
+                                    <button
+                                        type="button"
+                                        onClick={handleOpenAssignRiderModal}
+                                        className="w-full mt-2 py-2.5 px-3 bg-brand-600 hover:bg-brand-700 text-white text-xs font-black uppercase tracking-wider rounded-xl transition flex items-center justify-center gap-2 shadow-sm active:scale-95"
+                                    >
+                                        <Bike className="w-4 h-4" />
+                                        {order.deliveryBoy ? "Change Delivery Partner" : "Manual Assign Rider"}
+                                    </button>
+                                )}
                             </div>
                         </Card>
                     )}
@@ -970,6 +1044,106 @@ const OrderDetail = () => {
                                     className="px-5 py-2 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/95 transition shadow-sm active:scale-95 disabled:opacity-50"
                                 >
                                     {isSubmittingManualStatus ? "Updating..." : "Save Status"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Manual Rider Assignment Modal */}
+            {isAssignRiderModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+                    <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl border border-slate-100">
+                        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                            <div>
+                                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                                    <Bike className="w-5 h-5 text-brand-600" />
+                                    Manual Rider Assignment
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-0.5">Order #{order.orderId}</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsAssignRiderModalOpen(false)}
+                                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-50 transition"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleAssignRiderSubmit} className="mt-4 space-y-4">
+                            {isLoadingRiders ? (
+                                <div className="py-8 text-center text-sm font-bold text-slate-400">
+                                    Loading verified delivery partners...
+                                </div>
+                            ) : availableRiders.length === 0 ? (
+                                <div className="py-6 text-center text-sm text-slate-500">
+                                    No verified delivery partners available right now.
+                                </div>
+                            ) : (
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
+                                        Select Delivery Partner
+                                    </label>
+                                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                                        {availableRiders.map((rider) => (
+                                            <label
+                                                key={rider._id}
+                                                className={cn(
+                                                    "flex items-center justify-between p-3 rounded-xl border cursor-pointer transition text-left",
+                                                    selectedRiderId === rider._id
+                                                        ? "border-brand-500 bg-brand-50/50 ring-1 ring-brand-500"
+                                                        : "border-slate-200 hover:border-slate-300 bg-slate-50/40"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <input
+                                                        type="radio"
+                                                        name="deliveryRider"
+                                                        value={rider._id}
+                                                        checked={selectedRiderId === rider._id}
+                                                        onChange={() => setSelectedRiderId(rider._id)}
+                                                        className="text-brand-600 focus:ring-brand-500"
+                                                    />
+                                                    <div>
+                                                        <p className="text-sm font-bold text-slate-900">{rider.name}</p>
+                                                        <p className="text-[11px] text-slate-500">{rider.phone} • {rider.vehicleType || "Bike"}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className={cn(
+                                                        "text-[10px] font-black uppercase px-2 py-0.5 rounded-full",
+                                                        rider.isOnline ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"
+                                                    )}>
+                                                        {rider.isOnline ? "Online" : "Offline"}
+                                                    </span>
+                                                    <p className="text-[10px] text-slate-400 mt-1 font-medium">{rider.activeOrdersCount || 0} active</p>
+                                                </div>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="p-3 bg-slate-50 rounded-xl text-slate-600 text-xs">
+                                💡 <span className="font-semibold">Note:</span> Assigned partner will receive a direct pickup notification and the order will move to <span className="font-bold text-slate-900">DELIVERY_ASSIGNED</span>.
+                            </div>
+
+                            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAssignRiderModalOpen(false)}
+                                    className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold text-sm transition"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isAssigningRider || !selectedRiderId || availableRiders.length === 0}
+                                    className="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold text-sm transition shadow-sm active:scale-95 disabled:opacity-50"
+                                >
+                                    {isAssigningRider ? "Assigning..." : "Confirm Assignment"}
                                 </button>
                             </div>
                         </form>

@@ -11,7 +11,7 @@ export const getPublicLegalPage = async (req, res) => {
         if (!type || !["terms", "privacy"].includes(type)) {
             return handleResponse(res, 400, "Invalid type. Must be 'terms' or 'privacy'.");
         }
-        if (!["customer", "seller", "warehouse", "delivery"].includes(audience)) {
+        if (!["customer", "seller", "delivery"].includes(audience)) {
             return handleResponse(res, 400, "Invalid audience.");
         }
 
@@ -46,7 +46,7 @@ export const upsertLegalPage = async (req, res) => {
         if (!type || !["terms", "privacy"].includes(type)) {
             return handleResponse(res, 400, "Invalid type. Must be 'terms' or 'privacy'.");
         }
-        if (!["customer", "seller", "warehouse", "delivery"].includes(audience)) {
+        if (!["customer", "seller", "delivery"].includes(audience)) {
             return handleResponse(res, 400, "Invalid audience.");
         }
 

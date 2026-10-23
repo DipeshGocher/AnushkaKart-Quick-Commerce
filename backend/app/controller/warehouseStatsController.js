@@ -100,7 +100,7 @@ export const getWarehouseEarnings = async (req, res) => {
         const liveAvailableBalance = wallet ? wallet.availableBalance : settledBalance;
 
         const [orderRevenueAgg] = await Order.aggregate([
-            { $match: { warehouseId: warehouseOid, status: { $ne: "cancelled" } } },
+            { $match: { warehouseId: warehouseOid, status: "delivered" } },
             { $group: { _id: null, totalRevenue: { $sum: { $ifNull: ["$paymentBreakdown.sellerPayoutTotal", 0] } } } },
         ]);
         const totalRevenue = Number(orderRevenueAgg?.totalRevenue || 0);
@@ -112,16 +112,27 @@ export const getWarehouseEarnings = async (req, res) => {
         const sixMonthsAgo = new Date();
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-        const monthlyAggregation = await Transaction.aggregate([
+        const monthlyAggregation = await Order.aggregate([
             {
                 $match: {
-                    user: new mongoose.Types.ObjectId(warehouseId),
-                    userModel: "Warehouse",
-                    type: "Order Payment",
-                    createdAt: { $gte: sixMonthsAgo },
+                    warehouseId: warehouseOid,
+                    status: "delivered",
+                    $expr: {
+                        $gte: [{ $toDate: { $ifNull: ["$deliveredAt", "$createdAt"] } }, sixMonthsAgo],
+                    },
                 },
             },
-            { $group: { _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } }, revenue: { $sum: "$amount" } } },
+            {
+                $group: {
+                    _id: {
+                        $dateToString: {
+                            format: "%Y-%m",
+                            date: { $toDate: { $ifNull: ["$deliveredAt", "$createdAt"] } },
+                        },
+                    },
+                    revenue: { $sum: { $ifNull: ["$paymentBreakdown.sellerPayoutTotal", 0] } },
+                },
+            },
             { $sort: { _id: 1 } },
         ]);
 
@@ -132,7 +143,7 @@ export const getWarehouseEarnings = async (req, res) => {
             d.setMonth(d.getMonth() - i);
             const dateStr = d.toISOString().slice(0, 7);
             const data = monthlyAggregation.find((m) => m._id === dateStr);
-            chartData.push({ name: monthNames[d.getMonth()], revenue: data ? data.revenue : 0 });
+            chartData.push({ name: monthNames[d.getMonth()], revenue: data ? Number(data.revenue.toFixed(2)) : 0 });
         }
 
         return handleResponse(res, 200, "Earnings fetched successfully", {

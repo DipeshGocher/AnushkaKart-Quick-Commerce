@@ -46,6 +46,35 @@ export const isRefurbishedItem = (item) => {
 
 export const useCart = () => useContext(CartContext);
 
+export const resolveVariantStock = (product, variantSku = "") => {
+  if (!product) return 0;
+  const normalizedKey = String(variantSku || "").trim();
+  if (Array.isArray(product?.variants) && product.variants.length > 0) {
+    if (normalizedKey) {
+      const hit = product.variants.find((v) => {
+        const sku = String(v?.sku || "").trim();
+        const name = String(v?.name || "").trim();
+        return (
+          (sku && sku.toLowerCase() === normalizedKey.toLowerCase()) ||
+          (!sku && name.toLowerCase() === normalizedKey.toLowerCase()) ||
+          name.toLowerCase() === normalizedKey.toLowerCase()
+        );
+      });
+      if (hit) {
+        return Math.max(0, typeof hit.stock === "number" ? hit.stock : Number(hit.stock ?? 0));
+      }
+      return 0;
+    }
+    const hasAnyInStock = product.variants.some(
+      (v) => (typeof v?.stock === "number" ? v.stock : Number(v?.stock ?? 0)) > 0
+    );
+    if (!hasAnyInStock) return 0;
+    const firstStock = product.variants[0]?.stock;
+    if (typeof firstStock === "number") return Math.max(0, firstStock);
+  }
+  return Math.max(0, Number(product?.availableStock ?? product?.stock ?? 0));
+};
+
 export const CartProvider = ({ children }) => {
   const { isAuthenticated } = useAuth();
   const { currentLocation } = useAppLocation();
@@ -63,6 +92,7 @@ export const CartProvider = ({ children }) => {
       const variantKey = String(item.variantSku || "").trim();
       const { price, salePrice, variantName, variantImage } = resolveVariantPricing(product, variantKey);
       const isRefurb = isRefurbishedItem(product);
+      const availableStock = resolveVariantStock(product, variantKey);
       return {
         ...product,
         id: product?._id ? String(product._id) : "", // Normalize ID to string
@@ -70,6 +100,8 @@ export const CartProvider = ({ children }) => {
         quantity: item.quantity,
         variantSku: variantKey,
         variantName,
+        stock: availableStock,
+        availableStock,
         price,
         salePrice,
         image: variantImage || product?.mainImage, // Handle mapping for frontend
@@ -168,7 +200,7 @@ export const CartProvider = ({ children }) => {
     const destinationPincode = String(currentLocation?.pincode || "").trim();
     if (!/^\d{6}$/.test(destinationPincode)) {
       toast.error("Select a delivery address with a valid pincode first.");
-      return;
+      return false;
     }
     let deliveryCheck;
     try {
@@ -179,11 +211,11 @@ export const CartProvider = ({ children }) => {
       deliveryCheck = response.data?.result?.items?.[0];
     } catch (error) {
       toast.error(error?.response?.data?.message || "Could not check delivery for this address. Please try again.");
-      return;
+      return false;
     }
     if (!deliveryCheck?.isDeliverable) {
       toast.error(deliveryCheck?.warning || "This item cannot be delivered to the selected address.");
-      return;
+      return false;
     }
 
     const isRefurb = isRefurbishedItem(product) || (product?.conditionType !== 'new' && typeof window !== 'undefined' && (window.location.pathname.startsWith('/marketplace') || window.location.pathname.startsWith('/refurbished')));
@@ -191,6 +223,27 @@ export const CartProvider = ({ children }) => {
     const key = `${id}::${variantSku || ""}`;
     console.log("DEBUG: addToCart product:", { id, name: product?.name, variantSku, key, isRefurb });
     const { price, salePrice, variantName, variantImage } = resolveVariantPricing(product, variantSku);
+
+    const availableStock = resolveVariantStock(product, variantSku);
+    if (defaultQuantity > 0 && availableStock <= 0) {
+      toast.error("This product is currently sold out.");
+      return false;
+    }
+
+    const existingCartItem = cart.find(
+      (item) => `${item.id || item._id}::${String(item.variantSku || "").trim()}` === key,
+    );
+    const targetQty = (existingCartItem?.quantity || 0) + defaultQuantity;
+    const maxPerOrder = 10;
+    const maxAllowed = availableStock > 0 ? Math.min(availableStock, maxPerOrder) : 0;
+    if (defaultQuantity > 0 && targetQty > availableStock) {
+      toast.error(`You cannot add more than available stock (${availableStock} units)`);
+      return false;
+    }
+    if (defaultQuantity > 0 && targetQty > maxAllowed) {
+      toast.error(`Maximum allowed order quantity is ${maxAllowed} units per item`);
+      return false;
+    }
 
     // Optimistic UI update for instant feedback
     setCart((prev) => {
@@ -272,8 +325,10 @@ export const CartProvider = ({ children }) => {
         if (pendingRequestsRef.current === 0) {
           await fetchCart();
         }
+        return false;
       }
     }
+    return true;
   };
 
   const removeFromCart = async (productId, variantSku = "") => {
@@ -319,6 +374,19 @@ export const CartProvider = ({ children }) => {
     if (!currentItem) {
       console.warn("DEBUG: updateQuantity currentItem NOT found in cart for key:", key);
       return;
+    }
+
+    if (delta > 0) {
+      const availableStock = resolveVariantStock(currentItem, normalizedVariantSku);
+      const maxAllowed = availableStock > 0 ? Math.min(availableStock, 10) : 0;
+      if (currentItem.quantity + delta > availableStock) {
+        toast.error(`You cannot add more than available stock (${availableStock} units)`);
+        return;
+      }
+      if (currentItem.quantity + delta > maxAllowed) {
+        toast.error(`Maximum allowed order quantity is ${maxAllowed} units per item`);
+        return;
+      }
     }
 
     const newQty = Math.max(0, currentItem.quantity + delta);

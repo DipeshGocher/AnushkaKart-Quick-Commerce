@@ -657,71 +657,29 @@ export const getProducts = async (req, res) => {
       req.query.random === "true" ||
       Boolean(headerId) ||
       Boolean(header);
-    const shouldApplyLocationFilter =
-      enforceRadius && conditionType !== "refurbished" && !isCuratedHomeFeed;
-    if (shouldApplyLocationFilter) {
-      const nearbySellerIds = await getNearbySellerIdsForCustomer(
-        effectiveLat,
-        effectiveLng,
-      );
 
-      const nearbySet = new Set(nearbySellerIds.map(String));
-      const finalSellerIds = requestedSellerIds.length
-        ? requestedSellerIds.filter((id) => nearbySet.has(String(id)))
-        : nearbySellerIds;
-
+    // Hybrid Commerce: Products are deliverable Pan-India via courier or locally via quick commerce pincodes.
+    // Customer-seller GPS radius restriction removed completely.
+    if (requestedSellerIds.length > 0) {
       const mixedSellerIds = [
-        ...finalSellerIds.map(String),
-        ...finalSellerIds.filter((id) => mongoose.Types.ObjectId.isValid(id)).map((id) => new mongoose.Types.ObjectId(id)),
+        ...requestedSellerIds.map(String),
+        ...requestedSellerIds.filter((id) => mongoose.Types.ObjectId.isValid(id)).map((id) => new mongoose.Types.ObjectId(id)),
       ];
-
-      if (requestedSellerIds.length > 0) {
-        // If specific sellers were requested but none are nearby, return empty
-        if (!finalSellerIds.length) {
-          return handleResponse(res, 200, "No products available in your area", {
-            items: [],
-            page: 1,
-            limit: 24,
-            total: 0,
-            totalPages: 1,
-          });
-        }
-        if (query.$or) {
-          query.$and = query.$and || [];
-          query.$and.push({ $or: query.$or });
-          delete query.$or;
-          query.$and.push({
-            $or: [
-              { sellerId: { $in: mixedSellerIds } },
-              { warehouseId: { $in: mixedSellerIds } }
-            ]
-          });
-        } else {
-          query.$or = [
+      if (query.$or) {
+        query.$and = query.$and || [];
+        query.$and.push({ $or: query.$or });
+        delete query.$or;
+        query.$and.push({
+          $or: [
             { sellerId: { $in: mixedSellerIds } },
             { warehouseId: { $in: mixedSellerIds } }
-          ];
-        }
+          ]
+        });
       } else {
-        // Nearby sellers + warehouses only (fallback to all if no nearby found)
-        if (finalSellerIds.length > 0) {
-          if (query.$or) {
-            query.$and = query.$and || [];
-            query.$and.push({ $or: query.$or });
-            delete query.$or;
-            query.$and.push({
-              $or: [
-                { sellerId: { $in: mixedSellerIds } },
-                { warehouseId: { $in: mixedSellerIds } },
-              ]
-            });
-          } else {
-            query.$or = [
-              { sellerId: { $in: mixedSellerIds } },
-              { warehouseId: { $in: mixedSellerIds } },
-            ];
-          }
-        }
+        query.$or = [
+          { sellerId: { $in: mixedSellerIds } },
+          { warehouseId: { $in: mixedSellerIds } }
+        ];
       }
     }
 
@@ -911,7 +869,18 @@ export const getProducts = async (req, res) => {
 export const getSellerProducts = async (req, res) => {
   try {
     const sellerId = req.user.id;
-    const { stockStatus, sort, approvalStatus } = req.query;
+    const {
+      stockStatus,
+      sort,
+      approvalStatus,
+      search,
+      q,
+      category,
+      categoryId,
+      status,
+      minPrice,
+      maxPrice,
+    } = req.query;
     const { page, limit, skip } = getPagination(req, {
       defaultLimit: 20,
       maxLimit: 500,
@@ -919,19 +888,117 @@ export const getSellerProducts = async (req, res) => {
 
     const role = String(req.user?.role || "").toLowerCase();
     const baseSellerQuery = role === "warehouse" ? { warehouseId: sellerId } : { sellerId };
-    const query = { ...baseSellerQuery };
+    const andConditions = [{ ...baseSellerQuery }];
+
     if (stockStatus === "in") {
-      query.stock = { $gt: 0 };
+      andConditions.push({ stock: { $gt: 0 } });
     } else if (stockStatus === "out") {
-      query.stock = 0;
+      andConditions.push({ stock: 0 });
+    } else if (stockStatus === "low") {
+      andConditions.push({
+        $expr: {
+          $and: [
+            {
+              $gt: [
+                {
+                  $convert: {
+                    input: "$stock",
+                    to: "double",
+                    onError: 0,
+                    onNull: 0,
+                  },
+                },
+                0,
+              ],
+            },
+            {
+              $lte: [
+                {
+                  $convert: {
+                    input: "$stock",
+                    to: "double",
+                    onError: 0,
+                    onNull: 0,
+                  },
+                },
+                {
+                  $let: {
+                    vars: {
+                      rawThreshold: {
+                        $convert: {
+                          input: "$lowStockAlert",
+                          to: "double",
+                          onError: 0,
+                          onNull: 0,
+                        },
+                      },
+                    },
+                    in: {
+                      $cond: [{ $gt: ["$$rawThreshold", 0] }, "$$rawThreshold", 5],
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      });
+    }
+
+    if (status && String(status).trim().toLowerCase() !== "all") {
+      andConditions.push({ status: String(status).trim().toLowerCase() });
+    }
+
+    const searchTerm = (search || q || "").trim();
+    if (searchTerm) {
+      const escaped = searchTerm.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+      const searchRegex = new RegExp(escaped, "i");
+      andConditions.push({
+        $or: [
+          { name: searchRegex },
+          { sku: searchRegex },
+          { slug: searchRegex },
+          { "variants.sku": searchRegex },
+        ],
+      });
+    }
+
+    const targetCategory = categoryId || category;
+    if (targetCategory && targetCategory !== "all" && mongoose.Types.ObjectId.isValid(targetCategory)) {
+      const catObjId = new mongoose.Types.ObjectId(targetCategory);
+      andConditions.push({
+        $or: [
+          { headerId: catObjId },
+          { categoryId: catObjId },
+          { subcategoryId: catObjId },
+        ],
+      });
+    }
+
+    const priceCondition = {};
+    if (minPrice !== undefined && minPrice !== "" && !isNaN(Number(minPrice))) {
+      priceCondition.$gte = Number(minPrice);
+    }
+    if (maxPrice !== undefined && maxPrice !== "" && !isNaN(Number(maxPrice))) {
+      priceCondition.$lte = Number(maxPrice);
+    }
+    if (Object.keys(priceCondition).length > 0) {
+      andConditions.push({
+        $or: [
+          { salePrice: priceCondition },
+          { price: priceCondition },
+        ],
+      });
     }
 
     if (approvalStatus && String(approvalStatus).trim().toLowerCase() !== "all") {
       const approvalFilter = buildApprovalStatusFilter(approvalStatus);
       if (Object.keys(approvalFilter).length > 0) {
-        Object.assign(query, approvalFilter);
+        andConditions.push(approvalFilter);
       }
     }
+
+    const query = andConditions.length > 1 ? { $and: andConditions } : andConditions[0];
 
     const sortMap = {
       newest: { createdAt: -1 },
@@ -2076,178 +2143,180 @@ export const getHeaderProducts = async (req, res) => {
     const limit = Math.min(Math.max(1, parseInt(req.query.limit || "10", 10)), 20);
     const { lat, lng } = req.query;
 
-    const headers = await Category.find({ type: "header", status: "active" })
-      .sort({ sortOrder: 1, name: 1, _id: 1 })
-      .lean();
-
-    const filteredHeaders = headers.filter(
-      (h) => (h.slug?.toLowerCase() !== "all") && (h.name?.toLowerCase() !== "all")
-    );
-
-    if (!filteredHeaders.length) {
-      return handleResponse(res, 200, "No header categories found", []);
-    }
-
-    const enforceRadius = isCustomerVisibilityRequest(req);
     const coords = parseCustomerCoordinates({ lat, lng });
     const effectiveLat = coords.valid ? coords.lat : 22.7196;
     const effectiveLng = coords.valid ? coords.lng : 75.8577;
 
-    const [homeHeroConfig, heroConfigs, nearbySellerIds] = await Promise.all([
-      HeroConfig.findOne({ pageType: "home", headerId: null }).lean().catch(() => null),
-      HeroConfig.find({
-        pageType: "header",
-        headerId: { $in: filteredHeaders.map((h) => h._id) },
-      }).lean().catch(() => []),
-      enforceRadius
-        ? getNearbySellerIdsForCustomer(effectiveLat, effectiveLng).catch(() => null)
-        : Promise.resolve(null),
-    ]);
+    const cacheKey = buildKey(
+      "catalog",
+      "productList",
+      `headers:${limit}:${coords.valid ? `${effectiveLat.toFixed(3)}:${effectiveLng.toFixed(3)}` : "all"}`
+    );
 
-    const bannerByHeaderId = new Map();
-    const bannersByHeaderId = new Map();
+    const validSections = await getOrSet(
+      cacheKey,
+      async () => {
+        const headers = await Category.find({ type: "header", status: "active" })
+          .sort({ sortOrder: 1, name: 1, _id: 1 })
+          .lean();
 
-    // 1. First populate from header configs (if any, strictly single banner)
-    (heroConfigs || []).forEach((hc) => {
-      if (hc.headerId) {
-        const activeItems = (hc.banners?.items || []).filter(
-          (b) => b.status !== "inactive" && b.imageUrl
+        const filteredHeaders = headers.filter(
+          (h) => (h.slug?.toLowerCase() !== "all") && (h.name?.toLowerCase() !== "all")
         );
-        if (activeItems.length > 0) {
-          bannerByHeaderId.set(hc.headerId.toString(), activeItems[0].imageUrl);
-          bannersByHeaderId.set(hc.headerId.toString(), [activeItems[0]]);
+
+        if (!filteredHeaders.length) {
+          return [];
         }
-      }
-    });
 
-    // 2. Override with homeHeroConfig categorySectionBanners specifically configured for "All" page (single banner)
-    (homeHeroConfig?.categorySectionBanners || []).forEach((cs) => {
-      if (cs.headerId) {
-        const activeItems = (cs.banners || []).filter(
-          (b) => b.status !== "inactive" && b.imageUrl
-        );
-        if (activeItems.length > 0) {
-          bannerByHeaderId.set(cs.headerId.toString(), activeItems[0].imageUrl);
-          bannersByHeaderId.set(cs.headerId.toString(), [activeItems[0]]);
-        }
-      }
-    });
+        const [homeHeroConfig, heroConfigs] = await Promise.all([
+          HeroConfig.findOne({ pageType: "home", headerId: null }).lean().catch(() => null),
+          HeroConfig.find({
+            pageType: "header",
+            headerId: { $in: filteredHeaders.map((h) => h._id) },
+          }).lean().catch(() => []),
+        ]);
 
-    let sellerFilter = null;
-    if (enforceRadius && nearbySellerIds && nearbySellerIds.length > 0) {
-      sellerFilter = {
-        $or: [
-          { sellerId: { $in: nearbySellerIds } },
-          { warehouseId: { $in: nearbySellerIds } }
-        ]
-      };
-    }
+        const bannerByHeaderId = new Map();
+        const bannersByHeaderId = new Map();
 
-    // Optimization: Pre-fetch all active descendant categories in one query to prevent N+1 DB round-trips
-    const allDescendantCats = await Category.find({
-      type: { $in: ["category", "subcategory"] },
-      status: "active",
-    }).select("_id parentId type").lean();
-
-    const childrenByParent = new Map();
-    allDescendantCats.forEach((c) => {
-      const pId = c.parentId ? c.parentId.toString() : null;
-      if (pId) {
-        if (!childrenByParent.has(pId)) childrenByParent.set(pId, []);
-        childrenByParent.get(pId).push(c);
-      }
-    });
-
-    const results = await Promise.all(
-      filteredHeaders.map(async (header) => {
-        try {
-          const childCats = childrenByParent.get(header._id.toString()) || [];
-          const childCatIds = childCats.map((c) => c._id);
-          const subCats = childCatIds.flatMap((cId) => childrenByParent.get(cId.toString()) || []);
-          const subCatIds = subCats.map((s) => s._id);
-
-          const categoryOrClauses = [
-            { headerId: header._id },
-            ...(childCatIds.length > 0 ? [{ categoryId: { $in: childCatIds } }] : []),
-            ...(subCatIds.length > 0 ? [{ subcategoryId: { $in: subCatIds } }] : []),
-          ];
-
-          const prodQuery = {
-            status: "active",
-            approvalStatus: { $ne: "rejected" },
-            conditionType: { $ne: "refurbished" },
-            $or: categoryOrClauses,
-          };
-
-          if (sellerFilter) {
-            prodQuery.$and = [sellerFilter];
+        // 1. First populate from header configs (if any, strictly single banner)
+        (heroConfigs || []).forEach((hc) => {
+          if (hc.headerId) {
+            const activeItems = (hc.banners?.items || []).filter(
+              (b) => b.status !== "inactive" && b.imageUrl
+            );
+            if (activeItems.length > 0) {
+              bannerByHeaderId.set(hc.headerId.toString(), activeItems[0].imageUrl);
+              bannersByHeaderId.set(hc.headerId.toString(), [activeItems[0]]);
+            }
           }
+        });
 
-          let items = await Product.find(prodQuery)
-            .select("_id name slug price salePrice mainImage variants rating ratingsCount weight unit brand isFeatured isTopDeal deliveryMode headerId categoryId subcategoryId sellerId warehouseId")
-            .sort({ isFeatured: -1, createdAt: -1 })
-            .limit(limit)
-            .lean();
-
-          if ((!items || items.length === 0) && sellerFilter) {
-            delete prodQuery.$and;
-            items = await Product.find(prodQuery)
-              .select("_id name slug price salePrice mainImage variants rating ratingsCount weight unit brand isFeatured isTopDeal deliveryMode headerId categoryId subcategoryId sellerId warehouseId")
-              .sort({ isFeatured: -1, createdAt: -1 })
-              .limit(limit)
-              .lean();
+        // 2. Override with homeHeroConfig categorySectionBanners specifically configured for "All" page (single banner)
+        (homeHeroConfig?.categorySectionBanners || []).forEach((cs) => {
+          if (cs.headerId) {
+            const activeItems = (cs.banners || []).filter(
+              (b) => b.status !== "inactive" && b.imageUrl
+            );
+            if (activeItems.length > 0) {
+              bannerByHeaderId.set(cs.headerId.toString(), activeItems[0].imageUrl);
+              bannersByHeaderId.set(cs.headerId.toString(), [activeItems[0]]);
+            }
           }
+        });
 
-          const cmsBanners = bannersByHeaderId.get(header._id.toString()) || [];
-          const cmsBanner = bannerByHeaderId.get(header._id.toString()) || header.banner || null;
+        // Products are accessible Pan-India or via local quick delivery; no GPS radius restriction
+        const sellerFilter = null;
 
-          return {
-            header: {
-              _id: header._id,
-              name: header.name,
-              slug: header.slug,
-              image: header.image || null,
-              banner: cmsBanner,
-              banners: cmsBanners,
-              iconId: header.iconId || null,
-              headerColor: header.headerColor || null,
-              headerFontColor: header.headerFontColor || null,
-              sortOrder: header.sortOrder ?? 0,
-              deliveryMode: header.deliveryMode || "both",
-            },
-            products: (items || []).map((p) => {
-              const firstVar = p.variants?.[0];
-              const vSalePrice = Number(firstVar?.salePrice || 0);
-              const vPrice = Number(firstVar?.price || 0);
-              const hasVarDiscount = vSalePrice > 0 && vPrice > vSalePrice;
+        // Optimization: Pre-fetch all active descendant categories in one query to prevent N+1 DB round-trips
+        const allDescendantCats = await Category.find({
+          type: { $in: ["category", "subcategory"] },
+          status: "active",
+        }).select("_id parentId type").lean();
+
+        const childrenByParent = new Map();
+        allDescendantCats.forEach((c) => {
+          const pId = c.parentId ? c.parentId.toString() : null;
+          if (pId) {
+            if (!childrenByParent.has(pId)) childrenByParent.set(pId, []);
+            childrenByParent.get(pId).push(c);
+          }
+        });
+
+        const results = await Promise.all(
+          filteredHeaders.map(async (header) => {
+            try {
+              const childCats = childrenByParent.get(header._id.toString()) || [];
+              const childCatIds = childCats.map((c) => c._id);
+              const subCats = childCatIds.flatMap((cId) => childrenByParent.get(cId.toString()) || []);
+              const subCatIds = subCats.map((s) => s._id);
+
+              const categoryOrClauses = [
+                { headerId: header._id },
+                ...(childCatIds.length > 0 ? [{ categoryId: { $in: childCatIds } }] : []),
+                ...(subCatIds.length > 0 ? [{ subcategoryId: { $in: subCatIds } }] : []),
+              ];
+
+              const prodQuery = {
+                status: "active",
+                approvalStatus: { $ne: "rejected" },
+                conditionType: { $ne: "refurbished" },
+                $or: categoryOrClauses,
+              };
+
+              if (sellerFilter) {
+                prodQuery.$and = [sellerFilter];
+              }
+
+              let items = await Product.find(prodQuery)
+                .select("_id name slug price salePrice stock mainImage variants rating ratingsCount weight unit brand isFeatured isTopDeal deliveryMode headerId categoryId subcategoryId sellerId warehouseId")
+                .sort({ isFeatured: -1, createdAt: -1 })
+                .limit(limit)
+                .lean();
+
+              if ((!items || items.length === 0) && sellerFilter) {
+                delete prodQuery.$and;
+                items = await Product.find(prodQuery)
+                  .select("_id name slug price salePrice stock mainImage variants rating ratingsCount weight unit brand isFeatured isTopDeal deliveryMode headerId categoryId subcategoryId sellerId warehouseId")
+                  .sort({ isFeatured: -1, createdAt: -1 })
+                  .limit(limit)
+                  .lean();
+              }
+
+              const cmsBanners = bannersByHeaderId.get(header._id.toString()) || [];
+              const cmsBanner = bannerByHeaderId.get(header._id.toString()) || header.banner || null;
 
               return {
-                ...p,
-                id: p._id,
-                deliveryMode: p.deliveryMode || header.deliveryMode || "inherit",
-                headerId: p.headerId || header._id,
-                headerCategory: {
+                header: {
                   _id: header._id,
                   name: header.name,
                   slug: header.slug,
+                  image: header.image || null,
+                  banner: cmsBanner,
+                  banners: cmsBanners,
+                  iconId: header.iconId || null,
+                  headerColor: header.headerColor || null,
+                  headerFontColor: header.headerFontColor || null,
+                  sortOrder: header.sortOrder ?? 0,
                   deliveryMode: header.deliveryMode || "both",
                 },
-                image: p.mainImage || (p.variants?.[0]?.images?.[0]) || "",
-                price: hasVarDiscount ? vSalePrice : (p.salePrice || p.price),
-                originalPrice: hasVarDiscount ? vPrice : (p.price || p.salePrice),
-                weight: p.weight || "1 unit",
-                rating: p.rating || 5.0,
+                products: (items || []).map((p) => {
+                  const firstVar = p.variants?.[0];
+                  const vSalePrice = Number(firstVar?.salePrice || 0);
+                  const vPrice = Number(firstVar?.price || 0);
+                  const hasVarDiscount = vSalePrice > 0 && vPrice > vSalePrice;
+
+                  return {
+                    ...p,
+                    id: p._id,
+                    deliveryMode: p.deliveryMode || header.deliveryMode || "inherit",
+                    headerId: p.headerId || header._id,
+                    headerCategory: {
+                      _id: header._id,
+                      name: header.name,
+                      slug: header.slug,
+                      deliveryMode: header.deliveryMode || "both",
+                    },
+                    image: p.mainImage || (p.variants?.[0]?.images?.[0]) || "",
+                    price: hasVarDiscount ? vSalePrice : (p.salePrice || p.price),
+                    originalPrice: hasVarDiscount ? vPrice : (p.price || p.salePrice),
+                    weight: p.weight || "1 unit",
+                    rating: p.rating || 5.0,
+                  };
+                }),
               };
-            }),
-          };
-        } catch (catErr) {
-          return null;
-        }
-      })
+            } catch (catErr) {
+              return null;
+            }
+          })
+        );
+
+        return results.filter(Boolean);
+      },
+      60
     );
 
-    const validSections = results.filter(Boolean);
-    return handleResponse(res, 200, "Header products fetched successfully", validSections);
+    return handleResponse(res, 200, "Header products fetched successfully", validSections || []);
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }

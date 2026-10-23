@@ -474,6 +474,8 @@ const orderSchema = new mongoose.Schema(
       radiusMeters: { type: Number, default: 5000 },
       attempt: { type: Number, default: 1 },
       lastBroadcastAt: Date,
+      escalated: { type: Boolean, default: false },
+      escalatedAt: Date,
     },
     pickupConfirmedAt: Date,
     pickupReadyAt: Date,

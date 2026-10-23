@@ -54,11 +54,33 @@ export async function getDeliveryStats(rawId) {
 }
 
 async function computeDeliveryStats(deliveryBoyId) {
-  const [totalDeliveries, pendingOrders, cancelledOrders] = await Promise.all([
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const startOfYesterday = new Date(startOfToday);
+  startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+  const endOfYesterday = new Date(startOfToday);
+  endOfYesterday.setMilliseconds(-1);
+
+  const [totalDeliveries, todayDeliveries, pendingOrders, cancelledOrders, yesterdayTxs] = await Promise.all([
     Order.countDocuments({
       $or: [
         { deliveryBoy: deliveryBoyId, status: "delivered" },
         { returnDeliveryBoy: deliveryBoyId, returnStatus: { $in: ["returned", "refund_completed"] } },
+      ],
+    }),
+    Order.countDocuments({
+      $or: [
+        {
+          deliveryBoy: deliveryBoyId,
+          status: "delivered",
+          $expr: { $gte: [{ $toDate: { $ifNull: ["$deliveredAt", "$updatedAt"] } }, startOfToday] },
+        },
+        {
+          returnDeliveryBoy: deliveryBoyId,
+          returnStatus: { $in: ["returned", "refund_completed"] },
+          $expr: { $gte: [{ $toDate: "$updatedAt" }, startOfToday] },
+        },
       ],
     }),
     Order.countDocuments({
@@ -71,10 +93,14 @@ async function computeDeliveryStats(deliveryBoyId) {
       deliveryBoy: deliveryBoyId,
       status: "cancelled",
     }),
+    Transaction.find({
+      user: deliveryBoyId,
+      userModel: "Delivery",
+      status: "Settled",
+      type: { $in: ["Delivery Earning", "Incentive", "Bonus"] },
+      createdAt: { $gte: startOfYesterday, $lte: endOfYesterday },
+    }).lean(),
   ]);
-
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
 
   const allTransactions = await Transaction.find({
     user: deliveryBoyId,
@@ -96,6 +122,11 @@ async function computeDeliveryStats(deliveryBoyId) {
           t.type === "Bonus"),
     )
     .reduce((acc, t) => acc + t.amount, 0);
+
+  const yesterdayEarnings = yesterdayTxs.reduce((acc, t) => acc + (t.amount || 0), 0);
+  const growthPercentage = yesterdayEarnings > 0
+    ? Math.round(((todayEarnings - yesterdayEarnings) / yesterdayEarnings) * 100)
+    : (todayEarnings > 0 ? 100 : 0);
 
   const incentives = allTransactions
     .filter(
@@ -134,9 +165,12 @@ async function computeDeliveryStats(deliveryBoyId) {
 
   return {
     today: todayEarnings,
+    todayDeliveries,
     deliveries: totalDeliveries,
     pendingDeliveries: pendingOrders,
     cancelledDeliveries: cancelledOrders,
+    yesterdayEarnings,
+    growthPercentage,
     incentiveData: {
       remainingOrders: remainingOrders === 0 ? targetOrders : remainingOrders,
       amount: incentiveAmount,
@@ -167,13 +201,24 @@ async function computeDeliveryEarnings(deliveryBoyId, timeframe = "weekly", targ
   
   let startBound = new Date(targetDate);
   let endBound = new Date(targetDate);
+  let prevStartBound = new Date(startBound);
+  let prevEndBound = new Date(endBound);
+  let comparisonLabel = "yesterday";
   
   if (timeframe === "daily") {
     startBound.setHours(0, 0, 0, 0);
     endBound.setHours(23, 59, 59, 999);
+    prevStartBound = new Date(startBound);
+    prevStartBound.setDate(prevStartBound.getDate() - 1);
+    prevEndBound = new Date(endBound);
+    prevEndBound.setDate(prevEndBound.getDate() - 1);
+    comparisonLabel = "yesterday";
   } else if (timeframe === "monthly") {
     startBound = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
     endBound = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0, 23, 59, 59, 999);
+    prevStartBound = new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, 1);
+    prevEndBound = new Date(targetDate.getFullYear(), targetDate.getMonth(), 0, 23, 59, 59, 999);
+    comparisonLabel = "last month";
   } else {
     const day = targetDate.getDay(); 
     const diffToMonday = targetDate.getDate() - day + (day === 0 ? -6 : 1);
@@ -182,20 +227,36 @@ async function computeDeliveryEarnings(deliveryBoyId, timeframe = "weekly", targ
     endBound = new Date(startBound);
     endBound.setDate(startBound.getDate() + 6);
     endBound.setHours(23, 59, 59, 999);
+    prevStartBound = new Date(startBound);
+    prevStartBound.setDate(prevStartBound.getDate() - 7);
+    prevEndBound = new Date(endBound);
+    prevEndBound.setDate(prevEndBound.getDate() - 7);
+    comparisonLabel = "last week";
   }
 
-  const transactions = await Transaction.find({
-    user: deliveryBoyId,
-    userModel: "Delivery",
-    $or: [
-      { createdAt: { $gte: startBound, $lte: endBound } },
-      { updatedAt: { $gte: startBound, $lte: endBound } },
-      { date: { $gte: startBound, $lte: endBound } },
-    ],
-  })
-    .sort({ createdAt: -1 })
-    .limit(200)
-    .populate("order", "orderId pricing paymentBreakdown");
+  const [transactions, prevTransactions] = await Promise.all([
+    Transaction.find({
+      user: deliveryBoyId,
+      userModel: "Delivery",
+      $or: [
+        { createdAt: { $gte: startBound, $lte: endBound } },
+        { updatedAt: { $gte: startBound, $lte: endBound } },
+        { date: { $gte: startBound, $lte: endBound } },
+      ],
+    })
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .populate("order", "orderId pricing paymentBreakdown"),
+    Transaction.find({
+      user: deliveryBoyId,
+      userModel: "Delivery",
+      $or: [
+        { createdAt: { $gte: prevStartBound, $lte: prevEndBound } },
+        { updatedAt: { $gte: prevStartBound, $lte: prevEndBound } },
+        { date: { $gte: prevStartBound, $lte: prevEndBound } },
+      ],
+    }).select("amount status type"),
+  ]);
 
   const wallet = await Wallet.findOne({
     ownerType: "DELIVERY_PARTNER",
@@ -313,6 +374,33 @@ async function computeDeliveryEarnings(deliveryBoyId, timeframe = "weekly", targ
     }
   }
 
+  const prevEarnings = prevTransactions
+    .filter(
+      (t) =>
+        t.status === "Settled" &&
+        (t.type === "Delivery Earning" ||
+          t.type === "Incentive" ||
+          t.type === "Bonus"),
+    )
+    .reduce((acc, t) => acc + (t.amount || 0), 0);
+
+  let growthPercentage = 0;
+  if (prevEarnings > 0) {
+    growthPercentage = Math.round(((totalEarnings - prevEarnings) / prevEarnings) * 100);
+  } else if (totalEarnings > 0) {
+    growthPercentage = 100;
+  } else {
+    growthPercentage = 0;
+  }
+
+  const orderEarnings = Math.max(0, totalEarnings - incentives - tipsReceived);
+  const baseEarnings = transactions
+    .filter((t) => t.type === "Delivery Earning" && t.status === "Settled")
+    .reduce((acc, t) => acc + Number(t?.meta?.payoutBase || 0), 0);
+  const distanceEarnings = transactions
+    .filter((t) => t.type === "Delivery Earning" && t.status === "Settled")
+    .reduce((acc, t) => acc + Number(t?.meta?.payoutDistance || 0), 0);
+
   return {
     totalEarnings,
     onlinePay,
@@ -321,6 +409,17 @@ async function computeDeliveryEarnings(deliveryBoyId, timeframe = "weekly", targ
     cashCollected,
     chartData,
     transactions: transactions.slice(0, 20),
+    growthPercentage,
+    prevEarnings,
+    comparisonLabel,
+    breakdown: {
+      orderEarnings,
+      baseEarnings: baseEarnings || orderEarnings,
+      distanceEarnings: distanceEarnings || 0,
+      incentives,
+      tipsReceived,
+      cashCollected,
+    },
   };
 }
 
@@ -411,11 +510,56 @@ async function computeDeliveryCodCashSummary(deliveryBoyId) {
     )
     .slice(0, 50);
 
+  const [recentSettlements, pendingHandover] = await Promise.all([
+    Transaction.find({
+      user: deliveryBoyId,
+      userModel: "Delivery",
+      type: "Cash Settlement",
+      status: "Settled",
+    })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean(),
+    Transaction.findOne({
+      user: deliveryBoyId,
+      userModel: "Delivery",
+      type: "Cash Settlement",
+      status: { $in: ["Pending", "Processing"] },
+    })
+      .sort({ createdAt: -1 })
+      .lean(),
+  ]);
+
+  const cashToRemitTotal = roundCurrency(
+    toRemit.reduce((sum, row) => sum + Number(row.amountNetPending || 0), 0)
+  );
+  const recordedCash = roundCurrency(wallet?.cashInHand || 0);
+  const cashInHand = Math.max(recordedCash, cashToRemitTotal);
+
   return {
     systemFloatCOD,
-    cashInHand: roundCurrency(wallet?.cashInHand || 0),
+    cashInHand,
     toRemit,
     toCollect,
+    pendingHandover: pendingHandover
+      ? {
+          id: pendingHandover.reference || String(pendingHandover._id),
+          reference: pendingHandover.reference || `DEP-${String(pendingHandover._id).slice(-4).toUpperCase()}`,
+          amount: Math.abs(pendingHandover.amount),
+          status: pendingHandover.status,
+          createdAt: pendingHandover.createdAt,
+          notes: pendingHandover.notes || "",
+        }
+      : null,
+    recentSettlements: recentSettlements.map((t) => ({
+      id: t.reference || String(t._id),
+      reference: t.reference || `CSH-SET-${String(t._id).slice(-6).toUpperCase()}`,
+      amount: Math.abs(t.amount),
+      status: t.status,
+      createdAt: t.createdAt,
+      date: t.createdAt,
+      notes: t.notes || "",
+    })),
   };
 }
 
