@@ -258,14 +258,22 @@ categorySchema.pre("findOneAndUpdate", function syncLegacyFinanceFieldsOnUpdate(
       set.adminCommission = set.adminCommissionValue;
     }
 
-    if (hasOwn(set, "handlingFees") && !hasOwn(set, "handlingFeeValue")) {
-      set.handlingFeeValue = set.handlingFees;
+    if (hasOwn(set, "handlingFees")) {
+      const val = normalizeNonNegativeNumber(set.handlingFees);
+      set.handlingFees = val;
+      if (!hasOwn(set, "handlingFeeValue")) {
+        set.handlingFeeValue = val;
+      }
     }
-    if (hasOwn(set, "handlingFeeValue") && !hasOwn(set, "handlingFees")) {
-      if (set.handlingFeeType === "none" || set.handlingFeeType === "percentage") {
-        set.handlingFees = 0;
-      } else {
-        set.handlingFees = set.handlingFeeValue;
+    if (hasOwn(set, "handlingFeeValue")) {
+      const val = normalizeNonNegativeNumber(set.handlingFeeValue);
+      set.handlingFeeValue = val;
+      if (!hasOwn(set, "handlingFees")) {
+        if (set.handlingFeeType === "none" || set.handlingFeeType === "percentage") {
+          set.handlingFees = 0;
+        } else {
+          set.handlingFees = val;
+        }
       }
     }
 

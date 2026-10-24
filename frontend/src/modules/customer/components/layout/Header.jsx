@@ -94,7 +94,7 @@ const Header = () => {
                                 {currentLocation.time}
                             </span>
                             <div className="flex items-center gap-1 font-black text-white text-base">
-                                <span className="max-w-[150px] truncate">{currentLocation.name}</span> <span className="text-[10px] opacity-70">▼</span>
+                                <span className="max-w-[150px] truncate">{currentLocation?.address || currentLocation?.name}</span> <span className="text-[10px] opacity-70">▼</span>
                             </div>
                         </div>
                     </button>
@@ -124,7 +124,7 @@ const Header = () => {
                                     Delivery in {currentLocation.time}
                                 </span>
                                 <div className="flex items-center gap-1 font-bold text-white text-sm transition-colors">
-                                    <span className="max-w-[150px] truncate">{currentLocation.name}</span> <MapPin size={14} className="fill-current" />
+                                    <span className="max-w-[150px] truncate">{currentLocation?.address || currentLocation?.name}</span> <MapPin size={14} className="fill-current" />
                                 </div>
                             </div>
                         </button>

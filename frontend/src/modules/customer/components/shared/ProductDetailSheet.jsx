@@ -12,7 +12,7 @@ import { useSettings } from '@core/context/SettingsContext';
 import { useLocation as useAppLocation } from '../../context/LocationContext';
 import { useDeliveryEligibility } from '../../hooks/useDeliveryEligibility';
 import { cn } from '@/lib/utils';
-import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import { applyCloudinaryTransform, IMAGE_PRESETS } from '@/core/utils/imageUtils';
 import { customerApi } from '../../services/customerApi';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
@@ -23,6 +23,81 @@ import { setStatusBarColor } from '@/core/utils/statusBar';
 const extendedProductMemoryCache = new Map();
 const reviewsMemoryCache = new Map();
 const similarProductsMemoryCache = new Map();
+
+/**
+ * ProgressiveProductImage
+ * Renders the cached thumbnail immediately (from the already-rendered card cache)
+ * and seamlessly displays the high-resolution image once loaded, preventing layout shifts
+ * and grey placeholder flashes.
+ */
+const ProgressiveProductImage = ({
+    thumbSrc,
+    highResSrc,
+    alt = "",
+    loading = "lazy",
+    fetchPriority = "auto",
+    imgClassName = "",
+    containerClassName = "",
+    onClick
+}) => {
+    const [highResLoaded, setHighResLoaded] = useState(false);
+
+    useEffect(() => {
+        setHighResLoaded(false);
+    }, [highResSrc]);
+
+    if (!highResSrc || thumbSrc === highResSrc) {
+        return (
+            <img
+                src={highResSrc || thumbSrc}
+                alt={alt}
+                loading={loading}
+                fetchPriority={fetchPriority}
+                decoding="async"
+                referrerPolicy="no-referrer"
+                className={imgClassName}
+                onClick={onClick}
+            />
+        );
+    }
+
+    return (
+        <div
+            className={cn("relative w-full h-full flex items-center justify-center", containerClassName)}
+            onClick={onClick}
+        >
+            {/* Instant thumbnail preview (zero network latency from disk/memory cache) */}
+            <img
+                src={thumbSrc}
+                alt={alt}
+                loading={loading}
+                fetchPriority={fetchPriority}
+                decoding="async"
+                referrerPolicy="no-referrer"
+                className={cn(
+                    imgClassName,
+                    "absolute inset-0 m-auto transition-opacity duration-200",
+                    highResLoaded ? "opacity-0 pointer-events-none" : "opacity-100"
+                )}
+            />
+            {/* Crisp high-resolution detail image */}
+            <img
+                src={highResSrc}
+                alt={alt}
+                loading={loading}
+                fetchPriority={fetchPriority}
+                decoding="async"
+                referrerPolicy="no-referrer"
+                onLoad={() => setHighResLoaded(true)}
+                className={cn(
+                    imgClassName,
+                    "relative transition-opacity duration-200",
+                    highResLoaded ? "opacity-100" : "opacity-0"
+                )}
+            />
+        </div>
+    );
+};
 
 const ProductDetailSheet = () => {
     const { selectedProduct, isOpen, closeProduct } = useProductDetail();
@@ -482,15 +557,41 @@ const ProductDetailSheet = () => {
     }, [activeProduct, selectedProduct, activeVariants, selectedVariant, currentStock]);
     const isLowStock = currentStock > 0 && currentStock <= 2 && !isSoldOut;
 
-    const effectivePrice = useMemo(() => {
-        return (
-            selectedVariant?.salePrice ||
-            selectedVariant?.price ||
-            selectedProduct?.salePrice ||
-            selectedProduct?.price ||
-            0
-        );
-    }, [selectedVariant, selectedProduct]);
+    const resolvedSellingPrice = useMemo(() => {
+        const prod = activeProduct || selectedProduct;
+        if (!prod) return 0;
+        if (selectedVariant) {
+            return Number(selectedVariant.salePrice || selectedVariant.price || 0);
+        }
+        if (prod.salePrice && Number(prod.salePrice) > 0) {
+            return Number(prod.salePrice);
+        }
+        return Number(prod.price || 0);
+    }, [selectedVariant, activeProduct, selectedProduct]);
+
+    const resolvedOriginalPrice = useMemo(() => {
+        const prod = activeProduct || selectedProduct;
+        if (!prod) return 0;
+        if (selectedVariant) {
+            return Number(
+                selectedVariant.price && selectedVariant.salePrice && Number(selectedVariant.price) > Number(selectedVariant.salePrice)
+                    ? selectedVariant.price
+                    : (selectedVariant.originalPrice || selectedVariant.mrp || resolvedSellingPrice)
+            );
+        }
+        if (prod.originalPrice && Number(prod.originalPrice) > 0) {
+            return Number(prod.originalPrice);
+        }
+        if (prod.mrp && Number(prod.mrp) > 0) {
+            return Number(prod.mrp);
+        }
+        if (prod.salePrice && Number(prod.salePrice) > 0 && Number(prod.price) > Number(prod.salePrice)) {
+            return Number(prod.price);
+        }
+        return resolvedSellingPrice;
+    }, [selectedVariant, activeProduct, selectedProduct, resolvedSellingPrice]);
+
+    const effectivePrice = resolvedSellingPrice;
 
     const activeProductId = String(activeProduct?._id || activeProduct?.id || selectedProduct?._id || selectedProduct?.id || "");
     const activeVariantKey = String(selectedVariant?.sku || selectedVariant?.name || variantKey || "").trim();
@@ -645,6 +746,70 @@ const ProductDetailSheet = () => {
             String(selectedVariant?.sku || selectedVariant?.name || "").trim(),
             customData
         );
+        closeProduct();
+        navigate('/cart');
+    };
+
+    const handleBuyNow = () => {
+        if (!isAuthenticated) {
+            closeProduct();
+            navigate('/login', { state: { from: window.location.pathname } });
+            return;
+        }
+
+        if (!canAddToCart) {
+            showToast(deliveryWarning || "This item is only delivered in local areas.", 'error');
+            return;
+        }
+
+        if (isSoldOut) {
+            showToast("This product is currently sold out.", "error");
+            return;
+        }
+
+        const targetProduct = activeProduct || selectedProduct;
+        const pidOrSlug = targetProduct?.slug || targetProduct?.id || targetProduct?._id;
+        const buyNowItem = {
+            id: targetProduct?.id || targetProduct?._id,
+            _id: targetProduct?.id || targetProduct?._id,
+            name: targetProduct.name,
+            title: targetProduct.name,
+            image: (selectedVariant?.images && selectedVariant.images[0]) || selectedVariant?.image || targetProduct.mainImage || (targetProduct.images && targetProduct.images[0]) || "",
+            price: resolvedSellingPrice,
+            salePrice: resolvedSellingPrice,
+            originalPrice: resolvedOriginalPrice > resolvedSellingPrice ? resolvedOriginalPrice : (targetProduct.originalPrice || targetProduct.mrp || resolvedSellingPrice),
+            variantSku: String(selectedVariant?.sku || selectedVariant?.name || "").trim(),
+            variantName: selectedVariant?.name || "",
+            variant: selectedVariant || null,
+            quantity: 1,
+            fulfillmentType: fulfillmentType === "LOCAL_RIDERS" || fulfillmentType === "LOCAL" ? "LOCAL" : "SHIPROCKET",
+            conditionType: isRefurbishedProduct ? 'refurbished' : (targetProduct?.conditionType || 'new'),
+            weight: targetProduct.weight,
+            dimensions: targetProduct.dimensions,
+            slug: targetProduct.slug || "",
+            productData: targetProduct,
+        };
+
+        const currentPath = window.location.pathname;
+        const returnProductUrl = currentPath.includes('/cart') || currentPath.includes('/checkout')
+            ? `/?product=${encodeURIComponent(pidOrSlug)}`
+            : `${currentPath}?product=${encodeURIComponent(pidOrSlug)}`;
+
+        try {
+            sessionStorage.setItem("direct_buy_item", JSON.stringify(buyNowItem));
+            sessionStorage.setItem("direct_buy_return_url", returnProductUrl);
+        } catch (e) {}
+
+        closeProduct();
+        navigate('/checkout', {
+            state: {
+                directBuyItem: buyNowItem,
+                returnProductUrl,
+                fromBuyNow: true,
+                initialFulfillmentType: fulfillmentType === "LOCAL_RIDERS" || fulfillmentType === "LOCAL" ? "LOCAL" : "SHIPROCKET",
+                destinationPincode: customerPincode || "",
+            }
+        });
     };
 
     const handleIncrement = () => {
@@ -1232,7 +1397,7 @@ const ProductDetailSheet = () => {
                                                             : 'border-gray-200/60 opacity-50 hover:opacity-90 bg-white/60'
                                                     )}
                                                 >
-                                                    <img src={applyCloudinaryTransform(img, "c_limit,w_200,f_auto,q_auto:good")} alt="" loading="lazy" className="w-full h-full object-contain p-1" />
+                                                    <img src={applyCloudinaryTransform(img, IMAGE_PRESETS.ICON)} alt="" loading="lazy" decoding="async" className="w-full h-full object-contain p-1" />
                                                 </motion.button>
                                             ))}
                                         </div>
@@ -1241,18 +1406,24 @@ const ProductDetailSheet = () => {
                                     {/* Main image viewer */}
                                     <div className="flex-1 flex items-center justify-center p-6 lg:p-8 relative min-h-[350px]">
                                         <AnimatePresence mode="wait">
-                                            <motion.img
+                                            <motion.div
                                                 key={activeImageIndex}
                                                 initial={{ opacity: 0 }}
                                                 animate={{ opacity: 1 }}
                                                 exit={{ opacity: 0 }}
                                                 transition={{ duration: 0.15 }}
-                                                decoding="async"
-                                                src={applyCloudinaryTransform(allImages[activeImageIndex], "c_limit,w_1200,f_auto,q_auto:good")}
-                                                alt={`${selectedProduct.name} ${activeImageIndex + 1}`}
-                                                onClick={() => setIsLightboxOpen(true)}
-                                                className="w-full h-full max-h-[440px] object-contain transition-transform duration-300 hover:scale-[1.03] cursor-pointer"
-                                            />
+                                                className="w-full h-full max-h-[440px] flex items-center justify-center"
+                                            >
+                                                <ProgressiveProductImage
+                                                    thumbSrc={applyCloudinaryTransform(allImages[activeImageIndex], IMAGE_PRESETS.PRODUCT_THUMB)}
+                                                    highResSrc={applyCloudinaryTransform(allImages[activeImageIndex], IMAGE_PRESETS.PRODUCT_FULL)}
+                                                    alt={`${selectedProduct.name} ${activeImageIndex + 1}`}
+                                                    loading="eager"
+                                                    fetchPriority="high"
+                                                    onClick={() => setIsLightboxOpen(true)}
+                                                    imgClassName="w-full h-full max-h-[440px] object-contain transition-transform duration-300 hover:scale-[1.03] cursor-pointer"
+                                                />
+                                            </motion.div>
                                         </AnimatePresence>
                                     </div>
                                 </div>
@@ -1305,18 +1476,7 @@ const ProductDetailSheet = () => {
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={() => {
-                                                    if (isSoldOut) {
-                                                        showToast("This item is currently sold out.", "error");
-                                                        return;
-                                                    }
-                                                    if (!canAddToCart) {
-                                                        showToast(deliveryWarning || "This item is only delivered in local areas.", 'error');
-                                                        return;
-                                                    }
-                                                    closeProduct();
-                                                    navigate('/checkout', { state: { directBuyItem: selectedProduct } });
-                                                }}
+                                                onClick={handleBuyNow}
                                                 className="flex-1 bg-[#fb641b] hover:bg-[#f45305] active:scale-95 text-white font-bold text-xs lg:text-sm py-3.5 px-3 rounded-xl shadow-md shadow-orange-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer uppercase tracking-wider"
                                             >
                                                 <Zap size={16} strokeWidth={2.5} />
@@ -1680,13 +1840,13 @@ const ProductDetailSheet = () => {
                                 >
                                     {allImages.map((img, i) => (
                                         <div key={i} onClick={() => setIsLightboxOpen(true)} className="flex-shrink-0 w-full h-full snap-center flex items-center justify-center px-0 cursor-pointer">
-                                            <img
-                                                src={applyCloudinaryTransform(img, "f_auto,q_auto:good,w_600,dpr_auto")}
+                                            <ProgressiveProductImage
+                                                thumbSrc={applyCloudinaryTransform(img, IMAGE_PRESETS.PRODUCT_THUMB)}
+                                                highResSrc={applyCloudinaryTransform(img, IMAGE_PRESETS.PRODUCT_DETAIL)}
                                                 alt={`${selectedProduct?.name || 'Product'} ${i + 1}`}
                                                 loading={i === 0 ? "eager" : "lazy"}
                                                 fetchPriority={i === 0 ? "high" : "auto"}
-                                                decoding="async"
-                                                className="w-full h-full object-contain mix-blend-multiply drop-shadow-xl scale-110"
+                                                imgClassName="w-full h-full object-contain mix-blend-multiply drop-shadow-xl scale-110"
                                             />
                                         </div>
                                     ))}
@@ -1777,7 +1937,7 @@ const ProductDetailSheet = () => {
                                                         : "border-slate-200 bg-slate-50 hover:border-slate-300"
                                                 )}
                                             >
-                                                <img src={applyCloudinaryTransform(img, "f_auto,q_auto:best,w_150")} alt="" className="w-full h-full object-contain p-1.5 mix-blend-multiply" />
+                                                <img src={applyCloudinaryTransform(img, IMAGE_PRESETS.ICON)} alt="" loading="lazy" decoding="async" className="w-full h-full object-contain p-1.5 mix-blend-multiply" />
                                             </button>
                                         ))}
                                     </div>
@@ -1951,14 +2111,12 @@ const ProductDetailSheet = () => {
                                             </motion.button>
                                         )}
 
-                                        {/* Right Button: Buy now at ₹... (Dummy non-working as instructed) */}
+                                        {/* Right Button: Buy now at ₹... */}
                                         <motion.button
                                             type="button"
                                             whileHover={{ scale: 1.01 }}
                                             whileTap={{ scale: 0.96 }}
-                                            onClick={() => {
-                                                // Dummy as requested by user
-                                            }}
+                                            onClick={handleBuyNow}
                                             className="flex-1 bg-[#FFC200] hover:bg-[#F5B800] active:scale-[0.98] text-slate-900 h-12 rounded-2xl flex flex-col items-center justify-center shadow-md shadow-amber-200/50 border border-[#E6AC00] transition-all cursor-pointer"
                                         >
                                             <span className="font-extrabold text-[13px] leading-tight text-slate-900">Buy now</span>
@@ -2033,7 +2191,7 @@ const ProductDetailSheet = () => {
                                                 animate={{ scale: 1, opacity: 1 }}
                                                 exit={{ scale: 0.9, opacity: 0 }}
                                                 transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                                                src={applyCloudinaryTransform(allImages[activeImageIndex], "f_auto,q_auto:best,w_1600,dpr_auto")}
+                                                src={applyCloudinaryTransform(allImages[activeImageIndex], IMAGE_PRESETS.PRODUCT_FULL)}
                                                 alt={selectedProduct.name}
                                                 className="max-w-full max-h-[85vh] object-contain drop-shadow-2xl cursor-zoom-in"
                                                 onClick={(e) => e.stopPropagation()}

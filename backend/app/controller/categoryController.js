@@ -54,13 +54,16 @@ async function validateParentForType(type, parentId) {
 export const getCategories = async (req, res) => {
   try {
     const { flat, tree, type, catalogType } = req.query;
+    const isAdmin = Boolean(
+      req.baseUrl?.includes("/admin") ||
+      req.originalUrl?.includes("/admin") ||
+      req.headers["x-admin-request"]
+    );
 
     if (tree === "true") {
       const cacheKey = categoryCacheKey({ tree: true, type: "header", catalogType: catalogType || "grocery" });
-      const categories = await getOrSet(
-        cacheKey,
-        async () => {
-          const selectFields = "name slug image iconId type parentId headerColor headerFontColor headerIconColor sortOrder catalogType isFeatured trustBadges deliveryMode";
+      const fetchTreeCategories = async () => {
+        const selectFields = "name slug image iconId type parentId headerColor headerFontColor headerIconColor sortOrder catalogType isFeatured trustBadges deliveryMode adminCommission adminCommissionValue handlingFees handlingFeeValue";
           const matchQuery = { type: "header" };
           if (catalogType === "refurbished") {
             matchQuery.catalogType = "refurbished";
@@ -115,9 +118,12 @@ export const getCategories = async (req, res) => {
 
           rawCategories.forEach(processCategory);
           return rawCategories;
-        },
-        getTTL("categories"),
-      );
+        };
+
+      const categories = (isAdmin || req.query._t)
+        ? await fetchTreeCategories()
+        : await getOrSet(cacheKey, fetchTreeCategories, getTTL("categories"));
+
       return handleResponse(res, 200, "Category tree fetched", categories);
     }
 
@@ -201,31 +207,32 @@ export const getCategories = async (req, res) => {
       query.isFeatured = req.query.isFeatured === "true" || req.query.isFeatured === true;
     }
     const cacheKey = categoryCacheKey({ tree: false, type: query.type || "all", catalogType: catalogType || "grocery", isFeatured: req.query.isFeatured });
-    const categories = await getOrSet(
-      cacheKey,
-      async () => {
-        // Fetch categories and product counts in parallel
-        const [rawCategories, counts] = await Promise.all([
-          Category.find(query).sort({ sortOrder: 1, name: 1, _id: 1 }).lean(),
-          Product.aggregate([
-            { $match: { status: "active", approvalStatus: "approved" } },
-            { $group: { _id: "$categoryId", count: { $sum: 1 } } }
-          ]),
-        ]);
-        const countMap = {};
-        counts.forEach(c => {
-          if (c._id) countMap[c._id.toString()] = c.count;
-        });
+    const fetchFlatCategories = async () => {
+      // Fetch categories and product counts in parallel
+      const [rawCategories, counts] = await Promise.all([
+        Category.find(query).sort({ sortOrder: 1, name: 1, _id: 1 }).lean(),
+        Product.aggregate([
+          { $match: { status: "active", approvalStatus: "approved" } },
+          { $group: { _id: "$categoryId", count: { $sum: 1 } } }
+        ]),
+      ]);
+      const countMap = {};
+      counts.forEach(c => {
+        if (c._id) countMap[c._id.toString()] = c.count;
+      });
 
-        rawCategories.forEach(cat => {
-          const idStr = String(cat._id || cat.id);
-          cat.productCount = countMap[idStr] || 0;
-        });
+      rawCategories.forEach(cat => {
+        const idStr = String(cat._id || cat.id);
+        cat.productCount = countMap[idStr] || 0;
+      });
 
-        return rawCategories;
-      },
-      getTTL("categories"),
-    );
+      return rawCategories;
+    };
+
+    const categories = (isAdmin || req.query._t)
+      ? await fetchFlatCategories()
+      : await getOrSet(cacheKey, fetchFlatCategories, getTTL("categories"));
+
     return handleResponse(
       res,
       200,
@@ -339,8 +346,14 @@ export const createCategory = async (req, res) => {
 
     const category = await Category.create(categoryData);
     
-    invalidate("cache:catalog:categories:*").catch(err => {
-      console.warn("[Category] Cache invalidation failed:", err.message);
+    Promise.allSettled([
+      invalidate(buildKey("catalog", "categories", "*")),
+      invalidate("cache:catalog:categories:*"),
+      invalidate("cache:*:catalog:categories:*"),
+      invalidate(buildKey("catalog", "productList", "*")),
+      invalidate(buildKey("catalog", "product", "*")),
+    ]).catch(err => {
+      console.warn("[Category] Cache invalidation warning:", err.message);
     });
 
     return handleResponse(res, 201, "Category created successfully", category);
@@ -450,17 +463,16 @@ export const updateCategory = async (req, res) => {
 
     if (!updatedCategory) return handleResponse(res, 404, "Category not found");
 
-    invalidate("cache:catalog:categories:*").catch(err => {
-      console.warn("[Category] Cache invalidation failed:", err.message);
-    });
-    invalidate("cache:catalog:productList:*").catch(err => {
-      console.warn("[Category] Product list cache invalidation failed:", err.message);
-    });
-    invalidate("cache:catalog:product:*").catch(err => {
-      console.warn("[Category] Product cache invalidation failed:", err.message);
-    });
-    invalidateCategoryName(id).catch(err => {
-      console.warn("[Category] Name cache invalidation failed:", err.message);
+    Promise.allSettled([
+      invalidate(buildKey("catalog", "categories", "*")),
+      invalidate("cache:catalog:categories:*"),
+      invalidate("cache:*:catalog:categories:*"),
+      invalidate(buildKey("catalog", "productList", "*")),
+      invalidate(buildKey("catalog", "product", "*")),
+      invalidateCategoryName(id),
+      invalidate(buildKey("catalog", "categoryMeta", String(id))),
+    ]).catch(err => {
+      console.warn("[Category] Cache invalidation warning:", err.message);
     });
 
     return handleResponse(res, 200, "Category updated successfully", updatedCategory);
@@ -494,11 +506,16 @@ export const deleteCategory = async (req, res) => {
 
     await deleteWithChildren(id);
     
-    invalidate("cache:catalog:categories:*").catch(err => {
-      console.warn("[Category] Cache invalidation failed:", err.message);
-    });
-    invalidateCategoryName(id).catch(err => {
-      console.warn("[Category] Name cache invalidation failed:", err.message);
+    Promise.allSettled([
+      invalidate(buildKey("catalog", "categories", "*")),
+      invalidate("cache:catalog:categories:*"),
+      invalidate("cache:*:catalog:categories:*"),
+      invalidate(buildKey("catalog", "productList", "*")),
+      invalidate(buildKey("catalog", "product", "*")),
+      invalidateCategoryName(id),
+      invalidate(buildKey("catalog", "categoryMeta", String(id))),
+    ]).catch(err => {
+      console.warn("[Category] Cache invalidation warning:", err.message);
     });
 
     return handleResponse(res, 200, "Category and all descendants deleted");

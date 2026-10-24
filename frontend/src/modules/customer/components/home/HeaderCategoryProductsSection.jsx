@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ImageOff, Package } from "lucide-react";
 import { customerApi } from "../../services/customerApi";
 import { useProductDetail } from "../../context/ProductDetailContext";
-import { applyCloudinaryTransform, isPngImage } from "@/core/utils/imageUtils";
+import { applyCloudinaryTransform, isPngImage, IMAGE_PRESETS } from "@/core/utils/imageUtils";
 import { cn } from "@/lib/utils";
 import { getProductUrl, getProductVariantText, getProductPriceInfo } from "@/core/utils/productUrl";
 import { useTranslation } from "@core/context/LanguageContext";
@@ -141,6 +141,7 @@ const writeHeaderProductsCache = (data) => {
 };
 
 let memoryHeaderProductsCache = null;
+let memoryHeaderProductsCacheTime = 0;
 
 const HeaderCategoryProductsSection = ({ latitude, longitude, heroConfig = null }) => {
   const { openProduct } = useProductDetail();
@@ -156,6 +157,7 @@ const HeaderCategoryProductsSection = ({ latitude, longitude, heroConfig = null 
   useEffect(() => {
     const handleCmsRefresh = () => {
       memoryHeaderProductsCache = null;
+      memoryHeaderProductsCacheTime = 0;
       try {
         sessionStorage.removeItem(HEADER_PRODUCTS_CACHE_KEY);
       } catch (_) {}
@@ -173,6 +175,7 @@ const HeaderCategoryProductsSection = ({ latitude, longitude, heroConfig = null 
         }));
         if (valid.length > 0) {
           memoryHeaderProductsCache = valid;
+          memoryHeaderProductsCacheTime = Date.now();
           writeHeaderProductsCache(valid);
           setSections(valid);
           setDisplaySections(valid);
@@ -196,6 +199,11 @@ const HeaderCategoryProductsSection = ({ latitude, longitude, heroConfig = null 
     let cancelled = false;
 
     const fetchHeaderProducts = async () => {
+      if (memoryHeaderProductsCache && memoryHeaderProductsCache.length > 0 && (Date.now() - memoryHeaderProductsCacheTime < 120000)) {
+        setIsLoading(false);
+        return;
+      }
+
       if (!cachedInitial || cachedInitial.length === 0) {
         setIsLoading(true);
       }
@@ -226,6 +234,7 @@ const HeaderCategoryProductsSection = ({ latitude, longitude, heroConfig = null 
             }));
           if (valid.length > 0) {
             memoryHeaderProductsCache = valid;
+            memoryHeaderProductsCacheTime = Date.now();
             writeHeaderProductsCache(valid);
           } else if (retryCount < 2) {
             setTimeout(() => {
@@ -505,10 +514,11 @@ const HeaderCategoryProductsSection = ({ latitude, longitude, heroConfig = null 
                               <img
                                 src={applyCloudinaryTransform(
                                   image,
-                                  "f_auto,q_auto,w_400"
+                                  IMAGE_PRESETS.PRODUCT_THUMB
                                 )}
                                 alt={product.name}
                                 loading="lazy"
+                                decoding="async"
                                 referrerPolicy="no-referrer"
                                 onError={(e) => {
                                   e.currentTarget.onerror = null;

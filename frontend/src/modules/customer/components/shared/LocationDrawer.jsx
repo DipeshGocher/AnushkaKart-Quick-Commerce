@@ -159,13 +159,21 @@ const LocationDrawer = ({ isOpen, onClose }) => {
     const apply = (coords) => {
       const newLoc = {
         name: address.address,
+        address: address.address,
+        formattedAddress: address.address,
+        fullAddress: address.address,
         time: "20-35 mins",
         city: address.city || resolvedCity || "",
         state: address.state || resolvedState || "",
         pincode: resolvedPincode,
-        addressId: address.id,
+        addressId: address.id || address._id,
+        receiverName: address.name,
+        phone: address.phone,
+        type: address.label || address.type || "Home",
+        landmark: address.landmark || "",
         latitude: coords?.lat ?? null,
         longitude: coords?.lng ?? null,
+        location: coords ? { lat: coords.lat, lng: coords.lng } : null,
       };
 
       // Persist so checkout/nearby sellers and add address modal use the same chosen location
@@ -198,11 +206,22 @@ const LocationDrawer = ({ isOpen, onClose }) => {
           if (selectionId === addressSelectionRef.current) {
             updateLocation({
               name: address.address,
+              address: address.address,
+              formattedAddress: address.address,
+              fullAddress: address.address,
+              time: "20-35 mins",
+              city: address.city || resolvedCity || "",
+              state: address.state || resolvedState || "",
               pincode: resolvedPincode,
-              addressId: address.id,
+              addressId: address.id || address._id,
+              receiverName: address.name,
+              phone: address.phone,
+              type: address.label || address.type || "Home",
+              landmark: address.landmark || "",
               latitude: loc.lat,
               longitude: loc.lng,
-            });
+              location: { lat: loc.lat, lng: loc.lng },
+            }, { persist: true, updateSavedHome: false });
           }
         }
       })
@@ -237,16 +256,21 @@ const LocationDrawer = ({ isOpen, onClose }) => {
         const city = getComponent(components, ["locality"]);
         const state = getComponent(components, ["administrative_area_level_1"]);
         const pincode = getComponent(components, ["postal_code"]);
+        const placeAddress = result.formatted_address || prediction.description;
 
         updateLocation(
           {
-            name: result.formatted_address || prediction.description,
+            name: placeAddress,
+            address: placeAddress,
+            formattedAddress: placeAddress,
+            fullAddress: placeAddress,
             time: "20-35 mins",
             city: city || currentLocation.city,
             state: state || currentLocation.state,
             pincode: pincode || currentLocation.pincode,
             latitude: geometry.lat(),
             longitude: geometry.lng(),
+            location: { lat: geometry.lat(), lng: geometry.lng() },
           },
           { persist: true, updateSavedHome: false },
         );

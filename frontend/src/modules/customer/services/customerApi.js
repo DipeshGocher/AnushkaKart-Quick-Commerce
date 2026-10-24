@@ -93,6 +93,8 @@ export const customerApi = {
   // Explicit timeout so checkout never waits forever if the server blocks (e.g. Redis/Bull).
   checkoutPreview: (data) =>
     axiosInstance.post("/orders/checkout/preview", data, { timeout: 120000 }),
+  previewCheckoutFinance: (data) =>
+    axiosInstance.post("/orders/checkout/preview", data, { timeout: 120000 }),
   createOrder: (data) =>
     axiosInstance.post("/orders", data, { timeout: 120000 }),
   verifyOnlineOrderPayment: (orderId, data) =>
@@ -176,6 +178,7 @@ export const customerApi = {
   // Coupons
   validateCoupon: (data) => axiosInstance.post("/coupons/validate", data),
   getActiveCoupons: () => getWithDedupe("/coupons", { status: "active" }),
+  getCoupons: () => getWithDedupe("/coupons", { status: "active" }),
 
   // Maps (server-side geocoding)
   geocodeAddress: (address, params = {}) =>

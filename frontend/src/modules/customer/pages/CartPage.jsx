@@ -11,7 +11,7 @@ import { useWishlist } from '../context/WishlistContext';
 import { useLocation as useAppLocation } from '../context/LocationContext';
 import LocationDrawer from '../components/shared/LocationDrawer';
 import EmptyCartAnimation from '../components/shared/EmptyCartAnimation';
-import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import { applyCloudinaryTransform, IMAGE_PRESETS } from '@/core/utils/imageUtils';
 import PageSkeleton from '@/shared/components/PageSkeleton';
 import { useDeliveryDecision } from '../services/useDeliveryDecision';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -155,6 +155,8 @@ const CartPage = ({ asOverlay = false, onClose }) => {
     navigate('/checkout', {
       state: {
         directBuyItem: item,
+        returnProductUrl: `/?product=${encodeURIComponent(item.slug || item.id || item._id)}`,
+        fromBuyNow: true,
         initialFulfillmentType: isLocal ? "LOCAL" : "SHIPROCKET",
         destinationPincode,
       },
@@ -253,10 +255,11 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                         <div className="flex flex-col items-center shrink-0">
                           <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-lg bg-[#f5f5f5] flex items-center justify-center overflow-hidden">
                             <img
-                              src={applyCloudinaryTransform(item.image || item.mainImage)}
+                              src={applyCloudinaryTransform(item.image || item.mainImage, IMAGE_PRESETS.PRODUCT_THUMB)}
                               alt={item.name}
                               className="w-full h-full object-cover"
                               loading="lazy"
+                              decoding="async"
                             />
                           </div>
 

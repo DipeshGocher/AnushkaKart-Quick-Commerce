@@ -9,7 +9,7 @@ import ExperienceBannerCarousel from "../components/experience/ExperienceBannerC
 import { useLocation } from "../context/LocationContext";
 import { useSettings } from "@core/context/SettingsContext";
 import { useAuth } from "@core/context/AuthContext";
-import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { applyCloudinaryTransform, IMAGE_PRESETS } from "@/core/utils/imageUtils";
 import { getJSON, STORAGE_KEYS } from "@core/utils/storage";
 import { useTranslation } from "@core/context/LanguageContext";
 import { usePageTranslation } from "@/core/hooks/usePageTranslation";
@@ -88,6 +88,7 @@ const writePersistentHomeCache = (key, data) => {
       subcategoryMap: data.subcategoryMap,
       formattedHeaders: data.formattedHeaders,
       heroConfig: data.heroConfig,
+      fetchedAt: data.fetchedAt || Date.now(),
     };
     const keys = Object.keys(store);
     if (keys.length > 3) {
@@ -300,6 +301,10 @@ const Home = () => {
     if (cached && !forceRefresh) {
       applyHomePageData(cached, { cacheKey, persist: false });
       setIsLoading(false);
+      // Skip redundant network requests and component re-renders if cached within last 2 minutes
+      if (cached.fetchedAt && Date.now() - cached.fetchedAt < 120000) {
+        return;
+      }
     } else if (!cached) {
       setIsLoading(true);
     }
@@ -384,6 +389,7 @@ const Home = () => {
         setSubcategoryMap(subMap);
       }
 
+      partialHomeData.fetchedAt = Date.now();
       setIsLoading(false);
       applyHomePageData(partialHomeData, { cacheKey, persist: true });
     } catch (error) {
@@ -633,7 +639,7 @@ const Home = () => {
             return !target || target === 'all';
           });
 
-          const bannerImg = allBanner?.image || quickCommerceBanner;
+          const bannerImg = allBanner?.image ? applyCloudinaryTransform(allBanner.image, IMAGE_PRESETS.BANNER) : quickCommerceBanner;
           const bannerLink = allBanner?.buttonLink || allBanner?.link || "/category/all";
 
           const handleBannerClick = () => {
@@ -657,6 +663,7 @@ const Home = () => {
                   alt={allBanner?.title || "Anushka Store Quick Commerce - Daily Essentials Delivered in Minutes"}
                   className="w-full h-auto max-h-[220px] object-cover block"
                   loading="lazy"
+                  decoding="async"
                 />
               </div>
             </div>

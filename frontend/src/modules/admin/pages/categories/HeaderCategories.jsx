@@ -31,9 +31,12 @@ import { invalidateCache } from "@core/api/dedupe";
 const broadcastCategoryUpdate = () => {
   invalidateCache("/categories");
   invalidateCache("/admin/categories");
+  invalidateCache("/products");
+  invalidateCache("/experience");
   try {
     localStorage.removeItem("anushkakart:home_cache:v6");
     localStorage.removeItem("anushkakart:home_cache:v7");
+    localStorage.removeItem("anushkakart:home_cache:v8");
     localStorage.setItem("anushkakart:cms_version", String(Date.now()));
     window.dispatchEvent(new CustomEvent("anushkakart:cms_updated"));
     if (typeof BroadcastChannel !== "undefined") {
@@ -314,6 +317,9 @@ const HeaderCategories = () => {
         payload.sortOrder = 0;
         payload.headerColor = formData.headerColor || DEFAULT_HEADER_COLOR;
       }
+      if (payload.handlingFees !== undefined && payload.handlingFees !== "") {
+        payload.handlingFeeValue = payload.handlingFees;
+      }
       Object.keys(payload).forEach((key) => {
         if (key === "trustBadges") {
           dataToSend.append("trustBadges", JSON.stringify(payload.trustBadges || []));
@@ -330,6 +336,21 @@ const HeaderCategories = () => {
       if (editingItem) {
         await adminApi.updateCategory(editingItem._id || editingItem.id, dataToSend);
         toast.success("Header category updated successfully");
+        // Optimistically update local state immediately so edit modal / table reflect instantly
+        setCategories((prev) =>
+          prev.map((c) =>
+            (c._id || c.id) === (editingItem._id || editingItem.id)
+              ? {
+                  ...c,
+                  ...payload,
+                  handlingFees: Number(payload.handlingFees || 0),
+                  handlingFeeValue: Number(payload.handlingFees || 0),
+                  adminCommission: Number(payload.adminCommission || 0),
+                  adminCommissionValue: Number(payload.adminCommission || 0),
+                }
+              : c
+          )
+        );
       } else {
         await adminApi.createCategory(dataToSend);
         toast.success("Header category created successfully");
@@ -407,8 +428,8 @@ const HeaderCategories = () => {
       iconId: String(item.iconId || "").startsWith("fa6svg:")
         ? item.iconId
         : getFontAwesomeIconId(item.iconId, item.name),
-      adminCommission: item.adminCommission ?? "",
-      handlingFees: item.handlingFees ?? "",
+      adminCommission: item.adminCommission ?? item.adminCommissionValue ?? "",
+      handlingFees: item.handlingFees ?? item.handlingFeeValue ?? "",
       sortOrder: item.sortOrder || 0,
       headerColor: item.headerColor || DEFAULT_HEADER_COLOR,
       headerFontColor: item.headerFontColor || "#FFFFFF",

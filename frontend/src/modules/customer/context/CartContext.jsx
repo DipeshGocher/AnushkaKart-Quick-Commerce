@@ -198,24 +198,27 @@ export const CartProvider = ({ children }) => {
   const addToCart = async (product, defaultQuantity = 1, forceVariantSku = null, options = {}) => {
     const id = product.id || product._id;
     const destinationPincode = String(currentLocation?.pincode || "").trim();
-    if (!/^\d{6}$/.test(destinationPincode)) {
-      toast.error("Select a delivery address with a valid pincode first.");
-      return false;
-    }
-    let deliveryCheck;
-    try {
-      const response = await customerApi.validateCartDelivery({
-        customerPincode: destinationPincode,
-        items: [{ productId: id }],
-      });
-      deliveryCheck = response.data?.result?.items?.[0];
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Could not check delivery for this address. Please try again.");
-      return false;
-    }
-    if (!deliveryCheck?.isDeliverable) {
-      toast.error(deliveryCheck?.warning || "This item cannot be delivered to the selected address.");
-      return false;
+
+    if (!options?.skipDeliveryCheck) {
+      if (!/^\d{6}$/.test(destinationPincode)) {
+        toast.error("Select a delivery address with a valid pincode first.");
+        return false;
+      }
+      let deliveryCheck;
+      try {
+        const response = await customerApi.validateCartDelivery({
+          customerPincode: destinationPincode,
+          items: [{ productId: id }],
+        });
+        deliveryCheck = response.data?.result?.items?.[0];
+      } catch (error) {
+        toast.error(error?.response?.data?.message || "Could not check delivery for this address. Please try again.");
+        return false;
+      }
+      if (!deliveryCheck?.isDeliverable) {
+        toast.error(deliveryCheck?.warning || "This item cannot be delivered to the selected address.");
+        return false;
+      }
     }
 
     const isRefurb = isRefurbishedItem(product) || (product?.conditionType !== 'new' && typeof window !== 'undefined' && (window.location.pathname.startsWith('/marketplace') || window.location.pathname.startsWith('/refurbished')));

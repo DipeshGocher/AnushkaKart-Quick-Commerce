@@ -13,13 +13,26 @@ const upload = multer({ storage });
 
 const router = express.Router();
 
-// Public route to get categories with fast browser/edge caching and stale-while-revalidate
-const publicCacheHeader = (maxAge = 60, swr = 300) => (req, res, next) => {
-  res.set("Cache-Control", `public, max-age=${maxAge}, stale-while-revalidate=${swr}`);
+// Cache control: Admin routes must NEVER be cached by browser/proxies.
+// Public routes use short freshness with revalidation so admin edits reflect immediately.
+const cacheControlMiddleware = (req, res, next) => {
+  const isAdmin = Boolean(
+    req.baseUrl?.includes("/admin") ||
+    req.originalUrl?.includes("/admin") ||
+    req.headers["x-admin-request"]
+  );
+
+  if (isAdmin) {
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+  } else {
+    res.set("Cache-Control", "public, max-age=15, stale-while-revalidate=30");
+  }
   next();
 };
 
-router.get("/", publicCacheHeader(60, 300), getCategories);
+router.get("/", cacheControlMiddleware, getCategories);
 
 // Admin only routes
 router.post(

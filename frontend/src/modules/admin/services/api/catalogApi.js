@@ -5,15 +5,24 @@ import axiosInstance from '@core/api/axios';
  * Per-domain split (P4.5).
  */
 export const adminCatalogApi = {
-    // Category Management
-    getCategories: (params) => axiosInstance.get('/admin/categories', { params }),
-    getCategoryTree: (params) => axiosInstance.get('/admin/categories?tree=true', { params }),
+    // Category Management - always bypass browser cache with unique query timestamp
+    getCategories: (params) =>
+        axiosInstance.get('/admin/categories', {
+            params: { ...params, _t: Date.now() },
+        }),
+    getCategoryTree: (params) =>
+        axiosInstance.get('/admin/categories?tree=true', {
+            params: { ...params, _t: Date.now() },
+        }),
     createCategory: (formData) =>
         axiosInstance.post('/admin/categories', formData),
     updateCategory: (id, formData) =>
         axiosInstance.put(`/admin/categories/${id}`, formData),
     deleteCategory: (id) => axiosInstance.delete(`/admin/categories/${id}`),
-    getParentUnits: () => axiosInstance.get('/admin/categories?flat=true'),
+    getParentUnits: () =>
+        axiosInstance.get('/admin/categories?flat=true', {
+            params: { _t: Date.now() },
+        }),
 
     // Product Management
     getProducts: (params) => axiosInstance.get('/products', { params }),

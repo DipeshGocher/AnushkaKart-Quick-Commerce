@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Star, Heart, ImageOff, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { applyCloudinaryTransform, isPngImage } from '@/core/utils/imageUtils';
+import { applyCloudinaryTransform, isPngImage, IMAGE_PRESETS } from '@/core/utils/imageUtils';
 import { slugify, getProductVariantText } from '@/core/utils/productUrl';
 import { customerApi } from '../../services/customerApi';
 import { useSettings } from '@core/context/SettingsContext';
@@ -733,7 +733,7 @@ const HeaderCategoryPageView = ({
                       }}
                     >
                       <img
-                        src={applyCloudinaryTransform(imageSrc, 'f_auto,q_auto,w_220,h_220,c_fill')}
+                        src={applyCloudinaryTransform(imageSrc, IMAGE_PRESETS.CATEGORY_FILL)}
                         alt={cat.name}
                         loading="lazy"
                         decoding="async"
@@ -833,9 +833,10 @@ const HeaderCategoryPageView = ({
                     {/* Warm cream tile with golden bottom strip matching reference */}
                     <div className="w-full aspect-square rounded-2xl bg-[#fffdf8] border border-amber-200/50 border-b-[3.5px] border-b-[#f59e0b] shadow-2xs p-1.5 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:scale-105">
                       <img
-                        src={applyCloudinaryTransform(imageSrc, 'f_auto,q_auto,w_200')}
+                        src={applyCloudinaryTransform(imageSrc, IMAGE_PRESETS.CATEGORY_TILE)}
                         alt={sub.name}
                         loading="lazy"
+                        decoding="async"
                         referrerPolicy="no-referrer"
                         onError={(e) => {
                           e.currentTarget.onerror = null;
@@ -934,9 +935,10 @@ const HeaderCategoryPageView = ({
 
                         {image ? (
                           <img
-                            src={applyCloudinaryTransform(image, 'f_auto,q_auto,w_300')}
+                            src={applyCloudinaryTransform(image, IMAGE_PRESETS.PRODUCT_THUMB)}
                             alt={product.name}
                             loading="lazy"
+                            decoding="async"
                             referrerPolicy="no-referrer"
                             onError={(e) => {
                               e.currentTarget.onerror = null;
@@ -1009,9 +1011,10 @@ const HeaderCategoryPageView = ({
             )}
           >
             <img
-              src={applyCloudinaryTransform(categoryPromotionalBanner.image, 'f_auto,q_auto,w_1200')}
+              src={applyCloudinaryTransform(categoryPromotionalBanner.image, IMAGE_PRESETS.BANNER)}
               alt={categoryPromotionalBanner.title || `${headerCategory?.name || 'Category'} Promotional Banner`}
               loading="lazy"
+              decoding="async"
               referrerPolicy="no-referrer"
               onError={(e) => {
                 e.currentTarget.onerror = null;
@@ -1067,10 +1070,11 @@ const HeaderCategoryPageView = ({
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-4 md:gap-x-5 gap-y-4 sm:gap-y-6 px-3.5 sm:px-4 md:px-0 pb-24">
-          {filteredProducts.map((product) => (
+          {filteredProducts.map((product, idx) => (
             <ProductCard
               key={product.id || product._id}
               product={product}
+              priority={idx < 4}
             />
           ))}
         </div>

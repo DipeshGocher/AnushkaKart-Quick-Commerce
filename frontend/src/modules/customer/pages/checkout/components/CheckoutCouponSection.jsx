@@ -34,87 +34,90 @@ const CheckoutCouponSection = React.memo(function CheckoutCouponSection({
   isOpen,
   onOpenChange,
   onApplyManualCode,
+  showInline = false,
 }) {
   return (
     <>
-      {/* Inline coupon carousel */}
-      <motion.div className="bg-white rounded-2xl lg:rounded-2xl p-4 lg:p-3 shadow-sm border border-slate-100">
-        <div className="flex items-center justify-between mb-3 lg:mb-2">
-          <div className="flex items-center gap-2">
-            <Tag size={20} className="text-primary lg:w-4 lg:h-4" />
-            <h3 className="font-black text-slate-800 text-sm lg:text-xs">Available Coupons</h3>
+      {/* Inline coupon carousel (hidden by default to avoid duplicate UI) */}
+      {showInline && (
+        <motion.div className="bg-white rounded-2xl lg:rounded-2xl p-4 lg:p-3 shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-3 lg:mb-2">
+            <div className="flex items-center gap-2">
+              <Tag size={20} className="text-primary lg:w-4 lg:h-4" />
+              <h3 className="font-black text-slate-800 text-sm lg:text-xs">Available Coupons</h3>
+            </div>
+            <button
+              onClick={() => onOpenChange(true)}
+              className="text-primary text-sm lg:text-xs font-bold hover:underline">
+              See All
+            </button>
           </div>
-          <button
-            onClick={() => onOpenChange(true)}
-            className="text-primary text-sm lg:text-xs font-bold hover:underline">
-            See All
-          </button>
-        </div>
-        {coupons.length === 0 ? (
-          <p className="text-xs text-slate-400 font-medium py-2">
-            No coupons available right now.
-          </p>
-        ) : (
-          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4 snap-x">
-            {coupons.map((coupon) => {
-              const isApplied = selectedCoupon?.code === coupon.code;
-              return (
-                <div
-                  key={coupon.code}
-                  className={`flex-shrink-0 w-[200px] snap-start rounded-2xl border-2 border-dashed p-3 flex flex-col gap-2 transition-all ${
-                    isApplied
-                      ? "border-green-400 bg-green-50"
-                      : "border-brand-200 bg-gradient-to-br from-brand-50 to-orange-50/40"
-                  }`}>
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`text-xs font-black px-2 py-0.5 rounded-lg tracking-widest uppercase ${
-                        isApplied
-                          ? "bg-green-100 text-green-700"
-                          : "bg-brand-100 text-primary"
-                      }`}>
-                      {coupon.code}
-                    </span>
-                    {isApplied && (
-                      <span className="text-[10px] font-black text-green-600 uppercase tracking-wide">
-                        ✓ Applied
+          {coupons.length === 0 ? (
+            <p className="text-xs text-slate-400 font-medium py-2">
+              No coupons available right now.
+            </p>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4 snap-x">
+              {coupons.map((coupon) => {
+                const isApplied = selectedCoupon?.code === coupon.code;
+                return (
+                  <div
+                    key={coupon.code}
+                    className={`flex-shrink-0 w-[200px] snap-start rounded-2xl border-2 border-dashed p-3 flex flex-col gap-2 transition-all ${
+                      isApplied
+                        ? "border-green-400 bg-green-50"
+                        : "border-brand-200 bg-gradient-to-br from-brand-50 to-orange-50/40"
+                    }`}>
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`text-xs font-black px-2 py-0.5 rounded-lg tracking-widest uppercase ${
+                          isApplied
+                            ? "bg-green-100 text-green-700"
+                            : "bg-brand-100 text-primary"
+                        }`}>
+                        {coupon.code}
                       </span>
+                      {isApplied && (
+                        <span className="text-[10px] font-black text-green-600 uppercase tracking-wide">
+                          ✓ Applied
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm font-black text-slate-800 leading-tight">
+                      {coupon.discountType === "percentage"
+                        ? `${coupon.discountValue}% OFF`
+                        : `₹${coupon.discountValue} OFF`}
+                      {coupon.minOrderValue > 0 && (
+                        <span className="block text-[10px] font-medium text-slate-500">
+                          on orders above ₹{coupon.minOrderValue}
+                        </span>
+                      )}
+                    </p>
+                    {coupon.description && (
+                      <p className="text-[10px] text-slate-500 leading-snug line-clamp-2">
+                        {coupon.description}
+                      </p>
+                    )}
+                    {isApplied ? (
+                      <button
+                        onClick={onRemoveCoupon}
+                        className="mt-auto w-full py-1.5 rounded-xl text-xs font-black bg-red-50 text-red-500 hover:bg-red-100 active:scale-95 transition-all">
+                        Remove
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => onApplyCoupon(coupon)}
+                        className="mt-auto w-full py-1.5 rounded-xl text-xs font-black bg-primary text-white hover:bg-brand-600 active:scale-95 transition-all">
+                        Apply
+                      </button>
                     )}
                   </div>
-                  <p className="text-sm font-black text-slate-800 leading-tight">
-                    {coupon.discountType === "percentage"
-                      ? `${coupon.discountValue}% OFF`
-                      : `₹${coupon.discountValue} OFF`}
-                    {coupon.minOrderValue > 0 && (
-                      <span className="block text-[10px] font-medium text-slate-500">
-                        on orders above ₹{coupon.minOrderValue}
-                      </span>
-                    )}
-                  </p>
-                  {coupon.description && (
-                    <p className="text-[10px] text-slate-500 leading-snug line-clamp-2">
-                      {coupon.description}
-                    </p>
-                  )}
-                  {isApplied ? (
-                    <button
-                      onClick={onRemoveCoupon}
-                      className="mt-auto w-full py-1.5 rounded-xl text-xs font-black bg-red-50 text-red-500 hover:bg-red-100 active:scale-95 transition-all">
-                      Remove
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => onApplyCoupon(coupon)}
-                      className="mt-auto w-full py-1.5 rounded-xl text-xs font-black bg-primary text-white hover:bg-brand-600 active:scale-95 transition-all">
-                      Apply
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </motion.div>
+                );
+              })}
+            </div>
+          )}
+        </motion.div>
+      )}
 
       {/* Coupon Selection Modal */}
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -124,7 +127,12 @@ const CheckoutCouponSection = React.memo(function CheckoutCouponSection({
             <DialogDescription>Browse available offers and save more.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-            {coupons.map((coupon) => (
+            {!coupons || coupons.length === 0 ? (
+              <p className="text-xs text-slate-400 font-medium py-4 text-center">
+                No coupons available right now.
+              </p>
+            ) : (
+              coupons.map((coupon) => (
               <div
                 key={coupon.code}
                 className={`p-4 rounded-2xl border-2 transition-all relative overflow-hidden ${
@@ -166,7 +174,7 @@ const CheckoutCouponSection = React.memo(function CheckoutCouponSection({
                   </div>
                 </div>
               </div>
-            ))}
+            )))}
           </div>
           <div className="pt-2">
             <div className="relative">

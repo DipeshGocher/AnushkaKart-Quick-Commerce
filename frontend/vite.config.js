@@ -109,6 +109,13 @@ export default defineConfig(({ mode }) => ({
 
           // ── Icons & UI utilities ─────────────────────────────────────────
           if (id.includes('lucide-react')) return 'vendor-icons';
+
+          // ── Admin-only FontAwesome icon catalog (heavy registry) ──────────
+          if (
+            id.includes('react-icons') ||
+            id.includes('fontAwesomeFreeClassicCatalog') ||
+            id.includes('IconSelector')
+          ) return 'vendor-admin-icons';
         },
       },
     },

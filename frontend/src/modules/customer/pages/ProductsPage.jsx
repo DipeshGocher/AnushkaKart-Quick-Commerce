@@ -71,6 +71,10 @@ const ProductsPage = () => {
   const [activeSort, setActiveSort] = useState('relevance');
   const [isSortModalOpen, setIsSortModalOpen] = useState(false);
 
+  const PRODUCT_BATCH_SIZE = 24;
+  const [visibleCount, setVisibleCount] = useState(PRODUCT_BATCH_SIZE);
+  const loadMoreSentinelRef = useRef(null);
+
   // Debounce search query
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -252,6 +256,35 @@ const ProductsPage = () => {
 
     return list;
   }, [rawProducts, selectedHeaderId, debouncedQuery, allCategoriesMap, allSubcategoriesMap, activeSort]);
+
+  // Reset visible batch count whenever header category, search query, or sort changes
+  useEffect(() => {
+    setVisibleCount(PRODUCT_BATCH_SIZE);
+  }, [selectedHeaderId, debouncedQuery, activeSort]);
+
+  // Incremental batch slice for rendering (reduces initial mounted cards from 150 to 24)
+  const displayedProducts = useMemo(() => {
+    return displayProducts.slice(0, visibleCount);
+  }, [displayProducts, visibleCount]);
+
+  // Observer to load more batches automatically 350px before scroll reaches bottom
+  useEffect(() => {
+    if (visibleCount >= displayProducts.length) return;
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + PRODUCT_BATCH_SIZE, displayProducts.length));
+        }
+      },
+      { root: null, rootMargin: '350px', threshold: 0 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [visibleCount, displayProducts.length]);
 
   const handleHeaderCategoryClick = (headerId) => {
     setSelectedHeaderId(headerId);
@@ -447,14 +480,26 @@ const ProductsPage = () => {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5">
-            {displayProducts.map((product) => (
-              <ProductCard
-                key={product.id || product._id}
-                product={product}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5">
+              {displayedProducts.map((product, idx) => (
+                <ProductCard
+                  key={product.id || product._id}
+                  product={product}
+                  priority={idx < 4}
+                />
+              ))}
+            </div>
+            {visibleCount < displayProducts.length && (
+              <div
+                ref={loadMoreSentinelRef}
+                className="w-full py-6 flex items-center justify-center text-xs text-slate-400 font-medium"
+              >
+                <span className="inline-block w-4 h-4 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin mr-2" />
+                <span>Loading more products...</span>
+              </div>
+            )}
+          </>
         )}
       </main>
 

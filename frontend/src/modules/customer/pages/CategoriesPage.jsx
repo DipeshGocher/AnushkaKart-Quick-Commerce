@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Mic, Search, ShoppingBag, ShoppingCart, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { customerApi } from '../services/customerApi';
-import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import { applyCloudinaryTransform, IMAGE_PRESETS } from '@/core/utils/imageUtils';
 import { useSettings } from '@core/context/SettingsContext';
 import { useCart } from '../context/CartContext';
 import CategoryIcon from '@shared/components/CategoryIcon';
@@ -151,7 +151,7 @@ const CategoriesPage = () => {
     const selectHeader = (headerId) => {
         setActiveHeaderId(headerId);
         const pane = contentPaneRef.current;
-        if (pane) pane.scrollTo({ top: 0, behavior: 'smooth' });
+        if (pane) pane.scrollTop = 0;
     };
 
     const handleVoiceSearch = () => {
@@ -180,7 +180,7 @@ const CategoriesPage = () => {
         }
     };
 
-    const renderTile = (tile, isSubcategory = false) => {
+    const renderTile = (tile, isSubcategory = false, index = 0) => {
         const headerSlug = tile.headerSlug || slugify(tile.headerName || '');
         const mainSlug = isSubcategory
             ? (tile.parentSlug || slugify(tile.parentName || ''))
@@ -222,9 +222,11 @@ const CategoriesPage = () => {
                 <span className="customer-category-tile-image flex h-[76px] w-[76px] md:h-[82px] md:w-[82px] aspect-square items-center justify-center overflow-hidden rounded-[20px] md:rounded-2xl bg-[#f4f4f4] hover:bg-[#eaeaea] md:hover:bg-white border border-[#e5e7eb] p-0 transition-all duration-150 group-hover:border-slate-300 md:group-hover:border-primary/40 group-active:scale-95 shadow-2xs md:group-hover:shadow-md">
                     {tile.image ? (
                         <img
-                            src={applyCloudinaryTransform(tile.image, 'f_auto,q_auto,w_300')}
+                            src={applyCloudinaryTransform(tile.image, IMAGE_PRESETS.CATEGORY_TILE)}
                             alt={tile.name}
-                            loading="lazy"
+                            loading={index < 6 ? "eager" : "lazy"}
+                            fetchPriority={index < 3 ? "high" : "auto"}
+                            decoding="async"
                             referrerPolicy="no-referrer"
                             onError={(e) => {
                                 e.currentTarget.onerror = null;
@@ -338,10 +340,12 @@ const CategoriesPage = () => {
                             <span className="flex h-[36px] w-[44px] items-center justify-center shrink-0 overflow-hidden">
                                 {forYouImage ? (
                                     <img
-                                        src={applyCloudinaryTransform(forYouImage, 'f_auto,q_auto,w_120')}
+                                        src={applyCloudinaryTransform(forYouImage, IMAGE_PRESETS.ICON)}
                                         alt="For You"
                                         className="max-h-full max-w-full object-contain"
-                                        loading="lazy"
+                                        loading="eager"
+                                        fetchPriority="high"
+                                        decoding="async"
                                     />
                                 ) : forYouIconId ? (
                                     <CategoryIcon
@@ -359,7 +363,7 @@ const CategoriesPage = () => {
                         </button>
 
                         {/* Other Header Categories */}
-                        {visibleSections.map((section) => (
+                        {visibleSections.map((section, sIdx) => (
                             <button
                                 key={section.id}
                                 type="button"
@@ -369,10 +373,12 @@ const CategoriesPage = () => {
                                 <span className="flex h-[36px] w-[44px] items-center justify-center shrink-0 overflow-hidden">
                                     {section.image ? (
                                         <img
-                                            src={applyCloudinaryTransform(section.image, 'f_auto,q_auto,w_120')}
+                                            src={applyCloudinaryTransform(section.image, IMAGE_PRESETS.ICON)}
                                             alt=""
                                             className="max-h-full max-w-full object-contain"
-                                            loading="lazy"
+                                            loading={sIdx < 5 ? "eager" : "lazy"}
+                                            fetchPriority={sIdx < 2 ? "high" : "auto"}
+                                            decoding="async"
                                         />
                                     ) : (
                                         <CategoryIcon
@@ -390,7 +396,7 @@ const CategoriesPage = () => {
                     <main ref={contentPaneRef} className="customer-category-content min-w-0 flex-1 px-3.5 pb-12 pt-3 sm:px-5">
                         {isForYouActive ? (
                             /* FOR YOU VIEW: Each Header Category's name as heading, followed by its main categories in 3 columns */
-                            <motion.div initial={{ opacity: 0.92, y: 6 }} animate={{ opacity: 1, y: 0 }} className="pb-8">
+                            <div className="pb-8">
                                 {visibleSections.map((header) => {
                                     if (!header.categories || header.categories.length === 0) return null;
                                     return (
@@ -399,25 +405,25 @@ const CategoriesPage = () => {
                                                 {header.name}
                                             </h2>
                                             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-3 gap-y-4 sm:gap-4 md:gap-3 lg:gap-4">
-                                                {header.categories.map((cat) => renderTile(cat))}
+                                                {header.categories.map((cat, idx) => renderTile(cat, false, idx))}
                                             </div>
                                         </div>
                                     );
                                 })}
-                            </motion.div>
+                            </div>
                         ) : activeSection ? (
                             /* SPECIFIC HEADER CATEGORY VIEW: Banner -> Main Categories -> Separation -> Subcategories */
                             (() => {
                                 const section = activeSection;
                                 const allSubcategories = (section.categories || []).flatMap((cat) => cat.subcategories || []);
                                 return (
-                                    <motion.div initial={{ opacity: 0.92, y: 6 }} animate={{ opacity: 1, y: 0 }} key={section.id} className="customer-category-header-section pb-8">
+                                    <div className="customer-category-header-section pb-8">
                                         {/* Main Categories (directly in 3 columns) */}
                                         {query && section.categories.length === 0 ? (
-                                            <div className="py-6 text-center text-xs text-slate-500">No categories matching “{searchQuery}”.</div>
+                                             <div className="py-6 text-center text-xs text-slate-500">No categories matching “{searchQuery}”.</div>
                                         ) : (
                                             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-3 gap-y-4 sm:gap-4 md:gap-3 lg:gap-4">
-                                                {section.categories.map((cat) => renderTile(cat))}
+                                                {section.categories.map((cat, idx) => renderTile(cat, false, idx))}
                                             </div>
                                         )}
 
@@ -431,11 +437,11 @@ const CategoriesPage = () => {
                                                 </div>
 
                                                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-x-3 gap-y-4 sm:gap-4 md:gap-3 lg:gap-4 pb-6">
-                                                    {allSubcategories.map((sub) => renderTile(sub, true))}
+                                                    {allSubcategories.map((sub, idx) => renderTile(sub, true, idx))}
                                                 </div>
                                             </>
                                         )}
-                                    </motion.div>
+                                    </div>
                                 );
                             })()
                         ) : null}

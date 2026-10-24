@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ImageOff, ChevronLeft, ChevronRight } from 'lucide-react';
 import { customerApi } from '../../services/customerApi';
 import { useSettings } from '@core/context/SettingsContext';
-import { applyCloudinaryTransform, isPngImage } from '@/core/utils/imageUtils';
+import { applyCloudinaryTransform, isPngImage, IMAGE_PRESETS } from '@/core/utils/imageUtils';
 import { cn } from '@/lib/utils';
 
 let cachedTopDealsSubs = null;
@@ -275,9 +275,10 @@ const TopDealsOnProducts = ({ subcategoryMap = null, categoryMap = null }) => {
                         <div className="relative aspect-square w-full rounded-xl overflow-hidden flex items-center justify-center">
                           {image ? (
                             <img
-                              src={applyCloudinaryTransform(image, 'f_auto,q_auto,w_300')}
+                              src={applyCloudinaryTransform(image, IMAGE_PRESETS.CATEGORY_TILE)}
                               alt={sub.name}
-                              loading="lazy"
+                              loading={colIdx < 3 ? "eager" : "lazy"}
+                              fetchPriority={colIdx === 0 ? "high" : "auto"}
                               decoding="async"
                               referrerPolicy="no-referrer"
                               onError={(e) => {

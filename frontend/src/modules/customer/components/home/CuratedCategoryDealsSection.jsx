@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { customerApi } from "../../services/customerApi";
-import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { applyCloudinaryTransform, IMAGE_PRESETS } from "@/core/utils/imageUtils";
 import { slugify } from "@/core/utils/productUrl";
 
 // Default theme configuration per category if not customized in CMS
@@ -359,7 +359,7 @@ function CuratedCategoryDealsSection({
         >
           {items.map((item, idx) => {
             const transformedImage = item.image
-              ? applyCloudinaryTransform(item.image, "f_auto,q_auto,w_360")
+              ? applyCloudinaryTransform(item.image, IMAGE_PRESETS.CATEGORY_TILE)
               : "https://cdn-icons-png.flaticon.com/128/2321/2321831.png";
 
             return (
@@ -376,7 +376,9 @@ function CuratedCategoryDealsSection({
                   <img
                     src={transformedImage}
                     alt={item.name}
-                    loading="lazy"
+                    loading={idx < 4 ? "eager" : "lazy"}
+                    fetchPriority={idx < 2 ? "high" : "auto"}
+                    decoding="async"
                     onError={(e) => {
                       e.currentTarget.onerror = null;
                       e.currentTarget.src =

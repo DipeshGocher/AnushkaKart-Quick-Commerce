@@ -1,66 +1,31 @@
-import {
-  FaAppleWhole,
-  FaBaby,
-  FaBagShopping,
-  FaBasketShopping,
-  FaBatteryFull,
-  FaBolt,
-  FaBookOpen,
-  FaBottleWater,
-  FaBowlFood,
-  FaBreadSlice,
-  FaBriefcase,
-  FaBriefcaseMedical,
-  FaBroom,
-  FaCamera,
-  FaCar,
-  FaChampagneGlasses,
-  FaCookieBite,
-  FaDesktop,
-  FaDrumstickBite,
-  FaEarListen,
-  FaFutbol,
-  FaGem,
-  FaGamepad,
-  FaGlassWater,
-  FaHeadphones,
-  FaHouse,
-  FaLaptop,
-  FaMobileScreenButton,
-  FaMicrophone,
-  FaMusic,
-  FaPalette,
-  FaPaw,
-  FaPen,
-  FaPlug,
-  FaPuzzlePiece,
-  FaRadio,
-  FaSeedling,
-  FaShirt,
-  FaSliders,
-  FaScrewdriverWrench,
-  FaStopwatch,
-  FaSuitcaseRolling,
-  FaTabletScreenButton,
-  FaTag,
-  FaTv,
-  FaUsb,
-  FaVideo,
-  FaVolumeHigh,
-  FaWandMagicSparkles,
-} from "react-icons/fa6";
+import React from "react";
+import { CATEGORY_SVG_DATA } from "./categorySvgData";
 
-const iconsByComponentName = {
-  FaAppleWhole, FaBaby, FaBagShopping, FaBasketShopping, FaBatteryFull, FaBolt,
-  FaBookOpen, FaBottleWater, FaBowlFood, FaBreadSlice, FaBriefcase,
-  FaBriefcaseMedical, FaBroom, FaCamera, FaCar, FaChampagneGlasses,
-  FaCookieBite, FaDesktop, FaDrumstickBite, FaEarListen, FaFutbol, FaGem,
-  FaGamepad, FaGlassWater, FaHeadphones, FaHouse, FaLaptop,
-  FaMobileScreenButton, FaMicrophone, FaMusic, FaPalette, FaPaw, FaPen, FaPlug,
-  FaPuzzlePiece, FaRadio, FaSeedling, FaShirt, FaSliders, FaScrewdriverWrench,
-  FaStopwatch, FaSuitcaseRolling, FaTabletScreenButton, FaTag, FaTv, FaUsb,
-  FaVideo, FaVolumeHigh, FaWandMagicSparkles,
+const createSvgIconComponent = (def) => {
+  if (!def) return null;
+  return function FontAwesomeCategoryIcon({ className = "w-6 h-6", style, ...rest }) {
+    const paths = (def.paths || []).map((d, idx) =>
+      React.createElement("path", { key: idx, d })
+    );
+    return React.createElement(
+      "svg",
+      {
+        viewBox: def.viewBox || "0 0 512 512",
+        fill: "currentColor",
+        style,
+        className,
+        "aria-hidden": "true",
+        ...rest,
+      },
+      paths
+    );
+  };
 };
+
+const iconsByComponentName = {};
+Object.entries(CATEGORY_SVG_DATA).forEach(([name, def]) => {
+  iconsByComponentName[name] = createSvgIconComponent(def);
+});
 
 const legacyIconNames = {
   electronics: "FaLaptop",

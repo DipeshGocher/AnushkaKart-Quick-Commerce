@@ -46,6 +46,7 @@ const EditProfilePage = lazy(() => import('../../modules/customer/pages/EditProf
 const OrderDetailPage = lazy(() => import('../../modules/customer/pages/OrderDetailPage'));
 const ProductDetailPage = lazy(() => import('../../modules/customer/pages/ProductDetailPage'));
 const CheckoutPage = lazy(() => import('../../modules/customer/pages/CheckoutPage'));
+const PaymentPage = lazy(() => import('../../modules/customer/pages/PaymentPage'));
 const PaymentStatusPage = lazy(() => import('../../modules/customer/pages/PaymentStatusPage'));
 const SearchPage = lazy(() => import('../../modules/customer/pages/SearchPage'));
 const ProductsPage = lazy(() => import('../../modules/customer/pages/ProductsPage'));
@@ -109,7 +110,7 @@ const RESERVED_CUSTOMER_SLUGS = new Set([
     'admin', 'seller', 'delivery', 'unauthorized', 'marketplace', 'api', 
     'login', 'signup', 'verify-otp', 'categories', 'category', 'product', 'products', 
     'search', 'orders', 'cart', 'wishlist', 'settings', 'profile', 
-    'wallet', 'notifications', 'checkout', 'support', 'help', 'privacy', 'privacy-policy', 'about', 'offers',
+    'wallet', 'notifications', 'checkout', 'payment', 'support', 'help', 'privacy', 'privacy-policy', 'about', 'offers',
     'terms', 'terms-and-conditions', 'terms-conditions', 'terms&conditions', 'term-and-conditions'
 ]);
 
@@ -290,6 +291,7 @@ const AppRouter = () => {
                         { path: 'settings', element: <ProtectedRoute><SettingsPage /></ProtectedRoute> },
                         { path: 'chat', element: <ProtectedRoute><ChatPage /></ProtectedRoute> },
                         { path: 'checkout', element: <ProtectedRoute><CheckoutPage /></ProtectedRoute> },
+                        { path: 'payment', element: <ProtectedRoute><PaymentPage /></ProtectedRoute> },
                         { path: 'payment-status', element: <PaymentStatusPage /> },
                         { path: 'profile', element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
                         { path: 'profile/edit', element: <ProtectedRoute><EditProfilePage /></ProtectedRoute> },

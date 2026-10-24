@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { cn } from '@/lib/utils';
-import { applyCloudinaryTransform, isPngImage } from '@/core/utils/imageUtils';
+import { applyCloudinaryTransform, isPngImage, IMAGE_PRESETS } from '@/core/utils/imageUtils';
 import { getProductUrl, slugify, getProductVariantText } from '@/core/utils/productUrl';
 import CategoryIcon from '@shared/components/CategoryIcon';
 import ProductDetailSheet from '../components/shared/ProductDetailSheet';
@@ -95,6 +95,10 @@ const CategoryProductsPage = () => {
   const [isProductsLoading, setIsProductsLoading] = useState(true);
   const [sortBy, setSortBy] = useState('relevance');
 
+  const PRODUCT_BATCH_SIZE = 24;
+  const [visibleCount, setVisibleCount] = useState(PRODUCT_BATCH_SIZE);
+  const activeFetchIdRef = useRef(0);
+  const loadMoreSentinelRef = useRef(null);
   const selectedSubCatRef = useRef(null);
 
   // 1. Initial Load: Fetch category tree
@@ -357,6 +361,7 @@ const CategoryProductsPage = () => {
     if (!activeHeader?._id && (!selectedMainCatId || selectedMainCatId === 'all')) return;
 
     let isMounted = true;
+    const fetchId = ++activeFetchIdRef.current;
     const fetchCategoryProducts = async () => {
       try {
         setIsProductsLoading(true);
@@ -375,7 +380,7 @@ const CategoryProductsPage = () => {
         }
 
         const res = await customerApi.getProducts(params);
-        if (isMounted) {
+        if (isMounted && activeFetchIdRef.current === fetchId) {
           const data = res?.data || res;
           const rawResult = data?.result;
           const items = Array.isArray(data?.results)
@@ -397,9 +402,9 @@ const CategoryProductsPage = () => {
         }
       } catch (err) {
         console.error('Failed to load products for category:', err);
-        if (isMounted) setProducts([]);
+        if (isMounted && activeFetchIdRef.current === fetchId) setProducts([]);
       } finally {
-        if (isMounted) setIsProductsLoading(false);
+        if (isMounted && activeFetchIdRef.current === fetchId) setIsProductsLoading(false);
       }
     };
 
@@ -504,6 +509,35 @@ const CategoryProductsPage = () => {
 
     return list;
   }, [products, selectedSubCatId, availableSubCategories, searchQuery, sortBy]);
+
+  // Reset visible batch count whenever category, subcategory, search, or sort changes
+  useEffect(() => {
+    setVisibleCount(PRODUCT_BATCH_SIZE);
+  }, [selectedMainCatId, selectedSubCatId, searchQuery, sortBy]);
+
+  // Incremental batch slice for rendering (reduces initial mounted cards from 200 to 24)
+  const displayedProducts = useMemo(() => {
+    return filteredProducts.slice(0, visibleCount);
+  }, [filteredProducts, visibleCount]);
+
+  // Observer to load more batches automatically 350px before scroll reaches bottom
+  useEffect(() => {
+    if (visibleCount >= filteredProducts.length) return;
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + PRODUCT_BATCH_SIZE, filteredProducts.length));
+        }
+      },
+      { root: null, rootMargin: '350px', threshold: 0 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [visibleCount, filteredProducts.length]);
 
   // Safety net: If a specific subcategory is selected and has 0 products in memory, fetch targeted by subcategoryId
   useEffect(() => {
@@ -759,7 +793,7 @@ const CategoryProductsPage = () => {
                   </button>
 
                   {/* Each Subcategory in Circular Round Shape */}
-                  {availableSubCategories.map((sub) => {
+                  {availableSubCategories.map((sub, idx) => {
                     const subId = sub._id || sub.id;
                     const isSelected = String(selectedSubCatId) === String(subId);
                     const subImage = sub.image || sub.icon;
@@ -782,9 +816,11 @@ const CategoryProductsPage = () => {
                         >
                           {subImage ? (
                             <img
-                              src={applyCloudinaryTransform(subImage, 'f_auto,q_auto,w_120')}
+                              src={applyCloudinaryTransform(subImage, IMAGE_PRESETS.ICON)}
                               alt={sub.name}
-                              loading="lazy"
+                              loading={idx < 6 ? "eager" : "lazy"}
+                              fetchPriority={idx < 3 ? "high" : "auto"}
+                              decoding="async"
                               className="w-full h-full object-cover transition-transform group-hover:scale-110"
                             />
                           ) : sub.iconId ? (
@@ -951,14 +987,29 @@ const CategoryProductsPage = () => {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 px-4 pb-24 pt-2">
-                {filteredProducts.map((product) => (
-                  <ProductCard
-                    key={product.id || product._id}
-                    product={product}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 px-4 pb-4 pt-2">
+                  {displayedProducts.map((product, idx) => (
+                    <ProductCard
+                      key={product.id || product._id}
+                      product={product}
+                      priority={idx < 4}
+                    />
+                  ))}
+                </div>
+                {visibleCount < filteredProducts.length && (
+                  <div
+                    ref={loadMoreSentinelRef}
+                    className="w-full py-6 pb-24 flex items-center justify-center text-xs text-slate-400 font-medium"
+                  >
+                    <span className="inline-block w-4 h-4 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin mr-2" />
+                    <span>Loading more products...</span>
+                  </div>
+                )}
+                {visibleCount >= filteredProducts.length && (
+                  <div className="w-full pb-24" />
+                )}
+              </>
             )}
           </>
         )}

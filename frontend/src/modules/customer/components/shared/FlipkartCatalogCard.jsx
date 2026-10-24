@@ -4,7 +4,7 @@ import { Heart } from 'lucide-react';
 import { useWishlist } from '../../context/WishlistContext';
 import { useAuth } from '@core/context/AuthContext';
 import { useToast } from '@shared/components/ui/Toast';
-import { applyCloudinaryTransform, isPngImage } from '@/core/utils/imageUtils';
+import { applyCloudinaryTransform, isPngImage, IMAGE_PRESETS } from '@/core/utils/imageUtils';
 import { cn } from '@/lib/utils';
 import { getProductVariantText } from '@/core/utils/productUrl';
 import { useDeliveryEligibility } from '../../hooks/useDeliveryEligibility';
@@ -16,7 +16,7 @@ import { useDeliveryEligibility } from '../../hooks/useDeliveryEligibility';
  * - NO ADD button on the card outside
  * - Clicking the card triggers onProductClick (opens ProductDetailSheet with all details and ADD button)
  */
-const FlipkartCatalogCard = ({ product, onProductClick }) => {
+const FlipkartCatalogCard = ({ product, onProductClick, priority = false }) => {
     const { isInWishlist, toggleWishlist } = useWishlist();
     const { isAuthenticated } = useAuth();
     const { showToast } = useToast();
@@ -106,9 +106,10 @@ const FlipkartCatalogCard = ({ product, onProductClick }) => {
 
                 {/* Centered Product Image */}
                 <img
-                    src={applyCloudinaryTransform(rawImage, 'f_auto,q_auto,w_300')}
+                    src={applyCloudinaryTransform(rawImage, IMAGE_PRESETS.PRODUCT_THUMB)}
                     alt={product.name}
-                    loading="lazy"
+                    loading={priority ? "eager" : "lazy"}
+                    fetchPriority={priority ? "high" : "auto"}
                     decoding="async"
                     referrerPolicy="no-referrer"
                     onError={(e) => {

@@ -90,10 +90,11 @@ const WishlistPage = () => {
       <div className={`px-3 sm:px-4 max-w-7xl mx-auto w-full ${activeWishlist.length > 0 ? 'pt-4' : 'flex-1 flex flex-col justify-center items-center py-6 -mt-8'}`}>
         {activeWishlist.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-3 gap-y-5">
-            {activeWishlist.map((product) => (
+            {activeWishlist.map((product, idx) => (
               <ProductCard
                 key={product.id || product._id}
                 product={product}
+                priority={idx < 4}
               />
             ))}
           </div>

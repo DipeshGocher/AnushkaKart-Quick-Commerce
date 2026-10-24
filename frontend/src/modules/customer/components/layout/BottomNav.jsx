@@ -310,7 +310,6 @@ const BottomNav = () => {
                 return;
             } else {
                 navigate('/');
-                window.scrollTo({ top: 0, behavior: 'instant' });
                 return;
             }
         }
@@ -321,9 +320,8 @@ const BottomNav = () => {
             return;
         }
 
-        // 3. Navigate immediately
+        // 3. Navigate immediately (ScrollToTop handles position restoration)
         navigate(item.path);
-        window.scrollTo({ top: 0, behavior: 'instant' });
     };
 
     return (

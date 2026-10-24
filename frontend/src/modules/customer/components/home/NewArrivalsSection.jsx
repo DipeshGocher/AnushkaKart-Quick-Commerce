@@ -5,7 +5,7 @@ import { useProductDetail } from "../../context/ProductDetailContext";
 import { useCart, resolveVariantStock } from "../../context/CartContext";
 import { useVariantSelection } from "../../context/VariantSelectionContext";
 import { useDeliveryEligibility } from "../../hooks/useDeliveryEligibility";
-import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { applyCloudinaryTransform, IMAGE_PRESETS } from "@/core/utils/imageUtils";
 import { getProductVariantText, getProductPriceInfo } from "@/core/utils/productUrl";
 import { useTranslation } from "@core/context/LanguageContext";
 import { useDynamicTranslation } from "@/core/hooks/useDynamicTranslation";
@@ -147,7 +147,7 @@ const NewArrivalProductCard = React.memo(({ product }) => {
         {/* Product Image */}
         {image ? (
           <img
-            src={applyCloudinaryTransform(image, "f_auto,q_auto,w_300")}
+            src={applyCloudinaryTransform(image, IMAGE_PRESETS.PRODUCT_THUMB)}
             alt={product.name}
             loading="lazy"
             decoding="async"
@@ -242,6 +242,7 @@ const NewArrivalProductCard = React.memo(({ product }) => {
 });
 
 let memoryNewArrivalsCache = null;
+let memoryNewArrivalsCacheTime = 0;
 
 const NewArrivalsSection = ({ latitude, longitude }) => {
   const [products, setProducts] = useState(() => memoryNewArrivalsCache || []);
@@ -254,6 +255,7 @@ const NewArrivalsSection = ({ latitude, longitude }) => {
   useEffect(() => {
     const handleCmsRefresh = () => {
       memoryNewArrivalsCache = null;
+      memoryNewArrivalsCacheTime = 0;
     };
     window.addEventListener("anushkakart:cms_updated", handleCmsRefresh);
     return () => window.removeEventListener("anushkakart:cms_updated", handleCmsRefresh);
@@ -263,6 +265,11 @@ const NewArrivalsSection = ({ latitude, longitude }) => {
     let cancelled = false;
 
     const fetchNewArrivals = async () => {
+      if (memoryNewArrivalsCache && memoryNewArrivalsCache.length > 0 && (Date.now() - memoryNewArrivalsCacheTime < 120000)) {
+        setIsLoading(false);
+        return;
+      }
+
       if (!memoryNewArrivalsCache || memoryNewArrivalsCache.length === 0) {
         setIsLoading(true);
       }
@@ -293,6 +300,7 @@ const NewArrivalsSection = ({ latitude, longitude }) => {
             rating: Number(p.rating) > 0 ? Number(p.rating) : 5.0,
           }));
           memoryNewArrivalsCache = formatted;
+          memoryNewArrivalsCacheTime = Date.now();
           setProducts(formatted);
           setDisplayProducts(formatted);
           if (formatted.length === 0 && retryCount < 2) {

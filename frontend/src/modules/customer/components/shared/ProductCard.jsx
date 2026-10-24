@@ -4,9 +4,7 @@ import { Heart, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWishlist } from "../../context/WishlistContext";
 import { useCart } from "../../context/CartContext";
-import { useToast } from "@shared/components/ui/Toast";
-import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
-import { getProductPriceInfo } from "@/core/utils/productUrl";
+import { applyCloudinaryTransform, IMAGE_PRESETS } from "@/core/utils/imageUtils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useProductDetail } from "../../context/ProductDetailContext";
 import ParticleBurst from "./ParticleBurst";
@@ -188,9 +186,10 @@ const ProductCard = ({ product, className, priority = false }) => {
         {/* Product Image (Centered, object-fit: contain, padding: 8px) */}
         {rawImg ? (
           <img
-            src={applyCloudinaryTransform(rawImg, "f_auto,q_auto,w_400")}
+            src={applyCloudinaryTransform(rawImg, IMAGE_PRESETS.PRODUCT_THUMB)}
             alt={product?.name || "Product"}
             loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : "auto"}
             decoding="async"
             referrerPolicy="no-referrer"
             onError={(e) => {

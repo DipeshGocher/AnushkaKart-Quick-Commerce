@@ -12,7 +12,7 @@ import {
 import { customerApi } from '../services/customerApi';
 import { useProductDetail } from '../context/ProductDetailContext';
 import { getJSON, setJSON, STORAGE_KEYS } from '@core/utils/storage';
-import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import { applyCloudinaryTransform, IMAGE_PRESETS } from '@/core/utils/imageUtils';
 import { cn } from '@/lib/utils';
 import VoiceSearchModal from '../components/shared/VoiceSearchModal';
 
@@ -299,9 +299,10 @@ const SearchPage = () => {
                 <div className="w-8 h-8 shrink-0 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden">
                   {item.image ? (
                     <img
-                      src={applyCloudinaryTransform(item.image, 'f_auto,q_auto,w_100')}
+                      src={applyCloudinaryTransform(item.image, IMAGE_PRESETS.PRODUCT_THUMB)}
                       alt={item.term}
                       loading="lazy"
+                      decoding="async"
                       referrerPolicy="no-referrer"
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';

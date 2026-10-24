@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { customerApi } from "../../services/customerApi";
 import { useProductDetail } from "../../context/ProductDetailContext";
-import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { applyCloudinaryTransform, IMAGE_PRESETS } from "@/core/utils/imageUtils";
 import { cn } from "@/lib/utils";
 import { getProductUrl, getProductVariantText, getProductPriceInfo } from "@/core/utils/productUrl";
 import forYouIconImg from "@/assets/for_you_flipkart_icon.png";
@@ -35,6 +35,18 @@ const truncateCategoryName = (name, maxLength = 12) => {
 
 
 
+const forYouProductsCache = new Map();
+const FOR_YOU_CACHE_TTL = 180000; // 3 minutes
+
+const getForYouCacheKey = (tabId, lat, lng) => {
+  const latitude = Number(lat);
+  const longitude = Number(lng);
+  const loc = Number.isFinite(latitude) && Number.isFinite(longitude)
+    ? `${latitude.toFixed(5)}:${longitude.toFixed(5)}`
+    : 'no-loc';
+  return `${tabId}:${loc}`;
+};
+
 const ForYouProductsSection = React.memo(({ categories: propCategories, latitude, longitude }) => {
   const { openProduct } = useProductDetail();
   const { language } = useTranslation();
@@ -44,15 +56,19 @@ const ForYouProductsSection = React.memo(({ categories: propCategories, latitude
   const [displayHeaders, setDisplayHeaders] = useState([]);
   const [activeTab, setActiveTab] = useState("for_you");
 
-  const [products, setProducts] = useState([]);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [isLoading, setIsLoading] = useState(true);
+  const initialCacheKey = getForYouCacheKey("for_you", latitude, longitude);
+  const initialCached = forYouProductsCache.get(initialCacheKey);
+  const hasValidInitialCache = Boolean(initialCached && (Date.now() - initialCached.timestamp < FOR_YOU_CACHE_TTL));
+
+  const [products, setProducts] = useState(() => (hasValidInitialCache ? initialCached.products : []));
+  const [page, setPage] = useState(() => (hasValidInitialCache ? initialCached.page : 1));
+  const [totalPages, setTotalPages] = useState(() => (hasValidInitialCache ? initialCached.totalPages : 1));
+  const [isLoading, setIsLoading] = useState(() => !hasValidInitialCache);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(() => (hasValidInitialCache ? initialCached.hasMore : true));
 
   const sentinelRef = useRef(null);
-  const seenIdsRef = useRef(new Set());
+  const seenIdsRef = useRef(new Set(hasValidInitialCache ? initialCached.seenIds : []));
   const tabsContainerRef = useRef(null);
 
   // Sync header categories from prop or fetch dynamically from database
@@ -149,9 +165,33 @@ const ForYouProductsSection = React.memo(({ categories: propCategories, latitude
     };
   }, [language, headerCategories]);
 
+  // Invalidate in-memory cache when CMS update occurs
+  useEffect(() => {
+    const handleCmsRefresh = () => {
+      forYouProductsCache.clear();
+    };
+    window.addEventListener("anushkakart:cms_updated", handleCmsRefresh);
+    return () => window.removeEventListener("anushkakart:cms_updated", handleCmsRefresh);
+  }, []);
+
   // Fetch page of products based on current active tab
   const fetchProducts = useCallback(
     async (pageNum, isInitial = false, tabId = activeTab) => {
+      const cacheKey = getForYouCacheKey(tabId, latitude, longitude);
+      const cached = forYouProductsCache.get(cacheKey);
+
+      // Instant return if initial page is already fresh in memory
+      if (isInitial && cached && (Date.now() - cached.timestamp < FOR_YOU_CACHE_TTL)) {
+        setProducts(cached.products);
+        setPage(cached.page);
+        setTotalPages(cached.totalPages);
+        setHasMore(cached.hasMore);
+        seenIdsRef.current = new Set(cached.seenIds);
+        setIsLoading(false);
+        setIsLoadingMore(false);
+        return;
+      }
+
       if (isInitial) {
         setIsLoading(true);
       } else {
@@ -194,8 +234,20 @@ const ForYouProductsSection = React.memo(({ categories: propCategories, latitude
         const processedNew =
           tabId === "for_you" && isInitial ? shuffleArray(uniqueNew) : uniqueNew;
 
-        setProducts((prev) => (isInitial ? processedNew : [...prev, ...processedNew]));
-        setHasMore(pageNum < pages && newItems.length > 0);
+        const hasMorePages = pageNum < pages && newItems.length > 0;
+        setProducts((prev) => {
+          const updated = isInitial ? processedNew : [...prev, ...processedNew];
+          forYouProductsCache.set(cacheKey, {
+            products: updated,
+            totalPages: pages,
+            hasMore: hasMorePages,
+            page: pageNum,
+            seenIds: Array.from(seenIdsRef.current),
+            timestamp: Date.now(),
+          });
+          return updated;
+        });
+        setHasMore(hasMorePages);
       } catch (err) {
         console.error("Failed to load products in For You section:", err);
         setHasMore(false);
@@ -207,13 +259,25 @@ const ForYouProductsSection = React.memo(({ categories: propCategories, latitude
     [activeTab, latitude, longitude]
   );
 
-  // When activeTab changes, reset pagination and fetch fresh products
+  // When activeTab changes, restore from cache if available or fetch fresh products
   useEffect(() => {
-    seenIdsRef.current.clear();
-    setProducts([]);
-    setPage(1);
-    fetchProducts(1, true, activeTab);
-  }, [activeTab, fetchProducts]);
+    const cacheKey = getForYouCacheKey(activeTab, latitude, longitude);
+    const cached = forYouProductsCache.get(cacheKey);
+
+    if (cached && (Date.now() - cached.timestamp < FOR_YOU_CACHE_TTL)) {
+      seenIdsRef.current = new Set(cached.seenIds);
+      setProducts(cached.products);
+      setPage(cached.page);
+      setTotalPages(cached.totalPages);
+      setHasMore(cached.hasMore);
+      setIsLoading(false);
+    } else {
+      seenIdsRef.current.clear();
+      setProducts([]);
+      setPage(1);
+      fetchProducts(1, true, activeTab);
+    }
+  }, [activeTab, fetchProducts, latitude, longitude]);
 
   // Infinite scroll observer
   useEffect(() => {
@@ -322,9 +386,10 @@ const ForYouProductsSection = React.memo(({ categories: propCategories, latitude
                     {/* Category Icon / Image - enlarged & sharp on offwhite background */}
                     {cat.iconImage || (cat.image && !cat.image.includes("placeholder")) ? (
                       <img
-                        src={applyCloudinaryTransform(cat.iconImage || cat.image, "f_auto,q_auto,w_120")}
+                        src={applyCloudinaryTransform(cat.iconImage || cat.image, IMAGE_PRESETS.ICON)}
                         alt={cat.name}
                         loading="lazy"
+                        decoding="async"
                         referrerPolicy="no-referrer"
                         onError={(e) => {
                           e.currentTarget.style.display = "none";
@@ -397,10 +462,11 @@ const ForYouProductsSection = React.memo(({ categories: propCategories, latitude
       {/* Responsive Products Grid: 2 per row on mobile, 4 to 6 per row on desktop matching Flipkart */}
       {products.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-6 gap-x-3 sm:gap-x-4 md:gap-x-5 gap-y-4 sm:gap-y-6 px-3.5 sm:px-4 md:px-0">
-          {products.map((item) => (
+          {products.map((item, idx) => (
             <ProductCard
               key={item._id || item.id}
               product={item}
+              priority={idx < 4}
             />
           ))}
         </div>

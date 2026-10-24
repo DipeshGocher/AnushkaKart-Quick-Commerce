@@ -38,15 +38,53 @@ export function resolveMediaUrl(url) {
 }
 
 /**
- * Appends Cloudinary optimisation transforms to a URL.
+ * Standardized Cloudinary Image Presets.
+ * Using stable, deterministic transform strings ensures 100% HTTP & WebView disk/memory cache reuse
+ * as the user navigates between Home, Category browsers, Product Listings, Search, Cart, and Checkout.
+ */
+export const IMAGE_PRESETS = {
+  // Small icons, avatars, subcategory circular pills (~40-60px display, 120px 2x):
+  ICON: "f_auto,q_auto,w_120",
+  // Square category tiles and grids (~80-120px display, 240px 2x):
+  CATEGORY_TILE: "f_auto,q_auto,w_240",
+  // Square category cutout with fill (greetings / round cards):
+  CATEGORY_FILL: "f_auto,q_auto,w_240,h_240,c_fill",
+  // Standard product card thumbnails across Home, Category Listings, Search, Cart, Checkout:
+  PRODUCT_THUMB: "f_auto,q_auto,w_400",
+  // Mobile product detail primary image preview & detail view (~360-420px display, 800px 2x):
+  PRODUCT_DETAIL: "f_auto,q_auto,w_800",
+  // High-res desktop product detail and zoom / full gallery view:
+  PRODUCT_FULL: "f_auto,q_auto,w_1200",
+  // Hero banners and promotional strips:
+  BANNER: "f_auto,q_auto,w_1200",
+};
+
+export const PRESET_ALIASES = {
+  icon: IMAGE_PRESETS.ICON,
+  tile: IMAGE_PRESETS.CATEGORY_TILE,
+  category: IMAGE_PRESETS.CATEGORY_TILE,
+  category_fill: IMAGE_PRESETS.CATEGORY_FILL,
+  thumb: IMAGE_PRESETS.PRODUCT_THUMB,
+  thumbnail: IMAGE_PRESETS.PRODUCT_THUMB,
+  product: IMAGE_PRESETS.PRODUCT_THUMB,
+  detail: IMAGE_PRESETS.PRODUCT_DETAIL,
+  full: IMAGE_PRESETS.PRODUCT_FULL,
+  banner: IMAGE_PRESETS.BANNER,
+};
+
+/**
+ * Appends Cloudinary optimisation transforms to a URL using standardized presets.
  * Safe to call on any URL — non-Cloudinary URLs are returned unchanged.
  */
-export function applyCloudinaryTransform(rawUrl, params = "f_auto,q_auto,w_400,dpr_auto") {
+export function applyCloudinaryTransform(rawUrl, params = IMAGE_PRESETS.PRODUCT_THUMB) {
   if (!rawUrl) return null;
   const url = resolveMediaUrl(rawUrl);
   if (!CLOUDINARY_REGEX.test(url)) return url;
   const match = url.match(CLOUDINARY_UPLOAD_SEGMENT_REGEX);
   if (!match) return url;
+
+  // Resolve preset alias if passed (e.g. 'thumb', 'detail', 'icon', etc.)
+  const resolvedParams = PRESET_ALIASES[params] || params || IMAGE_PRESETS.PRODUCT_THUMB;
 
   const segmentAfterUpload = match[1] || "";
   const alreadyHasTransforms =
@@ -56,7 +94,31 @@ export function applyCloudinaryTransform(rawUrl, params = "f_auto,q_auto,w_400,d
   if (alreadyHasTransforms) return url;
 
   // Insert transform before the segment after `/upload/` (often `v123...`).
-  return url.replace(CLOUDINARY_UPLOAD_SEGMENT_REGEX, `/upload/${params}/$1/`);
+  return url.replace(CLOUDINARY_UPLOAD_SEGMENT_REGEX, `/upload/${resolvedParams}/$1/`);
+}
+
+export function getProductThumbnailUrl(rawUrl) {
+  return applyCloudinaryTransform(rawUrl, IMAGE_PRESETS.PRODUCT_THUMB);
+}
+
+export function getProductDetailImageUrl(rawUrl) {
+  return applyCloudinaryTransform(rawUrl, IMAGE_PRESETS.PRODUCT_DETAIL);
+}
+
+export function getProductFullImageUrl(rawUrl) {
+  return applyCloudinaryTransform(rawUrl, IMAGE_PRESETS.PRODUCT_FULL);
+}
+
+export function getCategoryTileUrl(rawUrl) {
+  return applyCloudinaryTransform(rawUrl, IMAGE_PRESETS.CATEGORY_TILE);
+}
+
+export function getCategoryIconUrl(rawUrl) {
+  return applyCloudinaryTransform(rawUrl, IMAGE_PRESETS.ICON);
+}
+
+export function getBannerImageUrl(rawUrl) {
+  return applyCloudinaryTransform(rawUrl, IMAGE_PRESETS.BANNER);
 }
 
 export function isCloudinaryUrl(url) {

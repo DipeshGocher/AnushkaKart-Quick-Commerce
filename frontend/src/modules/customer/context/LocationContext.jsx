@@ -19,14 +19,44 @@ const LOCATION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const LocationProvider = ({ children }) => {
   // Default location (used until we can resolve a better one)
-  const [currentLocation, setCurrentLocation] = useState({
-    name: "214, Rajshri Palace Colony, Pipliyahana, Indore, Madhya Pradesh 452018, India",
-    time: "20-35 mins",
-    city: "Indore",
-    state: "Madhya Pradesh",
-    pincode: "452018",
-    latitude: 22.711140989838025,
-    longitude: 75.9001552518043,
+  const [currentLocation, setCurrentLocation] = useState(() => {
+    const parsed = getJSON(STORAGE_KEY, null);
+    const addressName = parsed?.address || parsed?.name || parsed?.formattedAddress;
+    const isRawCoordName = addressName && /^Lat\s*[-+]?\d/i.test(addressName);
+
+    if (parsed && addressName && !isRawCoordName) {
+      return {
+        name: addressName,
+        address: addressName,
+        formattedAddress: addressName,
+        fullAddress: addressName,
+        time: parsed.time && parsed.time !== "12-15 mins" ? parsed.time : "20-35 mins",
+        city: parsed.city || "Indore",
+        state: parsed.state || "Madhya Pradesh",
+        pincode: parsed.pincode || "452018",
+        latitude: parsed.latitude ?? 22.711140989838025,
+        longitude: parsed.longitude ?? 75.9001552518043,
+        addressId: parsed.addressId || null,
+        type: parsed.type || "Home",
+        receiverName: parsed.receiverName || "",
+        phone: parsed.phone || "",
+        landmark: parsed.landmark || "",
+      };
+    }
+
+    return {
+      name: "214, Rajshri Palace Colony, Pipliyahana, Indore, Madhya Pradesh 452018, India",
+      address: "214, Rajshri Palace Colony, Pipliyahana, Indore, Madhya Pradesh 452018, India",
+      formattedAddress: "214, Rajshri Palace Colony, Pipliyahana, Indore, Madhya Pradesh 452018, India",
+      fullAddress: "214, Rajshri Palace Colony, Pipliyahana, Indore, Madhya Pradesh 452018, India",
+      time: "20-35 mins",
+      city: "Indore",
+      state: "Madhya Pradesh",
+      pincode: "452018",
+      latitude: 22.711140989838025,
+      longitude: 75.9001552518043,
+      type: "Home",
+    };
   });
 
   // Address list for drawer UI – will be hydrated from profile API.
@@ -43,19 +73,44 @@ export const LocationProvider = ({ children }) => {
     newLoc,
     { persist = true, updateSavedHome = false } = {},
   ) => {
+    if (!newLoc) return;
     setIsLocationReady(true);
     setCurrentLocation((prev) => {
-      const addressChanged = (newLoc.name !== undefined && newLoc.name !== prev.name) ||
+      const addressText =
+        newLoc.address ||
+        newLoc.formattedAddress ||
+        newLoc.fullAddress ||
+        newLoc.name ||
+        prev.address ||
+        prev.formattedAddress ||
+        prev.name ||
+        "";
+
+      const addressChanged =
+        (newLoc.name !== undefined && newLoc.name !== prev.name) ||
+        (newLoc.address !== undefined && newLoc.address !== prev.address) ||
         (newLoc.pincode !== undefined && newLoc.pincode !== prev.pincode) ||
         (newLoc.addressId !== undefined && newLoc.addressId !== prev.addressId);
+
       const merged = {
         ...prev,
         ...(addressChanged ? { addressId: null, latitude: null, longitude: null } : {}),
         ...newLoc,
+        name: addressText,
+        address: addressText,
+        formattedAddress: addressText,
+        fullAddress: addressText,
+        type: newLoc.type || newLoc.label || prev.type || "Home",
+        receiverName: newLoc.receiverName || newLoc.nameUser || prev.receiverName,
+        phone: newLoc.phone || newLoc.receiverPhone || prev.phone,
+        landmark: newLoc.landmark !== undefined ? newLoc.landmark : (prev.landmark || ""),
       };
+
       if (persist) {
         const payload = {
-          address: merged.name,
+          address: merged.address,
+          name: merged.name,
+          formattedAddress: merged.formattedAddress,
           city: merged.city,
           state: merged.state,
           pincode: merged.pincode,
@@ -63,16 +118,21 @@ export const LocationProvider = ({ children }) => {
           longitude: merged.longitude,
           addressId: merged.addressId,
           time: merged.time,
+          receiverName: merged.receiverName,
+          phone: merged.phone,
+          type: merged.type,
+          landmark: merged.landmark,
         };
         setJSON(STORAGE_KEY, payload, { ttlMs: LOCATION_TTL_MS });
       }
       return merged;
     });
 
-    if (updateSavedHome && newLoc?.name) {
+    if (updateSavedHome && (newLoc?.name || newLoc?.address)) {
+      const addrStr = newLoc.address || newLoc.name;
       setSavedAddresses((prev) =>
         prev.map((addr) =>
-          addr.label === "Home" ? { ...addr, address: newLoc.name } : addr,
+          addr.label === "Home" ? { ...addr, address: addrStr } : addr,
         ),
       );
     }
@@ -347,13 +407,15 @@ export const LocationProvider = ({ children }) => {
   // location prompt unless it's triggered by a user gesture (e.g. tap).
   useEffect(() => {
     const parsed = getJSON(STORAGE_KEY, null);
-    const addressName = parsed?.address || parsed?.name;
+    const addressName = parsed?.address || parsed?.name || parsed?.formattedAddress;
     const isRawCoordName = addressName && /^Lat\s*[-+]?\d/i.test(addressName);
 
     if (parsed && addressName && !isRawCoordName) {
       updateLocation(
         {
           name: addressName,
+          address: addressName,
+          formattedAddress: addressName,
           time: parsed.time && parsed.time !== "12-15 mins" ? parsed.time : "20-35 mins",
           addressId: parsed.addressId,
           city: parsed.city,
@@ -361,6 +423,10 @@ export const LocationProvider = ({ children }) => {
           pincode: parsed.pincode,
           latitude: parsed.latitude,
           longitude: parsed.longitude,
+          receiverName: parsed.receiverName,
+          phone: parsed.phone,
+          type: parsed.type || "Home",
+          landmark: parsed.landmark,
         },
         { persist: false, updateSavedHome: false },
       );
@@ -372,8 +438,11 @@ export const LocationProvider = ({ children }) => {
           .then((res) => {
             const data = res?.data?.result || res?.data;
             if (data && (data.friendlyName || data.formattedAddress)) {
+              const resName = data.friendlyName || data.formattedAddress;
               updateLocation({
-                name: data.friendlyName || data.formattedAddress,
+                name: resName,
+                address: resName,
+                formattedAddress: resName,
                 time: "20-35 mins",
                 city: data.city || parsed.city || "Indore",
                 state: data.state || parsed.state || "Madhya Pradesh",

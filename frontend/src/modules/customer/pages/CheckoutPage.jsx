@@ -1,94 +1,42 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import Lottie from "lottie-react";
-import { useInViewAnimation } from "@/core/hooks/useInViewAnimation";
 import { useCart, isRefurbishedItem } from "../context/CartContext";
 import { useAuth } from "../../../core/context/AuthContext";
-import { useWishlist } from "../context/WishlistContext";
 import { customerApi } from "../services/customerApi";
 import { useLocation as useAppLocation } from "../context/LocationContext";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
 import { useDeliveryDecision } from "../services/useDeliveryDecision";
 import {
-  MapPin,
-  Clock,
-  CreditCard,
-  Banknote,
-  ChevronRight,
   ChevronLeft,
-  Share2,
-  Gift,
-  ShoppingBag,
-  ChevronDown,
-  ChevronUp,
-  Heart,
+  ChevronRight,
+  Home,
+  Phone,
   Truck,
-  Tag,
-  Sparkles,
+  Star,
   Plus,
   Minus,
-  Search,
-  X,
-  Clipboard,
+  Tag,
+  Sparkles,
+  ShieldCheck,
   Check,
-  Contact2,
-  Wallet,
-  Ban,
-  AlertTriangle,
-  Loader2,
-  Zap,
+  MapPin,
   Package,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@shared/components/ui/Toast";
 import { useSettings } from "@core/context/SettingsContext";
-import SlideToPay from "../components/shared/SlideToPay";
 import { getCachedGeocode, setCachedGeocode } from "@/core/utils/geocodeCache";
-import { getJSON, setJSON, STORAGE_KEYS } from "@core/utils/storage";
-import { createSocketTokenReader } from "@core/utils/authStorage";
-import {
-  getOrderSocket,
-  joinOrderRoom,
-  leaveOrderRoom,
-  onOrderStatusUpdate,
-} from "@/core/services/orderSocket";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-
-
-import CheckoutAddressSection from "./checkout/components/CheckoutAddressSection";
 import AddAddressModal from "../components/shared/AddAddressModal";
-
-import CheckoutCartSummary from "./checkout/components/CheckoutCartSummary";
-import CheckoutPricingBreakdown from "./checkout/components/CheckoutPricingBreakdown";
-import CheckoutPaymentSelector from "./checkout/components/CheckoutPaymentSelector";
+import LocationDrawer from "../components/shared/LocationDrawer";
 import CheckoutCouponSection from "./checkout/components/CheckoutCouponSection";
-import CheckoutRecommendedProducts from "./checkout/components/CheckoutRecommendedProducts";
-import CheckoutWishlistSection from "./checkout/components/CheckoutWishlistSection";
-import CheckoutOrderSuccess from "./checkout/components/CheckoutOrderSuccess";
-
-const loadRazorpayScript = () => {
-  return new Promise((resolve) => {
-    if (window.Razorpay) {
-      resolve(true);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-};
 
 const CheckoutPage = () => {
   const {
@@ -98,47 +46,12 @@ const CheckoutPage = () => {
     addToCart,
     updateQuantity,
     removeFromCart,
-    clearCartSection,
   } = useCart();
-  const { wishlist, addToWishlist, fetchFullWishlist, isFullDataFetched } =
-    useWishlist();
   const { showToast } = useToast();
   const { user, isAuthenticated } = useAuth();
   const { settings } = useSettings();
+  const appName = settings?.storeName || settings?.brandName || "Anushka Store";
 
-  const wishlistSectionRef = useRef(null);
-  const wishlistFetchedRef = useRef(false);
-
-  // useInViewAnimation for floating/particle animation containers
-  const { ref: emptyCartAnimRef, isVisible: emptyCartVisible } = useInViewAnimation();
-
-  // Lazy-load wishlist via IntersectionObserver
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    if (!("IntersectionObserver" in window)) {
-      if (!wishlistFetchedRef.current) {
-        wishlistFetchedRef.current = true;
-        fetchFullWishlist();
-      }
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !wishlistFetchedRef.current) {
-          wishlistFetchedRef.current = true;
-          fetchFullWishlist();
-          observer.disconnect();
-        }
-      },
-      { rootMargin: "200px" }
-    );
-
-    if (wishlistSectionRef.current) observer.observe(wishlistSectionRef.current);
-    return () => observer.disconnect();
-  }, [isAuthenticated]);
-
-  const appName = settings?.appName || "App";
   const {
     savedAddresses: locationSavedAddresses,
     currentLocation,
@@ -147,56 +60,112 @@ const CheckoutPage = () => {
     isFetchingLocation,
     updateLocation,
   } = useAppLocation();
+
   const navigate = useNavigate();
   const location = useLocation();
 
-  const directBuyItem = useMemo(() => {
+  // Direct Buy item from Buy Now button
+  const [directBuyItem, setDirectBuyItem] = useState(() => {
     const item = location.state?.directBuyItem;
     if (item && !isRefurbishedItem(item)) {
       return item;
     }
+    try {
+      const saved = sessionStorage.getItem("direct_buy_item");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && !isRefurbishedItem(parsed)) return parsed;
+      }
+    } catch (e) {}
     return null;
-  }, [location.state]);
+  });
+
+  const isDirectBuy = Boolean(directBuyItem);
 
   const cart = useMemo(() => {
     if (directBuyItem) return [directBuyItem];
     return groceryCart;
   }, [directBuyItem, groceryCart]);
 
+  const hasNavigatedToPaymentRef = useRef(false);
+  const directBuyProcessedRef = useRef(false);
+
+  // Flipkart style Buy Now back handler:
+  // When user backs out without completing purchase, add the direct buy item to cart
+  // so it is not lost, and redirect directly to that product's detail page (not /cart).
+  const handleBack = useCallback(() => {
+    if (isDirectBuy && directBuyItem && !directBuyProcessedRef.current) {
+      directBuyProcessedRef.current = true;
+
+      // 1. Add direct buy item to cart so it is saved with existing cart items
+      const productToAdd = directBuyItem.productData || {
+        ...directBuyItem,
+        id: directBuyItem.id || directBuyItem._id,
+        _id: directBuyItem.id || directBuyItem._id,
+      };
+
+      try {
+        addToCart(
+          productToAdd,
+          Number(directBuyItem.quantity || 1),
+          directBuyItem.variantSku || "",
+          { skipDeliveryCheck: true, isRefurbished: directBuyItem.conditionType === 'refurbished' }
+        );
+      } catch (err) {
+        console.warn("Could not add directBuyItem to cart on back:", err);
+      }
+
+      // 2. Clear direct buy from session
+      try {
+        sessionStorage.removeItem("direct_buy_item");
+        sessionStorage.removeItem("direct_buy_return_url");
+      } catch (e) {}
+
+      // 3. Determine the product detail URL to redirect to
+      const targetReturnUrl =
+        location.state?.returnProductUrl ||
+        sessionStorage.getItem("direct_buy_return_url") ||
+        (directBuyItem.slug || directBuyItem.id || directBuyItem._id
+          ? `/?product=${encodeURIComponent(directBuyItem.slug || directBuyItem.id || directBuyItem._id)}`
+          : "/");
+
+      navigate(targetReturnUrl, { replace: true });
+      return;
+    }
+
+    // Default back behavior
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/");
+    }
+  }, [isDirectBuy, directBuyItem, addToCart, showToast, location.state, navigate]);
+
+  // Intercept browser back button / Android back gesture when in direct buy mode
+  useEffect(() => {
+    if (!isDirectBuy || !directBuyItem) return;
+
+    window.history.pushState({ inCheckoutDirectBuy: true }, "");
+
+    const onPopState = () => {
+      if (hasNavigatedToPaymentRef.current || directBuyProcessedRef.current) return;
+      handleBack();
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+    };
+  }, [isDirectBuy, directBuyItem, handleBack]);
+
   const cartTotal = useMemo(() => {
     if (directBuyItem) {
-      const p = Number(directBuyItem.salePrice || directBuyItem.price || 0);
+      const p = Number(directBuyItem.price || directBuyItem.salePrice || 0);
       return p * Number(directBuyItem.quantity || 1);
     }
     return groceryCartTotal;
   }, [directBuyItem, groceryCartTotal]);
 
-  const cartCount = useMemo(() => {
-    if (directBuyItem) {
-      return Number(directBuyItem.quantity || 1);
-    }
-    return groceryCartCount;
-  }, [directBuyItem, groceryCartCount]);
-
-  // State management
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState("now");
-  const [selectedPayment, setSelectedPayment] = useState("cash");
-  const [showAllCartItems, setShowAllCartItems] = useState(false);
-  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
-  const [selectedCoupon, setSelectedCoupon] = useState(null);
-  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
-  const [isResolvingAddressCoords, setIsResolvingAddressCoords] = useState(false);
-  const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
-  const [useWallet, setUseWallet] = useState(false);
-  const [walletAmountToUse, setWalletAmountToUse] = useState(0);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [orderId, setOrderId] = useState(null);
-  const [pricingPreviewState, setPricingPreview] = useState(null);
-  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState(null);
-  const postOrderNavigateRef = useRef(null);
-  const previewDebounceRef = useRef(null);
-  const addressSelectionRef = useRef(0);
   const [currentAddress, setCurrentAddress] = useState({
     type: "Home",
     name: "",
@@ -207,1424 +176,981 @@ const CheckoutPage = () => {
     pincode: "",
     phone: "",
   });
+
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [isLocationDrawerOpen, setIsLocationDrawerOpen] = useState(false);
   const [isAddAddressModalOpen, setIsAddAddressModalOpen] = useState(false);
   const [addressToEdit, setAddressToEdit] = useState(null);
-  const [showRecipientForm, setShowRecipientForm] = useState(false);
-  const [recipientData, setRecipientData] = useState({
-    completeAddress: "",
-    landmark: "",
-    pincode: "",
-    name: "",
-    phone: "",
-  });
-  const [savedRecipient, setSavedRecipient] = useState(null);
-  const previewAddressKey = JSON.stringify({
-    selectedAddress: currentLocation?.name,
-    selectedPincode: currentLocation?.pincode,
-    checkoutAddress: currentAddress.address,
-    checkoutPincode: currentAddress.pincode,
-    recipientAddress: savedRecipient?.completeAddress,
-    recipientPincode: savedRecipient?.pincode,
-    items: cart.map((item) => [item.id || item._id, item.variantSku, item.quantity]),
-    payment: selectedPayment,
-    timeSlot: selectedTimeSlot,
-    coupon: selectedCoupon?.code,
-  });
-  const pricingPreview = pricingPreviewState?.__previewKey === previewAddressKey
-    ? pricingPreviewState : null;
-  const [recommendedProducts, setRecommendedProducts] = useState([]);
+  const [isResolvingAddressCoords, setIsResolvingAddressCoords] = useState(false);
+  const [selectedCoupon, setSelectedCoupon] = useState(null);
+  const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
   const [coupons, setCoupons] = useState([]);
   const [manualCode, setManualCode] = useState("");
-  const [emptyBoxData, setEmptyBoxData] = useState(null);
+  const [pricingPreviewState, setPricingPreview] = useState(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState(null);
+  const previewDebounceRef = useRef(null);
+  const addressSelectionRef = useRef(0);
 
+  // Scroll to top
   useEffect(() => {
-    if (savedRecipient && (
-      String(savedRecipient.completeAddress).trim() !== String(currentLocation?.name || "").trim() ||
-      String(savedRecipient.pincode).trim() !== String(currentLocation?.pincode || "").trim()
-    )) setSavedRecipient(null);
-  }, [currentLocation?.name, currentLocation?.pincode, savedRecipient]);
-
-  // Dynamically load empty-box Lottie only when cart is empty
-  useEffect(() => {
-    if (cart.length === 0) {
-      import("../../../assets/lottie/Empty box.json")
-        .then((m) => setEmptyBoxData(m.default))
-        .catch(() => {});
-    }
-  }, [cart.length === 0]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (user && isLocationReady) {
-      const savedAddr = locationSavedAddresses.find((addr) =>
-        String(addr.id) === String(currentLocation?.addressId)
-      ) || null;
-
-      const addressText =
-        currentLocation?.name ||
-        savedAddr?.address ||
-        "";
-
-      const defaultPin =
-        currentLocation?.pincode ||
-        savedAddr?.pincode ||
-        (addressText.match(/\b\d{6}\b/)
-          ? addressText.match(/\b\d{6}\b/)[0]
-          : currentLocation?.pincode || "");
-
-      const defaultCity = currentLocation?.city || savedAddr?.city || "";
-      const defaultState = currentLocation?.state || savedAddr?.state || "";
-
-      if (savedAddr || addressText || user.name || user.phone) {
-        const defaultAddr = {
-          id: currentLocation?.addressId || savedAddr?.id || savedAddr?._id,
-          type: savedAddr?.label
-            ? savedAddr.label.charAt(0).toUpperCase() + savedAddr.label.slice(1)
-            : "Home",
-          name: savedAddr?.name || savedAddr?.receiverName || user.name || "Customer",
-          address: addressText,
-          landmark: savedAddr?.landmark || "",
-          city: `${defaultCity} ${defaultPin}`.trim() || defaultCity || defaultPin || "",
-          state: defaultState,
-          pincode: defaultPin,
-          phone: savedAddr?.phone || savedAddr?.receiverPhone || user.phone || "",
-          location: currentLocation?.latitude != null && currentLocation?.longitude != null
-            ? { lat: Number(currentLocation.latitude), lng: Number(currentLocation.longitude) }
-            : savedAddr?.location || undefined,
-        };
-
-        setCurrentAddress(defaultAddr);
-      }
-    }
-  }, [user, isLocationReady, locationSavedAddresses, currentLocation]);
-
-  const paymentMethods = [
-    ...(settings?.onlineEnabled === false
-      ? []
-      : [
-          {
-            id: "online",
-            label: "Pay Online",
-            icon: CreditCard,
-            sublabel: "UPI / Cards / NetBanking",
-          },
-        ]),
-    ...(settings?.codEnabled === false
-      ? []
-      : [
-          {
-            id: "cash",
-            label: "Cash on Delivery",
-            icon: Banknote,
-            sublabel: "Pay after delivery",
-          },
-        ]),
-  ];
-
-  const discountAmount = selectedCoupon
-    ? selectedCoupon.discountAmount || selectedCoupon.discount || 0
-    : 0;
-
-  const RECIPIENT_STORAGE_KEY = STORAGE_KEYS.RECIPIENT_ADDRESS;
-
-  // Derived display values for primary delivery card
-  const displayName = savedRecipient?.name || currentAddress.name || user?.name || "Customer";
-  const displayPhone =
-    savedRecipient?.phone || currentAddress.phone || user?.phone || "";
-  const displayAddress = savedRecipient
-    ? `${savedRecipient.completeAddress}${savedRecipient.landmark ? `, ${savedRecipient.landmark}` : ""}${savedRecipient.pincode ? ` - ${savedRecipient.pincode}` : ""}`
-    : `${currentAddress.address}${currentAddress.landmark ? `, ${currentAddress.landmark}` : ""}${currentAddress.city ? `, ${currentAddress.city}` : ""}`;
-
-  useEffect(() => {
-    if (!paymentMethods.length) return;
-    const exists = paymentMethods.some((method) => method.id === selectedPayment);
-    if (!exists) {
-      setSelectedPayment(paymentMethods[0].id);
-    }
-  }, [paymentMethods, selectedPayment]);
-
-  useEffect(() => {
-    if (useWallet && user?.walletBalance && pricingPreview?.grandTotal) {
-      const maxAvailable = Number(user.walletBalance || 0);
-      const totalToPay = Number(pricingPreview.grandTotal || 0);
-      setWalletAmountToUse(Math.min(maxAvailable, totalToPay));
-    } else {
-      setWalletAmountToUse(0);
-    }
-  }, [useWallet, user?.walletBalance, pricingPreview?.grandTotal]);
-
-  const finalAmountToPay = Math.max(0, (pricingPreview?.grandTotal || 0) - walletAmountToUse);
-
-  const activeDestinationPincode = useMemo(() => {
-    if (savedRecipient?.pincode) {
-      return String(savedRecipient.pincode).trim();
-    }
-    if (currentAddress?.pincode) {
-      return String(currentAddress.pincode).trim();
-    }
-    if (currentLocation?.pincode) {
-      return String(currentLocation.pincode).trim();
-    }
-    const match =
-      (currentAddress?.address || "").match(/\b\d{6}\b/) ||
-      (currentAddress?.city || "").match(/\b\d{6}\b/);
-    return match ? match[0] : "";
-  }, [
-    savedRecipient?.pincode,
-    currentAddress?.pincode,
-    currentAddress?.address,
-    currentAddress?.city,
-    currentLocation?.pincode,
-  ]);
-  const { decision: deliveryDecision, loading: isDeliveryDecisionLoading, error: deliveryDecisionError, getItem: getDeliveryItem } =
-    useDeliveryDecision(cart, activeDestinationPincode);
-
-  const unserviceableCartItems = useMemo(() => {
-    if (!deliveryDecision) return [];
-    return cart.filter((item) =>
-      deliveryDecision.items?.some((entry) =>
-        String(entry.productId) === String(item.id || item._id) && !entry.isDeliverable
-      )
-    );
-  }, [cart, deliveryDecision]);
-
-  const resolvedFulfillmentType = useMemo(() => {
-    return pricingPreview?.fulfillmentType || null;
-  }, [pricingPreview?.fulfillmentType]);
-
-  const splitDeliveryInfo = useMemo(() => {
-    // 1. If backend returned explicit split details in preview, use that
-    if (pricingPreview?.isSplitDelivery && pricingPreview?.splitDetails?.shipments) {
-      const s1 = pricingPreview.splitDetails.shipments[0];
-      const s2 = pricingPreview.splitDetails.shipments[1];
-      return {
-        isSplit: true,
-        localEstimate: s1?.deliveryEstimate || pricingPreview.localDeliveryEstimate || "20-35 mins",
-        standardEstimate: s2?.deliveryEstimate || pricingPreview.shiprocketDeliveryEstimate || "3-4 business days",
-        localItemsSummary: s1?.itemsSummary || "",
-        standardItemsSummary: s2?.itemsSummary || "",
-        shipments: pricingPreview.splitDetails.shipments,
-      };
-    }
-
-    // 2. Otherwise cross-reference cart items with deliveryDecision
-    const localItems = [];
-    const standardItems = [];
-
-    cart.forEach((item) => {
-      const check = getDeliveryItem?.(item);
-      const isLocal = check?.fulfillmentType === "LOCAL_RIDERS" || item.fulfillmentType === "LOCAL_RIDERS";
-      if (isLocal) {
-        localItems.push(item);
-      } else {
-        standardItems.push(item);
-      }
-    });
-
-    const isSplit = (localItems.length > 0 && standardItems.length > 0) || Boolean(pricingPreview?.isSplitDelivery);
-    const formatNames = (items) => {
-      if (!items.length) return "";
-      const names = items.map((i) => i.name || "Item");
-      if (names.length === 1) return names[0];
-      if (names.length === 2) return `${names[0]}, ${names[1]}`;
-      return `${names[0]} + ${names.length - 1} more`;
-    };
-
-    return {
-      isSplit,
-      hasLocal: localItems.length > 0,
-      hasStandard: standardItems.length > 0,
-      localItems,
-      standardItems,
-      localEstimate: pricingPreview?.localDeliveryEstimate || "20-35 mins",
-      standardEstimate: pricingPreview?.shiprocketDeliveryEstimate || pricingPreview?.deliveryEstimate || "3-4 business days",
-      localItemsSummary: formatNames(localItems),
-      standardItemsSummary: formatNames(standardItems),
-    };
-  }, [cart, getDeliveryItem, pricingPreview]);
-
-  const buildAddressForOrder = () => {
-    let resolvedPincode = "";
-    if (savedRecipient?.pincode) {
-      resolvedPincode = String(savedRecipient.pincode).trim();
-    } else if (currentAddress?.pincode) {
-      resolvedPincode = String(currentAddress.pincode).trim();
-    } else if (currentLocation?.pincode) {
-      resolvedPincode = String(currentLocation.pincode).trim();
-    } else {
-      const match =
-        (currentAddress?.address || "").match(/\b\d{6}\b/) ||
-        (currentAddress?.city || "").match(/\b\d{6}\b/);
-      if (match) resolvedPincode = match[0];
-    }
-
-    if (savedRecipient) {
-      return {
-        type: "Other",
-        name: savedRecipient.name,
-        address: savedRecipient.completeAddress,
-        landmark: savedRecipient.landmark || "",
-        city: savedRecipient.city || (savedRecipient.pincode ? `${savedRecipient.pincode}` : ""),
-        pincode: resolvedPincode,
-        phone: savedRecipient.phone,
-        location:
-          currentLocation?.latitude && currentLocation?.longitude
-            ? { lat: currentLocation.latitude, lng: currentLocation.longitude }
-            : undefined,
-      };
-    }
-
-    const addrLoc = currentAddress?.location;
-    const hasAddrLoc =
-      addrLoc &&
-      typeof addrLoc.lat === "number" &&
-      typeof addrLoc.lng === "number" &&
-      Number.isFinite(addrLoc.lat) &&
-      Number.isFinite(addrLoc.lng);
-
-    return {
-      ...currentAddress,
-      city: currentAddress?.city || "",
-      state: currentAddress?.state || "",
-      pincode: resolvedPincode || currentAddress?.pincode || "",
-      location: hasAddrLoc
-        ? { lat: addrLoc.lat, lng: addrLoc.lng }
-        : currentLocation?.latitude
-        ? { lat: Number(currentLocation.latitude), lng: Number(currentLocation.longitude) }
-        : undefined,
-    };
-  };
-
-  const handleAddressAddedInCheckout = (newAddr) => {
-    setSavedRecipient(null);
-    const formattedCity = `${newAddr.city || ""} ${newAddr.pincode || ""}`.trim();
-    setCurrentAddress({
-      type: newAddr.label ? newAddr.label.charAt(0).toUpperCase() + newAddr.label.slice(1) : "Home",
-      name: newAddr.receiverName || newAddr.name || user?.name || "Customer",
-      address: newAddr.fullAddress || newAddr.address || "",
-      landmark: newAddr.landmark || "",
-      city: formattedCity || newAddr.pincode || "",
-      state: newAddr.state || "",
-      pincode: newAddr.pincode || "",
-      phone: newAddr.receiverPhone || newAddr.phone || user?.phone || "",
-      location: newAddr.location,
-      placeId: newAddr.placeId,
-    });
-    setIsAddressModalOpen(false);
-    setIsAddAddressModalOpen(false);
-  };
-
-  const handleSaveRecipient = async () => {
-    if (
-      !recipientData.completeAddress ||
-      !recipientData.name ||
-      recipientData.phone.length !== 10 ||
-      !/^\d{6}$/.test(String(recipientData.pincode || "").trim())
-    ) {
-      showToast("Please enter recipient details and a valid 6-digit delivery pincode", "error");
-      return;
-    }
-    let coords;
-    try {
-      coords = await resolveAddressCoords(`${recipientData.completeAddress}, ${recipientData.pincode}`);
-    } catch (error) {
-      showToast(error?.message || "Could not locate recipient address", "error");
-      return;
-    }
-    if (!coords) {
-      showToast("Could not locate recipient address. Please choose another address.", "error");
-      return;
-    }
-    const samePincode = String(currentLocation?.pincode || "") === String(recipientData.pincode);
-    updateLocation({
-      name: recipientData.completeAddress,
-      pincode: String(recipientData.pincode).trim(),
-      city: samePincode ? currentLocation?.city : "",
-      state: samePincode ? currentLocation?.state : "",
-      latitude: coords.lat,
-      longitude: coords.lng,
-      addressId: null,
-    });
-    setSavedRecipient(recipientData);
-    setShowRecipientForm(false);
-    setJSON(RECIPIENT_STORAGE_KEY, recipientData);
-    showToast("Recipient details saved!", "success");
-  };
-
-  const handleMoveToWishlist = (item) => {
-    addToWishlist(item);
-    removeFromCart(item.id || item._id, item.variantSku);
-  };
-
-  const handleOpenEditAddress = () => {
-    setAddressToEdit(currentAddress);
-    setIsAddAddressModalOpen(true);
-  };
-
-  const isValidLatLng = (loc) =>
-    loc &&
-    typeof loc.lat === "number" &&
-    typeof loc.lng === "number" &&
-    Number.isFinite(loc.lat) &&
-    Number.isFinite(loc.lng);
-
-  const resolveAddressCoords = async (addressText) => {
-    const q = String(addressText || "").trim();
-    if (!q) return null;
-
-    const cacheKey = `addr:${q}`;
-    const cached = getCachedGeocode(cacheKey);
-    if (cached?.location?.lat && cached?.location?.lng) {
-      return cached.location;
-    }
-
-    try {
-      const resp = await customerApi.geocodeAddress(q);
-      const loc = resp.data?.result?.location;
-      if (isValidLatLng(loc)) {
-        setCachedGeocode(cacheKey, { location: { lat: loc.lat, lng: loc.lng } });
-        return { lat: loc.lat, lng: loc.lng };
-      }
-    } catch (e) {
-      const serverMsg =
-        e?.response?.data?.message ||
-        e?.response?.data?.error?.message ||
-        e?.message ||
-        null;
-      const err = new Error(serverMsg || "Could not geocode address");
-      err.__serverMsg = serverMsg;
-      throw err;
-    }
-
-    return null;
-  };
-
-  const handleSelectSavedAddress = async (addr) => {
-    const rawText = addr?.address || "";
-    const addrLoc = addr?.location;
-    const hasLoc = isValidLatLng(addrLoc);
-    const pid = typeof addr?.placeId === "string" ? addr.placeId.trim() : "";
-    const resolvedPincode = addr.pincode || (rawText.match(/\b\d{6}\b/) || [""])[0];
-    const selectionId = ++addressSelectionRef.current;
-
-    setCurrentAddress({
-      id: addr.id || addr._id,
-      type: addr.label ? addr.label.charAt(0).toUpperCase() + addr.label.slice(1) : "Home",
-      name: addr.name || user?.name || currentAddress.name,
-      address: rawText,
-      city: addr.city ? `${addr.city} ${resolvedPincode}`.trim() : resolvedPincode,
-      state: addr.state || "",
-      pincode: resolvedPincode,
-      phone: addr.phone || user?.phone || currentAddress.phone,
-      landmark: addr.landmark || "",
-      placeId: pid,
-      location: hasLoc ? addrLoc : undefined,
-    });
-    setSavedRecipient(null);
-    updateLocation({
-      name: rawText,
-      city: addr.city || "",
-      state: addr.state || "",
-      pincode: resolvedPincode,
-      addressId: addr.id || addr._id,
-      latitude: hasLoc ? addrLoc.lat : null,
-      longitude: hasLoc ? addrLoc.lng : null,
-    });
-    setIsAddressModalOpen(false);
-    if (hasLoc) return;
-
-    setIsResolvingAddressCoords(true);
-    try {
-      let resolvedLoc = null;
-      try {
-        if (pid) {
-          const cacheKey = `pid:${pid}`;
-          const cached = getCachedGeocode(cacheKey);
-          if (cached?.location?.lat && cached?.location?.lng) {
-            resolvedLoc = cached.location;
-          } else {
-            const resp = await customerApi.geocodePlaceId(pid);
-            const loc = resp.data?.result?.location;
-            if (isValidLatLng(loc)) {
-              resolvedLoc = { lat: loc.lat, lng: loc.lng };
-              setCachedGeocode(cacheKey, { location: resolvedLoc });
-            }
-          }
-        } else {
-          resolvedLoc = await resolveAddressCoords(rawText);
-        }
-      } catch (e) {
-        showToast(
-          e?.__serverMsg ||
-            e?.message ||
-            "Could not fetch coordinates for this address. Delivery charges may not update.",
-          "error",
-        );
-      }
-
-      if (!resolvedLoc) {
-        showToast(
-          "Address selected, but coordinates are unavailable. Please edit it if checkout pricing cannot be calculated.",
-          "error",
-        );
-        return;
-      }
-      if (selectionId === addressSelectionRef.current) {
-        setCurrentAddress((prev) => ({ ...prev, location: resolvedLoc }));
-        updateLocation(
-          {
-            name: rawText,
-            city: addr.city || "",
-            state: addr.state || "",
-            pincode: resolvedPincode,
-            addressId: addr.id || addr._id,
-            latitude: resolvedLoc.lat,
-            longitude: resolvedLoc.lng,
-          },
-          { persist: true, updateSavedHome: false },
-        );
-      }
-    } finally {
-      if (selectionId === addressSelectionRef.current) setIsResolvingAddressCoords(false);
-    }
-  };
-
-  const handleUseCurrentLiveLocation = async () => {
-    const result = await refreshLocation();
-
-    if (result?.ok && result.location) {
-      setSavedRecipient(null);
-      const liveLocation = result.location;
-      setCurrentAddress((prev) => ({
-        ...prev,
-        address: liveLocation.name,
-        landmark: "",
-        city: [liveLocation.city, liveLocation.state, liveLocation.pincode]
-          .filter(Boolean)
-          .join(", "),
-        pincode: liveLocation.pincode || "",
-        ...(typeof liveLocation.latitude === "number" &&
-        typeof liveLocation.longitude === "number"
-          ? { location: { lat: liveLocation.latitude, lng: liveLocation.longitude } }
-          : {}),
-      }));
-      showToast("Using your current live location", "success");
-      return;
-    }
-
-    if (currentLocation?.name) {
-      setSavedRecipient(null);
-      setCurrentAddress((prev) => ({
-        ...prev,
-        address: currentLocation.name,
-        landmark: "",
-        city: [currentLocation.city, currentLocation.state, currentLocation.pincode]
-          .filter(Boolean)
-          .join(", "),
-        pincode: currentLocation.pincode || "",
-        ...(typeof currentLocation.latitude === "number" &&
-        typeof currentLocation.longitude === "number"
-          ? { location: { lat: currentLocation.latitude, lng: currentLocation.longitude } }
-          : {}),
-      }));
-      showToast("Using your last detected location", "success");
-      return;
-    }
-
-    showToast(result?.error || "Unable to detect current location", "error");
-  };
-
-  const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `${appName} Checkout`,
-          text: `Hey! I am ordering some goodies from ${appName}.`,
-          url: window.location.href,
-        });
-      } catch (err) {
-        console.log("Error sharing:", err);
-      }
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      showToast("Link copied to clipboard!", "success");
-    }
-  };
-
-  const handleApplyCoupon = async (coupon) => {
-    try {
-      const payload = {
-        code: coupon.code,
-        cartTotal,
-        items: cart,
-        customerId: user?._id,
-      };
-      const res = await customerApi.validateCoupon(payload);
-      if (res.data.success) {
-        const data = res.data.result;
-        setSelectedCoupon({
-          ...coupon,
-          ...data,
-        });
-        setIsCouponModalOpen(false);
-        showToast(`Coupon ${coupon.code} applied!`, "success");
-      } else {
-        showToast(res.data.message || "Unable to apply coupon", "error");
-      }
-    } catch (error) {
-      showToast(
-        error.response?.data?.message || "Unable to apply coupon",
-        "error",
-      );
-    }
-  };
-
-  const handleApplyManualCode = async () => {
-    if (!manualCode.trim()) {
-      showToast("Please enter a coupon code", "error");
-      return;
-    }
-    try {
-      const res = await customerApi.validateCoupon({
-        code: manualCode.trim(),
-        cartTotal,
-        items: cart,
-        customerId: user?._id,
-      });
-      if (res.data.success) {
-        const data = res.data.result;
-        setSelectedCoupon({
-          code: manualCode.trim(),
-          description: "Applied manually",
-          ...data,
-        });
-        showToast(`Coupon ${manualCode.trim()} applied!`, "success");
-      } else {
-        showToast(res.data.message || "Invalid coupon", "error");
-      }
-    } catch (error) {
-      showToast(
-        error.response?.data?.message || "Invalid coupon",
-        "error",
-      );
-    }
-  };
-
-  const handleAddToCart = (product) => {
-    addToCart(product);
-  };
-
-  const getCartItem = (productId) => cart.find((item) => item.id === productId);
-
-  // Stable key for recommended products effect — only changes when product IDs change
-  const cartProductIdKey = useMemo(
-    () =>
-      cart
-        .map((i) => i.id || i._id)
-        .sort()
-        .join(","),
-    [cart]
-  );
-
-  // Load recipient from localStorage + fetch coupons on mount
-  useEffect(() => {
-    const fetchCoupons = async () => {
-      try {
-        const res = await customerApi.getActiveCoupons();
-        if (res.data.success) {
-          const list = res.data.result || res.data.results || [];
-          setCoupons(list);
-        }
-      } catch {
-        // silently ignore
-      }
-    };
-    fetchCoupons();
+    window.scrollTo(0, 0);
   }, []);
 
-  // Debounced checkoutPreview — fires 400 ms after last dependency change
+  // Fetch available coupons
   useEffect(() => {
-    if (!isAuthenticated || cart.length === 0) {
-      setPricingPreview(null);
-      setPreviewError(null);
-      setIsPreviewLoading(false);
-      return;
-    }
-
-    if (!/^\d{6}$/.test(activeDestinationPincode)) {
-      setPricingPreview(null);
-      setPreviewError("Select a delivery address with a valid 6-digit pincode.");
-      setIsPreviewLoading(false);
-      return;
-    }
-
-    let active = true;
-    setPricingPreview(null);
-    setPreviewError(null);
-    setIsPreviewLoading(true);
-
-    const buildPreviewPayload = () => ({
-      items: cart.map((item) => ({
-        product: item.id || item._id,
-        name: item.name,
-        variantSku: String(item.variantSku || "").trim(),
-        quantity: item.quantity,
-        price: item.price,
-        image: item.image,
-        kitAddons: item.kitAddons || [],
-      })),
-      address: buildAddressForOrder(),
-      discountTotal: discountAmount,
-      taxTotal: 0,
-      tipAmount: 0,
-      paymentMode: selectedPayment === "online" ? "ONLINE" : "COD",
-      timeSlot: selectedTimeSlot,
-    });
-
-    const fetchPreview = async () => {
-      try {
-        const res = await customerApi.checkoutPreview(buildPreviewPayload());
-        if (!active) return;
-        if (res.data?.success) {
-          const rawBreakdown = res.data.result?.breakdown ?? null;
-          const fulfillmentType = res.data.result?.fulfillmentType || rawBreakdown?.fulfillmentType;
-          if (rawBreakdown && (fulfillmentType === "LOCAL" || fulfillmentType === "SHIPROCKET" || fulfillmentType === "SPLIT")) {
-            setPricingPreview({
-              ...rawBreakdown,
-              __previewKey: previewAddressKey,
-              fulfillmentType,
-              deliveryEstimate: res.data.result?.deliveryEstimate || rawBreakdown.deliveryEstimate || (fulfillmentType === "LOCAL" ? "20-35 mins" : "3-4 business days"),
-              isLocal: fulfillmentType === "LOCAL",
-              isSplitDelivery: Boolean(res.data.result?.isSplitDelivery || rawBreakdown?.isSplitDelivery),
-              splitDetails: res.data.result?.splitDetails || rawBreakdown?.splitDetails || null,
-              localDeliveryEstimate: res.data.result?.localDeliveryEstimate || rawBreakdown?.localDeliveryEstimate || "20-35 mins",
-              shiprocketDeliveryEstimate: res.data.result?.shiprocketDeliveryEstimate || rawBreakdown?.shiprocketDeliveryEstimate || "3-4 business days",
-            });
-          } else {
-            setPricingPreview(null);
-            setPreviewError("Delivery details could not be verified for this address.");
+    const fetchCoupons = customerApi.getActiveCoupons || customerApi.getCoupons;
+    if (typeof fetchCoupons === "function") {
+      fetchCoupons()
+        .then((res) => {
+          if (res?.data?.success) {
+            const list = res.data.result?.coupons || res.data.result || [];
+            setCoupons(Array.isArray(list) ? list : []);
           }
-          if (rawBreakdown && (fulfillmentType === "LOCAL" || fulfillmentType === "SHIPROCKET" || fulfillmentType === "SPLIT")) setPreviewError(null);
-        } else {
-          setPricingPreview(null);
-          setPreviewError(res.data?.message || "Unable to calculate order total");
-        }
-      } catch (error) {
-        if (!active) return;
-        console.error("Checkout preview failed", error);
-        setPricingPreview(null);
-        const message =
-          error?.response?.data?.message ||
-          error?.message ||
-          "Unable to calculate order total. Please check your delivery address.";
-        setPreviewError(message);
-      } finally {
-        if (active) setIsPreviewLoading(false);
-      }
-    };
+        })
+        .catch(() => {});
+    }
+  }, []);
 
-    clearTimeout(previewDebounceRef.current);
-    previewDebounceRef.current = setTimeout(fetchPreview, 400);
+  // Sync address from currentLocation or saved addresses
+  useEffect(() => {
+    const activeAddressText =
+      currentLocation?.address ||
+      currentLocation?.formattedAddress ||
+      currentLocation?.name ||
+      "";
+
+    // 1. If we have saved addresses, see if any matches currentLocation (by id or text)
+    let matchingSaved = null;
+    if (locationSavedAddresses && locationSavedAddresses.length > 0) {
+      if (currentLocation?.addressId) {
+        matchingSaved = locationSavedAddresses.find(
+          (a) => (a.id || a._id) === currentLocation.addressId
+        );
+      }
+      if (!matchingSaved && activeAddressText) {
+        const norm = activeAddressText.trim().toLowerCase();
+        matchingSaved = locationSavedAddresses.find((a) => {
+          if (!a.address) return false;
+          const aNorm = a.address.trim().toLowerCase();
+          return aNorm === norm || norm.includes(aNorm) || aNorm.includes(norm);
+        });
+      }
+    }
+
+    if (matchingSaved) {
+      setCurrentAddress({
+        id: matchingSaved.id || matchingSaved._id,
+        type: matchingSaved.type || matchingSaved.label || "Home",
+        name: matchingSaved.name || user?.name || "Customer",
+        address: matchingSaved.address || activeAddressText,
+        landmark: matchingSaved.landmark || "",
+        city: matchingSaved.city || currentLocation?.city || "",
+        state: matchingSaved.state || currentLocation?.state || "",
+        pincode: matchingSaved.pincode || currentLocation?.pincode || "",
+        phone: matchingSaved.phone || user?.phone || "",
+        location: matchingSaved.location || null,
+      });
+      return;
+    }
+
+    // 2. If currentLocation has an address (e.g. searched or geocoded place from home/cart)
+    if (activeAddressText) {
+      setCurrentAddress({
+        id: currentLocation.addressId || "current-location",
+        type: currentLocation.type || currentLocation.label || "Home",
+        name: currentLocation.receiverName || user?.name || "Customer",
+        address: activeAddressText,
+        landmark: currentLocation.landmark || "",
+        city: currentLocation.city || "",
+        state: currentLocation.state || "",
+        pincode: currentLocation.pincode || "",
+        phone: currentLocation.phone || user?.phone || "",
+        location:
+          currentLocation.latitude && currentLocation.longitude
+            ? { lat: currentLocation.latitude, lng: currentLocation.longitude }
+            : currentLocation.location || null,
+      });
+      return;
+    }
+
+    // 3. Fallback: if currentLocation has nothing at all, use default address from saved addresses
+    if (locationSavedAddresses && locationSavedAddresses.length > 0) {
+      const defaultAddress =
+        locationSavedAddresses.find((a) => a.isDefault) ||
+        locationSavedAddresses[0];
+
+      if (defaultAddress) {
+        setCurrentAddress({
+          id: defaultAddress.id || defaultAddress._id,
+          type: defaultAddress.type || defaultAddress.label || "Home",
+          name: defaultAddress.name || user?.name || "Customer",
+          address: defaultAddress.address || "",
+          landmark: defaultAddress.landmark || "",
+          city: defaultAddress.city || "",
+          state: defaultAddress.state || "",
+          pincode: defaultAddress.pincode || "",
+          phone: defaultAddress.phone || user?.phone || "",
+          location: defaultAddress.location || null,
+        });
+
+        updateLocation(
+          {
+            name: defaultAddress.address,
+            address: defaultAddress.address,
+            formattedAddress: defaultAddress.address,
+            time: "20-35 mins",
+            city: defaultAddress.city || "",
+            state: defaultAddress.state || "",
+            pincode: defaultAddress.pincode || "",
+            addressId: defaultAddress.id || defaultAddress._id,
+            receiverName: defaultAddress.name,
+            phone: defaultAddress.phone,
+            type: defaultAddress.type || defaultAddress.label || "Home",
+            landmark: defaultAddress.landmark || "",
+            latitude: defaultAddress.location?.lat ?? null,
+            longitude: defaultAddress.location?.lng ?? null,
+          },
+          { persist: true, updateSavedHome: false }
+        );
+      }
+    }
+  }, [locationSavedAddresses, currentLocation, user, updateLocation]);
+
+  const activeDestinationPincode =
+    currentAddress.pincode ||
+    currentLocation?.pincode ||
+    location.state?.destinationPincode ||
+    "";
+
+  // Delivery decision
+  const {
+    decision: deliveryDecision,
+    loading: isDeliveryDecisionLoading,
+    error: deliveryDecisionError,
+    getItem: getDeliveryItem,
+  } = useDeliveryDecision(cart, activeDestinationPincode);
+
+  const unserviceableCartItems = useMemo(() => {
+    if (!deliveryDecision?.items || !Array.isArray(deliveryDecision.items)) return [];
+    return cart.filter((item) => {
+      const entry = getDeliveryItem(item);
+      return entry && entry.isDeliverable === false;
+    });
+  }, [cart, deliveryDecision, getDeliveryItem]);
+
+  const resolvedFulfillmentType = useMemo(() => {
+    if (deliveryDecision?.overallFulfillment) {
+      return deliveryDecision.overallFulfillment === "LOCAL_RIDERS"
+        ? "LOCAL"
+        : deliveryDecision.overallFulfillment;
+    }
+    return location.state?.initialFulfillmentType || directBuyItem?.fulfillmentType || "LOCAL";
+  }, [deliveryDecision, location.state, directBuyItem]);
+
+  const previewAddressKey = JSON.stringify({
+    checkoutAddress: currentAddress.address,
+    checkoutPincode: currentAddress.pincode,
+    items: cart.map((item) => [item.id || item._id, item.variantSku, item.quantity]),
+    coupon: selectedCoupon?.code,
+  });
+
+  const pricingPreview =
+    pricingPreviewState?.__previewKey === previewAddressKey
+      ? pricingPreviewState
+      : null;
+
+  // Backend preview finance
+  useEffect(() => {
+    if (cart.length === 0) return;
+
+    if (previewDebounceRef.current) {
+      clearTimeout(previewDebounceRef.current);
+    }
+
+    previewDebounceRef.current = setTimeout(async () => {
+      setIsPreviewLoading(true);
+      setPreviewError(null);
+      try {
+        const payload = {
+          items: cart.map((item) => ({
+            product: item.id || item._id,
+            name: item.name,
+            variantSku: String(item.variantSku || "").trim(),
+            quantity: item.quantity,
+            price: item.price,
+            image: item.image,
+            kitAddons: item.kitAddons || [],
+          })),
+          address: {
+            address: currentAddress.address,
+            pincode: currentAddress.pincode,
+            city: currentAddress.city,
+            state: currentAddress.state,
+            location: currentAddress.location || null,
+          },
+          couponCode: selectedCoupon?.code || null,
+          couponId: selectedCoupon?._id || selectedCoupon?.id || null,
+          tipAmount: 0,
+          walletAmount: 0,
+        };
+
+        const previewFn = customerApi.previewCheckoutFinance || customerApi.checkoutPreview;
+        if (typeof previewFn === "function") {
+          const res = await previewFn(payload);
+          if (res?.data?.success && res.data.result) {
+            const snapshot = res.data.result;
+            setPricingPreview({
+              ...snapshot,
+              __previewKey: previewAddressKey,
+            });
+          }
+        }
+      } catch (err) {
+        setPreviewError(err.response?.data?.message || err.message);
+      } finally {
+        setIsPreviewLoading(false);
+      }
+    }, 250);
 
     return () => {
-      active = false;
-      clearTimeout(previewDebounceRef.current);
-    };
-  }, [
-    isAuthenticated,
-    cart,
-    selectedPayment,
-    selectedTimeSlot,
-    discountAmount,
-    savedRecipient,
-    currentAddress,
-    currentLocation,
-    activeDestinationPincode,
-    previewAddressKey,
-  ]);
-
-  // Recommended products — only re-fetches when the set of product IDs changes
-  useEffect(() => {
-    if (cart.length === 0) {
-      setRecommendedProducts([]);
-      return;
-    }
-    const categoryId = cart[0]?.categoryId?._id || cart[0]?.categoryId;
-    if (!categoryId) return;
-
-    const cartIds = new Set(cart.map((i) => i.id || i._id));
-    customerApi
-      .getProducts({ categoryId, limit: 10 })
-      .then((res) => {
-        if (res.data?.success) {
-          const items = (res.data.result?.items || [])
-            .map((p) => ({ ...p, id: p._id }))
-            .filter((p) => !cartIds.has(p.id));
-          setRecommendedProducts(items.slice(0, 8));
-        }
-      })
-      .catch(() => {});
-  }, [cartProductIdKey]);
-
-  const handlePlaceOrder = async () => {
-    const orderAddress = buildAddressForOrder();
-    
-    // Validate address before placing order
-    if (!orderAddress?.address || orderAddress.address.trim() === "") {
-      showToast("Please provide a valid delivery address before placing your order.", "error");
-      return;
-    }
-    if (!/^\d{6}$/.test(String(orderAddress.pincode || "").trim())) {
-      showToast("Please add a valid 6-digit delivery pincode.", "error");
-      return;
-    }
-
-    if (unserviceableCartItems.length > 0) {
-      showToast(
-        "Please remove fresh items not deliverable in your area before placing your order.",
-        "error"
-      );
-      return;
-    }
-    
-    setIsPlacingOrder(true);
-    try {
-      const taxAmount = pricingPreview?.taxTotal || 0;
-      const orderData = {
-        address: orderAddress,
-        paymentMode: selectedPayment === "online" ? "ONLINE" : "COD",
-        discountTotal: discountAmount,
-        taxTotal: taxAmount,
-        tipAmount: 0,
-        timeSlot: selectedTimeSlot,
-        walletAmount: walletAmountToUse,
-        items: cart.map((item) => ({
-          product: item.id || item._id,
-          name: item.name,
-          variantSku: String(item.variantSku || "").trim(),
-          quantity: item.quantity,
-          price: item.price,
-          image: item.image,
-          kitAddons: item.kitAddons || [],
-        })),
-      };
-
-      const response = await customerApi.createOrder(orderData);
-
-      if (response.data.success) {
-        const result = response.data.result;
-        const mainOrder =
-          result.order ||
-          (Array.isArray(result.orders) ? result.orders[0] : null);
-        const mainOrderId = mainOrder?.orderId || result.orderId;
-        const paymentRef =
-          result.paymentRef || result.checkoutGroupId || mainOrderId;
-
-        const isMultiOrder = Array.isArray(result.orders) && result.orders.length > 1;
-        const postExitRoute = isMultiOrder ? "/orders" : `/orders/${mainOrderId}`;
-
-        if (!mainOrderId) {
-          setIsPlacingOrder(false);
-          showToast(
-            "Order placed but ID not received. Checking order history...",
-            "warning"
-          );
-          navigate("/orders");
-          return;
-        }
-
-        if (selectedPayment === "online") {
-          try {
-            const paymentRes = await customerApi.createPaymentOrder({
-              orderRef: paymentRef,
-              orderId: mainOrderId,
-            });
-            
-            if (paymentRes.data.success) {
-              const paymentData = paymentRes.data.result.payment;
-              const razorpayOrderId = paymentData?.rawGatewayResponse?.razorpayOrderId;
-              const razorpayKeyId = paymentData?.rawGatewayResponse?.keyId;
-              const amountPaise = paymentData?.amount;
-              const merchantOrderId = paymentData?.gatewayOrderId;
-
-              if (!razorpayOrderId || !razorpayKeyId) {
-                throw new Error("Razorpay checkout is not configured correctly. Please retry later.");
-              }
-
-              const isLoaded = await loadRazorpayScript();
-              if (!isLoaded) {
-                throw new Error("Razorpay SDK failed to load. Are you online?");
-              }
-
-              const options = {
-                key: razorpayKeyId,
-                amount: amountPaise,
-                currency: "INR",
-                name: appName,
-                description: isMultiOrder ? `Orders ${result.orders.map(o => o.orderId).join(", ")}` : `Order ${mainOrderId}`,
-                order_id: razorpayOrderId,
-                handler: async function (response) {
-                  try {
-                    const confirmation = await customerApi.verifyOnlineOrderPayment(mainOrderId, {
-                      merchantOrderId,
-                      transactionId: response.razorpay_payment_id,
-                      razorpayOrderId: response.razorpay_order_id,
-                      signature: response.razorpay_signature,
-                    });
-                    if (confirmation.data?.result?.paymentStatus === "CAPTURED") {
-                      if (directBuyItem) {
-                        removeFromCart(directBuyItem.id || directBuyItem._id, directBuyItem.variantSku);
-                      } else {
-                        clearCartSection('grocery');
-                      }
-                    }
-                  } catch (error) {
-                    showToast(error.response?.data?.message || "Payment is awaiting confirmation. Check its status before retrying.", "warning");
-                  }
-                  navigate(`/payment-status?merchantOrderId=${encodeURIComponent(merchantOrderId)}`);
-                },
-                prefill: {
-                  name: user?.name || orderAddress.name || "",
-                  contact: user?.phone || orderAddress.phone || "",
-                },
-                theme: {
-                  color: "#2875E8", // AnushkaStore Primary Orange
-                },
-                modal: {
-                  ondismiss: function() {
-                    setIsPlacingOrder(false);
-                    showToast("Payment cancelled. You can retry from your orders list.", "warning");
-                    navigate(postExitRoute);
-                  }
-                }
-              };
-
-              const rzp = new window.Razorpay(options);
-              
-              rzp.on('payment.failed', function (response){
-                setIsPlacingOrder(false);
-                showToast(`Payment failed: ${response.error.description}`, "error");
-                navigate(postExitRoute);
-              });
-
-              rzp.open();
-              return; // Do not clear cart or show COD success yet
-            } else {
-              throw new Error(
-                paymentRes.data.message || "Failed to initiate payment gateway"
-              );
-            }
-          } catch (payError) {
-            setIsPlacingOrder(false);
-            showToast(
-              payError.message ||
-                "Order created but payment gateway failed. Please pay from order details.",
-              "error"
-            );
-            navigate(postExitRoute);
-            return;
-          }
-        }
-
-        // COD flow
-        if (directBuyItem) {
-          removeFromCart(directBuyItem.id || directBuyItem._id, directBuyItem.variantSku);
-        } else {
-          clearCartSection('grocery');
-        }
-        showToast("Order placed — waiting for seller to accept.", "success");
-        setOrderId(mainOrderId);
-        setShowSuccess(true);
-
-        if (postOrderNavigateRef.current) {
-          clearTimeout(postOrderNavigateRef.current);
-        }
-        postOrderNavigateRef.current = setTimeout(() => {
-          postOrderNavigateRef.current = null;
-          setIsPlacingOrder(false);
-          navigate(postExitRoute);
-        }, 3000);
-      } else {
-        setIsPlacingOrder(false);
-        showToast(response.data.message || "Could not place order.", "error");
+      if (previewDebounceRef.current) {
+        clearTimeout(previewDebounceRef.current);
       }
-    } catch (error) {
-      setIsPlacingOrder(false);
-      showToast(
-        error.response?.data?.message ||
-          "Failed to place order. Please try again.",
-        "error"
-      );
+    };
+  }, [previewAddressKey, cart, currentAddress, selectedCoupon]);
+
+  const handleApplyCoupon = (coupon) => {
+    setSelectedCoupon(coupon);
+    setIsCouponModalOpen(false);
+    showToast(`Coupon "${coupon.code}" applied!`, "success");
+  };
+
+  const handleApplyManualCode = (code) => {
+    if (!code) return;
+    const match = coupons.find(
+      (c) => String(c.code).trim().toUpperCase() === String(code).trim().toUpperCase()
+    );
+    if (match) {
+      handleApplyCoupon(match);
+    } else {
+      setSelectedCoupon({ code: code.toUpperCase() });
+      setIsCouponModalOpen(false);
+      showToast(`Coupon "${code.toUpperCase()}" applied!`, "success");
     }
   };
 
-  // After order placement: WebSocket listener + single fallback fetch
-  useEffect(() => {
-    if (!orderId || !showSuccess) return undefined;
+  // Quantity updates
+  const handleItemIncrement = (item) => {
+    if (isDirectBuy) {
+      setDirectBuyItem((prev) => ({
+        ...prev,
+        quantity: Math.min(10, (prev.quantity || 1) + 1),
+      }));
+    } else {
+      updateQuantity(item.id || item._id, 1, item.variantSku);
+    }
+  };
 
-    const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_CUSTOMER);
-    getOrderSocket(getToken);
-    joinOrderRoom(orderId, getToken);
-
-    const applyCancelled = (order) => {
-      if (order.workflowStatus === "CANCELLED" || order.status === "cancelled") {
-        if (postOrderNavigateRef.current) {
-          clearTimeout(postOrderNavigateRef.current);
-          postOrderNavigateRef.current = null;
-        }
-        setShowSuccess(false);
-        showToast("Order cancelled — seller did not accept in time.", "error");
-        navigate(`/orders/${orderId}`, { replace: true });
-        return true;
+  const handleItemDecrement = (item) => {
+    if (isDirectBuy) {
+      if ((directBuyItem.quantity || 1) <= 1) {
+        showToast("Minimum 1 item required", "warning");
+        return;
       }
-      return false;
+      setDirectBuyItem((prev) => ({
+        ...prev,
+        quantity: Math.max(1, (prev.quantity || 1) - 1),
+      }));
+    } else {
+      if (item.quantity === 1) {
+        removeFromCart(item.id || item._id, item.variantSku);
+      } else {
+        updateQuantity(item.id || item._id, -1, item.variantSku);
+      }
+    }
+  };
+
+  // Price calculations
+  const totalMRP = useMemo(() => {
+    return cart.reduce((acc, item) => {
+      const mrp = Number(item.originalPrice || item.mrp || item.price || 0);
+      return acc + mrp * Number(item.quantity || 1);
+    }, 0);
+  }, [cart]);
+
+  const totalSellingPrice = useMemo(() => {
+    return cart.reduce((acc, item) => {
+      const sp = Number(item.price || item.salePrice || 0);
+      return acc + sp * Number(item.quantity || 1);
+    }, 0);
+  }, [cart]);
+
+  const discountOnMRP = Math.max(0, totalMRP - totalSellingPrice);
+
+  // Directly connect to backend preview fields with safe fallbacks
+  const itemTotal = Number(
+    pricingPreview?.breakdown?.productSubtotal ??
+    pricingPreview?.productSubtotal ??
+    totalSellingPrice ??
+    cartTotal
+  );
+
+  const shippingCharges = Number(
+    pricingPreview?.breakdown?.deliveryFeeCharged ??
+    pricingPreview?.deliveryFeeCharged ??
+    0
+  );
+
+  const handlingFee = Number(
+    pricingPreview?.breakdown?.handlingFeeCharged ??
+    pricingPreview?.handlingFeeCharged ??
+    0
+  );
+
+  const taxAmount = Number(
+    pricingPreview?.breakdown?.taxTotal ??
+    pricingPreview?.taxTotal ??
+    0
+  );
+
+  const tipAmount = Number(
+    pricingPreview?.breakdown?.tipTotal ??
+    pricingPreview?.tipTotal ??
+    0
+  );
+
+  const discountAmount = Number(
+    pricingPreview?.breakdown?.discountTotal ??
+    pricingPreview?.discountTotal ??
+    (selectedCoupon ? Math.round(cartTotal * 0.1) : 0)
+  );
+
+  const walletAmount = Number(
+    pricingPreview?.breakdown?.walletAmount ??
+    pricingPreview?.walletAmount ??
+    0
+  );
+
+  const customFees = Array.isArray(pricingPreview?.breakdown?.customFees)
+    ? pricingPreview.breakdown.customFees
+    : Array.isArray(pricingPreview?.customFees)
+    ? pricingPreview.customFees
+    : [];
+
+  const finalAmountToPay = Number(
+    pricingPreview?.breakdown?.grandTotal ??
+    pricingPreview?.grandTotal ??
+    Math.max(0, itemTotal + shippingCharges + handlingFee + taxAmount + tipAmount - discountAmount - walletAmount)
+  );
+
+  const totalSavings = discountOnMRP + discountAmount;
+
+  const displayName = currentAddress.name || user?.name || "Customer";
+  const displayPhone = currentAddress.phone || user?.phone || "";
+  const displayAddress =
+    currentAddress.address ||
+    (currentAddress.city ? `${currentAddress.city}, ${currentAddress.state} - ${currentAddress.pincode}` : "") ||
+    "Please select or add a delivery address";
+
+  const deliveryDateText = useMemo(() => {
+    if (pricingPreview?.deliveryEstimate) {
+      return pricingPreview.deliveryEstimate;
+    }
+    const d = new Date();
+    d.setDate(d.getDate() + (resolvedFulfillmentType === "LOCAL" ? 1 : 4));
+    return d.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" });
+  }, [pricingPreview, resolvedFulfillmentType]);
+
+  const handleSelectSavedAddress = async (addr) => {
+    addressSelectionRef.current += 1;
+    setIsResolvingAddressCoords(true);
+
+    const updated = {
+      id: addr.id || addr._id,
+      type: addr.type || addr.label || "Home",
+      name: addr.name || displayName,
+      address: addr.address || "",
+      landmark: addr.landmark || "",
+      city: addr.city || "",
+      state: addr.state || "",
+      pincode: addr.pincode || "",
+      phone: addr.phone || displayPhone,
+      location: addr.location || null,
     };
 
-    // Single immediate check (covers WebSocket-unavailable case)
-    customerApi
-      .getOrderDetails(orderId)
-      .then((r) => {
-        if (r.data?.result) applyCancelled(r.data.result);
-      })
-      .catch(() => {});
+    setCurrentAddress(updated);
+    setIsAddressModalOpen(false);
+    setIsResolvingAddressCoords(false);
 
-    const off = onOrderStatusUpdate(getToken, (order) => applyCancelled(order));
+    // Synchronize to LocationContext so Home page, Cart page, and headers update immediately!
+    updateLocation(
+      {
+        name: updated.address,
+        address: updated.address,
+        formattedAddress: updated.address,
+        fullAddress: updated.address,
+        time: "20-35 mins",
+        city: updated.city,
+        state: updated.state,
+        pincode: updated.pincode,
+        addressId: updated.id,
+        receiverName: updated.name,
+        phone: updated.phone,
+        type: updated.type,
+        landmark: updated.landmark,
+        latitude: updated.location?.lat ?? null,
+        longitude: updated.location?.lng ?? null,
+      },
+      { persist: true, updateSavedHome: false }
+    );
 
-    return () => {
-      off();
-      leaveOrderRoom(orderId, getToken);
+    showToast(`Delivering to ${addr.name || addr.type || addr.label || "Address"}`, "success");
+  };
+
+  const handleContinueToPayment = () => {
+    if (!currentAddress.address || currentAddress.address.trim() === "") {
+      showToast("Please provide a valid delivery address before proceeding.", "error");
+      setIsAddressModalOpen(true);
+      return;
+    }
+    if (!/^\d{6}$/.test(String(currentAddress.pincode || "").trim())) {
+      showToast("Please enter a valid 6-digit delivery pincode.", "error");
+      setIsAddressModalOpen(true);
+      return;
+    }
+
+    if (Array.isArray(unserviceableCartItems) && unserviceableCartItems.length > 0) {
+      showToast("Please remove undeliverable items before proceeding.", "error");
+      return;
+    }
+
+    hasNavigatedToPaymentRef.current = true;
+
+    const checkoutPayload = {
+      orderAddress: currentAddress,
+      currentAddress,
+      displayName,
+      displayPhone,
+      displayAddress,
+      cart,
+      directBuyItem: isDirectBuy ? directBuyItem : null,
+      pricingPreview,
+      cartTotal,
+      itemTotal,
+      finalAmountToPay,
+      discountAmount,
+      couponDiscount: discountAmount,
+      discountOnMRP,
+      totalMRP,
+      totalSavings,
+      handlingFee,
+      platformFee: handlingFee,
+      shippingCharges,
+      deliveryFee: shippingCharges,
+      taxAmount,
+      taxTotal: taxAmount,
+      tipAmount,
+      walletAmount,
+      selectedCoupon,
+      selectedTimeSlot: "now",
+      walletAmountToUse: walletAmount,
+      resolvedFulfillmentType,
     };
-  }, [orderId, showSuccess]);
 
-  // ─── Empty cart state ────────────────────────────────────────────────────────
-  if (cart.length === 0 && !showSuccess) {
+    try {
+      sessionStorage.setItem("pending_checkout_data", JSON.stringify(checkoutPayload));
+    } catch (e) {
+      console.warn("Could not save to sessionStorage", e);
+    }
+
+    navigate("/payment", { state: checkoutPayload });
+  };
+
+  if (cart.length === 0) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
-        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-brand-50/50 via-transparent to-transparent pointer-events-none" />
-        <div className="absolute -top-20 -right-20 w-80 h-80 bg-brand-100/30 rounded-full blur-3xl pointer-events-none animate-pulse" />
-        <div className="absolute top-40 -left-20 w-60 h-60 bg-yellow-100/40 rounded-full blur-3xl pointer-events-none animate-pulse" />
-        <div className="relative z-10 flex flex-col items-center text-center max-w-sm mx-auto">
-          <div ref={emptyCartAnimRef} className="relative w-56 h-56 md:w-64 md:h-64 mb-8 flex items-center justify-center">
-            <motion.div
-              animate={emptyCartVisible ? { y: [-8, 8, -8] } : { y: 0 }}
-              transition={emptyCartVisible ? { duration: 4, repeat: Infinity, ease: "easeInOut" } : { duration: 0 }}
-              className="relative z-10 rounded-[2rem] bg-white/90 p-6 shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-brand-100">
-              {emptyBoxData ? (
-                <Lottie animationData={emptyBoxData} loop className="h-36 w-36 md:h-44 md:w-44" />
-              ) : (
-                <div className="w-56 h-56" />
-              )}
-            </motion.div>
-            <motion.div
-              animate={emptyCartVisible ? { rotate: 360 } : { rotate: 0 }}
-              transition={emptyCartVisible ? { duration: 20, repeat: Infinity, ease: "linear" } : { duration: 0 }}
-              className="absolute inset-0 border-2 border-dashed border-slate-200 rounded-full"
-            />
-          </div>
-          <h2 className="text-3xl font-black text-slate-800 mb-3 tracking-tight">Your Cart is Empty</h2>
-          <p className="text-slate-500 mb-8 leading-relaxed font-medium">
-            It feels lighter than air! <br />
-            Explore our aisles and fill it with goodies.
-          </p>
-          <Link
-            to="/"
-            className="group relative inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-primary to-[var(--brand-400)] text-white font-bold rounded-2xl overflow-hidden shadow-xl shadow-brand-600/20 transition-all hover:scale-[1.02] active:scale-95 w-full sm:w-auto">
-            <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-            <span className="relative flex items-center gap-2 text-lg">
-              Start Shopping <ChevronRight size={20} />
-            </span>
-          </Link>
-
-          <div className="mt-8 flex gap-6 text-slate-400">
-            <div className="flex flex-col items-center gap-2">
-              <div className="p-3 bg-slate-50 rounded-2xl"><Clock size={20} /></div>
-              <span className="text-[10px] font-bold uppercase tracking-wider">Fast Delivery</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <div className="p-3 bg-slate-50 rounded-2xl"><Tag size={20} /></div>
-              <span className="text-[10px] font-bold uppercase tracking-wider">Daily Deals</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <div className="p-3 bg-slate-50 rounded-2xl"><Sparkles size={20} /></div>
-              <span className="text-[10px] font-bold uppercase tracking-wider">Fresh Items</span>
-            </div>
-          </div>
+      <div className="min-h-screen bg-[#F5F7FA] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
+          <Package size={32} />
         </div>
+        <h2 className="text-lg font-bold text-slate-900 mb-1">Your cart is empty</h2>
+        <p className="text-xs text-slate-500 mb-6 max-w-xs">
+          Explore our trending catalog and add items to your cart or select Buy Now.
+        </p>
+        <Link
+          to="/"
+          className="px-6 py-2.5 rounded-xl bg-black text-white text-xs font-bold hover:bg-slate-800 transition"
+        >
+          Explore Catalog
+        </Link>
       </div>
     );
   }
 
-  // ─── Main checkout return ────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#f1f4f8] pb-32 font-sans">
-      {/* Order Success Overlay */}
-      <CheckoutOrderSuccess orderId={orderId} show={showSuccess} />
-
-      {/* Clean Header */}
-      <div className="bg-white py-4 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between relative">
+    <div className="min-h-screen bg-[#F5F7FA] pb-28 font-sans select-none">
+      {/* ── 1. Top Header with 3-Step Progress Bar — Matches Image 1 ── */}
+      <header className="bg-white sticky top-0 z-40 border-b border-slate-100 shadow-2xs">
+        <div className="max-w-xl mx-auto px-4 py-3 flex items-center gap-3">
           <button
-            onClick={() => navigate(-1)}
-            className="p-1 -ml-1 hover:bg-slate-50 rounded-full transition-all">
-            <ChevronLeft size={24} className="text-gray-900" />
+            type="button"
+            onClick={handleBack}
+            className="p-1 -ml-1 text-slate-800 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
+            aria-label="Go Back"
+          >
+            <ChevronLeft size={24} className="stroke-[2.2]" />
           </button>
-          <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
-            <h1 className="text-base md:text-lg font-bold text-gray-900 tracking-tight">Checkout</h1>
-            <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mt-0.5">
-              {cartCount} {cartCount === 1 ? "Item" : "Items"} in cart
-            </p>
-          </div>
-          {/* Balanced spacer */}
-          <div className="w-8 h-8" />
+          <h1 className="text-[17px] font-bold text-slate-900 tracking-tight">
+            Confirm details
+          </h1>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 md:px-8 mt-6 relative z-20">
-        <div className="lg:grid lg:grid-cols-12 lg:gap-8 items-start">
-
-          {/* Left Column */}
-          <div className="lg:col-span-7 xl:col-span-8 space-y-6 pb-8">
-            {/* Delivery Time Banner */}
-            <div className="mt-3 transition-all duration-300">
-              {isResolvingAddressCoords || isPreviewLoading || isDeliveryDecisionLoading ? (
-                <div className="bg-white/95 rounded-2xl p-4 sm:p-5 shadow-xs border border-slate-200/80 flex items-center gap-3.5 animate-pulse">
-                  <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-                    <Loader2 size={22} className="animate-spin text-brand-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-800 text-sm sm:text-base">
-                      Checking delivery speed...
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Updating delivery options for your address
-                    </p>
-                  </div>
-                </div>
-              ) : !resolvedFulfillmentType ? (
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
-                  {previewError || "Delivery details are unavailable for this address. Please check the address and retry."}
-                </div>
-              ) : splitDeliveryInfo.isSplit ? (
-                <div className="bg-gradient-to-br from-indigo-50/90 via-white to-slate-50/70 rounded-2xl p-4 sm:p-5 shadow-xs border border-indigo-200/90 transition-all">
-                  <div className="flex items-start justify-between gap-3 pb-3 border-b border-indigo-100/80">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-indigo-100/90 border border-indigo-200 text-indigo-700 flex items-center justify-center shrink-0 shadow-2xs">
-                        <Package size={22} strokeWidth={2.3} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-black text-slate-900 text-base sm:text-lg tracking-tight">
-                            Split Delivery
-                          </h3>
-                        </div>
-                        <p className="text-xs sm:text-sm font-semibold text-slate-500 mt-0.5">
-                          2 Separate Shipments for your cart
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] uppercase font-black tracking-wider px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200 shrink-0">
-                      2 Shipments
-                    </span>
-                  </div>
-
-                  <div className="pt-3 space-y-2.5">
-                    {/* Shipment 1: Quick Delivery */}
-                    <div className="flex items-start gap-3 p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/80">
-                      <div className="w-8 h-8 rounded-lg bg-amber-100 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
-                        <Zap size={16} className="fill-amber-500 text-amber-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs sm:text-sm font-extrabold text-slate-900 block">
-                          ⚡ Shipment 1: Quick Delivery
-                        </span>
-                        <p className="text-xs text-slate-600 font-semibold mt-0.5">
-                          Arriving in 20-35 mins
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Shipment 2: Standard Courier */}
-                    <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-50/70 border border-blue-200/80">
-                      <div className="w-8 h-8 rounded-lg bg-blue-100 border border-blue-200 text-blue-700 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
-                        <Truck size={16} strokeWidth={2.3} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs sm:text-sm font-extrabold text-slate-900 block">
-                          🚚 Shipment 2: Standard Courier
-                        </span>
-                        <p className="text-xs text-slate-600 font-semibold mt-0.5">
-                          Arriving in 3-5 days
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : resolvedFulfillmentType === "SHIPROCKET" ? (
-                <div className="bg-gradient-to-r from-blue-50/90 via-white to-blue-50/40 rounded-2xl p-4 sm:p-5 shadow-xs border border-blue-200/90 transition-all">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-11 h-11 rounded-xl bg-blue-100/80 border border-blue-200 text-blue-700 flex items-center justify-center shrink-0 shadow-2xs">
-                        <Truck size={22} strokeWidth={2.3} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-black text-slate-900 text-base sm:text-lg tracking-tight">
-                            E commerce Delivery
-                          </h3>
-                        </div>
-                        <p className="text-xs sm:text-sm font-semibold text-slate-600 mt-0.5">
-                          Delivery in {pricingPreview?.deliveryEstimate || "3-5 Days"}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] uppercase font-black tracking-wider px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 border border-blue-200 shrink-0">
-                      Standard
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-gradient-to-r from-emerald-50/90 via-white to-emerald-50/40 rounded-2xl p-4 sm:p-5 shadow-xs border border-emerald-200/90 transition-all">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-11 h-11 rounded-xl bg-amber-100/80 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 shadow-2xs">
-                        <Zap size={22} className="fill-amber-500 text-amber-600" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-black text-slate-900 text-base sm:text-lg tracking-tight">
-                            Quick Delivery
-                          </h3>
-                        </div>
-                        <p className="text-xs sm:text-sm font-semibold text-emerald-800 mt-0.5">
-                          Delivery in {pricingPreview?.deliveryEstimate || "20-35 mins"}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] uppercase font-black tracking-wider px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
-                      ⚡ Express
-                    </span>
-                  </div>
-                </div>
-              )}
+        {/* Stepper Progress Bar */}
+        <div className="max-w-xl mx-auto px-8 pb-3 pt-1">
+          <div className="flex items-center justify-between relative">
+            {/* Step 1: Address (Done) */}
+            <div className="flex flex-col items-center gap-1 z-10">
+              <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                <Check size={14} strokeWidth={3} />
+              </div>
+              <span className="text-[11px] font-semibold text-slate-700">Address</span>
             </div>
 
-            {/* Address Section */}
-            <CheckoutAddressSection
-              currentAddress={currentAddress}
-              savedRecipient={savedRecipient}
-              savedAddresses={locationSavedAddresses}
-              onSelectAddress={() => setIsAddressModalOpen(true)}
-              onEditAddress={handleOpenEditAddress}
-              onUseCurrentLocation={handleUseCurrentLiveLocation}
-              isFetchingLocation={isFetchingLocation}
-              showRecipientForm={showRecipientForm}
-              onToggleRecipientForm={() => setShowRecipientForm((v) => !v)}
-              recipientData={recipientData}
-              onRecipientDataChange={setRecipientData}
-              onSaveRecipient={handleSaveRecipient}
-              onRemoveRecipient={() => setSavedRecipient(null)}
-              displayName={displayName}
-              displayPhone={displayPhone}
-              displayAddress={displayAddress}
-            />
+            {/* Connecting Line 1-2 (Active Blue) */}
+            <div className="flex-1 h-0.5 bg-blue-600 -mt-4 mx-2" />
 
-            {/* Undeliverable Items Banner */}
-            {unserviceableCartItems.length > 0 && (
-              <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-4 flex items-start gap-3 shadow-xs">
-                <Ban className="text-red-600 shrink-0 mt-0.5" size={20} />
-                <div className="text-xs text-red-800">
-                  <p className="font-extrabold text-sm text-red-700">Delivery Unavailable for Some Items</p>
-                  <p className="mt-1 leading-relaxed">
-                    {unserviceableCartItems.length} item(s) cannot be delivered to this address. Please remove them or choose another address.
-                  </p>
+            {/* Step 2: Confirm details (Current Active) */}
+            <div className="flex flex-col items-center gap-1 z-10">
+              <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[12px] shadow-xs">
+                2
+              </div>
+              <span className="text-[11px] font-bold text-blue-900">Confirm details</span>
+            </div>
+
+            {/* Connecting Line 2-3 (Inactive Grey) */}
+            <div className="flex-1 h-0.5 bg-slate-200 -mt-4 mx-2" />
+
+            {/* Step 3: Payment (Next Step) */}
+            <div className="flex flex-col items-center gap-1 z-10">
+              <div className="w-6 h-6 rounded-full border-2 border-slate-300 text-slate-400 flex items-center justify-center font-bold text-[12px] bg-white">
+                3
+              </div>
+              <span className="text-[11px] font-medium text-slate-400">Payment</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* ── Main Content Container ── */}
+      <main className="max-w-xl mx-auto px-4 pt-3.5 space-y-3.5">
+        {/* ── 2. Delivering to Section — Matches Image 1 ── */}
+        <section className="space-y-2">
+          <h2 className="text-[15px] font-bold text-slate-900 tracking-tight">
+            Delivering to
+          </h2>
+          <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Home size={18} className="text-slate-800" />
+                <span className="font-bold text-[14.5px] text-slate-900">
+                  {displayName}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddressModalOpen(true)}
+                className="text-[13px] font-bold text-blue-600 hover:text-blue-700 transition cursor-pointer"
+              >
+                Change
+              </button>
+            </div>
+            <p className="text-[12.5px] text-slate-600 leading-relaxed font-normal">
+              {displayAddress}
+            </p>
+            {displayPhone && (
+              <div className="flex items-center gap-1.5 text-[12.5px] text-slate-700 font-medium pt-0.5">
+                <Phone size={13} className="text-slate-500" />
+                <span>{displayPhone}</span>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ── 3. Buy Now / Cart Order Item Card — Matches Image 1 ── */}
+        <section className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs space-y-3">
+          {cart.map((item, idx) => {
+            const itemOriginalPrice = Number(item.originalPrice || item.mrp || 0);
+            const itemSellingPrice = Number(item.salePrice || item.price || 0);
+            const itemDiscount =
+              itemOriginalPrice > itemSellingPrice
+                ? Math.round(((itemOriginalPrice - itemSellingPrice) / itemOriginalPrice) * 100)
+                : null;
+
+            return (
+              <div key={item.id || item._id || idx} className="space-y-3">
+                <div className="flex gap-3.5">
+                  {/* Thumbnail Image */}
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-slate-100 flex items-center justify-center overflow-hidden shrink-0 p-1 border border-slate-100">
+                    {item.image ? (
+                      <img
+                        src={applyCloudinaryTransform(item.image, "f_auto,q_auto,w_240")}
+                        alt={item.name}
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <Package size={24} className="text-slate-400" />
+                    )}
+                  </div>
+
+                  {/* Product Details */}
+                  <div className="flex-1 min-w-0">
+                    {itemDiscount && (
+                      <p className="text-[11.5px] font-bold text-emerald-700 mb-0.5">
+                        Top Discount of the Sale
+                      </p>
+                    )}
+                    <h3 className="text-[13.5px] font-semibold text-slate-900 line-clamp-1 leading-snug">
+                      {item.name}
+                    </h3>
+                    {(item.variantName || item.unit) && (
+                      <p className="text-[12px] text-slate-500 font-medium mt-0.5">
+                        {item.variantName ? `Size: ${item.variantName}` : `Unit: ${item.unit}`}
+                      </p>
+                    )}
+
+                    {/* Rating Badge */}
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-700 text-white text-[10px] font-bold">
+                        {item.rating || 4.2} <Star size={9} className="fill-white" />
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-medium">(78)</span>
+                    </div>
+
+                    {/* Price Row: Discount % + MRP + Selling Price */}
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      {itemDiscount && (
+                        <span className="text-[13px] font-bold text-emerald-700 flex items-center">
+                          ↓{itemDiscount}%
+                        </span>
+                      )}
+                      {itemOriginalPrice > itemSellingPrice && (
+                        <span className="text-[13px] text-slate-400 line-through">
+                          ₹{itemOriginalPrice.toLocaleString('en-IN')}
+                        </span>
+                      )}
+                      <span className="text-[15px] font-bold text-slate-900">
+                        ₹{itemSellingPrice.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+
+                    {/* Inline Quantity Controls */}
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white">
+                        <button
+                          type="button"
+                          onClick={() => handleItemDecrement(item)}
+                          className="w-7 h-7 flex items-center justify-center text-slate-700 hover:bg-slate-50 active:scale-90 transition cursor-pointer"
+                        >
+                          <Minus size={13} strokeWidth={2.5} />
+                        </button>
+                        <span className="w-8 text-center text-xs font-bold text-slate-900">
+                          {item.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleItemIncrement(item)}
+                          className="w-7 h-7 flex items-center justify-center text-slate-700 hover:bg-slate-50 active:scale-90 transition cursor-pointer"
+                        >
+                          <Plus size={13} strokeWidth={2.5} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Delivery Date Row */}
+                <div className="pt-2 border-t border-slate-100 flex items-center gap-2 text-[12.5px] text-slate-700 font-medium">
+                  <Truck size={15} className="text-slate-600" />
+                  <span>
+                    Delivery by <strong className="text-slate-900 font-bold">{deliveryDateText}</strong>
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </section>
+
+        {/* ── 4. Savings Zone Card — Matches Image 1 ── */}
+        <section className="bg-blue-50/70 rounded-2xl p-3.5 border border-blue-200/70 shadow-2xs space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-blue-600 text-white">
+              WOW!
+            </span>
+            <span className="text-sm font-bold text-blue-950">
+              Savings zone
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsCouponModalOpen(true)}
+            className="w-full bg-white rounded-xl p-3 border border-blue-100 flex items-center justify-between hover:bg-blue-50/50 transition cursor-pointer shadow-2xs"
+          >
+            <div className="flex items-center gap-2">
+              <Tag size={16} className="text-blue-600" />
+              <span className="text-[13px] font-semibold text-slate-800">
+                {selectedCoupon ? `Coupon Applied: ${selectedCoupon.code}` : "View all coupons and offers"}
+              </span>
+            </div>
+            <ChevronRight size={16} className="text-slate-400" />
+          </button>
+        </section>
+
+        {/* ── 5. Price Details Card — Matches Image 2 ── */}
+        <section className="space-y-2">
+          <h2 className="text-[15px] font-bold text-slate-900 tracking-tight">
+            Price Details
+          </h2>
+          <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between text-[13.5px]">
+              <span className="text-slate-600 font-medium">ITEM TOTAL</span>
+              <span className="text-slate-900 font-medium">₹{itemTotal}</span>
+            </div>
+
+            <div className="flex items-center justify-between text-[13.5px]">
+              <span className="text-slate-600 font-medium">SHIPPING CHARGES</span>
+              <span className={`font-medium ${shippingCharges > 0 ? "text-slate-900" : "text-emerald-700 font-bold"}`}>
+                {pricingPreview
+                  ? shippingCharges === 0
+                    ? "FREE"
+                    : `₹${shippingCharges}`
+                  : isPreviewLoading
+                  ? "Calculating..."
+                  : "FREE"}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between text-[13.5px]">
+              <span className="text-slate-600 font-medium">HANDLING FEE</span>
+              <span className="text-slate-900 font-medium">₹{handlingFee}</span>
+            </div>
+
+            <div className="flex items-center justify-between text-[13.5px]">
+              <span className="text-slate-600 font-medium">TAX</span>
+              <span className="text-slate-900 font-medium">₹{taxAmount}</span>
+            </div>
+
+            {tipAmount > 0 && (
+              <div className="flex items-center justify-between text-[13.5px]">
+                <span className="text-slate-600 font-medium">DELIVERY TIP</span>
+                <span className="text-slate-900 font-medium">₹{tipAmount}</span>
               </div>
             )}
 
-            {/* Cart Summary */}
-            <CheckoutCartSummary
-              cart={cart}
-              onUpdateQuantity={updateQuantity}
-              onRemoveFromCart={removeFromCart}
-              onMoveToWishlist={handleMoveToWishlist}
-              showAll={showAllCartItems}
-              onToggleShowAll={() => setShowAllCartItems((v) => !v)}
-              getDeliveryItem={getDeliveryItem}
-              isDeliveryLoading={isDeliveryDecisionLoading}
-              deliveryError={deliveryDecisionError}
-            />
+            {discountAmount > 0 && (
+              <div className="flex items-center justify-between text-[13.5px] text-emerald-700 font-medium">
+                <span>COUPON DISCOUNT {selectedCoupon?.code ? `(${selectedCoupon.code})` : ""}</span>
+                <span>-₹{discountAmount}</span>
+              </div>
+            )}
 
-            {/* Wishlist Section */}
-            <CheckoutWishlistSection
-              wishlist={wishlist}
-              sectionRef={wishlistSectionRef}
-            />
+            {walletAmount > 0 && (
+              <div className="flex items-center justify-between text-[13.5px] text-emerald-700 font-medium">
+                <span>WALLET APPLIED</span>
+                <span>-₹{walletAmount}</span>
+              </div>
+            )}
 
-            {/* Recommended Products */}
-            <CheckoutRecommendedProducts
-              products={recommendedProducts}
-              cart={cart}
-              onAddToCart={handleAddToCart}
-              onGetCartItem={getCartItem}
-            />
-          </div>
+            {customFees.map((fee, idx) => (
+              <div key={idx} className="flex items-center justify-between text-[13.5px]">
+                <span className="text-slate-600 font-medium uppercase">{fee.label || fee.name}</span>
+                <span className="text-slate-900 font-medium">₹{fee.amount}</span>
+              </div>
+            ))}
 
-          {/* Right Column */}
-          <div className="lg:col-span-5 xl:col-span-4 space-y-4 lg:space-y-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-1.5rem)] lg:overflow-y-auto custom-scrollbar pb-32 lg:pb-4">
-            {/* Coupon Section */}
-            <CheckoutCouponSection
-              coupons={coupons}
-              selectedCoupon={selectedCoupon}
-              manualCode={manualCode}
-              onApplyCoupon={handleApplyCoupon}
-              onRemoveCoupon={() => setSelectedCoupon(null)}
-              onManualCodeChange={setManualCode}
-              isOpen={isCouponModalOpen}
-              onOpenChange={setIsCouponModalOpen}
-              onApplyManualCode={handleApplyManualCode}
-            />
-
-            {/* Pricing Breakdown */}
-            <CheckoutPricingBreakdown
-              pricingPreview={pricingPreview}
-              isPreviewLoading={isPreviewLoading}
-              previewError={previewError}
-              walletAmountToUse={walletAmountToUse}
-              finalAmountToPay={finalAmountToPay}
-              cartTotal={cartTotal}
-              selectedCoupon={selectedCoupon}
-              discountAmount={discountAmount}
-            />
-
-            {/* Payment Selector */}
-            <CheckoutPaymentSelector
-              paymentMethods={paymentMethods}
-              selectedPayment={selectedPayment}
-              onSelectPayment={setSelectedPayment}
-              useWallet={useWallet}
-              onToggleWallet={() => setUseWallet((v) => !v)}
-              walletBalance={user?.walletBalance || 0}
-              walletAmountToUse={walletAmountToUse}
-            />
-
-            {/* Desktop Slide to Pay */}
-            <div className="hidden lg:block pt-1">
-              <SlideToPay
-                amount={finalAmountToPay}
-                onSuccess={handlePlaceOrder}
-                isLoading={isPlacingOrder || isPreviewLoading || !pricingPreview || unserviceableCartItems.length > 0}
-                text={
-                  unserviceableCartItems.length > 0
-                    ? "Remove Undeliverable Items"
-                    : pricingPreview && finalAmountToPay === 0
-                      ? "Place Free Order"
-                      : "Order Now"
-                }
-              />
-              <p className="text-center text-[10px] text-slate-400 font-bold mt-2 uppercase tracking-[0.1em]">
-                🔒 SSL encrypted secure checkout
-              </p>
+            <div className="border-t border-slate-100 pt-3 flex items-center justify-between">
+              <div>
+                <span className="text-[15px] font-bold text-slate-900 block leading-tight uppercase">
+                  TOTAL PAYABLE
+                </span>
+                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+                  Safe & Secure Payment
+                </span>
+              </div>
+              <span className="text-[18px] font-black text-slate-900">
+                ₹{finalAmountToPay}
+              </span>
             </div>
+
+            {/* Green Savings Pill */}
+            {totalSavings > 0 && (
+              <div className="bg-emerald-50 rounded-xl px-3 py-2 border border-emerald-200/80 flex items-center gap-2 text-emerald-800 text-[12.5px] font-bold">
+                <Sparkles size={15} className="text-emerald-600 shrink-0" />
+                <span>You'll Save ₹{totalSavings} on this order</span>
+              </div>
+            )}
           </div>
+        </section>
+
+        {/* ── 6. Trust Badge & Legal Disclaimer — Matches Image 2 & 3 ── */}
+        <div className="flex items-center gap-3 px-2 py-1 text-slate-500">
+          <ShieldCheck size={28} className="text-slate-400 shrink-0" />
+          <p className="text-[12px] leading-snug">
+            Safe and secure payments. Easy returns. 100% Authentic products.
+          </p>
+        </div>
+
+        <p className="text-[11px] text-slate-400 px-2 leading-relaxed">
+          By proceeding, you confirm that you're above 18 years of age and you agree to {appName}'s{" "}
+          <Link to="/terms" className="text-blue-600 underline">
+            Terms of Use
+          </Link>{" "}
+          and{" "}
+          <Link to="/privacy" className="text-blue-600 underline">
+            Privacy Policy
+          </Link>
+        </p>
+      </main>
+
+      {/* ── 7. Sticky Bottom Action Bar with Continue Button — Matches Image 3 ── */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200/90 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] z-50">
+        {totalSavings > 0 && (
+          <div className="bg-emerald-50 border-b border-emerald-100 py-1.5 px-4 text-center text-[12px] font-bold text-emerald-800 flex items-center justify-center gap-1.5">
+            <span>You'll save ₹{totalSavings} on this order</span>
+          </div>
+        )}
+        <div className="max-w-xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+          <div>
+            {totalMRP > finalAmountToPay && (
+              <span className="text-[12px] text-slate-400 line-through block leading-none">
+                ₹{totalMRP}
+              </span>
+            )}
+            <span className="text-[19px] font-black text-slate-900 tracking-tight leading-tight">
+              ₹{finalAmountToPay}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleContinueToPayment}
+            disabled={isResolvingAddressCoords || (Array.isArray(unserviceableCartItems) && unserviceableCartItems.length > 0)}
+            className="bg-[#FFC200] hover:bg-[#F5B800] active:scale-95 text-slate-900 font-extrabold text-[15px] px-8 py-3 rounded-xl shadow-md shadow-amber-200/50 transition-all cursor-pointer flex-1 max-w-[220px]"
+          >
+            Continue
+          </button>
         </div>
       </div>
 
-      {/* Sticky Footer — Mobile Only */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-4 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] z-50 rounded-t-3xl">
-        <div className="max-w-4xl mx-auto">
-          <SlideToPay
-            amount={finalAmountToPay}
-            onSuccess={handlePlaceOrder}
-            isLoading={isPlacingOrder || isPreviewLoading || !pricingPreview || unserviceableCartItems.length > 0}
-            text={
-              unserviceableCartItems.length > 0
-                ? "Remove Undeliverable Items"
-                : pricingPreview && finalAmountToPay === 0
-                  ? "Place Free Order"
-                  : "Slide to Pay"
-            }
-          />
-        </div>
-      </div>
-
-      {/* Address Selection Modal */}
+      {/* ── Address Selection Modal ── */}
       <Dialog open={isAddressModalOpen} onOpenChange={setIsAddressModalOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Select Delivery Address</DialogTitle>
-            <DialogDescription>Choose where you want your order delivered.</DialogDescription>
+            <DialogDescription>
+              Choose an address for your order.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-3 max-h-[60vh] overflow-y-auto">
-            {locationSavedAddresses.length === 0 ? (
+            {(!locationSavedAddresses || locationSavedAddresses.length === 0) ? (
               <div className="p-6 text-center text-slate-500 text-xs">
                 <MapPin className="mx-auto mb-2 text-slate-400" size={24} />
-                No saved addresses yet. Click below to add one.
+                No saved addresses yet.
               </div>
             ) : (
-              locationSavedAddresses.map((addr) => (
+              (locationSavedAddresses || []).map((addr) => (
                 <button
-                  key={addr.id}
+                  key={addr.id || addr._id}
                   onClick={() => handleSelectSavedAddress(addr)}
                   disabled={isResolvingAddressCoords}
                   className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
-                    currentAddress.id === addr.id
-                      ? "border-primary bg-brand-50 shadow-sm"
+                    currentAddress.id === (addr.id || addr._id)
+                      ? "border-blue-600 bg-blue-50/60 shadow-xs"
                       : "border-slate-100 bg-white hover:border-slate-200"
-                  }`}>
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className={`p-2 rounded-full ${currentAddress.id === addr.id ? "bg-primary text-primary-foreground" : "bg-slate-100 text-slate-500"}`}>
-                      <MapPin size={16} />
-                    </div>
-                    <span className="font-black text-slate-800 uppercase tracking-widest text-[10px]">{addr.label}</span>
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 mb-1.5">
+                    <span className="font-bold text-slate-900 text-[13.5px]">
+                      {addr.name || displayName}
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700">
+                      {addr.type || "Address"}
+                    </span>
                   </div>
-                  <p className="text-sm font-bold text-slate-800">{addr.name || user?.name || currentAddress.name}</p>
-                  <p className="text-xs text-slate-500 leading-relaxed mb-1">{addr.address}</p>
-                  {addr.phone && (
-                    <p className="text-[11px] text-slate-400 font-medium">Phone: {addr.phone}</p>
-                  )}
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    {addr.address}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1 font-medium">
+                    Phone: {addr.phone || displayPhone}
+                  </p>
                 </button>
               ))
             )}
           </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              className="w-full border-brand-600 text-brand-600 hover:bg-brand-50"
+          <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
+            <button
+              type="button"
               onClick={() => {
                 setIsAddressModalOpen(false);
-                setAddressToEdit(null);
+                setIsLocationDrawerOpen(true);
+              }}
+              className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 transition cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <MapPin size={15} className="text-blue-600" />
+              Search or Use Current Location
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsAddressModalOpen(false);
                 setIsAddAddressModalOpen(true);
-              }}>
-              <Plus size={16} className="mr-2" /> Add New Address
-            </Button>
-          </DialogFooter>
+              }}
+              className="w-full py-2.5 rounded-xl border-2 border-dashed border-blue-600 text-blue-600 font-bold text-xs hover:bg-blue-50 transition cursor-pointer"
+            >
+              + Add New Address
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
 
-      {/* Unified Add / Edit Delivery Address Modal */}
+      {/* ── Location Drawer for Checkout ── */}
+      <LocationDrawer
+        isOpen={isLocationDrawerOpen}
+        onClose={() => setIsLocationDrawerOpen(false)}
+      />
+
+      {/* ── Add New Address Modal ── */}
       <AddAddressModal
         isOpen={isAddAddressModalOpen}
-        initialAddress={addressToEdit}
         onClose={() => {
           setIsAddAddressModalOpen(false);
           setAddressToEdit(null);
         }}
-        onAddressSaved={(savedAddr) => {
-          handleAddressAddedInCheckout(savedAddr);
-          setAddressToEdit(null);
+        onAddressSaved={(newAddr) => {
+          setIsAddAddressModalOpen(false);
+          if (newAddr) {
+            handleSelectSavedAddress(newAddr);
+          }
         }}
+        onSuccess={(newAddr) => {
+          setIsAddAddressModalOpen(false);
+          if (newAddr) {
+            handleSelectSavedAddress(newAddr);
+          }
+        }}
+        addressToEdit={addressToEdit}
       />
 
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-            .no-scrollbar::-webkit-scrollbar { display: none; }
-            .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-            .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-            .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-            .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-            .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-          `,
-        }}
+      {/* ── Coupon Selection Modal ── */}
+      <CheckoutCouponSection
+        coupons={coupons}
+        selectedCoupon={selectedCoupon}
+        manualCode={manualCode}
+        onApplyCoupon={handleApplyCoupon}
+        onRemoveCoupon={() => setSelectedCoupon(null)}
+        onManualCodeChange={setManualCode}
+        isOpen={isCouponModalOpen}
+        onOpenChange={setIsCouponModalOpen}
+        onApplyManualCode={handleApplyManualCode}
       />
     </div>
   );

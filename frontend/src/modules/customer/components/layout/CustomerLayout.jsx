@@ -85,12 +85,12 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
     const hideHeaderRoutes = [
         '/', '/categories', '/orders', '/transactions',
         '/profile', '/profile/edit', '/wishlist', '/addresses', '/wallet', '/help', 
-        '/privacy', '/privacy-policy', '/about', '/support', '/checkout',
+        '/privacy', '/privacy-policy', '/about', '/support', '/checkout', '/payment',
         '/terms', '/terms-and-conditions', '/terms-conditions', '/terms&conditions', '/term-and-conditions',
         '/search', '/chat', '/notifications', '/cart'
     ];
-    const hideBottomNavRoutes = ['/checkout', '/search', '/chat'];
-    const hideCartRoutes = ['/checkout', '/search', '/chat'];
+    const hideBottomNavRoutes = ['/checkout', '/payment', '/search', '/chat'];
+    const hideCartRoutes = ['/checkout', '/payment', '/search', '/chat'];
 
     const pathSegments = path.split('/').filter(Boolean);
     const isHeaderCategoryRoute = pathSegments.length === 1 && !hideHeaderRoutes.includes(path) && !['offers'].includes(pathSegments[0]);
@@ -125,7 +125,7 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
             '/orders', '/transactions', '/addresses', '/wishlist', '/wallet',
             '/settings', '/help', '/support', '/about', '/privacy', '/privacy-policy',
             '/terms', '/terms-and-conditions', '/terms-conditions', '/terms&conditions', '/term-and-conditions',
-            '/checkout', '/notifications', '/chat', '/offers'
+            '/checkout', '/payment', '/notifications', '/chat', '/offers'
         ];
 
         const isWhiteHeader = whiteHeaderRoutes.some(
@@ -161,24 +161,20 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
     const showFooter = showBottomNav && !hideFooterRoutes.includes(path) && !path.startsWith('/categories');
     const showFooterMessage = showBottomNav && !hideFooterMessageRoutes.includes(path) && !path.startsWith('/category') && !path.startsWith('/categories') && !path.startsWith('/products') && !path.startsWith('/product') && !isHierarchicalProduct;
 
-    // Hide elements on mobile only when product detail is open
-    // On desktop, we want to keep the header visible even if the modal is open
-    const finalShowHeaderMobile = showHeader && !isProductDetailOpen;
-    const finalShowBottomNavMobile = showBottomNav && !isProductDetailOpen;
-    const finalShowFooterMessageMobile = showFooterMessage && !isProductDetailOpen;
     return (
         <div className="customer-app min-h-screen bg-white flex flex-col font-sans">
-            {/* Header logic: Always show on desktop if showHeader is true. On mobile, hide if product detail is open. */}
+            {/* Header logic: Always show on desktop if showHeader is true. On mobile, hide cleanly without unmounting. */}
             {showHeader && (
                 <>
                     <div className="hidden md:block">
                         <Header />
                     </div>
-                    {finalShowHeaderMobile && (
-                        <div className="block md:hidden">
-                            <Header />
-                        </div>
-                    )}
+                    <div 
+                        className={cn("block md:hidden transition-opacity duration-200", isProductDetailOpen && "pointer-events-none opacity-0")}
+                        aria-hidden={isProductDetailOpen}
+                    >
+                        <Header />
+                    </div>
                 </>
             )}
 
@@ -199,8 +195,8 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
                 </div>
             )}
 
-            {/* Spacer to push content above the fixed BottomNav (mobile only) */}
-            {showBottomNav && !isProductDetailOpen && (
+            {/* Stable Spacer to push content above the fixed BottomNav (mobile only) - never unmounted to prevent layout jump */}
+            {showBottomNav && (
                 <div 
                     className="w-full shrink-0 md:hidden" 
                     style={{ height: "calc(4.5rem + env(safe-area-inset-bottom, 0px))" }} 
@@ -208,12 +204,18 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
                 />
             )}
 
-            {/* Bottom Nav logic */}
-            <div className="md:hidden">
-                {showBottomNav && !isProductDetailOpen && (
+            {/* Bottom Nav logic - kept mounted to avoid thrashing DOM on product sheet toggle */}
+            {showBottomNav && (
+                <div 
+                    className={cn(
+                        "md:hidden transition-all duration-200 ease-out",
+                        isProductDetailOpen ? "pointer-events-none translate-y-full opacity-0" : "translate-y-0 opacity-100"
+                    )}
+                    aria-hidden={isProductDetailOpen}
+                >
                     <BottomNav />
-                )}
-            </div>
+                </div>
+            )}
         </div>
     );
 };

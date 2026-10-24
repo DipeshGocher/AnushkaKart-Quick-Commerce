@@ -572,9 +572,11 @@ const MainLocationHeader = ({
                 className="customer-delivery-card flex min-w-0 w-[190px] lg:w-[230px] xl:w-[270px] max-w-full shrink items-center gap-1.5 h-[38px] rounded-xl border border-white/20 bg-white/15 px-2.5 text-left shadow-[0_2px_8px_rgba(0,0,0,0.12)] transition-transform active:scale-[0.99] cursor-pointer"
               >
                 <MapPin className="customer-delivery-icon h-3.5 w-3.5 shrink-0 text-white" style={{ color: '#ffffff' }} />
-                <span className="customer-delivery-label shrink-0 text-[11px] font-black text-white tracking-tight uppercase" style={{ color: '#ffffff' }}>HOME</span>
+                <span className="customer-delivery-label shrink-0 text-[11px] font-black text-white tracking-tight uppercase" style={{ color: '#ffffff' }}>
+                  {currentLocation?.type || currentLocation?.label || "HOME"}
+                </span>
                 <span className="customer-delivery-address min-w-0 flex-1 truncate text-[10.5px] font-medium text-white/95" style={{ color: '#ffffff' }}>
-                  {isFetchingLocation ? "Detecting..." : (currentLocation.name || currentLocation.city || "Select address")}
+                  {isFetchingLocation ? "Detecting..." : (currentLocation?.address || currentLocation?.name || currentLocation?.city || "Select address")}
                 </span>
                 <ChevronRight className="h-3 w-3 shrink-0 text-white/80" style={{ color: '#ffffff' }} />
               </button>
@@ -742,9 +744,11 @@ const MainLocationHeader = ({
                   className="customer-delivery-card flex-1 min-w-0 h-[36px] flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/15 px-2.5 text-left shadow-[0_2px_8px_rgba(0,0,0,0.12)] cursor-pointer active:scale-[0.99] transition-transform"
                 >
                   <MapPin className="customer-delivery-icon h-3.5 w-3.5 shrink-0 text-white" style={{ color: '#ffffff' }} />
-                  <span className="customer-delivery-label shrink-0 text-[11px] font-black text-white tracking-tight uppercase" style={{ color: '#ffffff' }}>HOME</span>
+                  <span className="customer-delivery-label shrink-0 text-[11px] font-black text-white tracking-tight uppercase" style={{ color: '#ffffff' }}>
+                    {currentLocation?.type || currentLocation?.label || "HOME"}
+                  </span>
                   <span className="customer-delivery-address min-w-0 flex-1 truncate text-[10.5px] font-medium text-white/95" style={{ color: '#ffffff' }}>
-                    {isFetchingLocation ? "Detecting location..." : (currentLocation.name || currentLocation.city || "Select address")}
+                    {isFetchingLocation ? "Detecting location..." : (currentLocation?.address || currentLocation?.name || currentLocation?.city || "Select address")}
                   </span>
                   <ChevronRight className="h-3 w-3 shrink-0 text-white/80" style={{ color: '#ffffff' }} />
                 </button>

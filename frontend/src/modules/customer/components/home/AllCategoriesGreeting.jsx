@@ -1,7 +1,7 @@
 import { useRef, useMemo, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { ShoppingBag, Sun, ChevronLeft, ChevronRight } from 'lucide-react';
-import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import { applyCloudinaryTransform, IMAGE_PRESETS } from '@/core/utils/imageUtils';
 import { slugify } from '@/core/utils/productUrl';
 import { cn } from '@/lib/utils';
 
@@ -181,9 +181,10 @@ const AllCategoriesGreeting = ({ categories, firstName, greetingConfig }) => {
               >
                 {category.image ? (
                   <img
-                    src={applyCloudinaryTransform(category.image, 'f_auto,q_auto,w_240,h_240,c_fill')}
+                    src={applyCloudinaryTransform(category.image, IMAGE_PRESETS.CATEGORY_FILL)}
                     alt={category.name}
-                    loading="lazy"
+                    loading={idx < 5 ? "eager" : "lazy"}
+                    fetchPriority={idx < 3 ? "high" : "auto"}
                     decoding="async"
                     referrerPolicy="no-referrer"
                     onError={(e) => {
