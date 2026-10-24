@@ -118,6 +118,10 @@ const ProductCard = ({ product, className, priority = false }) => {
         "group relative flex flex-col justify-start bg-white cursor-pointer select-none transition-all duration-200 active:scale-[0.99]",
         className
       )}
+      style={{
+        contentVisibility: "auto",
+        containIntrinsicSize: "auto 300px",
+      }}
     >
       {/* ── 1. PRODUCT IMAGE CONTAINER (#F0F0F0, aspect-ratio: 0.88, rounded: 12px) ── */}
       <div

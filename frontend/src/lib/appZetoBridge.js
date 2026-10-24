@@ -5,6 +5,8 @@
  * Flutter native wrapper via the WebView JavaScript channel.
  */
 
+let lastBridgeStatusBar = null;
+
 const AppZetoBridge = {
   /**
    * Check if the app is running inside the Flutter WebView
@@ -33,6 +35,9 @@ const AppZetoBridge = {
    */
   setStatusBarColor: (color, darkIcons = false) => {
     if (typeof window === 'undefined') return;
+    const key = `${color}_${Boolean(darkIcons)}`;
+    if (lastBridgeStatusBar === key) return;
+    lastBridgeStatusBar = key;
     if (window.Flutter && typeof window.Flutter.postMessage === 'function') {
       try {
         window.Flutter.postMessage(JSON.stringify({

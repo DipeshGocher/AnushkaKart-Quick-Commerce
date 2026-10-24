@@ -332,10 +332,10 @@ const BottomNav = () => {
                 aria-label="Primary navigation"
                 className="pointer-events-auto w-full max-w-lg md:max-w-xl mx-auto rounded-t-[28px] md:rounded-[32px] md:mb-2 border-t md:border border-white/85 px-3 pt-2.5 pb-[max(0.65rem,env(safe-area-inset-bottom,0px))] flex items-center justify-between relative shadow-[0_-8px_32px_rgba(15,23,42,0.08)] overflow-visible"
                 style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                    backdropFilter: 'blur(24px) saturate(190%)',
-                    WebkitBackdropFilter: 'blur(24px) saturate(190%)',
-                    boxShadow: '0 -10px 30px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.95)',
+                    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                    boxShadow: '0 -8px 25px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 1)',
+                    transform: 'translateZ(0)',
+                    WebkitTransform: 'translateZ(0)',
                 }}
             >
                 {mainNavItems.map((item) => {

@@ -157,6 +157,7 @@ const ProductDetailSheet = () => {
     const [isExpanded, setIsExpanded] = useState(true);
     const [selectedVariant, setSelectedVariant] = useState(null);
     const [activeImageIndex, setActiveImageIndex] = useState(0);
+    const activeImageIndexRef = useRef(0);
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [isMobileDevice, setIsMobileDevice] = useState(() =>
         typeof window !== 'undefined' ? window.innerWidth < 768 : false
@@ -289,6 +290,7 @@ const ProductDetailSheet = () => {
             setSelectedVariant(null);
         }
         setActiveImageIndex(0);
+        activeImageIndexRef.current = 0;
 
         if (desktopContentRef.current) {
             desktopContentRef.current.scrollTo({ top: 0, behavior: 'instant' });
@@ -1818,8 +1820,12 @@ const ProductDetailSheet = () => {
                         {/* Scrollable Content */}
                         <div
                             ref={mobileContentRef}
-                            className="flex-1 overflow-x-hidden overflow-y-auto no-scrollbar bg-white"
-                            style={{ paddingBottom: 'calc(6.5rem + env(safe-area-inset-bottom, 20px))' }}
+                            className="flex-1 overflow-x-hidden overflow-y-auto no-scrollbar bg-white overscroll-contain"
+                            style={{ 
+                                paddingBottom: 'calc(6.5rem + env(safe-area-inset-bottom, 20px))',
+                                overscrollBehaviorY: 'contain',
+                                WebkitOverflowScrolling: 'touch',
+                            }}
                             onScroll={handleScroll}
                             onWheel={handleWheel}
                         >
@@ -1834,8 +1840,13 @@ const ProductDetailSheet = () => {
                                     ref={scrollRef}
                                     className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar h-full w-full"
                                     onScroll={(e) => {
-                                        const index = Math.round(e.currentTarget.scrollLeft / e.currentTarget.offsetWidth);
-                                        setActiveImageIndex(index);
+                                        const width = e.currentTarget.clientWidth;
+                                        if (!width) return;
+                                        const index = Math.round(e.currentTarget.scrollLeft / width);
+                                        if (index !== activeImageIndexRef.current) {
+                                            activeImageIndexRef.current = index;
+                                            setActiveImageIndex(index);
+                                        }
                                     }}
                                 >
                                     {allImages.map((img, i) => (

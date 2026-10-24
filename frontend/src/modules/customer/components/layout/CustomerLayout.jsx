@@ -172,6 +172,7 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
                     <div 
                         className={cn("block md:hidden transition-opacity duration-200", isProductDetailOpen && "pointer-events-none opacity-0")}
                         aria-hidden={isProductDetailOpen}
+                        inert={isProductDetailOpen ? "" : undefined}
                     >
                         <Header />
                     </div>
@@ -212,6 +213,7 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
                         isProductDetailOpen ? "pointer-events-none translate-y-full opacity-0" : "translate-y-0 opacity-100"
                     )}
                     aria-hidden={isProductDetailOpen}
+                    inert={isProductDetailOpen ? "" : undefined}
                 >
                     <BottomNav />
                 </div>
