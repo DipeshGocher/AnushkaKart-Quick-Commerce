@@ -38,8 +38,25 @@ const shuffleArray = (array) => {
   return shuffled;
 };
 
+const mapSortToServer = (sort) => {
+  switch (sort) {
+    case 'price_asc':
+      return 'price-asc';
+    case 'price_desc':
+      return 'price-desc';
+    case 'discount':
+      return 'discount';
+    case 'popularity':
+      return 'stock-desc';
+    case 'newest':
+      return 'newest';
+    case 'relevance':
+    default:
+      return 'newest';
+  }
+};
+
 let productsPageMemoryCache = {
-  rawProducts: [],
   headerCategories: [],
   allCategoriesMap: {},
   allSubcategoriesMap: {},
@@ -66,13 +83,17 @@ const ProductsPage = () => {
   const [allCategoriesMap, setAllCategoriesMap] = useState(() => productsPageMemoryCache.allCategoriesMap);
   const [allSubcategoriesMap, setAllSubcategoriesMap] = useState(() => productsPageMemoryCache.allSubcategoriesMap);
 
-  const [rawProducts, setRawProducts] = useState(() => productsPageMemoryCache.rawProducts);
-  const [isLoading, setIsLoading] = useState(() => productsPageMemoryCache.rawProducts.length === 0);
+  const [products, setProducts] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProductsCount, setTotalProductsCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [activeSort, setActiveSort] = useState('relevance');
   const [isSortModalOpen, setIsSortModalOpen] = useState(false);
 
   const PRODUCT_BATCH_SIZE = 24;
-  const [visibleCount, setVisibleCount] = useState(PRODUCT_BATCH_SIZE);
+  const activeFetchIdRef = useRef(0);
   const loadMoreSentinelRef = useRef(null);
 
   // Debounce search query
@@ -128,155 +149,161 @@ const ProductsPage = () => {
     };
   }, []);
 
-  // 2. Fetch products in bulk (random mix across categories)
+  // 2. Fetch products with true server-side pagination and sorting (Page 1)
   useEffect(() => {
-    let cancelled = false;
+    let isMounted = true;
+    const fetchId = ++activeFetchIdRef.current;
 
-    const fetchProducts = async () => {
-      if (productsPageMemoryCache.rawProducts.length === 0 || debouncedQuery.trim() || (selectedHeaderId && selectedHeaderId !== 'all')) {
-        setIsLoading(true);
-      }
+    const fetchInitialProducts = async () => {
+      setIsLoading(true);
       try {
+        const serverSort = mapSortToServer(activeSort);
         const params = {
-          limit: 150,
-          allProducts: 'true',
+          page: 1,
+          limit: PRODUCT_BATCH_SIZE,
+          sort: serverSort,
         };
 
         if (debouncedQuery.trim()) {
           params.search = debouncedQuery.trim();
         }
 
-        // If specific header category is selected (and not 'all')
         if (selectedHeaderId && selectedHeaderId !== 'all') {
           params.headerId = selectedHeaderId;
         }
 
         const res = await customerApi.getProducts(params);
+        if (isMounted && activeFetchIdRef.current === fetchId) {
+          const data = res?.data || res;
+          const rawResult = data?.result;
+          const items = Array.isArray(data?.results)
+            ? data.results
+            : Array.isArray(rawResult?.items)
+            ? rawResult.items
+            : Array.isArray(rawResult?.products)
+            ? rawResult.products
+            : Array.isArray(rawResult)
+            ? rawResult
+            : Array.isArray(data)
+            ? data
+            : [];
+
+          const total = Number(rawResult?.total ?? data?.total ?? items.length);
+          const totalP = Number(rawResult?.totalPages ?? data?.totalPages ?? (Math.ceil(total / PRODUCT_BATCH_SIZE) || 1));
+
+          setProducts(items);
+          setPage(1);
+          setTotalPages(Math.max(1, totalP));
+          setTotalProductsCount(total);
+        }
+      } catch (err) {
+        console.error('Failed to fetch products:', err);
+        if (isMounted && activeFetchIdRef.current === fetchId) {
+          setProducts([]);
+          setPage(1);
+          setTotalPages(1);
+          setTotalProductsCount(0);
+        }
+      } finally {
+        if (isMounted && activeFetchIdRef.current === fetchId) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchInitialProducts();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [debouncedQuery, selectedHeaderId, activeSort]);
+
+  // 3. Fetch Next Page on Sentinel Intersection
+  const fetchNextPage = React.useCallback(async () => {
+    if (isLoading || isLoadingMore || page >= totalPages) return;
+
+    const nextPage = page + 1;
+    const fetchId = activeFetchIdRef.current;
+    setIsLoadingMore(true);
+
+    try {
+      const serverSort = mapSortToServer(activeSort);
+      const params = {
+        page: nextPage,
+        limit: PRODUCT_BATCH_SIZE,
+        sort: serverSort,
+      };
+
+      if (debouncedQuery.trim()) {
+        params.search = debouncedQuery.trim();
+      }
+
+      if (selectedHeaderId && selectedHeaderId !== 'all') {
+        params.headerId = selectedHeaderId;
+      }
+
+      const res = await customerApi.getProducts(params);
+      if (activeFetchIdRef.current === fetchId) {
         const data = res?.data || res;
         const rawResult = data?.result;
         const items = Array.isArray(data?.results)
           ? data.results
           : Array.isArray(rawResult?.items)
           ? rawResult.items
+          : Array.isArray(rawResult?.products)
+          ? rawResult.products
           : Array.isArray(rawResult)
           ? rawResult
+          : Array.isArray(data?.products)
+          ? data.products
+          : Array.isArray(data?.items)
+          ? data.items
           : Array.isArray(data)
           ? data
           : [];
 
-        if (!cancelled) {
-          // If viewing All and no search query, shuffle for random mix
-          const isDefaultView = (!selectedHeaderId || selectedHeaderId === 'all') && !debouncedQuery.trim();
-          const finalItems = isDefaultView ? shuffleArray(items) : items;
-          if (isDefaultView) {
-            productsPageMemoryCache.rawProducts = finalItems;
-          }
-          setRawProducts(finalItems);
+        if (items.length > 0) {
+          setProducts((prev) => {
+            const existingIds = new Set(prev.map((p) => String(p._id || p.id)));
+            const unique = items.filter((p) => !existingIds.has(String(p._id || p.id)));
+            return [...prev, ...unique];
+          });
         }
-      } catch (err) {
-        console.error('Failed to fetch products:', err);
-        if (!cancelled) setRawProducts([]);
-      } finally {
-        if (!cancelled) setIsLoading(false);
+
+        const total = Number(rawResult?.total ?? data?.total ?? totalProductsCount);
+        const totalP = Number(rawResult?.totalPages ?? data?.totalPages ?? totalPages);
+        setPage(nextPage);
+        setTotalPages(Math.max(1, totalP));
+        setTotalProductsCount(total);
       }
-    };
-
-    fetchProducts();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [debouncedQuery, selectedHeaderId]);
-
-  // 3. Client-side Category & Hierarchy Filter (ensures all main & subcategories under selected header match)
-  const displayProducts = useMemo(() => {
-    let list = [...rawProducts];
-
-    // If a specific header is selected, filter strictly or loosely
-    if (selectedHeaderId && selectedHeaderId !== 'all') {
-      // Find all child category IDs belonging to this header
-      const childCategoryIds = new Set(
-        Object.values(allCategoriesMap)
-          .filter((c) => String(c.parentId?._id || c.parentId) === String(selectedHeaderId))
-          .map((c) => String(c._id))
-      );
-
-      // Find all child subcategory IDs belonging to those categories
-      const childSubcategoryIds = new Set(
-        Object.values(allSubcategoriesMap)
-          .filter((s) => childCategoryIds.has(String(s.parentId?._id || s.parentId)))
-          .map((s) => String(s._id))
-      );
-
-      list = list.filter((p) => {
-        const prodHeader = String(p.headerId?._id || p.headerId || '');
-        const prodCat = String(p.categoryId?._id || p.categoryId || '');
-        const prodSub = String(p.subcategoryId?._id || p.subcategoryId || '');
-
-        return (
-          prodHeader === String(selectedHeaderId) ||
-          prodCat === String(selectedHeaderId) ||
-          childCategoryIds.has(prodCat) ||
-          childSubcategoryIds.has(prodSub)
-        );
-      });
+    } catch (err) {
+      console.error('Failed to load next page:', err);
+    } finally {
+      if (activeFetchIdRef.current === fetchId) {
+        setIsLoadingMore(false);
+      }
     }
-
-    // Client-side text search filter as instant refinement
-    if (debouncedQuery.trim()) {
-      const qLower = debouncedQuery.trim().toLowerCase();
-      const words = qLower.split(/\s+/).filter(Boolean);
-
-      list = list.filter((p) => {
-        const name = (p.name || '').toLowerCase();
-        const brand = (p.brand || '').toLowerCase();
-        const catName = (p.categoryName || p.categoryId?.name || '').toLowerCase();
-        const tags = Array.isArray(p.tags) ? p.tags.join(' ').toLowerCase() : (p.tags || '').toLowerCase();
-        const desc = (p.description || '').toLowerCase();
-
-        const combinedText = `${name} ${brand} ${catName} ${tags} ${desc}`;
-        return words.every((word) => combinedText.includes(word));
-      });
-    }
-
-    // Sorting
-    if (activeSort === 'price_asc') {
-      list.sort((a, b) => (Number(a.salePrice || a.price) || 0) - (Number(b.salePrice || b.price) || 0));
-    } else if (activeSort === 'price_desc') {
-      list.sort((a, b) => (Number(b.salePrice || b.price) || 0) - (Number(a.salePrice || a.price) || 0));
-    } else if (activeSort === 'discount') {
-      list.sort((a, b) => {
-        const discA = ((Number(a.price || a.originalPrice) - Number(a.salePrice || a.price)) / (Number(a.price || a.originalPrice) || 1));
-        const discB = ((Number(b.price || b.originalPrice) - Number(b.salePrice || b.price)) / (Number(b.price || b.originalPrice) || 1));
-        return discB - discA;
-      });
-    } else if (activeSort === 'newest') {
-      list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-    }
-
-    return list;
-  }, [rawProducts, selectedHeaderId, debouncedQuery, allCategoriesMap, allSubcategoriesMap, activeSort]);
-
-  // Reset visible batch count whenever header category, search query, or sort changes
-  useEffect(() => {
-    setVisibleCount(PRODUCT_BATCH_SIZE);
-  }, [selectedHeaderId, debouncedQuery, activeSort]);
-
-  // Incremental batch slice for rendering (reduces initial mounted cards from 150 to 24)
-  const displayedProducts = useMemo(() => {
-    return displayProducts.slice(0, visibleCount);
-  }, [displayProducts, visibleCount]);
+  }, [
+    isLoading,
+    isLoadingMore,
+    page,
+    totalPages,
+    activeSort,
+    debouncedQuery,
+    selectedHeaderId,
+    totalProductsCount,
+  ]);
 
   // Observer to load more batches automatically 350px before scroll reaches bottom
   useEffect(() => {
-    if (visibleCount >= displayProducts.length) return;
+    if (page >= totalPages || isLoading || isLoadingMore) return;
     const sentinel = loadMoreSentinelRef.current;
     if (!sentinel) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) {
-          setVisibleCount((prev) => Math.min(prev + PRODUCT_BATCH_SIZE, displayProducts.length));
+          fetchNextPage();
         }
       },
       { root: null, rootMargin: '350px', threshold: 0 }
@@ -284,7 +311,7 @@ const ProductsPage = () => {
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [visibleCount, displayProducts.length]);
+  }, [page, totalPages, isLoading, isLoadingMore, fetchNextPage]);
 
   const handleHeaderCategoryClick = (headerId) => {
     setSelectedHeaderId(headerId);
@@ -411,7 +438,7 @@ const ProductsPage = () => {
         <nav className="hidden md:flex items-center gap-2 py-2 text-xs text-slate-500 font-medium border-b border-slate-100 mb-3">
           <button onClick={() => navigate('/')} className="hover:text-blue-600 transition-colors cursor-pointer">Home</button>
           <span className="text-slate-300">/</span>
-          <span className="text-slate-600 font-semibold">Products</span>
+          <span className="text-slate-600 font-semibold">Products ({totalProductsCount > 0 ? totalProductsCount : products.length})</span>
           {searchQuery && (
             <>
               <span className="text-slate-300">/</span>
@@ -456,7 +483,7 @@ const ProductsPage = () => {
               </div>
             ))}
           </div>
-        ) : displayProducts.length === 0 ? (
+        ) : products.length === 0 ? (
           <div className="py-20 text-center flex flex-col items-center justify-center px-4">
             <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 mb-3">
               <Search size={28} />
@@ -482,7 +509,7 @@ const ProductsPage = () => {
         ) : (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5">
-              {displayedProducts.map((product, idx) => (
+              {products.map((product, idx) => (
                 <ProductCard
                   key={product.id || product._id}
                   product={product}
@@ -490,13 +517,18 @@ const ProductsPage = () => {
                 />
               ))}
             </div>
-            {visibleCount < displayProducts.length && (
+            {page < totalPages && (
               <div
                 ref={loadMoreSentinelRef}
                 className="w-full py-6 flex items-center justify-center text-xs text-slate-400 font-medium"
               >
                 <span className="inline-block w-4 h-4 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin mr-2" />
                 <span>Loading more products...</span>
+              </div>
+            )}
+            {page >= totalPages && products.length > 0 && (
+              <div className="w-full py-6 flex items-center justify-center text-xs text-slate-400 font-medium">
+                <span>You've reached the end of this catalog</span>
               </div>
             )}
           </>

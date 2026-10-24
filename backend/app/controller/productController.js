@@ -733,10 +733,17 @@ export const getProducts = async (req, res) => {
       oldest: { createdAt: 1 },
       "name-asc": { name: 1, createdAt: -1 },
       "name-desc": { name: -1, createdAt: -1 },
+      "name_asc": { name: 1, createdAt: -1 },
+      "name_desc": { name: -1, createdAt: -1 },
       "price-asc": { price: 1, createdAt: -1 },
       "price-desc": { price: -1, createdAt: -1 },
+      "price_asc": { price: 1, createdAt: -1 },
+      "price_desc": { price: -1, createdAt: -1 },
       "stock-asc": { stock: 1, createdAt: -1 },
       "stock-desc": { stock: -1, createdAt: -1 },
+      "stock_asc": { stock: 1, createdAt: -1 },
+      "stock_desc": { stock: -1, createdAt: -1 },
+      discount: { isTopDeal: -1, createdAt: -1 },
     };
     const sortQuery = sortMap[String(sort || "newest").toLowerCase()] || sortMap.newest;
 

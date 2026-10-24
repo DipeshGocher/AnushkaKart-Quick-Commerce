@@ -66,6 +66,20 @@ const formatPrice = (value) =>
 
 let categoryTreeMemoryCache = null;
 
+const mapSortToServer = (sort) => {
+  switch (sort) {
+    case 'price_asc':
+      return 'price-asc';
+    case 'price_desc':
+      return 'price-desc';
+    case 'newest':
+      return 'newest';
+    case 'relevance':
+    default:
+      return 'newest';
+  }
+};
+
 const CategoryProductsPage = () => {
   const {
     headerCategory: routeHeaderParam,
@@ -90,13 +104,17 @@ const CategoryProductsPage = () => {
   const [selectedMainCatId, setSelectedMainCatId] = useState('all');
   const [selectedSubCatId, setSelectedSubCatId] = useState('all');
   const [products, setProducts] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProductsCount, setTotalProductsCount] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(() => !categoryTreeMemoryCache);
   const [isProductsLoading, setIsProductsLoading] = useState(true);
   const [sortBy, setSortBy] = useState('relevance');
 
   const PRODUCT_BATCH_SIZE = 24;
-  const [visibleCount, setVisibleCount] = useState(PRODUCT_BATCH_SIZE);
   const activeFetchIdRef = useRef(0);
   const loadMoreSentinelRef = useRef(null);
   const selectedSubCatRef = useRef(null);
@@ -354,7 +372,15 @@ const CategoryProductsPage = () => {
     navigate,
   ]);
 
-  // 3. Fetch Products for Active Header / Category
+  // Debounce search query to prevent excessive server requests while typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // 3. Fetch Products for Active Header / Category (Page 1)
   useEffect(() => {
     // If a route main parameter is specified, wait until that main category ID has resolved
     if (routeMainParam && (!selectedMainCatId || selectedMainCatId === 'all')) return;
@@ -362,18 +388,29 @@ const CategoryProductsPage = () => {
 
     let isMounted = true;
     const fetchId = ++activeFetchIdRef.current;
-    const fetchCategoryProducts = async () => {
+
+    const fetchInitialCategoryProducts = async () => {
       try {
         setIsProductsLoading(true);
+        const serverSort = mapSortToServer(sortBy);
         const params = {
-          limit: 200,
-          allProducts: 'true',
+          page: 1,
+          limit: PRODUCT_BATCH_SIZE,
+          sort: serverSort,
         };
-        if (selectedMainCatId && selectedMainCatId !== 'all') {
+
+        if (selectedSubCatId && selectedSubCatId !== 'all') {
+          params.subcategoryId = selectedSubCatId;
+        } else if (selectedMainCatId && selectedMainCatId !== 'all') {
           params.categoryId = selectedMainCatId;
         } else if (activeHeader?._id) {
           params.headerId = activeHeader._id;
         }
+
+        if (debouncedSearchQuery) {
+          params.search = debouncedSearchQuery;
+        }
+
         if (Number.isFinite(currentLocation?.latitude) && Number.isFinite(currentLocation?.longitude)) {
           params.lat = currentLocation.latitude;
           params.lng = currentLocation.longitude;
@@ -398,21 +435,152 @@ const CategoryProductsPage = () => {
             : Array.isArray(data)
             ? data
             : [];
+
+          const total = Number(rawResult?.total ?? data?.total ?? items.length);
+          const totalP = Number(rawResult?.totalPages ?? data?.totalPages ?? (Math.ceil(total / PRODUCT_BATCH_SIZE) || 1));
+
           setProducts(items);
+          setPage(1);
+          setTotalPages(Math.max(1, totalP));
+          setTotalProductsCount(total);
         }
       } catch (err) {
         console.error('Failed to load products for category:', err);
-        if (isMounted && activeFetchIdRef.current === fetchId) setProducts([]);
+        if (isMounted && activeFetchIdRef.current === fetchId) {
+          setProducts([]);
+          setPage(1);
+          setTotalPages(1);
+          setTotalProductsCount(0);
+        }
       } finally {
-        if (isMounted && activeFetchIdRef.current === fetchId) setIsProductsLoading(false);
+        if (isMounted && activeFetchIdRef.current === fetchId) {
+          setIsProductsLoading(false);
+        }
       }
     };
 
-    fetchCategoryProducts();
+    fetchInitialCategoryProducts();
     return () => {
       isMounted = false;
     };
-  }, [activeHeader?._id, selectedMainCatId, routeMainParam, currentLocation?.latitude, currentLocation?.longitude]);
+  }, [
+    activeHeader?._id,
+    selectedMainCatId,
+    selectedSubCatId,
+    debouncedSearchQuery,
+    sortBy,
+    routeMainParam,
+    currentLocation?.latitude,
+    currentLocation?.longitude,
+  ]);
+
+  // 4. Fetch Next Page on Sentinel Intersection
+  const fetchNextPage = React.useCallback(async () => {
+    if (isProductsLoading || isLoadingMore || page >= totalPages) return;
+
+    const nextPage = page + 1;
+    const fetchId = activeFetchIdRef.current;
+    setIsLoadingMore(true);
+
+    try {
+      const serverSort = mapSortToServer(sortBy);
+      const params = {
+        page: nextPage,
+        limit: PRODUCT_BATCH_SIZE,
+        sort: serverSort,
+      };
+
+      if (selectedSubCatId && selectedSubCatId !== 'all') {
+        params.subcategoryId = selectedSubCatId;
+      } else if (selectedMainCatId && selectedMainCatId !== 'all') {
+        params.categoryId = selectedMainCatId;
+      } else if (activeHeader?._id) {
+        params.headerId = activeHeader._id;
+      }
+
+      if (debouncedSearchQuery) {
+        params.search = debouncedSearchQuery;
+      }
+
+      if (Number.isFinite(currentLocation?.latitude) && Number.isFinite(currentLocation?.longitude)) {
+        params.lat = currentLocation.latitude;
+        params.lng = currentLocation.longitude;
+      }
+
+      const res = await customerApi.getProducts(params);
+      if (activeFetchIdRef.current === fetchId) {
+        const data = res?.data || res;
+        const rawResult = data?.result;
+        const items = Array.isArray(data?.results)
+          ? data.results
+          : Array.isArray(rawResult?.items)
+          ? rawResult.items
+          : Array.isArray(rawResult?.products)
+          ? rawResult.products
+          : Array.isArray(rawResult)
+          ? rawResult
+          : Array.isArray(data?.products)
+          ? data.products
+          : Array.isArray(data?.items)
+          ? data.items
+          : Array.isArray(data)
+          ? data
+          : [];
+
+        if (items.length > 0) {
+          setProducts((prev) => {
+            const existingIds = new Set(prev.map((p) => String(p._id || p.id)));
+            const unique = items.filter((p) => !existingIds.has(String(p._id || p.id)));
+            return [...prev, ...unique];
+          });
+        }
+
+        const total = Number(rawResult?.total ?? data?.total ?? totalProductsCount);
+        const totalP = Number(rawResult?.totalPages ?? data?.totalPages ?? totalPages);
+        setPage(nextPage);
+        setTotalPages(Math.max(1, totalP));
+        setTotalProductsCount(total);
+      }
+    } catch (err) {
+      console.error('Failed to load next page for category:', err);
+    } finally {
+      if (activeFetchIdRef.current === fetchId) {
+        setIsLoadingMore(false);
+      }
+    }
+  }, [
+    isProductsLoading,
+    isLoadingMore,
+    page,
+    totalPages,
+    sortBy,
+    selectedSubCatId,
+    selectedMainCatId,
+    activeHeader?._id,
+    debouncedSearchQuery,
+    currentLocation?.latitude,
+    currentLocation?.longitude,
+    totalProductsCount,
+  ]);
+
+  // Observer to load more batches automatically 350px before scroll reaches bottom
+  useEffect(() => {
+    if (page >= totalPages || isProductsLoading || isLoadingMore) return;
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          fetchNextPage();
+        }
+      },
+      { root: null, rootMargin: '350px', threshold: 0 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [page, totalPages, isProductsLoading, isLoadingMore, fetchNextPage]);
 
   // Active Main Category Object
   const activeMainCategory = useMemo(() => {
@@ -422,7 +590,7 @@ const CategoryProductsPage = () => {
     ) || (selectedMainCatId === 'all' ? null : mainCategories[0]);
   }, [mainCategories, selectedMainCatId]);
 
-  // 4. Compute Subcategories for the Round Shape Filter
+  // Compute Subcategories for the Round Shape Filter
   const availableSubCategories = useMemo(() => {
     if (!mainCategories.length) return [];
     if (selectedMainCatId && selectedMainCatId !== 'all') {
@@ -460,194 +628,10 @@ const CategoryProductsPage = () => {
     }
   }, [selectedSubCatId]);
 
-  // 5. Filter Products by Selected Main Category, Subcategory, AND Search Query
-  const filteredProducts = useMemo(() => {
-    let list = products;
-
-    // Filter by Subcategory if a specific subcategory is selected
-    if (selectedSubCatId && selectedSubCatId !== 'all') {
-      const targetSubId = String(selectedSubCatId);
-      const selectedSubObj = availableSubCategories.find((s) => String(s._id || s.id) === targetSubId);
-      const subName = selectedSubObj?.name?.toLowerCase().trim();
-      const subSlug = selectedSubObj?.slug?.toLowerCase().trim();
-
-      list = list.filter((p) => {
-        const pCat = String(p.categoryId?._id || p.categoryId || p.category?._id || p.category || '');
-        const pSub = String(p.subcategoryId?._id || p.subcategoryId || p.subcategory?._id || p.subcategory || '');
-        const pSubName = String(p.subcategoryId?.name || '').toLowerCase().trim();
-        const pSubSlug = String(p.subcategoryId?.slug || '').toLowerCase().trim();
-
-        return (
-          pSub === targetSubId ||
-          pCat === targetSubId ||
-          (subName && pSubName === subName) ||
-          (subSlug && (pSubSlug === subSlug || pSubName.includes(subSlug)))
-        );
-      });
-    }
-
-    // Live search inside this category
-    const q = searchQuery.trim().toLowerCase();
-    if (q) {
-      list = list.filter((p) => {
-        const name = String(p.name || '').toLowerCase();
-        const brand = String(p.brand || '').toLowerCase();
-        const desc = String(p.description || '').toLowerCase();
-        const tags = Array.isArray(p.tags) ? p.tags.join(' ').toLowerCase() : String(p.tags || '').toLowerCase();
-        return name.includes(q) || brand.includes(q) || desc.includes(q) || tags.includes(q);
-      });
-    }
-
-    // Apply sorting
-    if (sortBy === 'price_asc') {
-      list = [...list].sort((a, b) => (Number(a.salePrice || a.price || 0)) - (Number(b.salePrice || b.price || 0)));
-    } else if (sortBy === 'price_desc') {
-      list = [...list].sort((a, b) => (Number(b.salePrice || b.price || 0)) - (Number(a.salePrice || a.price || 0)));
-    } else if (sortBy === 'newest') {
-      list = [...list].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-    }
-
-    return list;
-  }, [products, selectedSubCatId, availableSubCategories, searchQuery, sortBy]);
-
-  // Reset visible batch count whenever category, subcategory, search, or sort changes
-  useEffect(() => {
-    setVisibleCount(PRODUCT_BATCH_SIZE);
-  }, [selectedMainCatId, selectedSubCatId, searchQuery, sortBy]);
-
-  // Incremental batch slice for rendering (reduces initial mounted cards from 200 to 24)
-  const displayedProducts = useMemo(() => {
-    return filteredProducts.slice(0, visibleCount);
-  }, [filteredProducts, visibleCount]);
-
-  // Observer to load more batches automatically 350px before scroll reaches bottom
-  useEffect(() => {
-    if (visibleCount >= filteredProducts.length) return;
-    const sentinel = loadMoreSentinelRef.current;
-    if (!sentinel) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          setVisibleCount((prev) => Math.min(prev + PRODUCT_BATCH_SIZE, filteredProducts.length));
-        }
-      },
-      { root: null, rootMargin: '350px', threshold: 0 }
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [visibleCount, filteredProducts.length]);
-
-  // Safety net: If a specific subcategory is selected and has 0 products in memory, fetch targeted by subcategoryId
-  useEffect(() => {
-    if (!selectedSubCatId || selectedSubCatId === 'all' || isProductsLoading) return;
-    if (filteredProducts.length > 0) return;
-
-    let isMounted = true;
-    const fetchDirectSubProducts = async () => {
-      try {
-        const params = {
-          subcategoryId: selectedSubCatId,
-          limit: 100,
-          allProducts: 'true',
-        };
-        if (Number.isFinite(currentLocation?.latitude) && Number.isFinite(currentLocation?.longitude)) {
-          params.lat = currentLocation.latitude;
-          params.lng = currentLocation.longitude;
-        }
-        const res = await customerApi.getProducts(params);
-        if (!isMounted) return;
-        const data = res?.data || res;
-        const rawResult = data?.result;
-        const items = Array.isArray(data?.results)
-          ? data.results
-          : Array.isArray(rawResult?.items)
-          ? rawResult.items
-          : Array.isArray(rawResult?.products)
-          ? rawResult.products
-          : Array.isArray(rawResult)
-          ? rawResult
-          : Array.isArray(data?.products)
-          ? data.products
-          : Array.isArray(data?.items)
-          ? data.items
-          : Array.isArray(data)
-          ? data
-          : [];
-        if (items.length > 0) {
-          setProducts((prev) => {
-            const map = new Map(prev.map((p) => [String(p._id || p.id), p]));
-            items.forEach((p) => map.set(String(p._id || p.id), p));
-            return Array.from(map.values());
-          });
-        }
-      } catch (err) {
-        console.error('Targeted subcategory products fetch error:', err);
-      }
-    };
-
-    fetchDirectSubProducts();
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedSubCatId, filteredProducts.length, isProductsLoading, currentLocation?.latitude, currentLocation?.longitude]);
-
-  // Backend search fallback on Enter to fetch all matching category products
-  const handleSearchKeyDown = async (e) => {
+  const handleSearchKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const q = searchQuery.trim();
-      if (!q) return;
-
-      try {
-        setIsProductsLoading(true);
-        const params = {
-          search: q,
-          headerId: activeHeader?._id,
-          limit: 100,
-        };
-        if (selectedMainCatId && selectedMainCatId !== 'all') {
-          params.categoryId = selectedMainCatId;
-        }
-        if (selectedSubCatId && selectedSubCatId !== 'all') {
-          params.subcategoryId = selectedSubCatId;
-        }
-        if (Number.isFinite(currentLocation?.latitude) && Number.isFinite(currentLocation?.longitude)) {
-          params.lat = currentLocation.latitude;
-          params.lng = currentLocation.longitude;
-        }
-
-        const res = await customerApi.getProducts(params);
-        const data = res?.data || res;
-        const rawResult = data?.result;
-        const items = Array.isArray(data?.results)
-          ? data.results
-          : Array.isArray(rawResult?.items)
-          ? rawResult.items
-          : Array.isArray(rawResult?.products)
-          ? rawResult.products
-          : Array.isArray(rawResult)
-          ? rawResult
-          : Array.isArray(data?.products)
-          ? data.products
-          : Array.isArray(data?.items)
-          ? data.items
-          : Array.isArray(data)
-          ? data
-          : [];
-        if (items.length > 0) {
-          setProducts((prev) => {
-            const map = new Map(prev.map((p) => [String(p._id || p.id), p]));
-            items.forEach((p) => map.set(String(p._id || p.id), p));
-            return Array.from(map.values());
-          });
-        }
-      } catch (err) {
-        console.error('Failed category search query:', err);
-      } finally {
-        setIsProductsLoading(false);
-      }
+      setDebouncedSearchQuery(searchQuery.trim());
     }
   };
 
@@ -852,7 +836,7 @@ const CategoryProductsPage = () => {
                     Search in <span className="font-bold text-slate-800">{selectedSubCategory?.name || activeMainCategory?.name || 'Category'}</span>: "{searchQuery}"
                   </p>
                   <p className="text-[11px] text-slate-500 font-medium">
-                    Found {filteredProducts.length} items
+                    Found {totalProductsCount > 0 ? totalProductsCount : products.length} items
                   </p>
                 </div>
               ) : (
@@ -861,7 +845,7 @@ const CategoryProductsPage = () => {
                     {selectedSubCategory?.name || activeMainCategory?.name || activeHeader?.name || 'Category Products'}
                   </h1>
                   <p className="text-[11px] text-slate-500 font-medium">
-                    Showing {filteredProducts.length} items
+                    Showing {totalProductsCount > 0 ? totalProductsCount : products.length} items
                   </p>
                 </div>
               )}
@@ -924,7 +908,7 @@ const CategoryProductsPage = () => {
                   </div>
                 ))}
               </div>
-            ) : filteredProducts.length === 0 ? (
+            ) : products.length === 0 ? (
               <div className="mx-3 my-8 p-8 bg-white rounded-2xl border border-slate-100 text-center flex flex-col items-center justify-center">
                 <ImageOff size={40} className="text-slate-300 mb-2" />
                 <h3 className="text-base font-bold text-slate-800">
@@ -960,7 +944,7 @@ const CategoryProductsPage = () => {
                       if (selectedMainCatId && selectedMainCatId !== 'all') {
                         setIsProductsLoading(true);
                         customerApi
-                          .getProducts({ categoryId: selectedMainCatId, limit: 100, allProducts: 'true' })
+                          .getProducts({ categoryId: selectedMainCatId, page: 1, limit: PRODUCT_BATCH_SIZE, sort: mapSortToServer(sortBy) })
                           .then((res) => {
                             const data = res?.data || res;
                             const rawResult = data?.result;
@@ -973,7 +957,12 @@ const CategoryProductsPage = () => {
                               : Array.isArray(rawResult)
                               ? rawResult
                               : [];
+                            const total = Number(rawResult?.total ?? data?.total ?? items.length);
+                            const totalP = Number(rawResult?.totalPages ?? data?.totalPages ?? 1);
                             setProducts(items);
+                            setPage(1);
+                            setTotalPages(Math.max(1, totalP));
+                            setTotalProductsCount(total);
                           })
                           .catch((err) => console.error(err))
                           .finally(() => setIsProductsLoading(false));
@@ -989,7 +978,7 @@ const CategoryProductsPage = () => {
             ) : (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 px-4 pb-4 pt-2">
-                  {displayedProducts.map((product, idx) => (
+                  {products.map((product, idx) => (
                     <ProductCard
                       key={product.id || product._id}
                       product={product}
@@ -997,7 +986,7 @@ const CategoryProductsPage = () => {
                     />
                   ))}
                 </div>
-                {visibleCount < filteredProducts.length && (
+                {page < totalPages && (
                   <div
                     ref={loadMoreSentinelRef}
                     className="w-full py-6 pb-24 flex items-center justify-center text-xs text-slate-400 font-medium"
@@ -1006,8 +995,10 @@ const CategoryProductsPage = () => {
                     <span>Loading more products...</span>
                   </div>
                 )}
-                {visibleCount >= filteredProducts.length && (
-                  <div className="w-full pb-24" />
+                {page >= totalPages && products.length > 0 && (
+                  <div className="w-full pb-24 pt-2 flex items-center justify-center text-xs text-slate-400 font-medium">
+                    <span>You've reached the end of this catalog</span>
+                  </div>
                 )}
               </>
             )}
