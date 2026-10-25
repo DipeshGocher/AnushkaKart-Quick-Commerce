@@ -125,16 +125,27 @@ export function getProductPriceInfo(product) {
   const vSalePrice = Number(v?.salePrice || 0);
   const vPrice = Number(v?.price || 0);
 
-  let currentPrice = Number(product.price || 0);
-  let originalPrice = Number(product.originalPrice ?? product.price ?? 0);
+  const rootSalePrice = Number(product.salePrice || 0);
+  const rootPrice = Number(product.price || 0);
+  const rootOriginalPrice = Number(product.originalPrice || 0);
 
-  // If variant has active pricing
-  if (vSalePrice > 0 && vPrice > vSalePrice) {
-    currentPrice = vSalePrice;
-    originalPrice = vPrice;
-  } else if (vPrice > 0 && (!currentPrice || currentPrice === 0)) {
-    currentPrice = vPrice;
-    originalPrice = vPrice;
+  let currentPrice = rootPrice;
+  let originalPrice = rootOriginalPrice > 0 ? rootOriginalPrice : rootPrice;
+
+  // 1. Variant-specific pricing takes priority if present
+  if (vPrice > 0) {
+    if (vSalePrice > 0 && vPrice > vSalePrice) {
+      currentPrice = vSalePrice;
+      originalPrice = vPrice;
+    } else {
+      currentPrice = vPrice;
+      const vOriginal = Number(v?.originalPrice || 0);
+      originalPrice = vOriginal > vPrice ? vOriginal : vPrice;
+    }
+  } else if (rootSalePrice > 0 && rootPrice > rootSalePrice) {
+    // 2. Root product salePrice discount
+    currentPrice = rootSalePrice;
+    originalPrice = rootPrice;
   } else if (originalPrice === 0 && currentPrice > 0) {
     originalPrice = currentPrice;
   }

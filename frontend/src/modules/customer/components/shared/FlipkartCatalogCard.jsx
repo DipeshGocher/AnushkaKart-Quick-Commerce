@@ -6,7 +6,7 @@ import { useAuth } from '@core/context/AuthContext';
 import { useToast } from '@shared/components/ui/Toast';
 import { applyCloudinaryTransform, isPngImage, IMAGE_PRESETS } from '@/core/utils/imageUtils';
 import { cn } from '@/lib/utils';
-import { getProductVariantText } from '@/core/utils/productUrl';
+import { getProductVariantText, getProductPriceInfo } from '@/core/utils/productUrl';
 import { useDeliveryEligibility } from '../../hooks/useDeliveryEligibility';
 
 /**
@@ -36,11 +36,7 @@ const FlipkartCatalogCard = ({ product, onProductClick, priority = false }) => {
     const isSoldOut = totalStock <= 0;
     const isLowStock = totalStock > 0 && totalStock <= 2;
 
-    const price = Number(product.price || product.salePrice || 0);
-    const originalPrice = Number(product.originalPrice || 0);
-    const discount = originalPrice > price && originalPrice > 0
-        ? Math.round(((originalPrice - price) / originalPrice) * 100)
-        : 0;
+    const { currentPrice: price, originalPrice, discountPercent: discount } = getProductPriceInfo(product);
 
     const variants = Array.isArray(product.variants) ? product.variants : [];
     const variantsCount = variants.length;

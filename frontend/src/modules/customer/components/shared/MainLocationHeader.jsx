@@ -520,7 +520,7 @@ const MainLocationHeader = ({
           style={{
             background: targetHeaderColor,
             paddingTop: isMobile
-              ? "env(safe-area-inset-top, 2px)"
+              ? 2
               : (isScrolled ? 16 : 14),
             paddingBottom: 3,
             borderBottomLeftRadius: 24,

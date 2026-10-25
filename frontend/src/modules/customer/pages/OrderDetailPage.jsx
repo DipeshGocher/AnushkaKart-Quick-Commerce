@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import ReviewSubmissionModal from "../components/shared/ReviewSubmissionModal";
 import { customerApi } from "../services/customerApi";
+import { getCourierDeliveryDateText } from "../services/deliveryService";
 import { toast } from "sonner";
 import { subscribeToOrderLocation, subscribeToOrderTrail, subscribeToOrderRoute } from "@/core/services/trackingClient";
 import {
@@ -607,9 +608,10 @@ const OrderDetailPage = () => {
     }
 
     if (order?.fulfillmentType === "SHIPROCKET") {
+      const fallbackDate = getCourierDeliveryDateText(order?.createdAt || new Date(), 4);
       return {
-        arrivalTimeText: order?.shiprocket?.etd || "3-4 Business Days",
-        arrivingInText: order?.deliveryEstimate || "3-4 Days",
+        arrivalTimeText: order?.shiprocket?.etd || `Delivery by ${fallbackDate}`,
+        arrivingInText: order?.deliveryEstimate && !order.deliveryEstimate.toLowerCase().includes("day") ? order.deliveryEstimate : fallbackDate,
         totalDistanceText: "Standard Courier",
       };
     }
@@ -1134,7 +1136,7 @@ const OrderDetailPage = () => {
               <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Est. Delivery</span>
                 <span className="font-bold text-slate-800 text-xs mt-1 block">
-                  {order.shiprocket?.etd || order.deliveryEstimate || "3-4 Business Days"}
+                  {order.shiprocket?.etd || (order.deliveryEstimate && !order.deliveryEstimate.toLowerCase().includes("day") ? order.deliveryEstimate : getCourierDeliveryDateText(order?.createdAt || new Date(), 4))}
                 </span>
               </div>
             </div>

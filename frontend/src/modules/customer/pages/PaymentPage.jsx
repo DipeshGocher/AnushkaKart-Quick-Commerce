@@ -164,6 +164,7 @@ const PaymentPage = () => {
     pricingPreview?.discountTotal ||
     0
   );
+  const discountAmount = discountTotal;
   const walletAmount = Number(
     rawWalletAmount ||
     walletAmountToUse ||
@@ -179,13 +180,20 @@ const PaymentPage = () => {
 
   const orderAddress = rawOrderAddress || rawCurrentAddress;
 
-  const handleWhatsAppEMI = () => {
+  const whatsAppEmiUrl = useMemo(() => {
     const rawPhone = settings?.whatsappNumber || settings?.supportPhone || settings?.phone || "8209224481";
     const cleanDigits = String(rawPhone).replace(/[^\d]/g, "");
     const phoneWithCountry = cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
     const message = `Hello, I want to inquire about No Cost EMI for my order of ₹${finalAmountToPay} on ${appName}.`;
-    const url = `https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(message)}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    return `https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(message)}`;
+  }, [settings?.whatsappNumber, settings?.supportPhone, settings?.phone, finalAmountToPay, appName]);
+
+  const handleWhatsAppEMI = (e) => {
+    try {
+      window.open(whatsAppEmiUrl, "_blank", "noopener,noreferrer");
+    } catch (_) {
+      window.location.href = whatsAppEmiUrl;
+    }
   };
 
   const handlePlaceOrder = async (mode) => {
@@ -204,7 +212,7 @@ const PaymentPage = () => {
       const orderData = {
         address: orderAddress,
         paymentMode: mode === "online" ? "ONLINE" : "COD",
-        discountTotal: discountAmount,
+        discountTotal,
         taxTotal: taxAmount,
         tipAmount: 0,
         timeSlot: selectedTimeSlot,
@@ -623,14 +631,16 @@ const PaymentPage = () => {
                   </p>
                 </div>
 
-                <button
-                  type="button"
+                <a
+                  href={whatsAppEmiUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   onClick={handleWhatsAppEMI}
-                  className="w-full bg-[#FFC200] hover:bg-[#F5B800] active:scale-[0.98] text-slate-900 font-extrabold text-[15px] py-3.5 px-6 rounded-xl shadow-md shadow-amber-200/60 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full bg-[#FFC200] hover:bg-[#F5B800] active:scale-[0.98] text-slate-900 font-extrabold text-[15px] py-3.5 px-6 rounded-xl shadow-md shadow-amber-200/60 transition-all flex items-center justify-center gap-2 cursor-pointer no-underline text-center"
                 >
                   <MessageCircle size={19} className="text-slate-900 stroke-[2.4]" />
                   <span>Contact on WhatsApp for EMI</span>
-                </button>
+                </a>
               </div>
             )}
           </div>

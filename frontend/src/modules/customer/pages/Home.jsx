@@ -559,7 +559,7 @@ const Home = () => {
 
   return (
     <div
-      className="min-h-screen bg-white pt-[calc(194px+env(safe-area-inset-top,0px))] sm:pt-[calc(200px+env(safe-area-inset-top,0px))] md:pt-[168px]"
+      className="min-h-screen bg-white pt-[194px] sm:pt-[200px] md:pt-[168px]"
     >
       <MainLocationHeader 
         categories={displayCategories} 
@@ -589,7 +589,8 @@ const Home = () => {
                   fullWidth
                   edgeToEdge={false}
                   peekNext={true}
-                  autoPlayInterval={2500}
+                  autoPlay={false}
+                  autoPlayInterval={0}
                   showDots={true}
                   showContentOverlay={false}
                 />

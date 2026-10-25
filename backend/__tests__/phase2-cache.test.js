@@ -76,6 +76,7 @@ describe("Property 26: Cache Check Before Database Query", () => {
     await fc.assert(
       fc.asyncProperty(cacheKeyArb, async (key) => {
         mockStore.clear();
+        await del(key);
         const result = await get(key);
         expect(result).toBeNull();
       }),
@@ -103,6 +104,7 @@ describe("Property 27: Cache-Aside Pattern", () => {
     await fc.assert(
       fc.asyncProperty(cacheKeyArb, jsonValueArb, async (key, value) => {
         mockStore.clear();
+        await del(key);
         const fetchFn = jest.fn(async () => value);
 
         const result = await getOrSet(key, fetchFn, 300);

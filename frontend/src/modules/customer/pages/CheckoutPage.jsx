@@ -6,12 +6,14 @@ import { customerApi } from "../services/customerApi";
 import { useLocation as useAppLocation } from "../context/LocationContext";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
 import { useDeliveryDecision } from "../services/useDeliveryDecision";
+import { getCourierDeliveryDateText, resolveItemDeliveryInfo } from "../services/deliveryService";
 import {
   ChevronLeft,
   ChevronRight,
   Home,
   Phone,
   Truck,
+  Zap,
   Star,
   Plus,
   Minus,
@@ -555,12 +557,41 @@ const CheckoutPage = () => {
 
   const deliveryDateText = useMemo(() => {
     if (pricingPreview?.deliveryEstimate) {
+      const est = String(pricingPreview.deliveryEstimate);
+      if (est.toLowerCase().includes("business day") || est.toLowerCase().includes("3-4")) {
+        return getCourierDeliveryDateText(new Date(), 4);
+      }
       return pricingPreview.deliveryEstimate;
     }
-    const d = new Date();
-    d.setDate(d.getDate() + (resolvedFulfillmentType === "LOCAL" ? 1 : 4));
-    return d.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" });
+    if (resolvedFulfillmentType === "LOCAL") {
+      return "20-25 mins";
+    }
+    return getCourierDeliveryDateText(new Date(), 4);
   }, [pricingPreview, resolvedFulfillmentType]);
+
+  const hasMixedFulfillment = useMemo(() => {
+    if (cart.length <= 1) return false;
+    let hasQuick = false;
+    let hasCourier = false;
+    for (const item of cart) {
+      const itemDecision = getDeliveryItem(item);
+      const previewItem = pricingPreview?.items?.find(
+        (p) => String(p.product || p.productId || p._id) === String(item.id || item._id)
+      );
+      const info = resolveItemDeliveryInfo(item, {
+        itemDecision,
+        previewItem,
+        destinationPincode: activeDestinationPincode,
+        defaultFulfillment: resolvedFulfillmentType,
+      });
+      if (info.isQuick) {
+        hasQuick = true;
+      } else {
+        hasCourier = true;
+      }
+    }
+    return hasQuick && hasCourier;
+  }, [cart, getDeliveryItem, pricingPreview, activeDestinationPincode, resolvedFulfillmentType]);
 
   const handleSelectSavedAddress = async (addr) => {
     addressSelectionRef.current += 1;
@@ -778,6 +809,14 @@ const CheckoutPage = () => {
 
         {/* ── 3. Buy Now / Cart Order Item Card — Matches Image 1 ── */}
         <section className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs space-y-3">
+          {hasMixedFulfillment && (
+            <div className="bg-blue-50/70 border border-blue-200/70 rounded-xl p-3 flex items-start gap-2.5 text-xs text-blue-950 mb-1">
+              <Sparkles size={16} className="text-blue-600 shrink-0 mt-0.5" />
+              <p className="leading-relaxed">
+                <strong className="font-bold">Multi-Seller Order:</strong> Products will arrive in separate packages — Quick Commerce items in 20-25 mins and Courier items by {getCourierDeliveryDateText(new Date(), 4)}.
+              </p>
+            </div>
+          )}
           {cart.map((item, idx) => {
             const itemOriginalPrice = Number(item.originalPrice || item.mrp || 0);
             const itemSellingPrice = Number(item.salePrice || item.price || 0);
@@ -785,6 +824,17 @@ const CheckoutPage = () => {
               itemOriginalPrice > itemSellingPrice
                 ? Math.round(((itemOriginalPrice - itemSellingPrice) / itemOriginalPrice) * 100)
                 : null;
+
+            const itemDecision = getDeliveryItem(item);
+            const previewItem = pricingPreview?.items?.find(
+              (p) => String(p.product || p.productId || p._id) === String(item.id || item._id)
+            );
+            const itemDeliveryInfo = resolveItemDeliveryInfo(item, {
+              itemDecision,
+              previewItem,
+              destinationPincode: activeDestinationPincode,
+              defaultFulfillment: resolvedFulfillmentType,
+            });
 
             return (
               <div key={item.id || item._id || idx} className="space-y-3">
@@ -868,13 +918,32 @@ const CheckoutPage = () => {
                   </div>
                 </div>
 
-                {/* Delivery Date Row */}
-                <div className="pt-2 border-t border-slate-100 flex items-center gap-2 text-[12.5px] text-slate-700 font-medium">
-                  <Truck size={15} className="text-slate-600" />
-                  <span>
-                    Delivery by <strong className="text-slate-900 font-bold">{deliveryDateText}</strong>
-                  </span>
-                </div>
+                {/* Delivery Date Row — Item-Specific Dynamic Estimate */}
+                {itemDeliveryInfo.isQuick ? (
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[12.5px]">
+                    <div className="flex items-center gap-1.5 text-emerald-700 font-medium">
+                      <Zap size={14} className="fill-amber-500 text-amber-500 shrink-0" />
+                      <span>
+                        Delivery in <strong className="text-emerald-950 font-bold">{itemDeliveryInfo.estimateText}</strong>
+                      </span>
+                    </div>
+                    <span className="text-[10.5px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full">
+                      ⚡ Quick Commerce
+                    </span>
+                  </div>
+                ) : (
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[12.5px]">
+                    <div className="flex items-center gap-1.5 text-slate-700 font-medium">
+                      <Truck size={14} className="text-blue-600 shrink-0" />
+                      <span>
+                        Delivery by <strong className="text-slate-900 font-bold">{itemDeliveryInfo.estimateText}</strong>
+                      </span>
+                    </div>
+                    <span className="text-[10.5px] font-bold text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-full">
+                      📦 Standard Courier
+                    </span>
+                  </div>
+                )}
               </div>
             );
           })}

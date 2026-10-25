@@ -9,7 +9,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useProductDetail } from "../../context/ProductDetailContext";
 import ParticleBurst from "./ParticleBurst";
 import { useAuth } from "@core/context/AuthContext";
+import { useToast } from "@shared/components/ui/Toast";
 import { useDeliveryEligibility } from "../../hooks/useDeliveryEligibility";
+import { getProductPriceInfo } from "@/core/utils/productUrl";
 
 const formatPrice = (value) =>
   new Intl.NumberFormat("en-IN", {

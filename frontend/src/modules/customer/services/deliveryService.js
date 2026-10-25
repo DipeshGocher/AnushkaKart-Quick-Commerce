@@ -279,3 +279,136 @@ export function evaluateProductDelivery(product, customerPincode) {
     warning: null,
   };
 }
+
+/**
+ * Adds business days (skipping Sundays) to a given base date.
+ * E.g., if today is Sunday 25 Oct, adding 4 business days skips Sunday:
+ * Mon (1), Tue (2), Wed (3), Thu (4) -> Thu, 29 Oct.
+ *
+ * @param {Date|string|number} [startDate=new Date()]
+ * @param {number} [businessDays=4]
+ * @returns {Date}
+ */
+export function addBusinessDays(startDate = new Date(), businessDays = 4) {
+  const date = new Date(startDate);
+  if (Number.isNaN(date.getTime())) {
+    return new Date();
+  }
+  let added = 0;
+  while (added < businessDays) {
+    date.setDate(date.getDate() + 1);
+    // 0 is Sunday - skip it
+    if (date.getDay() !== 0) {
+      added++;
+    }
+  }
+  return date;
+}
+
+/**
+ * Formats a Date object into a readable string like "Thu, 29 Oct".
+ *
+ * @param {Date|string|number} date
+ * @returns {string} e.g. "Thu, 29 Oct"
+ */
+export function formatDeliveryDate(date) {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return "";
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const dayName = days[d.getDay()];
+  const dayNum = d.getDate();
+  const monthName = months[d.getMonth()];
+  return `${dayName}, ${dayNum} ${monthName}`;
+}
+
+/**
+ * Returns dynamic calendar date for courier delivery fallback (Option 1).
+ * E.g. "Thu, 29 Oct"
+ *
+ * @param {Date|string|number} [baseDate=new Date()]
+ * @param {number} [businessDays=4]
+ * @returns {string} e.g. "Thu, 29 Oct"
+ */
+export function getCourierDeliveryDateText(baseDate = new Date(), businessDays = 4) {
+  const targetDate = addBusinessDays(baseDate, businessDays);
+  return formatDeliveryDate(targetDate);
+}
+
+/**
+ * Resolves the delivery estimation for an individual item during checkout or order tracking.
+ * - For Quick Commerce (Local): returns "20-25 mins" (or raw mins) with isQuick=true.
+ * - For Courier (Shiprocket): calculates dynamic business calendar date (e.g. "Thu, 29 Oct") with isQuick=false.
+ *
+ * @param {Object} item - cart or order item
+ * @param {Object} [options]
+ * @param {Object} [options.itemDecision] - result from useDeliveryDecision getItem(item)
+ * @param {Object} [options.previewItem] - matching item from pricingPreview
+ * @param {string} [options.destinationPincode] - customer destination pincode
+ * @param {string} [options.defaultFulfillment] - fallback fulfillment ("LOCAL" or "SHIPROCKET")
+ * @param {Date|string|number} [options.baseDate] - base date to calculate from (defaults to now)
+ * @returns {Object} { isQuick, fulfillmentType, estimateText, badgeText, fullText }
+ */
+export function resolveItemDeliveryInfo(item, {
+  itemDecision = null,
+  previewItem = null,
+  destinationPincode = "",
+  defaultFulfillment = "LOCAL",
+  baseDate = new Date(),
+} = {}) {
+  // Determine effective fulfillment type
+  const fulfillmentType =
+    item?.fulfillmentType ||
+    itemDecision?.fulfillmentType ||
+    previewItem?.itemFulfillmentType ||
+    (destinationPincode ? evaluateProductDelivery(item, destinationPincode)?.fulfillmentType : null) ||
+    defaultFulfillment;
+
+  const isQuick =
+    fulfillmentType === "LOCAL" ||
+    fulfillmentType === "LOCAL_RIDERS" ||
+    fulfillmentType === "quick_only";
+
+  if (isQuick) {
+    const rawEstimate =
+      itemDecision?.deliveryEstimate ||
+      previewItem?.itemDeliveryEstimate ||
+      (destinationPincode ? evaluateProductDelivery(item, destinationPincode)?.deliveryEstimate : null) ||
+      "20-25 mins";
+
+    let estimateText = "20-25 mins";
+    if (
+      typeof rawEstimate === "string" &&
+      (rawEstimate.toLowerCase().includes("min") || rawEstimate.toLowerCase().includes("m"))
+    ) {
+      estimateText = rawEstimate;
+    }
+
+    return {
+      isQuick: true,
+      fulfillmentType: "LOCAL_RIDERS",
+      estimateText,
+      badgeText: "Quick Commerce",
+      fullText: `Delivery in ${estimateText}`,
+    };
+  }
+
+  // Courier / Shiprocket
+  let courierDate = "";
+  if (itemDecision?.etd || previewItem?.etd) {
+    courierDate = itemDecision?.etd || previewItem?.etd;
+  }
+
+  if (!courierDate) {
+    courierDate = getCourierDeliveryDateText(baseDate, 4);
+  }
+
+  return {
+    isQuick: false,
+    fulfillmentType: "SHIPROCKET",
+    estimateText: courierDate,
+    badgeText: "Standard Courier",
+    fullText: `Delivery by ${courierDate}`,
+  };
+}
+

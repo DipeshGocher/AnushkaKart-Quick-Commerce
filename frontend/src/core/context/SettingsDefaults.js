@@ -3,6 +3,7 @@ export const DEFAULT_SETTINGS = {
   appName: "AnushkaStore",
   supportEmail: "",
   supportPhone: "",
+  whatsappNumber: "8209224481",
   currencySymbol: "₹",
   currencyCode: "INR",
   timezone: "Asia/Kolkata",

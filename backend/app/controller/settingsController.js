@@ -13,6 +13,7 @@ const ALLOWED_KEYS = [
   "appName",
   "supportEmail",
   "supportPhone",
+  "whatsappNumber",
   "currencySymbol",
   "currencyCode",
   "timezone",
@@ -104,6 +105,9 @@ const updateSettingsSchema = Joi.object({
   supportEmail: Joi.string().email().allow("").max(200),
   supportPhone: Joi.string().allow("").pattern(/^[0-9]{10}$/).messages({
     "string.pattern.base": "Support Phone must be a valid 10-digit number",
+  }),
+  whatsappNumber: Joi.string().allow("").pattern(/^[0-9]{10}$/).messages({
+    "string.pattern.base": "WhatsApp Number must be a valid 10-digit number",
   }),
   currencySymbol: Joi.string().allow("").max(10),
   currencyCode: Joi.string().allow("").max(10),
@@ -227,7 +231,7 @@ export const getPublicSettings = async (req, res) => {
       async () => {
         const existing = await Setting.findOne(filter)
           .select(
-            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor address facebook twitter instagram linkedin youtube playStoreLink appStoreLink footerMessage footerEmoji footerDescription footerQuickLinksTitle footerQuickLinks footerCategoriesTitle footerCategoriesLinks footerContactTitle footerCopyright footerPrivacyUrl footerTermsUrl footerBgColor footerEnabled returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval categoriesBanner deliveryBadgeText deliveryBadgeImage deliveryBadgeBg deliveryBadgeEnabled bestSellingTitle bestSellingCategoryIds categoryTopDeals createdAt",
+            "appName supportEmail supportPhone whatsappNumber currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor address facebook twitter instagram linkedin youtube playStoreLink appStoreLink footerMessage footerEmoji footerDescription footerQuickLinksTitle footerQuickLinks footerCategoriesTitle footerCategoriesLinks footerContactTitle footerCopyright footerPrivacyUrl footerTermsUrl footerBgColor footerEnabled returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval categoriesBanner deliveryBadgeText deliveryBadgeImage deliveryBadgeBg deliveryBadgeEnabled bestSellingTitle bestSellingCategoryIds categoryTopDeals createdAt",
           )
           .lean();
         return existing || null;
@@ -250,7 +254,10 @@ export const getPublicSettings = async (req, res) => {
       }
     }
 
-    settings.productApproval = normalizeProductApprovalConfig(settings || {});
+    if (!settings.whatsappNumber) {
+        settings.whatsappNumber = "8209224481";
+      }
+      settings.productApproval = normalizeProductApprovalConfig(settings || {});
 
     return handleResponse(res, 200, "Settings fetched successfully", settings);
   } catch (error) {
@@ -275,6 +282,11 @@ export const updateSettings = async (req, res) => {
     if (typeof payload.supportPhone === "string" && payload.supportPhone.trim()) {
       const cleanDigits = payload.supportPhone.replace(/\D/g, "");
       payload.supportPhone = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
+    }
+
+    if (typeof payload.whatsappNumber === "string" && payload.whatsappNumber.trim()) {
+      const cleanDigits = payload.whatsappNumber.replace(/\D/g, "");
+      payload.whatsappNumber = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
     }
 
     const { error, value } = updateSettingsSchema.validate(payload, {

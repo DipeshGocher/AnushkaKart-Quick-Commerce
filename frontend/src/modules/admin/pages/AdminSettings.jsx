@@ -19,7 +19,8 @@ import {
     Loader2,
     Lock,
     AlertCircle,
-    CheckCircle2
+    CheckCircle2,
+    MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@shared/components/ui/Toast';
@@ -71,6 +72,7 @@ const AdminSettings = () => {
         appName: '',
         supportEmail: '',
         supportPhone: '',
+        whatsappNumber: '8209224481',
         currencySymbol: '₹',
         currencyCode: 'INR',
         timezone: 'Asia/Kolkata',
@@ -147,6 +149,13 @@ const AdminSettings = () => {
             return;
         }
 
+        const whatsappNumber = (settings.whatsappNumber || '').trim();
+        if (whatsappNumber && whatsappNumber.length !== 10) {
+            showToast('WhatsApp Number must be exactly 10 digits', 'error');
+            setActiveTab('general');
+            return;
+        }
+
         const taxId = (settings.taxId || '').trim();
         if (taxId && taxId.length !== 15) {
             showToast('Tax ID / GSTIN must be exactly 15 alphanumeric characters', 'error');
@@ -179,6 +188,7 @@ const AdminSettings = () => {
                 appName,
                 supportEmail,
                 supportPhone,
+                whatsappNumber,
                 currencySymbol: '₹',
                 currencyCode: 'INR',
                 taxId,
@@ -424,6 +434,58 @@ const AdminSettings = () => {
                                     {settings.supportPhone && settings.supportPhone.length > 0 && settings.supportPhone.length < 10 && (
                                         <p className="text-[11px] font-bold text-amber-600 flex items-center gap-1">
                                             <AlertCircle size={12} /> Please enter complete 10-digit mobile number ({10 - settings.supportPhone.length} digits left)
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* WhatsApp Number for EMI Deep Linking */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                            <MessageCircle size={12} className="text-emerald-600" />
+                                            WhatsApp Number (10 Digits - EMI Deep Link)
+                                        </label>
+                                        <span className={cn(
+                                            "text-[10px] font-bold",
+                                            !settings.whatsappNumber ? "text-slate-400" :
+                                            settings.whatsappNumber.length === 10 ? "text-emerald-600 font-extrabold flex items-center gap-1" : "text-amber-600 flex items-center gap-1"
+                                        )}>
+                                            {settings.whatsappNumber && settings.whatsappNumber.length === 10 && <CheckCircle2 size={10} />}
+                                            {settings.whatsappNumber && settings.whatsappNumber.length < 10 && <AlertCircle size={10} />}
+                                            {settings.whatsappNumber ? `${settings.whatsappNumber.length}/10 digits` : '10 digits required'}
+                                        </span>
+                                    </div>
+                                    <div className="relative group">
+                                        <MessageCircle className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-600" />
+                                        <span className="absolute left-11 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500 border-r border-slate-300 pr-2">
+                                            +91
+                                        </span>
+                                        <input
+                                            type="tel"
+                                            inputMode="numeric"
+                                            maxLength={10}
+                                            value={settings.whatsappNumber || ''}
+                                            onChange={(e) => {
+                                                const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                                handleInputChange('whatsappNumber', digitsOnly);
+                                            }}
+                                            placeholder="8209224481"
+                                            className={cn(
+                                                "w-full pl-22 pr-5 py-4 bg-slate-50 border rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all tracking-wider",
+                                                settings.whatsappNumber && settings.whatsappNumber.length > 0 && settings.whatsappNumber.length < 10
+                                                    ? "border-amber-300 focus:border-amber-500 focus:bg-white"
+                                                    : settings.whatsappNumber && settings.whatsappNumber.length === 10
+                                                    ? "border-emerald-300 focus:border-emerald-500 focus:bg-white"
+                                                    : "border-slate-200/80 focus:border-indigo-500/40 focus:bg-white"
+                                            )}
+                                        />
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 font-medium">
+                                        Used for customer No Cost EMI deep linking ("Contact on WhatsApp for EMI") to directly chat with admin.
+                                    </p>
+                                    {settings.whatsappNumber && settings.whatsappNumber.length > 0 && settings.whatsappNumber.length < 10 && (
+                                        <p className="text-[11px] font-bold text-amber-600 flex items-center gap-1">
+                                            <AlertCircle size={12} /> Please enter complete 10-digit WhatsApp number ({10 - settings.whatsappNumber.length} digits left)
                                         </p>
                                     )}
                                 </div>

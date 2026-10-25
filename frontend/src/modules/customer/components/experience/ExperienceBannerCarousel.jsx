@@ -23,6 +23,7 @@ const ExperienceBannerCarousel = ({
   showContentOverlay = true,
   peekNext = true,
   stretchSingle = false,
+  autoPlay = true,
   autoPlayInterval = 2500,
   isSectionBanner = false,
 }) => {
@@ -136,14 +137,14 @@ const ExperienceBannerCarousel = ({
 
   // Auto-play logic: slide smoothly every interval
   React.useEffect(() => {
-    if (totalItems <= 1 || maxActiveIndex <= 0 || currentSlideIsVideo || isPaused) return;
+    if (!autoPlay || !autoPlayInterval || autoPlayInterval <= 0 || totalItems <= 1 || maxActiveIndex <= 0 || currentSlideIsVideo || isPaused) return;
 
     const intervalId = setInterval(() => {
       setActiveIndex((prev) => (prev >= maxActiveIndex ? 0 : prev + 1));
     }, autoPlayInterval);
 
     return () => clearInterval(intervalId);
-  }, [totalItems, maxActiveIndex, currentSlideIsVideo, isPaused, autoPlayInterval]);
+  }, [totalItems, maxActiveIndex, currentSlideIsVideo, isPaused, autoPlay, autoPlayInterval]);
 
   React.useEffect(() => {
     if (!hasMore) return;

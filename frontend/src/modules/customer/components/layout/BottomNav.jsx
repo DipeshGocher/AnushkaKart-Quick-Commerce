@@ -2,6 +2,7 @@ import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useCart } from '../../context/CartContext';
+import { useProductDetail } from '../../context/ProductDetailContext';
 import { motion } from 'framer-motion';
 
 const isRouteActive = (itemPath, currentPath) => {
@@ -278,10 +279,13 @@ const MiddleCartButton = ({ isActive, count }) => {
     );
 };
 
-const BottomNav = () => {
+const BottomNav = ({ isHidden: isHiddenProp }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const { groceryCartCount } = useCart();
+    const { isOpen: isProductDetailOpen } = useProductDetail();
+
+    const isHidden = isHiddenProp !== undefined ? isHiddenProp : isProductDetailOpen;
 
     const mainNavItems = [
         { label: 'Home', renderIcon: (isActive) => <StylishHomeIcon isActive={isActive} />, path: '/' },
@@ -326,7 +330,12 @@ const BottomNav = () => {
 
     return (
         <div 
-            className="fixed inset-x-0 bottom-0 z-[500] pointer-events-none flex items-center justify-center overflow-visible"
+            className={cn(
+                "fixed inset-x-0 bottom-0 z-[500] pointer-events-none md:hidden flex items-center justify-center overflow-visible transition-all duration-200 ease-out",
+                isHidden ? "translate-y-full opacity-0 pointer-events-none" : "translate-y-0 opacity-100"
+            )}
+            aria-hidden={isHidden}
+            inert={isHidden ? "" : undefined}
         >
             <nav
                 aria-label="Primary navigation"

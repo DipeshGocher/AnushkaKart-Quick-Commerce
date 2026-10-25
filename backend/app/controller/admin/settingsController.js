@@ -36,6 +36,9 @@ export const getPlatformSettings = async (req, res) => {
     }
 
     const result = settings?.toObject?.() || settings || {};
+    if (!result.whatsappNumber) {
+      result.whatsappNumber = "8209224481";
+    }
     result.productApproval = normalizeProductApprovalConfig(result);
 
     return handleResponse(

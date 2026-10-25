@@ -207,16 +207,7 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
 
             {/* Bottom Nav logic - kept mounted to avoid thrashing DOM on product sheet toggle */}
             {showBottomNav && (
-                <div 
-                    className={cn(
-                        "md:hidden transition-all duration-200 ease-out",
-                        isProductDetailOpen ? "pointer-events-none translate-y-full opacity-0" : "translate-y-0 opacity-100"
-                    )}
-                    aria-hidden={isProductDetailOpen}
-                    inert={isProductDetailOpen ? "" : undefined}
-                >
-                    <BottomNav />
-                </div>
+                <BottomNav isHidden={isProductDetailOpen} />
             )}
         </div>
     );

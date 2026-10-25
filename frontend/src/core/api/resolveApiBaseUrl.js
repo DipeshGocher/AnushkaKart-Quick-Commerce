@@ -38,8 +38,8 @@ function parseEnvUrl(rawUrl) {
 
 export function resolveApiBaseUrl() {
   const envUrl =
-    parseEnvUrl(import.meta.env.VITE_API_URL) ||
-    parseEnvUrl(import.meta.env.VITE_API_BASE_URL);
+    parseEnvUrl(import.meta.env?.VITE_API_URL) ||
+    parseEnvUrl(import.meta.env?.VITE_API_BASE_URL);
 
   const browserHostname = typeof window !== "undefined" && window.location.hostname ? window.location.hostname : "";
   const browserOrigin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "";

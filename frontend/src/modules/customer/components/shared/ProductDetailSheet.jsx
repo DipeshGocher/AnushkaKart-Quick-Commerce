@@ -1769,7 +1769,7 @@ const ProductDetailSheet = () => {
                             className="px-3.5 pt-1.5 pb-2 flex items-center gap-2.5 shrink-0 z-40 text-white border-none shadow-none"
                             style={{
                                 backgroundColor: activeHeaderColor,
-                                paddingTop: 'env(safe-area-inset-top, 6px)'
+                                paddingTop: 6
                             }}
                         >
                             {/* 1. Back Arrow Button */}

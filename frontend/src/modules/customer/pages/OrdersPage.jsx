@@ -342,11 +342,6 @@ const OrdersPage = () => {
                           Pending
                         </span>
                       )}
-                      {order.fulfillmentType === "SHIPROCKET" && (
-                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                          Courier
-                        </span>
-                      )}
                     </div>
                     <p className="text-[12.5px] sm:text-[13px] text-[#707070] font-normal truncate mt-1 leading-snug">
                       {statusDesc}
@@ -511,11 +506,6 @@ const OrdersPage = () => {
                       <span className="text-xs font-bold text-slate-800 capitalize">
                         {legacy === 'delivered' ? `Delivered on ${formattedDate}` : legacy === 'cancelled' ? 'Cancelled' : legacy}
                       </span>
-                      {order.fulfillmentType === "SHIPROCKET" && (
-                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 ml-1">
-                          Courier
-                        </span>
-                      )}
                     </div>
                     <p className="text-[11px] text-blue-600 font-semibold mt-1 group-hover:underline">View Details →</p>
                   </div>
