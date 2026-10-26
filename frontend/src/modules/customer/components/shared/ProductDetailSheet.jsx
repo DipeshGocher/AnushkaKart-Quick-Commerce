@@ -808,7 +808,7 @@ const ProductDetailSheet = () => {
                 directBuyItem: buyNowItem,
                 returnProductUrl,
                 fromBuyNow: true,
-                initialFulfillmentType: fulfillmentType === "LOCAL_RIDERS" || fulfillmentType === "LOCAL" ? "LOCAL" : "SHIPROCKET",
+                initialFulfillmentType: fulfillmentType === "LOCAL_RIDERS" || fulfillmentType === "LOCAL" ? "LOCAL" : (fulfillmentType === "SHIPROCKET" ? "SHIPROCKET" : null),
                 destinationPincode: customerPincode || "",
             }
         });

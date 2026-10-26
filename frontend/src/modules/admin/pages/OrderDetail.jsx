@@ -1,4 +1,3 @@
-// Ultimate Order Intelligence Dossier
 import { useState, useEffect, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -7,10 +6,18 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
 import AdminLiveTrackingSection from '../components/orders/AdminLiveTrackingSection';
+import AdminShiprocketTrackingSection from '../components/orders/AdminShiprocketTrackingSection';
 import { adminApi } from '../services/adminApi';
 import { adminShippingApi } from '../services/api/shippingApi';
 import { adminDeliveryApi } from '../services/api/deliveryApi';
 import { adminOrdersApi } from '../services/api/ordersApi';
+import {
+    joinOrderRoom,
+    leaveOrderRoom,
+    onOrderStatusUpdate,
+} from '@/core/services/orderSocket';
+import { createSocketTokenReader } from '@core/utils/authStorage';
+import { STORAGE_KEYS } from '@core/utils/storage';
 import {
     ChevronLeft,
     Box,
@@ -28,7 +35,9 @@ import {
     Navigation,
     Store,
     Info,
-    MapPin
+    MapPin,
+    RotateCcw,
+    Check
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@shared/components/ui/Toast';
@@ -192,10 +201,66 @@ const OrderDetail = () => {
     };
 
     useEffect(() => {
-        if (orderId) {
-            fetchDetail();
-        }
+        if (!orderId) return;
+        fetchDetail();
+
+        const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_ADMIN);
+        joinOrderRoom(orderId, getToken);
+
+        const offStatus = onOrderStatusUpdate(getToken, (payload) => {
+            const pId = String(payload?.orderId || "").toUpperCase();
+            const oId = String(orderId || "").toUpperCase();
+            if (pId === oId || pId.endsWith(oId) || oId.endsWith(pId)) {
+                setOrder((prev) => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        ...(payload.status && { status: payload.status }),
+                        ...(payload.workflowStatus && { workflowStatus: payload.workflowStatus }),
+                        ...(payload.shiprocket && {
+                            shiprocket: {
+                                ...(prev.shiprocket || {}),
+                                ...payload.shiprocket,
+                            },
+                        }),
+                    };
+                });
+                fetchDetail();
+            }
+        });
+
+        return () => {
+            offStatus();
+            leaveOrderRoom(orderId, getToken);
+        };
     }, [orderId]);
+
+    const getReturnDisplayInfo = (returnStatus) => {
+        switch (String(returnStatus || '').toLowerCase()) {
+            case 'returned':
+                return { label: 'Returned', style: 'bg-purple-50 text-purple-700 border-purple-200' };
+            case 'refund_completed':
+                return { label: 'Refunded', style: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+            case 'return_requested':
+                return { label: 'Return Requested', style: 'bg-amber-50 text-amber-700 border-amber-200' };
+            case 'return_approved':
+                return { label: 'Return Approved', style: 'bg-blue-50 text-blue-700 border-blue-200' };
+            case 'return_pickup_assigned':
+                return { label: 'Pickup Assigned', style: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
+            case 'return_in_transit':
+                return { label: 'Return In Transit', style: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
+            case 'return_drop_pending':
+                return { label: 'Drop Pending', style: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
+            case 'qc_passed':
+                return { label: 'QC Passed', style: 'bg-teal-50 text-teal-700 border-teal-200' };
+            case 'qc_failed':
+                return { label: 'QC Failed', style: 'bg-rose-50 text-rose-700 border-rose-200' };
+            case 'return_rejected':
+                return { label: 'Return Rejected', style: 'bg-rose-50 text-rose-700 border-rose-200' };
+            default:
+                return { label: 'Returned', style: 'bg-purple-50 text-purple-700 border-purple-200' };
+        }
+    };
 
     const getStatusStyles = (status) => {
         switch (status.toLowerCase()) {
@@ -205,6 +270,7 @@ const OrderDetail = () => {
             case 'out_for_delivery': return 'bg-purple-100 text-purple-600 border-purple-200';
             case 'delivered': return 'bg-brand-100 text-brand-600 border-brand-200';
             case 'cancelled': return 'bg-rose-100 text-rose-600 border-rose-200';
+            case 'returned': return 'bg-purple-50 text-purple-700 border-purple-200';
             default: return 'bg-slate-100 text-slate-600 border-slate-200';
         }
     };
@@ -305,7 +371,16 @@ const OrderDetail = () => {
                     <div>
                         <div className="flex items-center gap-3">
                             <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Order #{order.orderId}</h1>
-                            <div className="relative inline-block w-44">
+                            {order.returnStatus && order.returnStatus !== 'none' ? (
+                                <div className={cn(
+                                    "px-3 py-1.5 rounded-xl font-black uppercase tracking-widest border shadow-xs flex items-center gap-1.5 cursor-default select-none text-[10px]",
+                                    getReturnDisplayInfo(order.returnStatus).style
+                                )}>
+                                    <RotateCcw className="h-3.5 w-3.5 shrink-0" />
+                                    <span>{getReturnDisplayInfo(order.returnStatus).label}</span>
+                                </div>
+                            ) : (
+                                <div className="relative inline-block w-44">
                                 <select
                                     value={order.status}
                                     disabled={order.status === 'delivered' || order.status === 'cancelled'}
@@ -326,22 +401,23 @@ const OrderDetail = () => {
                                     {order.status === 'confirmed' && (
                                         <>
                                             <option value="confirmed">Confirmed</option>
-                                            <option value="packed">Mark Packed</option>
-                                            <option value="out_for_delivery">Out for Delivery</option>
+                                            <option value="packed">{order.fulfillmentType === 'SHIPROCKET' ? 'Mark Packed & Ready' : 'Mark Packed'}</option>
+                                            <option value="out_for_delivery">{order.fulfillmentType === 'SHIPROCKET' ? 'In Transit / Dispatched' : 'Out for Delivery'}</option>
                                             <option value="cancelled">Cancel Order</option>
                                         </>
                                     )}
                                     {order.status === 'packed' && (
                                         <>
-                                            <option value="packed">Packed</option>
-                                            <option value="out_for_delivery">Out for Delivery</option>
+                                            <option value="packed">{order.fulfillmentType === 'SHIPROCKET' ? 'Packed (Pickup Ready)' : 'Packed'}</option>
+                                            <option value="out_for_delivery">{order.fulfillmentType === 'SHIPROCKET' ? 'Handover Courier (In Transit)' : 'Out for Delivery'}</option>
+                                            <option value="delivered">{order.fulfillmentType === 'SHIPROCKET' ? 'Delivered by Courier' : 'Delivered'}</option>
                                             <option value="cancelled">Cancel Order</option>
                                         </>
                                     )}
                                     {order.status === 'out_for_delivery' && (
                                         <>
-                                            <option value="out_for_delivery">Out for Delivery</option>
-                                            <option value="delivered">Delivered</option>
+                                            <option value="out_for_delivery">{order.fulfillmentType === 'SHIPROCKET' ? 'In Transit / Out for Delivery' : 'Out for Delivery'}</option>
+                                            <option value="delivered">{order.fulfillmentType === 'SHIPROCKET' ? 'Delivered by Courier' : 'Delivered'}</option>
                                             <option value="cancelled">Cancel Order</option>
                                         </>
                                     )}
@@ -354,6 +430,7 @@ const OrderDetail = () => {
                                 </select>
                                 <Info className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-60" />
                             </div>
+                        )}
                         </div>
                         <p className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-widest flex items-center gap-2">
                             <Calendar className="h-3.5 w-3.5" />
@@ -373,8 +450,12 @@ const OrderDetail = () => {
 
             </div>
 
-            {/* ── Live Delivery Tracking ───────────────────────────────────── */}
-            <AdminLiveTrackingSection orderId={orderId} order={order} />
+            {/* ── Tracking Pipeline Section (Shiprocket vs Local In-House) ── */}
+            {order.fulfillmentType === "SHIPROCKET" ? (
+                <AdminShiprocketTrackingSection orderId={orderId} order={order} />
+            ) : (
+                <AdminLiveTrackingSection orderId={orderId} order={order} />
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Column */}
@@ -664,52 +745,87 @@ const OrderDetail = () => {
                             </div>
 
                             {/* Action Buttons */}
-                            <div className="pt-2 flex flex-wrap gap-2">
-                                {!order.shiprocket?.awb ? (
-                                    <button
-                                        onClick={handleProcessShiprocket}
-                                        disabled={isProcessingShiprocket}
-                                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition disabled:opacity-50"
-                                    >
-                                        <Package size={14} />
-                                        <span>{isProcessingShiprocket ? "Processing..." : "Process Shipment & AWB"}</span>
-                                    </button>
-                                ) : (
-                                    <>
-                                        <button
-                                            onClick={handleSchedulePickup}
-                                            disabled={isSchedulingPickup}
-                                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition disabled:opacity-50"
-                                        >
-                                            <Clock size={14} />
-                                            <span>{isSchedulingPickup ? "Scheduling..." : "Schedule Pickup"}</span>
-                                        </button>
+                            {(() => {
+                                const shiprocketStatus = String(order.shiprocket?.currentStatus || "").toUpperCase();
+                                const isPickupScheduled = Boolean(
+                                    shiprocketStatus === "PICKUP_SCHEDULED" ||
+                                    shiprocketStatus === "PICKUP_QUEUED" ||
+                                    order.shiprocket?.pickupScheduledAt ||
+                                    order.shiprocket?.history?.some(h => String(h.status || "").toUpperCase() === "PICKUP_SCHEDULED")
+                                );
+                                const isPastPickup = Boolean(
+                                    ["IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RTO_INITIATED", "RTO_DELIVERED", "RTO_ACKNOWLEDGED"].includes(shiprocketStatus) ||
+                                    order.shiprocket?.shippedAt ||
+                                    order.shiprocket?.deliveredAt ||
+                                    ["shipped", "out_for_delivery", "delivered", "cancelled"].includes(String(order.status || "").toLowerCase())
+                                );
+
+                                return (
+                                    <div className="pt-2 flex flex-wrap gap-2">
+                                        {!order.shiprocket?.awb ? (
+                                            <button
+                                                type="button"
+                                                onClick={handleProcessShiprocket}
+                                                disabled={isProcessingShiprocket}
+                                                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition disabled:opacity-50 cursor-pointer"
+                                            >
+                                                <Package size={14} />
+                                                <span>{isProcessingShiprocket ? "Processing..." : "Process Shipment & AWB"}</span>
+                                            </button>
+                                        ) : (
+                                            <>
+                                                {!isPastPickup && (
+                                                    isPickupScheduled ? (
+                                                        <button
+                                                            type="button"
+                                                            disabled={true}
+                                                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-xl text-xs font-bold cursor-default select-none shadow-xs"
+                                                        >
+                                                            <Check size={14} className="text-emerald-600 stroke-[2.5]" />
+                                                            <span>Pickup Scheduled</span>
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleSchedulePickup}
+                                                            disabled={isSchedulingPickup}
+                                                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 cursor-pointer shadow-xs"
+                                                        >
+                                                            <Clock size={14} />
+                                                            <span>{isSchedulingPickup ? "Scheduling..." : "Schedule Pickup"}</span>
+                                                        </button>
+                                                    )
+                                                )}
+
+                                                <button
+                                                    type="button"
+                                                    onClick={handleDownloadLabel}
+                                                    disabled={isFetchingLabel}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-900 transition disabled:opacity-50 cursor-pointer"
+                                                >
+                                                    <Printer size={14} />
+                                                    <span>Print Label</span>
+                                                </button>
+                                            </>
+                                        )}
 
                                         <button
-                                            onClick={handleDownloadLabel}
-                                            disabled={isFetchingLabel}
-                                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-900 transition disabled:opacity-50"
+                                            type="button"
+                                            onClick={() => {
+                                                setManualStatusData({
+                                                    status: order.shiprocket?.currentStatus || "IN_TRANSIT",
+                                                    remarks: "",
+                                                    location: order.address?.city || "",
+                                                });
+                                                setIsManualStatusModalOpen(true);
+                                            }}
+                                            className="px-3 py-2 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition cursor-pointer"
                                         >
-                                            <Printer size={14} />
-                                            <span>Print Label</span>
+                                            Manual Status Update
                                         </button>
-                                    </>
-                                )}
-
-                                <button
-                                    onClick={() => {
-                                        setManualStatusData({
-                                            status: order.shiprocket?.currentStatus || "IN_TRANSIT",
-                                            remarks: "",
-                                            location: order.address?.city || "",
-                                        });
-                                        setIsManualStatusModalOpen(true);
-                                    }}
-                                    className="px-3 py-2 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition"
-                                >
-                                    Manual Status Update
-                                </button>
-                            </div>
+                                    </div>
+                                );
+                            })()}
 
                             {/* History Timeline if exists */}
                             {Array.isArray(order.shiprocket?.history) && order.shiprocket.history.length > 0 && (

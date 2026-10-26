@@ -31,10 +31,10 @@ function legacyFromWorkflow(workflowStatus) {
       return "pending";
     case WORKFLOW_STATUS.SELLER_ACCEPTED:
     case WORKFLOW_STATUS.DELIVERY_SEARCH:
-      return "confirmed";
     case WORKFLOW_STATUS.DELIVERY_ASSIGNED:
-    case WORKFLOW_STATUS.PICKUP_READY:
       return "confirmed";
+    case WORKFLOW_STATUS.PICKUP_READY:
+      return "packed";
     case WORKFLOW_STATUS.OUT_FOR_DELIVERY:
       return "out_for_delivery";
     case WORKFLOW_STATUS.DELIVERED:
@@ -62,25 +62,30 @@ export function getLegacyStatusFromOrder(order) {
     if (workflowStatus === WORKFLOW_STATUS.DELIVERED) {
       return "delivered";
     }
-    if (
-      workflowStatus === WORKFLOW_STATUS.DELIVERY_ASSIGNED ||
-      workflowStatus === WORKFLOW_STATUS.PICKUP_READY
-    ) {
+    if (workflowStatus === WORKFLOW_STATUS.PICKUP_READY) {
+      return "packed";
+    }
+    if (workflowStatus === WORKFLOW_STATUS.DELIVERY_ASSIGNED) {
       return "confirmed";
     }
 
     return legacyFromWorkflow(workflowStatus);
   }
 
+  const s = String(order.status ?? "").toLowerCase();
+  if (s === "packed") return "packed";
+
   const riderStep = Number(order.deliveryRiderStep) || 0;
   if (riderStep >= 3 || order.outForDeliveryAt || order.pickupConfirmedAt) {
     return "out_for_delivery";
   }
-  if (riderStep >= 1 || order.assignedAt || order.pickupReadyAt || order.deliveryBoy) {
+  if (order.pickupReadyAt) {
+    return "packed";
+  }
+  if (riderStep >= 1 || order.assignedAt || order.deliveryBoy) {
     return "confirmed";
   }
 
-  const s = String(order.status ?? "pending").toLowerCase();
   if (LEGACY_ENUM.has(s)) return s;
   return "pending";
 }
@@ -129,11 +134,15 @@ export function adminRouteMatchesOrder(routeStatus, order) {
   if (routeStatus === "out-for-delivery") {
     return legacy === "out_for_delivery";
   }
-  if (routeStatus === "delivered") return legacy === "delivered";
+  if (routeStatus === "delivered") {
+    const rs = order?.returnStatus;
+    const hasActiveOrCompletedReturn = rs && !["none", "return_rejected"].includes(rs);
+    return legacy === "delivered" && !hasActiveOrCompletedReturn;
+  }
   if (routeStatus === "cancelled") return legacy === "cancelled";
   if (routeStatus === "returned") {
     const rs = order?.returnStatus;
-    return rs && rs !== "none";
+    return (rs && rs !== "none") || order?.status === "returned";
   }
   return legacy === routeStatus;
 }

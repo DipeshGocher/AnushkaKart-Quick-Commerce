@@ -115,4 +115,12 @@ describe("Option 1: Dynamic Business Days Delivery Fallback Tests", () => {
       expect(result.fullText).toBe("Delivery by Tue, 27 Oct");
     });
   });
+
+  describe("loadLocalPincodes TTL and forceRefresh", () => {
+    test("loadLocalPincodes returns and caches pincodes", async () => {
+      const { loadLocalPincodes } = await import("../../modules/customer/services/deliveryService.js");
+      const pincodes = await loadLocalPincodes(true);
+      expect(pincodes instanceof Set).toBe(true);
+    });
+  });
 });

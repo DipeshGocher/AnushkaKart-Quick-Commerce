@@ -16,6 +16,9 @@ import {
   shiprocketWebhookHandler,
   getShiprocketStatus,
   recordDiscrepancy,
+  scheduleShiprocketReversePickupHandler,
+  fetchShiprocketReverseLabel,
+  updateShiprocketReverseStatusManual,
 } from "../controller/shippingController.js";
 
 const router = express.Router();
@@ -45,5 +48,10 @@ router.post("/shiprocket/pickup/:orderId", verifyToken, allowRoles("admin", "sel
 router.get("/shiprocket/label/:orderId", verifyToken, allowRoles("admin", "seller", "warehouse"), fetchShiprocketLabel);
 router.post("/shiprocket/manual-status/:orderId", verifyToken, allowRoles("admin"), updateShiprocketStatusManual);
 router.post("/shiprocket/discrepancy/:orderId", verifyToken, allowRoles("admin"), recordDiscrepancy);
+
+/* Shiprocket Reverse Courier Operations (Admin & Seller / Warehouse) */
+router.post("/shiprocket/reverse/pickup/:orderId", verifyToken, allowRoles("admin", "seller", "warehouse"), scheduleShiprocketReversePickupHandler);
+router.post("/shiprocket/reverse/manual-status/:orderId", verifyToken, allowRoles("admin", "seller", "warehouse"), updateShiprocketReverseStatusManual);
+router.get("/shiprocket/reverse/label/:orderId", verifyToken, allowRoles("admin", "seller", "warehouse"), fetchShiprocketReverseLabel);
 
 export default router;

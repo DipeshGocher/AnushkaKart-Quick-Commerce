@@ -6,7 +6,11 @@ import { customerApi } from "../services/customerApi";
 import { useLocation as useAppLocation } from "../context/LocationContext";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
 import { useDeliveryDecision } from "../services/useDeliveryDecision";
-import { getCourierDeliveryDateText, resolveItemDeliveryInfo } from "../services/deliveryService";
+import {
+  getCourierDeliveryDateText,
+  resolveItemDeliveryInfo,
+  loadLocalPincodes,
+} from "../services/deliveryService";
 import {
   ChevronLeft,
   ChevronRight,
@@ -39,6 +43,7 @@ import {
 import AddAddressModal from "../components/shared/AddAddressModal";
 import LocationDrawer from "../components/shared/LocationDrawer";
 import CheckoutCouponSection from "./checkout/components/CheckoutCouponSection";
+import { cn } from "@/lib/utils";
 
 const CheckoutPage = () => {
   const {
@@ -194,9 +199,10 @@ const CheckoutPage = () => {
   const previewDebounceRef = useRef(null);
   const addressSelectionRef = useRef(0);
 
-  // Scroll to top
+  // Scroll to top & refresh local pincodes
   useEffect(() => {
     window.scrollTo(0, 0);
+    loadLocalPincodes(true).catch(() => {});
   }, []);
 
   // Fetch available coupons
@@ -333,6 +339,12 @@ const CheckoutPage = () => {
     getItem: getDeliveryItem,
   } = useDeliveryDecision(cart, activeDestinationPincode);
 
+  const isPincodeValid = /^\d{6}$/.test(String(activeDestinationPincode || "").trim());
+  const isDeliveryChecking = Boolean(
+    isDeliveryDecisionLoading ||
+    (isPincodeValid && !deliveryDecision && !deliveryDecisionError)
+  );
+
   const unserviceableCartItems = useMemo(() => {
     if (!deliveryDecision?.items || !Array.isArray(deliveryDecision.items)) return [];
     return cart.filter((item) => {
@@ -343,12 +355,25 @@ const CheckoutPage = () => {
 
   const resolvedFulfillmentType = useMemo(() => {
     if (deliveryDecision?.overallFulfillment) {
-      return deliveryDecision.overallFulfillment === "LOCAL_RIDERS"
+      return (deliveryDecision.overallFulfillment === "LOCAL_RIDERS" || deliveryDecision.overallFulfillment === "LOCAL")
         ? "LOCAL"
         : deliveryDecision.overallFulfillment;
     }
+    if (deliveryDecision?.items?.length) {
+      const hasShiprocket = deliveryDecision.items.some((i) => i.fulfillmentType === "SHIPROCKET");
+      return hasShiprocket ? "SHIPROCKET" : "LOCAL";
+    }
     return location.state?.initialFulfillmentType || directBuyItem?.fulfillmentType || "LOCAL";
   }, [deliveryDecision, location.state, directBuyItem]);
+
+  const isContinueDisabled = Boolean(
+    isDeliveryChecking ||
+    isPreviewLoading ||
+    isResolvingAddressCoords ||
+    (Array.isArray(unserviceableCartItems) && unserviceableCartItems.length > 0) ||
+    !currentAddress.address ||
+    !isPincodeValid
+  );
 
   const previewAddressKey = JSON.stringify({
     checkoutAddress: currentAddress.address,
@@ -570,7 +595,7 @@ const CheckoutPage = () => {
   }, [pricingPreview, resolvedFulfillmentType]);
 
   const hasMixedFulfillment = useMemo(() => {
-    if (cart.length <= 1) return false;
+    if (isDeliveryChecking || cart.length <= 1) return false;
     let hasQuick = false;
     let hasCourier = false;
     for (const item of cart) {
@@ -591,7 +616,7 @@ const CheckoutPage = () => {
       }
     }
     return hasQuick && hasCourier;
-  }, [cart, getDeliveryItem, pricingPreview, activeDestinationPincode, resolvedFulfillmentType]);
+  }, [cart, getDeliveryItem, pricingPreview, activeDestinationPincode, resolvedFulfillmentType, isDeliveryChecking]);
 
   const handleSelectSavedAddress = async (addr) => {
     addressSelectionRef.current += 1;
@@ -640,6 +665,14 @@ const CheckoutPage = () => {
   };
 
   const handleContinueToPayment = () => {
+    if (isDeliveryChecking) {
+      showToast("Please wait while we verify delivery options for your address.", "info");
+      return;
+    }
+    if (isPreviewLoading) {
+      showToast("Updating order pricing, please wait a moment.", "info");
+      return;
+    }
     if (!currentAddress.address || currentAddress.address.trim() === "") {
       showToast("Please provide a valid delivery address before proceeding.", "error");
       setIsAddressModalOpen(true);
@@ -919,7 +952,32 @@ const CheckoutPage = () => {
                 </div>
 
                 {/* Delivery Date Row — Item-Specific Dynamic Estimate */}
-                {itemDeliveryInfo.isQuick ? (
+                {isDeliveryChecking ? (
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[12.5px] bg-amber-50/70 p-2.5 rounded-xl border border-amber-200/70">
+                    <div className="flex items-center gap-2 text-amber-900 font-medium">
+                      <Loader2 size={13} className="animate-spin text-amber-600 shrink-0" />
+                      <span className="text-[12px] font-semibold text-amber-950">
+                        Checking delivery options...
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-800 bg-amber-100/90 border border-amber-300/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping inline-block" />
+                      Verifying
+                    </span>
+                  </div>
+                ) : itemDecision && itemDecision.isDeliverable === false ? (
+                  <div className="pt-2 border-t border-rose-100 flex items-center justify-between text-[12.5px] bg-rose-50/80 p-2.5 rounded-xl border border-rose-200/60">
+                    <div className="flex items-center gap-1.5 text-rose-700 font-medium">
+                      <AlertTriangle size={14} className="text-rose-600 shrink-0" />
+                      <span className="text-[12px] font-bold text-rose-900">
+                        Not deliverable to {activeDestinationPincode || "this address"}
+                      </span>
+                    </div>
+                    <span className="text-[10.5px] font-bold text-rose-700 bg-rose-100 border border-rose-200 px-2 py-0.5 rounded-full">
+                      Unavailable
+                    </span>
+                  </div>
+                ) : itemDeliveryInfo.isQuick ? (
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[12.5px]">
                     <div className="flex items-center gap-1.5 text-emerald-700 font-medium">
                       <Zap size={14} className="fill-amber-500 text-amber-500 shrink-0" />
@@ -1102,10 +1160,32 @@ const CheckoutPage = () => {
           <button
             type="button"
             onClick={handleContinueToPayment}
-            disabled={isResolvingAddressCoords || (Array.isArray(unserviceableCartItems) && unserviceableCartItems.length > 0)}
-            className="bg-[#FFC200] hover:bg-[#F5B800] active:scale-95 text-slate-900 font-extrabold text-[15px] px-8 py-3 rounded-xl shadow-md shadow-amber-200/50 transition-all cursor-pointer flex-1 max-w-[220px]"
+            disabled={isContinueDisabled}
+            className={cn(
+              "font-extrabold text-[15px] px-8 py-3 rounded-xl shadow-md transition-all flex-1 max-w-[220px] flex items-center justify-center gap-2 select-none",
+              isContinueDisabled
+                ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
+                : "bg-[#FFC200] hover:bg-[#F5B800] active:scale-95 text-slate-900 shadow-amber-200/50 cursor-pointer"
+            )}
           >
-            Continue
+            {isDeliveryChecking ? (
+              <>
+                <Loader2 size={16} className="animate-spin text-slate-500 shrink-0" />
+                <span className="truncate">Checking Delivery...</span>
+              </>
+            ) : isPreviewLoading ? (
+              <>
+                <Loader2 size={16} className="animate-spin text-slate-500 shrink-0" />
+                <span className="truncate">Updating Price...</span>
+              </>
+            ) : isResolvingAddressCoords ? (
+              <>
+                <Loader2 size={16} className="animate-spin text-slate-500 shrink-0" />
+                <span className="truncate">Locating...</span>
+              </>
+            ) : (
+              "Continue"
+            )}
           </button>
         </div>
       </div>

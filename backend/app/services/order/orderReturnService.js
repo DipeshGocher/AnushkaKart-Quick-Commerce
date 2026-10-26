@@ -195,6 +195,7 @@ export class OrderReturnService {
     const order = await Order.findOne(orderKey)
       .populate("customer", "name phone")
       .populate("seller", "shopName name")
+      .populate("items.product", "name mainImage price salePrice")
       .populate("returnDeliveryBoy", "name phone");
 
     if (!order) {
@@ -248,6 +249,19 @@ export class OrderReturnService {
       orderId: order.orderId,
       status: order.status,
       returnStatus: order.returnStatus,
+      fulfillmentType: order.fulfillmentType || "LOCAL",
+      shiprocket: order.shiprocket || null,
+      items: (order.items || []).map((it) => {
+        const itemObj = typeof it.toObject === "function" ? it.toObject() : { ...it };
+        return {
+          ...itemObj,
+          image: itemObj.image || it.product?.mainImage || "",
+        };
+      }),
+      customer: order.customer,
+      seller: order.seller,
+      pricing: order.pricing,
+      payment: order.payment,
       returnReason: order.returnReason,
       returnReasonDetail: order.returnReasonDetail,
       returnConditionAssurance: order.returnConditionAssurance,
@@ -261,6 +275,10 @@ export class OrderReturnService {
       returnRefundAmount: order.returnRefundAmount,
       returnDeliveryCommission,
       returnDeliveryBoy: order.returnDeliveryBoy || null,
+      returnPickupCondition: order.returnPickupCondition,
+      returnPickedAt: order.returnPickedAt,
+      returnDeliveredBackAt: order.returnDeliveredBackAt,
+      returnDropVerifiedAt: order.returnDropVerifiedAt,
       returnQcStatus: order.returnQcStatus,
       returnQcAt: order.returnQcAt,
       returnQcNote: order.returnQcNote,
@@ -773,6 +791,7 @@ export class OrderReturnService {
             }
           }
 
+          order.status = "returned";
           order.returnStatus = "refund_completed";
           if (order.payment) {
             order.payment.status = "refunded";

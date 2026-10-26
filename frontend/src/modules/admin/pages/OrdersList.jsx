@@ -18,7 +18,8 @@ import {
     ChevronDown,
     ShoppingBag,
     Clock,
-    CheckCircle2
+    CheckCircle2,
+    RotateCcw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@shared/components/ui/Toast';
@@ -27,6 +28,36 @@ import {
     getLegacyStatusFromOrder,
     adminRouteMatchesOrder,
 } from '@/shared/utils/orderStatus';
+import { onOrderStatusUpdate } from '@/core/services/orderSocket';
+import { createSocketTokenReader } from '@core/utils/authStorage';
+import { STORAGE_KEYS } from '@core/utils/storage';
+
+const getReturnDisplayInfo = (returnStatus) => {
+    switch (String(returnStatus || '').toLowerCase()) {
+        case 'returned':
+            return { label: 'Returned', style: 'bg-purple-50 text-purple-700 border-purple-200' };
+        case 'refund_completed':
+            return { label: 'Refunded', style: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+        case 'return_requested':
+            return { label: 'Return Requested', style: 'bg-amber-50 text-amber-700 border-amber-200' };
+        case 'return_approved':
+            return { label: 'Return Approved', style: 'bg-blue-50 text-blue-700 border-blue-200' };
+        case 'return_pickup_assigned':
+            return { label: 'Pickup Assigned', style: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
+        case 'return_in_transit':
+            return { label: 'Return In Transit', style: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
+        case 'return_drop_pending':
+            return { label: 'Drop Pending', style: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
+        case 'qc_passed':
+            return { label: 'QC Passed', style: 'bg-teal-50 text-teal-700 border-teal-200' };
+        case 'qc_failed':
+            return { label: 'QC Failed', style: 'bg-rose-50 text-rose-700 border-rose-200' };
+        case 'return_rejected':
+            return { label: 'Return Rejected', style: 'bg-rose-50 text-rose-700 border-rose-200' };
+        default:
+            return { label: 'Returned', style: 'bg-purple-50 text-purple-700 border-purple-200' };
+    }
+};
 
 const getStatusStyles = (status) => {
     switch (String(status || '').toLowerCase()) {
@@ -36,12 +67,15 @@ const getStatusStyles = (status) => {
         case 'out_for_delivery': return 'bg-purple-100 text-purple-600 border-purple-200';
         case 'delivered': return 'bg-brand-100 text-brand-600 border-brand-200';
         case 'cancelled': return 'bg-rose-100 text-rose-600 border-rose-200';
-        case 'returned': return 'bg-slate-100 text-slate-600 border-slate-200';
+        case 'returned': return 'bg-purple-50 text-purple-700 border-purple-200';
         default: return 'bg-gray-100 text-gray-600 border-gray-200';
     }
 };
 
 const AdminOrderTableRow = React.memo(({ order, status, onNavigate, onStatusUpdate }) => {
+    const hasReturn = Boolean(order.returnStatus && order.returnStatus !== 'none');
+    const returnInfo = hasReturn ? getReturnDisplayInfo(order.returnStatus) : null;
+
     return (
         <tr className="group hover:bg-slate-50/30 transition-colors cursor-pointer" onClick={() => onNavigate(order.id)}>
             <td className="px-4 py-5">
@@ -92,56 +126,71 @@ const AdminOrderTableRow = React.memo(({ order, status, onNavigate, onStatusUpda
             </td>
             <td className="px-4 py-5" onClick={(e) => e.stopPropagation()}>
                 <div className="relative inline-block w-40">
-                    <select
-                        value={order.status}
-                        disabled={order.status === 'delivered' || order.status === 'cancelled'}
-                        onChange={(e) => onStatusUpdate(order._id, e.target.value)}
-                        className={cn(
-                            "w-full text-[10px] pl-3 pr-8 py-2 rounded-xl font-black uppercase tracking-wider border appearance-none transition-all outline-none shadow-sm",
-                            (order.status === 'delivered' || order.status === 'cancelled') ? "cursor-default opacity-80" : "cursor-pointer focus:ring-2 focus:ring-offset-1",
-                            getStatusStyles(order.status)
-                        )}
-                    >
-                        {order.status === 'pending' && (
-                            <>
-                                <option value="pending">Pending</option>
-                                <option value="confirmed">Confirm</option>
-                                <option value="cancelled">Cancel Order</option>
-                            </>
-                        )}
-                        {order.status === 'confirmed' && (
-                            <>
-                                <option value="confirmed">Confirmed</option>
-                                <option value="packed">Mark Packed</option>
-                                <option value="out_for_delivery">Out for Delivery</option>
-                                <option value="cancelled">Cancel Order</option>
-                            </>
-                        )}
-                        {order.status === 'packed' && (
-                            <>
-                                <option value="packed">Packed</option>
-                                <option value="out_for_delivery">Out for Delivery</option>
-                                <option value="cancelled">Cancel Order</option>
-                            </>
-                        )}
-                        {order.status === 'out_for_delivery' && (
-                            <>
-                                <option value="out_for_delivery">Out for Delivery</option>
-                                <option value="delivered">Mark Delivered</option>
-                                <option value="cancelled">Cancel Order</option>
-                            </>
-                        )}
-                        {order.status === 'delivered' && (
-                            <option value="delivered">Delivered</option>
-                        )}
-                        {order.status === 'cancelled' && (
-                            <option value="cancelled">Cancelled</option>
-                        )}
-                        {order.status === 'returned' && (
-                            <option value="returned">Returned</option>
-                        )}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-50" />
+                    {hasReturn ? (
+                        <div
+                            className={cn(
+                                "w-full text-[10px] px-3 py-2 rounded-xl font-black uppercase tracking-wider border text-center shadow-xs flex items-center justify-center gap-1.5 cursor-default select-none",
+                                returnInfo.style
+                            )}
+                        >
+                            <RotateCcw className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{returnInfo.label}</span>
+                        </div>
+                    ) : (
+                        <>
+                            <select
+                                value={order.status}
+                                disabled={order.status === 'delivered' || order.status === 'cancelled'}
+                                onChange={(e) => onStatusUpdate(order._id, e.target.value)}
+                                className={cn(
+                                    "w-full text-[10px] pl-3 pr-8 py-2 rounded-xl font-black uppercase tracking-wider border appearance-none transition-all outline-none shadow-sm",
+                                    (order.status === 'delivered' || order.status === 'cancelled') ? "cursor-default opacity-80" : "cursor-pointer focus:ring-2 focus:ring-offset-1",
+                                    getStatusStyles(order.status)
+                                )}
+                            >
+                                {order.status === 'pending' && (
+                                    <>
+                                        <option value="pending">Pending</option>
+                                        <option value="confirmed">Confirm</option>
+                                        <option value="cancelled">Cancel Order</option>
+                                    </>
+                                )}
+                                {order.status === 'confirmed' && (
+                                    <>
+                                        <option value="confirmed">Confirmed</option>
+                                        <option value="packed">{order.fulfillmentType === 'SHIPROCKET' ? 'Mark Packed & Ready' : 'Mark Packed'}</option>
+                                        <option value="out_for_delivery">{order.fulfillmentType === 'SHIPROCKET' ? 'In Transit / Dispatched' : 'Out for Delivery'}</option>
+                                        <option value="cancelled">Cancel Order</option>
+                                    </>
+                                )}
+                                {order.status === 'packed' && (
+                                    <>
+                                        <option value="packed">{order.fulfillmentType === 'SHIPROCKET' ? 'Packed (Pickup Ready)' : 'Packed'}</option>
+                                        <option value="out_for_delivery">{order.fulfillmentType === 'SHIPROCKET' ? 'Handover Courier (In Transit)' : 'Out for Delivery'}</option>
+                                        <option value="delivered">{order.fulfillmentType === 'SHIPROCKET' ? 'Delivered by Courier' : 'Delivered'}</option>
+                                        <option value="cancelled">Cancel Order</option>
+                                    </>
+                                )}
+                                {order.status === 'out_for_delivery' && (
+                                    <>
+                                        <option value="out_for_delivery">{order.fulfillmentType === 'SHIPROCKET' ? 'In Transit / Out for Delivery' : 'Out for Delivery'}</option>
+                                        <option value="delivered">{order.fulfillmentType === 'SHIPROCKET' ? 'Delivered by Courier' : 'Mark Delivered'}</option>
+                                        <option value="cancelled">Cancel Order</option>
+                                    </>
+                                )}
+                                {order.status === 'delivered' && (
+                                    <option value="delivered">Delivered</option>
+                                )}
+                                {order.status === 'cancelled' && (
+                                    <option value="cancelled">Cancelled</option>
+                                )}
+                                {order.status === 'returned' && (
+                                    <option value="returned">Returned</option>
+                                )}
+                            </select>
+                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-50" />
+                        </>
+                    )}
                 </div>
             </td>
             <td className="px-4 py-5 text-right font-black text-slate-900 text-sm">
@@ -167,7 +216,7 @@ const AdminOrderTableRow = React.memo(({ order, status, onNavigate, onStatusUpda
                             className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-purple-700 transition-all shadow-lg shadow-purple-100"
                         >
                             <Truck className="h-3.5 w-3.5" />
-                            DISPATCH
+                            {order.fulfillmentType === 'SHIPROCKET' ? 'HANDOVER COURIER' : 'DISPATCH'}
                         </button>
                     )}
                     <button
@@ -262,7 +311,7 @@ const OrdersList = () => {
                     seller: o.seller?.shopName || 'Unknown',
                     items: o.items?.length || 0,
                     amount: o.pricing?.total || 0,
-                    status: getLegacyStatusFromOrder(o),
+                    status: (o.status === 'returned' || (o.returnStatus && o.returnStatus !== 'none' && ['returned', 'refund_completed', 'qc_passed'].includes(o.returnStatus))) ? 'returned' : getLegacyStatusFromOrder(o),
                     workflowStatus: o.workflowStatus,
                     workflowVersion: o.workflowVersion,
                     returnStatus: o.returnStatus,
@@ -298,7 +347,8 @@ const OrdersList = () => {
             }
         } catch (error) {
             console.error("Fetch orders error:", error);
-            showToast("Failed to load orders", "error");
+            const msg = error.response?.data?.message || (error.message?.includes('Network') ? 'Unable to reach server. Please check backend.' : 'Failed to load orders');
+            showToast(msg, "error");
         } finally {
             setIsLoading(false);
         }
@@ -325,6 +375,14 @@ const OrdersList = () => {
         }, 500);
         return () => clearTimeout(timer);
     }, [pageSize, status, searchTerm, dateRange, sortBy]);
+
+    useEffect(() => {
+        const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_ADMIN);
+        const off = onOrderStatusUpdate(getToken, () => {
+            fetchOrders(page);
+        });
+        return () => off();
+    }, [page, fetchOrders]);
 
     const safeOrders = useMemo(
         () => (Array.isArray(orders) ? orders : []),

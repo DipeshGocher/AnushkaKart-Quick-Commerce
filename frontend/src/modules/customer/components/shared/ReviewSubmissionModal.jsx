@@ -27,9 +27,33 @@ const ReviewSubmissionModal = ({ isOpen, onClose, product, onReviewSubmitted }) 
 
     if (!isOpen || !product) return null;
 
-    const productId = product.productId || product.product || product._id || product.id;
-    const productName = product.name || product.title || 'Product';
-    const productImage = product.image || product.images?.[0] || product.mainImage;
+    const extractProductId = (p) => {
+        if (!p) return '';
+        if (typeof p === 'string' && p !== '[object Object]') return p;
+        if (p.product && typeof p.product === 'object' && p.product._id) {
+            return String(p.product._id);
+        }
+        if (p.product && typeof p.product === 'string' && p.product !== '[object Object]') {
+            return p.product;
+        }
+        if (p.productId && typeof p.productId === 'object' && p.productId._id) {
+            return String(p.productId._id);
+        }
+        if (p.productId && typeof p.productId === 'string' && p.productId !== '[object Object]') {
+            return p.productId;
+        }
+        if (p._id && typeof p._id !== 'object' && String(p._id) !== '[object Object]') {
+            return String(p._id);
+        }
+        if (p.id && typeof p.id !== 'object' && String(p.id) !== '[object Object]') {
+            return String(p.id);
+        }
+        return '';
+    };
+
+    const productId = extractProductId(product);
+    const productName = product.name || product.title || product.product?.title || product.product?.name || 'Product';
+    const productImage = product.image || product.images?.[0] || product.mainImage || product.product?.image || product.product?.images?.[0];
 
     const handleFileSelect = (e) => {
         const files = Array.from(e.target.files || []);
@@ -82,6 +106,11 @@ const ReviewSubmissionModal = ({ isOpen, onClose, product, onReviewSubmitted }) 
 
         if (!rating) {
             showToast('Please select a rating', 'warning');
+            return;
+        }
+
+        if (!productId || productId === '[object Object]') {
+            showToast('Unable to identify product reference', 'error');
             return;
         }
 

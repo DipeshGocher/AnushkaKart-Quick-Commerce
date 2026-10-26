@@ -30,6 +30,10 @@ const Returns = () => {
     const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
     const [rejectReason, setRejectReason] = useState("");
     const [submittingReject, setSubmittingReject] = useState(false);
+    const [isQcFailModalOpen, setIsQcFailModalOpen] = useState(false);
+    const [qcFailNote, setQcFailNote] = useState("");
+    const [submittingQcFail, setSubmittingQcFail] = useState(false);
+    const [simulatingCourier, setSimulatingCourier] = useState(false);
     const [assigningPickup, setAssigningPickup] = useState(false);
     const [activeOtps, setActiveOtps] = useState({}); // { orderId: { otp, expiresAt } }
     const canManageReturns = true;
@@ -38,12 +42,13 @@ const Returns = () => {
         "All",
         "Requested",
         "Approved",
-        "Rejected",
         "Pickup Assigned",
         "In Transit",
+        "Returned",
         "QC Passed",
         "QC Failed",
         "Completed",
+        "Rejected",
     ];
 
     const mapReturnStatusLabel = (status) => {
@@ -59,11 +64,12 @@ const Returns = () => {
             case "return_in_transit":
             case "return_drop_pending":
                 return "In Transit";
+            case "returned":
+                return "Returned";
             case "qc_passed":
                 return "QC Passed";
             case "qc_failed":
                 return "QC Failed";
-            case "returned":
             case "refund_completed":
                 return "Completed";
             default:
@@ -206,6 +212,70 @@ const Returns = () => {
             );
         } finally {
             setAssigningPickup(false);
+        }
+    };
+
+    const handleQcPass = async (orderId) => {
+        try {
+            await sellerApi.updateReturnQcStatus(orderId, {
+                qcStatus: "qc_passed",
+                note: "QC passed by seller inspection",
+            });
+            showToast("QC Passed & customer refund processed successfully", "success");
+            setIsDetailsOpen(false);
+            await fetchReturns();
+        } catch (error) {
+            console.error("Failed to pass QC", error);
+            showToast(error.response?.data?.message || "Failed to update QC", "error");
+        }
+    };
+
+    const handleQcFail = async () => {
+        if (!qcFailNote.trim() || !selectedReturn) return;
+        try {
+            setSubmittingQcFail(true);
+            await sellerApi.updateReturnQcStatus(selectedReturn.orderId, {
+                qcStatus: "qc_failed",
+                note: qcFailNote.trim(),
+            });
+            showToast("QC marked as failed", "success");
+            setIsQcFailModalOpen(false);
+            setQcFailNote("");
+            setIsDetailsOpen(false);
+            await fetchReturns();
+        } catch (error) {
+            console.error("Failed to fail QC", error);
+            showToast(error.response?.data?.message || "Failed to update QC", "error");
+        } finally {
+            setSubmittingQcFail(false);
+        }
+    };
+
+    const handleSimulateReverseStatus = async (orderId, status) => {
+        try {
+            setSimulatingCourier(true);
+            const res = await sellerApi.updateShiprocketReverseStatus(orderId, { status });
+            showToast(res.data?.message || `Shiprocket reverse status updated to ${status}`, "success");
+            await fetchReturns();
+            if (selectedReturn?.orderId === orderId) {
+                const refreshed = await sellerApi.getReturnDetails(orderId);
+                if (refreshed.data?.result) {
+                    setSelectedReturn(prev => ({
+                        ...prev,
+                        ...refreshed.data.result,
+                        shiprocket: refreshed.data.result.shiprocket || prev?.shiprocket,
+                        fulfillmentType: refreshed.data.result.fulfillmentType || prev?.fulfillmentType,
+                        items: (refreshed.data.result.items && refreshed.data.result.items.length > 0) ? refreshed.data.result.items : prev?.items,
+                        customer: refreshed.data.result.customer || prev?.customer,
+                        seller: refreshed.data.result.seller || prev?.seller,
+                    }));
+                }
+            }
+        } catch (error) {
+            console.error("Failed to simulate reverse status", error);
+            showToast(error.response?.data?.message || "Failed to update reverse status", "error");
+        } finally {
+            setSimulatingCourier(false);
         }
     };
 
@@ -507,7 +577,11 @@ const Returns = () => {
                                 {(selectedReturn.returnStatus === "return_pickup_assigned" ||
                                     selectedReturn.returnStatus === "return_in_transit" ||
                                     selectedReturn.returnStatus === "return_drop_pending" ||
-                                    selectedReturn.returnStatus === "return_approved") && (
+                                    selectedReturn.returnStatus === "return_approved" ||
+                                    selectedReturn.returnStatus === "returned" ||
+                                    selectedReturn.returnStatus === "qc_passed" ||
+                                    selectedReturn.returnStatus === "qc_failed" ||
+                                    selectedReturn.returnStatus === "refund_completed") && (
                                     (selectedReturn.fulfillmentType === "SHIPROCKET" || selectedReturn.shiprocket?.reverseAwb) ? (
                                         <div className="bg-sky-50 rounded-2xl p-4 border border-sky-100 space-y-2">
                                             <div className="flex items-center gap-2">
@@ -531,6 +605,32 @@ const Returns = () => {
                                                     >
                                                         Download Return Label PDF
                                                     </a>
+                                                )}
+                                                {/* Test Courier Simulation Shortcuts */}
+                                                {selectedReturn.returnStatus !== "returned" && selectedReturn.returnStatus !== "refund_completed" && selectedReturn.returnStatus !== "qc_passed" && selectedReturn.returnStatus !== "qc_failed" && (
+                                                    <div className="pt-2 border-t border-sky-100 flex flex-wrap items-center gap-1.5 mt-2">
+                                                        <span className="text-[10px] font-bold text-sky-800 uppercase tracking-wider">Test Simulator:</span>
+                                                        {selectedReturn.returnStatus === "return_pickup_assigned" && (
+                                                            <button
+                                                                type="button"
+                                                                disabled={simulatingCourier}
+                                                                onClick={() => handleSimulateReverseStatus(selectedReturn.orderId, "IN_TRANSIT")}
+                                                                className="px-2 py-1 bg-sky-600 hover:bg-sky-700 text-white rounded text-[10px] font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                                                            >
+                                                                🚚 Mark In-Transit
+                                                            </button>
+                                                        )}
+                                                        {(selectedReturn.returnStatus === "return_pickup_assigned" || selectedReturn.returnStatus === "return_in_transit") && (
+                                                            <button
+                                                                type="button"
+                                                                disabled={simulatingCourier}
+                                                                onClick={() => handleSimulateReverseStatus(selectedReturn.orderId, "DELIVERED")}
+                                                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                                                            >
+                                                                📦 Mark Delivered to Store
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
@@ -763,6 +863,25 @@ const Returns = () => {
                                             Assign Pickup
                                         </Button>
                                     )}
+
+                                    {/* Action: QC Verification (Passed / Failed) */}
+                                    {canManageReturns && selectedReturn.returnStatus === "returned" && (
+                                        <>
+                                            <Button
+                                                variant="outline"
+                                                className="text-xs font-bold border-rose-200 text-rose-600 hover:bg-rose-50"
+                                                onClick={() => setIsQcFailModalOpen(true)}
+                                            >
+                                                QC Failed
+                                            </Button>
+                                            <Button
+                                                className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+                                                onClick={() => handleQcPass(selectedReturn.orderId)}
+                                            >
+                                                QC Passed
+                                            </Button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </motion.div>
@@ -815,6 +934,58 @@ const Returns = () => {
                                     disabled={!rejectReason.trim() || submittingReject}
                                 >
                                     Reject Request
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+            <AnimatePresence>
+                {canManageReturns && isQcFailModalOpen && (
+                    <div className="fixed inset-0 z-[2010] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                            onClick={() => !submittingQcFail && setIsQcFailModalOpen(false)}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="w-full max-w-md relative z-10 bg-white rounded-3xl shadow-2xl p-6 space-y-4"
+                        >
+                            <h3 className="text-xl font-black text-rose-600">QC Failed</h3>
+                            <p className="text-sm text-slate-600 font-medium">Please enter a reason or description of why this returned item failed physical inspection.</p>
+
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">QC Failure Note</label>
+                                <textarea
+                                    className="w-full rounded-2xl border border-slate-200 p-4 text-sm font-medium focus:ring-2 focus:ring-rose-500/10 outline-none transition-all"
+                                    rows={4}
+                                    placeholder="e.g. Returned item seal broken or accessory missing..."
+                                    value={qcFailNote}
+                                    onChange={(e) => setQcFailNote(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="flex gap-2 pt-2">
+                                <Button
+                                    variant="outline"
+                                    className="flex-1 font-bold"
+                                    onClick={() => setIsQcFailModalOpen(false)}
+                                    disabled={submittingQcFail}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    className="flex-1 font-bold bg-rose-600 hover:bg-rose-700 text-white"
+                                    onClick={handleQcFail}
+                                    isLoading={submittingQcFail}
+                                    disabled={!qcFailNote.trim() || submittingQcFail}
+                                >
+                                    Submit QC Fail
                                 </Button>
                             </div>
                         </motion.div>

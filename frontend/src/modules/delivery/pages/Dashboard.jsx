@@ -514,60 +514,93 @@ const Dashboard = () => {
                 <h3 className="text-sm font-bold text-gray-800 tracking-tight">Available Return Pickups</h3>
                 <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full uppercase italic">Open for Acceptance</span>
               </div>
-              {availableOrders.length > 0 ? (
-                availableOrders.map((order) => (
-                  <Card key={order._id} className="p-4 border-2 border-primary/5 hover:border-primary/20 transition-all shadow-sm card-left-pill-orange">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <span className="text-[10px] font-black text-primary/60 uppercase tracking-widest mb-1 block">Return Task</span>
-                        <h4 className="font-bold text-gray-900">#{order.orderId}</h4>
-                      </div>
-                      <div className="text-right">
-                        <span className="block font-black text-brand-600 text-lg">₹{order.returnDeliveryCommission || 0}</span>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Commission</span>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2 mb-5">
-                      <div className="flex items-center text-xs text-gray-600">
-                        <MapPin size={12} className="mr-2 text-gray-400" />
-                        <span className="truncate">{order.seller?.shopName || "Store"}</span>
-                      </div>
-                      <div className="flex items-center text-[11px] text-gray-500 font-medium">
-                        <Package size={12} className="mr-2 text-gray-400" />
-                        <span>Pickup from Customer & Return to Store</span>
-                      </div>
-                    </div>
+              {(() => {
+                const terminalReturnStatuses = ["returned", "refund_completed", "qc_passed", "qc_failed", "return_rejected", "cancelled"];
+                const activeReturnOrders = availableOrders.filter(
+                  (order) => !terminalReturnStatuses.includes(order?.returnStatus)
+                );
+                const currentRiderId = user?._id || user?.id;
 
-                    <div className="flex gap-2">
-                       <Button 
-                        variant="primary" 
-                        size="sm" 
-                        className="flex-1 font-black text-[10px] tracking-widest uppercase h-10 shadow-lg shadow-primary/20"
-                        onClick={() => handleAcceptReturn(order.orderId)}
-                      >
-                        Accept Pickup
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="px-4 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:bg-gray-100 h-10"
-                        onClick={() => navigate(`/delivery/order-details/${order.orderId}`)}
-                      >
-                        View
-                      </Button>
+                return activeReturnOrders.length > 0 ? (
+                  activeReturnOrders.map((order) => {
+                    const isAlreadyAssignedToMe = Boolean(
+                      order.returnDeliveryBoy &&
+                      (String(order.returnDeliveryBoy?._id || order.returnDeliveryBoy) === String(currentRiderId))
+                    );
+
+                    return (
+                      <Card key={order._id} className="p-4 border-2 border-primary/5 hover:border-primary/20 transition-all shadow-sm card-left-pill-orange">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-[10px] font-black text-primary/60 uppercase tracking-widest block">Return Task</span>
+                              {isAlreadyAssignedToMe && (
+                                <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full uppercase border border-emerald-200">
+                                  {order.returnStatus === 'return_in_transit' ? 'In Transit' : 'Assigned'}
+                                </span>
+                              )}
+                            </div>
+                            <h4 className="font-bold text-gray-900">#{order.orderId}</h4>
+                          </div>
+                          <div className="text-right">
+                            <span className="block font-black text-brand-600 text-lg">₹{order.returnDeliveryCommission || 0}</span>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Commission</span>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2 mb-5">
+                          <div className="flex items-center text-xs text-gray-600">
+                            <MapPin size={12} className="mr-2 text-gray-400" />
+                            <span className="truncate">{order.seller?.shopName || "Store"}</span>
+                          </div>
+                          <div className="flex items-center text-[11px] text-gray-500 font-medium">
+                            <Package size={12} className="mr-2 text-gray-400" />
+                            <span>Pickup from Customer & Return to Store</span>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          {isAlreadyAssignedToMe ? (
+                            <Button 
+                              variant="primary" 
+                              size="sm" 
+                              className="flex-1 font-black text-[10px] tracking-widest uppercase h-10 shadow-lg shadow-primary/20"
+                              onClick={() => navigate(`/delivery/order-details/${order.orderId}`)}
+                            >
+                              {order.returnStatus === 'return_in_transit' ? 'Drop to Store' : 'Continue Pickup'}
+                            </Button>
+                          ) : (
+                            <Button 
+                              variant="primary" 
+                              size="sm" 
+                              className="flex-1 font-black text-[10px] tracking-widest uppercase h-10 shadow-lg shadow-primary/20"
+                              onClick={() => handleAcceptReturn(order.orderId)}
+                            >
+                              Accept Pickup
+                            </Button>
+                          )}
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="px-4 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:bg-gray-100 h-10"
+                            onClick={() => navigate(`/delivery/order-details/${order.orderId}`)}
+                          >
+                            View
+                          </Button>
+                        </div>
+                      </Card>
+                    );
+                  })
+                ) : (
+                  <div className="bg-white rounded-2xl p-10 text-center border-2 border-dashed border-gray-100 flex flex-col items-center">
+                    <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center mb-4 border border-gray-100 opacity-60">
+                      <Package size={20} className="text-gray-400" />
                     </div>
-                  </Card>
-                ))
-              ) : (
-                <div className="bg-white rounded-2xl p-10 text-center border-2 border-dashed border-gray-100 flex flex-col items-center">
-                  <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center mb-4 border border-gray-100 opacity-60">
-                    <Package size={20} className="text-gray-400" />
+                    <h4 className="text-sm font-bold text-gray-800 mb-1">No returns nearby</h4>
+                    <p className="text-[11px] text-gray-400">Keep checking back for new return tasks.</p>
                   </div>
-                  <h4 className="text-sm font-bold text-gray-800 mb-1">No returns nearby</h4>
-                  <p className="text-[11px] text-gray-400">Keep checking back for new return tasks.</p>
-                </div>
-              )}
+                );
+              })()}
             </motion.div>
           )}
         </AnimatePresence>

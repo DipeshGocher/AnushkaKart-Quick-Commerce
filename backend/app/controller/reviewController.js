@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Review from "../models/review.js";
 import Order from "../models/order.js";
 import handleResponse from "../utils/helper.js";
@@ -7,13 +8,22 @@ import { uploadToCloudinary } from "../utils/cloudinary.js";
 // Check if customer is eligible to review a product
 export const checkReviewEligibility = async (req, res) => {
     try {
-        const { productId } = req.params;
+        let { productId } = req.params;
         const userId = req.user.id;
+
+        if (productId && typeof productId === "object") {
+            productId = productId._id || productId.id || productId.productId;
+        }
+        productId = String(productId || "").trim();
+
+        if (!productId || productId === "[object Object]" || !mongoose.Types.ObjectId.isValid(productId)) {
+            return handleResponse(res, 400, "Valid Product ID is required");
+        }
 
         const [hasPurchased, existingReview] = await Promise.all([
             Order.findOne({
                 customer: userId,
-                "items.product": productId,
+                "items.product": new mongoose.Types.ObjectId(productId),
                 $or: [
                     { orderStatus: { $regex: /^delivered$/i } },
                     { status: { $regex: /^delivered$/i } },
@@ -37,17 +47,26 @@ export const checkReviewEligibility = async (req, res) => {
 // Submit a review (Customer)
 export const submitReview = async (req, res) => {
     try {
-        const { productId, rating, comment } = req.body;
+        let { productId, rating, comment } = req.body;
         const userId = req.user.id;
 
-        if (!productId) {
+        if (productId && typeof productId === "object") {
+            productId = productId._id || productId.id || productId.productId;
+        }
+        productId = String(productId || "").trim();
+
+        if (!productId || productId === "[object Object]") {
             return handleResponse(res, 400, "Product ID is required");
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+            return handleResponse(res, 400, "Invalid Product ID format");
         }
 
         // Check if the user has purchased and received the product
         const hasPurchased = await Order.findOne({
             customer: userId,
-            "items.product": productId,
+            "items.product": new mongoose.Types.ObjectId(productId),
             $or: [
                 { orderStatus: { $regex: /^delivered$/i } },
                 { status: { $regex: /^delivered$/i } },

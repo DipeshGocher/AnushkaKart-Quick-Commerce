@@ -48,13 +48,24 @@ function normalizeSellerStatusFilter(statusParam) {
     return { status: "out_for_delivery" };
   }
   if (normalized === "delivered") {
-    return { status: "delivered" };
+    return {
+      status: "delivered",
+      $or: [
+        { returnStatus: { $in: ["none", "return_rejected", null, ""] } },
+        { returnStatus: { $exists: false } },
+      ],
+    };
   }
   if (normalized === "cancelled") {
     return { status: "cancelled" };
   }
   if (normalized === "returned") {
-    return { returnStatus: { $ne: "none" } };
+    return {
+      $or: [
+        { status: "returned" },
+        { returnStatus: { $nin: ["none", null, ""] } },
+      ],
+    };
   }
 
   return { status: statusParam };
@@ -175,7 +186,25 @@ export async function fetchSellerOrdersPage({
             $sum: { $cond: [{ $eq: ["$status", "out_for_delivery"] }, 1, 0] },
           },
           delivered: {
-            $sum: { $cond: [{ $eq: ["$status", "delivered"] }, 1, 0] },
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$status", "delivered"] },
+                    {
+                      $or: [
+                        { $eq: ["$returnStatus", null] },
+                        { $eq: ["$returnStatus", ""] },
+                        { $eq: ["$returnStatus", "none"] },
+                        { $eq: ["$returnStatus", "return_rejected"] },
+                      ],
+                    },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
           },
           cancelled: {
             $sum: { $cond: [{ $eq: ["$status", "cancelled"] }, 1, 0] },
@@ -300,7 +329,13 @@ export async function fetchAvailableOrdersForDelivery({
   let assignedReturnPickups = [];
   if (showReturns) {
     const assignedReturnPickupsRaw = await Order.find({
-      returnStatus: "return_pickup_assigned",
+      returnStatus: {
+        $in: [
+          "return_pickup_assigned",
+          "return_in_transit",
+          "return_drop_pending",
+        ],
+      },
       returnDeliveryBoy: userId,
       skippedBy: { $nin: [userId] },
     })
@@ -402,9 +437,17 @@ export async function fetchAvailableOrdersForDelivery({
             { returnSearchExpiresAt: { $gt: now } },
           ],
         },
-        // Mine to handle right now — always show, regardless of expiry.
+        // Mine to handle right now — only active in-progress return statuses,
+        // never completed/returned/refunded returns.
         {
           returnDeliveryBoy: userId,
+          returnStatus: {
+            $in: [
+              "return_pickup_assigned",
+              "return_in_transit",
+              "return_drop_pending",
+            ],
+          },
         },
       ],
     })

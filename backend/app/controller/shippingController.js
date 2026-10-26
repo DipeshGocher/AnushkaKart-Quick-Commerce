@@ -23,6 +23,9 @@ import {
   processShiprocketWebhook,
   isShiprocketConfigured,
   recordShiprocketWeightDiscrepancy,
+  createShiprocketReversePickup,
+  getShiprocketReverseLabel,
+  updateShiprocketReverseStatus,
 } from "../services/shipping/shiprocketService.js";
 
 /**
@@ -381,4 +384,48 @@ export const recordDiscrepancy = async (req, res) => {
     return handleResponse(res, error.statusCode || 500, error.message);
   }
 };
+
+/**
+ * Admin / Seller: Manually Book or Re-attempt Shiprocket Reverse Pickup
+ */
+export const scheduleShiprocketReversePickupHandler = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    await verifyOrderShipmentAccess(orderId, req.user);
+    const result = await createShiprocketReversePickup(orderId);
+    return handleResponse(res, 200, result.message || "Shiprocket reverse pickup scheduled", result);
+  } catch (error) {
+    return handleResponse(res, error.statusCode || 500, error.message);
+  }
+};
+
+/**
+ * Admin / Seller: Fetch / Download Shiprocket Reverse Shipping Label
+ */
+export const fetchShiprocketReverseLabel = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    await verifyOrderShipmentAccess(orderId, req.user);
+    const result = await getShiprocketReverseLabel(orderId);
+    return handleResponse(res, 200, "Reverse shipping label fetched successfully", result);
+  } catch (error) {
+    return handleResponse(res, error.statusCode || 500, error.message);
+  }
+};
+
+/**
+ * Admin / Seller: Update / Advance Shiprocket Reverse Pickup Status (for testing or manual sync)
+ */
+export const updateShiprocketReverseStatusManual = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    await verifyOrderShipmentAccess(orderId, req.user);
+    const { status, remarks, location } = req.body || {};
+    const result = await updateShiprocketReverseStatus(orderId, { status, remarks, location }, req.user?.id);
+    return handleResponse(res, 200, result.message, result);
+  } catch (error) {
+    return handleResponse(res, error.statusCode || 500, error.message);
+  }
+};
+
 

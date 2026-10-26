@@ -225,52 +225,123 @@ export const getMyDeliveryOrders = async (req, res) => {
 
         const assignedToPartner = await buildAssignedToPartnerFilter(deliveryBoyId);
 
-        /** v2 orders use workflowStatus; legacy uses status — both must be respected. */
+        /** Separate forward delivery vs return pickup query based on normalized filter */
         let query;
         if (normalized === "delivered") {
             query = {
-                $and: [
-                    assignedToPartner,
-                    {
-                        $or: [
-                            { status: "delivered" },
-                            { workflowStatus: WORKFLOW_STATUS.DELIVERED },
-                        ],
-                    },
+                deliveryBoy: deliveryBoyId,
+                $or: [
+                    { status: "delivered" },
+                    { workflowStatus: WORKFLOW_STATUS.DELIVERED },
                 ],
             };
         } else if (normalized === "cancelled") {
             query = {
-                $and: [
-                    assignedToPartner,
-                    {
-                        $or: [
-                            { status: "cancelled" },
-                            { workflowStatus: WORKFLOW_STATUS.CANCELLED },
-                        ],
-                    },
+                deliveryBoy: deliveryBoyId,
+                $or: [
+                    { status: "cancelled" },
+                    { workflowStatus: WORKFLOW_STATUS.CANCELLED },
                 ],
             };
         } else if (normalized === "returns") {
             query = {
+                returnDeliveryBoy: deliveryBoyId,
                 returnStatus: { $ne: "none" },
-                $or: [
-                    { deliveryBoy: deliveryBoyId },
-                    { returnDeliveryBoy: deliveryBoyId },
-                ],
             };
         } else {
             query = assignedToPartner;
         }
 
-        const orders = await Order.find(query)
+        const rawOrders = await Order.find(query)
             .sort({ createdAt: -1 })
             .limit(100)
             .populate("seller", "shopName address")
             .populate("customer", "name phone")
             .lean();
 
-        return handleResponse(res, 200, "Delivery orders fetched", orders);
+        const refToIdString = (ref) => {
+            if (!ref) return "";
+            if (typeof ref === "string") return ref;
+            if (ref._id) return String(ref._id);
+            return String(ref);
+        };
+
+        const tasks = [];
+        const riderIdStr = deliveryBoyId.toString();
+
+        for (const order of rawOrders) {
+            const isForwardRider = Boolean(
+                order.deliveryBoy && refToIdString(order.deliveryBoy) === riderIdStr
+            );
+            const isReturnRider = Boolean(
+                order.returnDeliveryBoy &&
+                refToIdString(order.returnDeliveryBoy) === riderIdStr &&
+                order.returnStatus &&
+                order.returnStatus !== "none"
+            );
+
+            const forwardEarning =
+                order.riderEarnings ??
+                order.delivery?.riderEarning ??
+                Math.round((order.pricing?.total || 0) * 0.1);
+
+            const returnEarning =
+                order.returnDeliveryCommission ??
+                order.returnCommission ??
+                0;
+
+            const isDelivered = order.workflowStatus === WORKFLOW_STATUS.DELIVERED || order.status === "delivered";
+            const isCancelled = order.workflowStatus === WORKFLOW_STATUS.CANCELLED || order.status === "cancelled";
+
+            // 1. Forward Delivery Task
+            if (
+                isForwardRider &&
+                (normalized === "all" || normalized === "delivered" || normalized === "cancelled")
+            ) {
+                if (normalized === "delivered" && !isDelivered) {
+                    // skip
+                } else if (normalized === "cancelled" && !isCancelled) {
+                    // skip
+                } else {
+                    tasks.push({
+                        ...order,
+                        _id: isReturnRider ? `${order._id}_delivery` : order._id,
+                        orderMongoId: order._id,
+                        orderId: order.orderId,
+                        taskType: "DELIVERY",
+                        isReturnTask: false,
+                        taskEarnings: isCancelled ? 0 : forwardEarning,
+                        taskDate: order.deliveredAt || order.createdAt,
+                        taskStatus: isDelivered ? "delivered" : (isCancelled ? "cancelled" : (order.status || "active")),
+                    });
+                }
+            }
+
+            // 2. Return Pickup Task
+            if (
+                isReturnRider &&
+                (normalized === "all" || normalized === "returns")
+            ) {
+                const isReturned = order.returnStatus === "returned" || order.returnStatus === "refund_completed";
+
+                tasks.push({
+                    ...order,
+                    _id: isForwardRider ? `${order._id}_return` : order._id,
+                    orderMongoId: order._id,
+                    orderId: order.orderId,
+                    taskType: "RETURN",
+                    isReturnTask: true,
+                    taskEarnings: returnEarning,
+                    taskDate: order.returnDeliveredBackAt || order.returnDropVerifiedAt || order.returnPickedAt || order.updatedAt || order.createdAt,
+                    taskStatus: isReturned ? "returned" : (order.returnStatus || "return_assigned"),
+                });
+            }
+        }
+
+        // Sort tasks by taskDate descending
+        tasks.sort((a, b) => new Date(b.taskDate || b.createdAt) - new Date(a.taskDate || a.createdAt));
+
+        return handleResponse(res, 200, "Delivery orders fetched", tasks);
     } catch (error) {
         return handleResponse(res, 500, error.message);
     }

@@ -562,6 +562,20 @@ export async function requestShiprocketPickup(orderParam) {
     throw err;
   }
 
+  const currentSrStatus = String(order.shiprocket?.currentStatus || "").toUpperCase();
+  if (
+    currentSrStatus === "PICKUP_SCHEDULED" ||
+    currentSrStatus === "PICKUP_QUEUED" ||
+    order.shiprocket?.pickupScheduledAt
+  ) {
+    return {
+      success: true,
+      mode: isShiprocketConfigured() ? "LIVE" : "SIMULATED",
+      message: "Pickup is already scheduled for this shipment.",
+      alreadyScheduled: true,
+    };
+  }
+
   if (!isShiprocketConfigured()) {
     if (process.env.NODE_ENV === "production") {
       const err = new Error("Shiprocket API credentials are not configured; pickup cannot be booked");
@@ -744,6 +758,7 @@ export async function createShiprocketReversePickup(orderParam) {
     order.shiprocket.reverseAwb = mockReverseAwb;
     order.shiprocket.reverseCourierName = mockCourier;
     order.shiprocket.reverseStatus = "REVERSE_PICKUP_SCHEDULED";
+    order.shiprocket.reverseLabelUrl = `https://shiprocket.co/tracking/${mockReverseAwb}`;
     order.shiprocket.history.push({
       status: "REVERSE_PICKUP_SCHEDULED",
       location: order.address?.city || "Customer Address",
@@ -771,6 +786,7 @@ export async function createShiprocketReversePickup(orderParam) {
       reverseAwb: mockReverseAwb,
       reverseShipmentId: mockReverseShipmentId,
       courierName: mockCourier,
+      labelUrl: order.shiprocket.reverseLabelUrl,
     };
   }
 
@@ -829,6 +845,7 @@ export async function createShiprocketReversePickup(orderParam) {
     const reverseShipmentId = retData.shipment_id || retData.order_id;
     const reverseAwb = retData.awb_code || `SR_RET_${Date.now()}`;
     const reverseCourier = retData.courier_name || "Shiprocket Reverse Logistics";
+    const reverseLabelUrl = retData.label_url || `https://shiprocket.co/tracking/${reverseAwb}`;
 
     if (!order.shiprocket) {
       order.shiprocket = { history: [] };
@@ -837,6 +854,7 @@ export async function createShiprocketReversePickup(orderParam) {
     order.shiprocket.reverseAwb = reverseAwb;
     order.shiprocket.reverseCourierName = reverseCourier;
     order.shiprocket.reverseStatus = "REVERSE_PICKUP_SCHEDULED";
+    order.shiprocket.reverseLabelUrl = reverseLabelUrl;
     order.shiprocket.history.push({
       status: "REVERSE_PICKUP_SCHEDULED",
       location: order.address?.city || "",
@@ -864,11 +882,179 @@ export async function createShiprocketReversePickup(orderParam) {
       reverseAwb,
       reverseShipmentId,
       courierName: reverseCourier,
+      labelUrl: reverseLabelUrl,
     };
   } catch (err) {
     console.error("[Shiprocket Reverse Pickup Error]:", err.response?.data || err.message);
     throw new Error(`Failed to create Shiprocket reverse pickup: ${err.response?.data?.message || err.message}`);
   }
+}
+
+/**
+ * Fetch or generate Reverse Shipping Label for a Return Order
+ */
+export async function getShiprocketReverseLabel(orderParam) {
+  let order = typeof orderParam === "object" ? orderParam : await Order.findOne({ orderId: orderParam });
+  if (!order && typeof orderParam === "string") {
+    order = await Order.findById(orderParam);
+  }
+  if (!order) {
+    const err = new Error("Order not found");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const reverseShipmentId = order.shiprocket?.reverseShipmentId;
+  const reverseAwb = order.shiprocket?.reverseAwb;
+
+  if (!reverseShipmentId && !reverseAwb) {
+    const err = new Error("No reverse shipment booked for this order yet");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (!isShiprocketConfigured()) {
+    if (process.env.NODE_ENV === "production") {
+      const err = new Error("Shiprocket API credentials are not configured; reverse label cannot be generated");
+      err.statusCode = 503;
+      throw err;
+    }
+    const simulatedLabel = order.shiprocket?.reverseLabelUrl || `https://shiprocket.co/tracking/${reverseAwb || "SR_RET_MOCK"}`;
+    return {
+      success: true,
+      labelUrl: simulatedLabel,
+      reverseAwb,
+    };
+  }
+
+  try {
+    const token = await getShiprocketAuthToken();
+    const res = await axios.post(
+      `${SHIPROCKET_BASE_URL}/courier/generate/label`,
+      { shipment_id: [reverseShipmentId] },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const labelUrl = res.data?.label_url || `https://shiprocket.co/tracking/${reverseAwb}`;
+    if (labelUrl) {
+      order.shiprocket.reverseLabelUrl = labelUrl;
+      await order.save();
+    }
+    return { success: true, labelUrl, reverseAwb };
+  } catch (error) {
+    return {
+      success: true,
+      labelUrl: order.shiprocket?.reverseLabelUrl || `https://shiprocket.co/tracking/${reverseAwb}`,
+      reverseAwb,
+    };
+  }
+}
+
+/**
+ * Update Shiprocket Reverse Pickup Status (Manual simulation, webhook, or admin)
+ * Valid statuses:
+ * - REVERSE_PICKUP_SCHEDULED
+ * - PICKED_UP / IN_TRANSIT / REVERSE_IN_TRANSIT
+ * - DELIVERED / REVERSE_DELIVERED
+ * - CANCELLED / REVERSE_CANCELLED
+ */
+export async function updateShiprocketReverseStatus(orderParam, { status, remarks = "", location = "" } = {}, updatedBy = null) {
+  let order = typeof orderParam === "object" ? orderParam : await Order.findOne({
+    $or: [{ orderId: orderParam }, { _id: String(orderParam).match(/^[0-9a-fA-F]{24}$/) ? orderParam : null }],
+  });
+
+  if (!order) {
+    const err = new Error("Order not found");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (order.fulfillmentType !== "SHIPROCKET") {
+    const err = new Error("Order is not a Shiprocket courier order");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const upperStatus = String(status || "").toUpperCase().trim();
+  const validReverseStatuses = [
+    "REVERSE_PICKUP_SCHEDULED",
+    "PICKUP_SCHEDULED",
+    "PICKED_UP",
+    "IN_TRANSIT",
+    "REVERSE_IN_TRANSIT",
+    "OUT_FOR_DELIVERY",
+    "DELIVERED",
+    "REVERSE_DELIVERED",
+    "CANCELLED",
+    "REVERSE_CANCELLED",
+  ];
+
+  if (!validReverseStatuses.includes(upperStatus)) {
+    const err = new Error(`Invalid reverse status: ${status}. Valid options: ${validReverseStatuses.join(", ")}`);
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (!order.shiprocket) {
+    order.shiprocket = { history: [] };
+  }
+
+  order.shiprocket.reverseStatus = upperStatus;
+  order.shiprocket.lastEventAt = new Date();
+
+  // Synchronize returnStatus with Reverse Logistics timeline
+  if (upperStatus === "DELIVERED" || upperStatus === "REVERSE_DELIVERED") {
+    order.status = "returned";
+    order.returnStatus = "returned";
+    if (!order.returnDeliveredBackAt) {
+      order.returnDeliveredBackAt = new Date();
+    }
+    if (!order.returnDropVerifiedAt) {
+      order.returnDropVerifiedAt = new Date();
+    }
+  } else if (
+    upperStatus === "PICKED_UP" ||
+    upperStatus === "IN_TRANSIT" ||
+    upperStatus === "REVERSE_IN_TRANSIT" ||
+    upperStatus === "OUT_FOR_DELIVERY"
+  ) {
+    order.returnStatus = "return_in_transit";
+    if (!order.returnPickedAt) {
+      order.returnPickedAt = new Date();
+    }
+  } else if (upperStatus === "REVERSE_PICKUP_SCHEDULED" || upperStatus === "PICKUP_SCHEDULED") {
+    order.returnStatus = "return_pickup_assigned";
+  } else if (upperStatus === "CANCELLED" || upperStatus === "REVERSE_CANCELLED") {
+    order.returnStatus = "return_rejected";
+    order.returnRejectedReason = remarks || "Shiprocket reverse courier pickup cancelled";
+  }
+
+  order.shiprocket.history.push({
+    status: upperStatus,
+    location: location || order.address?.city || "Shiprocket Reverse Hub",
+    timestamp: new Date(),
+    remarks: remarks || `Reverse shipment updated to ${upperStatus}`,
+    source: updatedBy ? "manual" : "webhook",
+  });
+
+  await order.save();
+
+  emitOrderStatusUpdate(
+    order.orderId,
+    {
+      returnStatus: order.returnStatus,
+      shiprocket: order.shiprocket,
+    },
+    order.customer?._id || order.customer
+  );
+
+  return {
+    success: true,
+    message: `Shiprocket reverse status updated to ${upperStatus} (returnStatus: ${order.returnStatus})`,
+    orderId: order.orderId,
+    returnStatus: order.returnStatus,
+    reverseStatus: order.shiprocket.reverseStatus,
+    reverseAwb: order.shiprocket.reverseAwb,
+  };
 }
 
 /**
@@ -1051,9 +1237,21 @@ export async function processShiprocketWebhook(payload = {}, headers = {}) {
 
   const matches = [];
   if (orderId) {
-    matches.push({ orderId: String(orderId) }, { "shiprocket.shiprocketOrderId": String(orderId) });
+    const rawId = String(orderId).trim();
+    const cleanId = rawId.replace(/-RET$/, "");
+    matches.push(
+      { orderId: rawId },
+      { orderId: cleanId },
+      { "shiprocket.shiprocketOrderId": rawId },
+      { "shiprocket.reverseShipmentId": rawId }
+    );
   }
-  if (awb) matches.push({ "shiprocket.awb": String(awb) });
+  if (awb) {
+    matches.push(
+      { "shiprocket.awb": String(awb) },
+      { "shiprocket.reverseAwb": String(awb) }
+    );
+  }
   const query = { $or: matches };
 
   const order = await Order.findOne(query);
@@ -1063,6 +1261,33 @@ export async function processShiprocketWebhook(payload = {}, headers = {}) {
   if (order.fulfillmentType !== "SHIPROCKET") {
     return { success: false, message: "Order is not a Shiprocket shipment" };
   }
+  const isReverseEvent = Boolean(
+    payload.is_return ||
+    (orderId && String(orderId).endsWith("-RET")) ||
+    (awb && order.shiprocket?.reverseAwb && String(awb) === String(order.shiprocket.reverseAwb)) ||
+    (payload.shipment_id && order.shiprocket?.reverseShipmentId && String(payload.shipment_id) === String(order.shiprocket.reverseShipmentId)) ||
+    (order.returnStatus && order.returnStatus !== "none" && !["delivered", "cancelled"].includes(order.returnStatus) && (statusRaw.includes("REVERSE") || statusRaw.includes("PICK")))
+  );
+
+  if (isReverseEvent) {
+    let mappedReverseStatus = "IN_TRANSIT";
+    if (statusRaw.includes("DELIVERED")) {
+      mappedReverseStatus = "DELIVERED";
+    } else if (statusRaw.includes("CANCEL")) {
+      mappedReverseStatus = "CANCELLED";
+    } else if (statusRaw.includes("PICKED") || statusRaw.includes("TRANSIT") || statusRaw.includes("SHIPPED")) {
+      mappedReverseStatus = "IN_TRANSIT";
+    } else if (statusRaw.includes("SCHEDULED")) {
+      mappedReverseStatus = "REVERSE_PICKUP_SCHEDULED";
+    }
+
+    return await updateShiprocketReverseStatus(order, {
+      status: mappedReverseStatus,
+      remarks,
+      location,
+    });
+  }
+
   if (awb && order.shiprocket?.awb && String(awb) !== String(order.shiprocket.awb)) {
     return { success: false, message: "AWB does not match this order" };
   }

@@ -19,6 +19,17 @@ import { createSocketTokenReader } from "@core/utils/authStorage";
 import { STORAGE_KEYS } from "@core/utils/storageKeys";
 
 const displayOrderStatus = (order) => {
+  if (order?.taskStatus) {
+    if (order.taskStatus === "returned") return "returned to store";
+    return order.taskStatus;
+  }
+  if (order?.isReturnTask || order?.taskType === "RETURN") {
+    if (order?.returnStatus === "returned" || order?.returnStatus === "refund_completed")
+      return "returned to store";
+    if (order?.returnStatus === "return_in_transit") return "in transit";
+    if (order?.returnStatus === "return_pickup_assigned") return "pickup assigned";
+    return order?.returnStatus || "return";
+  }
   if (order?.workflowStatus === "DELIVERED" || order?.status === "delivered")
     return "delivered";
   if (order?.workflowStatus === "CANCELLED" || order?.status === "cancelled")
@@ -27,11 +38,14 @@ const displayOrderStatus = (order) => {
 };
 
 const getOrderEarnings = (order) => {
+  if (order?.taskEarnings != null) {
+    return order.taskEarnings;
+  }
+  if (order?.isReturnTask || order?.taskType === "RETURN") {
+    return order.returnDeliveryCommission ?? order.returnCommission ?? 0;
+  }
   if (order?.workflowStatus === "CANCELLED" || order?.status === "cancelled") {
     return 0;
-  }
-  if (order?.returnStatus && order.returnStatus !== "none" && order.returnCommission != null) {
-    return order.returnCommission;
   }
   if (order?.riderEarnings != null) return order.riderEarnings;
   if (order?.delivery?.riderEarning != null) return order.delivery.riderEarning;
@@ -198,16 +212,18 @@ const OrderHistory = () => {
 
   const filteredOrders = (orders || []).filter((order) => {
     const q = searchQuery.toLowerCase();
-    const oid = String(order.orderId ?? "");
+    const oid = String(order.orderId ?? order.originalOrderId ?? "");
+    const taskType = String(order.taskType ?? "");
     return (
       oid.toLowerCase().includes(q) ||
+      taskType.toLowerCase().includes(q) ||
       order.customer?.name?.toLowerCase().includes(q) ||
       order.seller?.shopName?.toLowerCase().includes(q)
     );
   });
 
   const openOrderDetail = (order) => {
-    const id = order.orderId || order._id;
+    const id = order.orderId || order.originalOrderId || order.orderMongoId || order._id;
     if (!id) {
       toast.error("Missing order reference");
       return;
@@ -273,79 +289,98 @@ const OrderHistory = () => {
           </div>
         ) : (
           <AnimatePresence mode="popLayout">
-            {filteredOrders.length > 0 ? filteredOrders.map((order) => (
-              <motion.div
-                key={order._id}
-                layout
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.2 }}>
-                <Card
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => openOrderDetail(order)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      openOrderDetail(order);
-                    }
-                  }}
-                  className="card-left-pill-orange hover:shadow-md transition-all cursor-pointer group rounded-2xl border border-slate-100 bg-white">
-                  <div className="p-4">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start mb-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-1 min-w-0 flex-wrap">
-                          <span className="font-bold text-[#6666FF] text-sm group-hover:text-[#5555EE] transition-colors break-all">
-                            #{order.orderId}
-                          </span>
-                          <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${displayOrderStatus(order) === "delivered"
-                              ? "bg-[#EEEEFF] text-[#6666FF] border border-[#6666FF]/20"
-                              : displayOrderStatus(order) === "cancelled"
-                                ? "bg-red-50 text-red-600 border border-red-100"
-                                : "bg-[#EEEEFF] text-[#6666FF] border border-[#6666FF]/20"
-                              }`}>
-                            {displayOrderStatus(order)}
-                          </span>
-                        </div>
-                        <div className="flex items-center text-gray-400 text-xs">
-                          <Calendar size={12} className="mr-1" />
-                          {new Date(order.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}, {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                      </div>
-                      <div className="text-left sm:text-right shrink-0">
-                        <span className={`block font-black text-lg whitespace-nowrap ${displayOrderStatus(order) === "cancelled" ? "text-gray-400" : "text-slate-900"}`}>
-                          ₹{getOrderEarnings(order)}
-                        </span>
-                        <span className="ds-caption text-gray-400">
-                          {displayOrderStatus(order) === "cancelled" ? "No Earnings" : "Earnings"}
-                        </span>
-                      </div>
-                    </div>
+            {filteredOrders.length > 0 ? filteredOrders.map((order) => {
+              const isReturn = Boolean(order.isReturnTask || order.taskType === "RETURN");
+              const statusText = displayOrderStatus(order);
+              const dateToDisplay = order.taskDate || order.createdAt;
 
-                    <div className="bg-white rounded-xl p-3 border border-[#6666FF]/15 shadow-2xs my-3 space-y-2">
-                      <div className="flex items-start">
-                        <div className="w-2 h-2 rounded-full bg-[#6666FF] mt-1.5 mr-2 flex-shrink-0 shadow-[0_0_8px_rgba(102,102,255,0.5)]"></div>
-                        <div>
-                          <p className="ds-caption text-gray-500 mb-0.5">Store</p>
-                          <p className="text-sm font-medium text-gray-800 line-clamp-1">
-                            {order.seller?.shopName || "Unknown Store"}
-                          </p>
+              return (
+                <motion.div
+                  key={order._id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}>
+                  <Card
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openOrderDetail(order)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        openOrderDetail(order);
+                      }
+                    }}
+                    className="card-left-pill-orange hover:shadow-md transition-all cursor-pointer group rounded-2xl border border-slate-100 bg-white">
+                    <div className="p-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start mb-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 mb-1 min-w-0 flex-wrap">
+                            {isReturn ? (
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 uppercase tracking-wider flex items-center gap-1">
+                                🔄 Return Task
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 uppercase tracking-wider flex items-center gap-1">
+                                📦 Forward Delivery
+                              </span>
+                            )}
+                            <span className="font-bold text-[#6666FF] text-sm group-hover:text-[#5555EE] transition-colors break-all">
+                              #{order.orderId}
+                            </span>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                                statusText === "delivered"
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : statusText === "returned to store" || statusText === "returned"
+                                    ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                    : statusText === "cancelled"
+                                      ? "bg-red-50 text-red-600 border border-red-100"
+                                      : "bg-[#EEEEFF] text-[#6666FF] border border-[#6666FF]/20"
+                              }`}>
+                              {statusText}
+                            </span>
+                          </div>
+                          <div className="flex items-center text-gray-400 text-xs">
+                            <Calendar size={12} className="mr-1" />
+                            {new Date(dateToDisplay).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}, {new Date(dateToDisplay).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                        <div className="text-left sm:text-right shrink-0">
+                          <span className={`block font-black text-lg whitespace-nowrap ${statusText === "cancelled" ? "text-gray-400" : "text-slate-900"}`}>
+                            ₹{getOrderEarnings(order)}
+                          </span>
+                          <span className="ds-caption text-gray-400">
+                            {statusText === "cancelled" ? "No Earnings" : "Earnings"}
+                          </span>
                         </div>
                       </div>
-                      <div className="flex items-start border-t border-[#6666FF]/10 pt-2">
-                        <div className="w-2 h-2 rounded-full bg-[#5555EE] mt-1.5 mr-2 flex-shrink-0 shadow-[0_0_8px_rgba(85,85,238,0.5)]"></div>
-                        <div>
-                          <p className="ds-caption text-gray-500 mb-0.5">
-                            Customer
-                          </p>
-                          <p className="text-sm font-medium text-gray-800 line-clamp-1">
-                            {order.customer?.name || "Customer"}
-                          </p>
+
+                      <div className="bg-white rounded-xl p-3 border border-[#6666FF]/15 shadow-2xs my-3 space-y-2">
+                        <div className="flex items-start">
+                          <div className="w-2 h-2 rounded-full bg-[#6666FF] mt-1.5 mr-2 flex-shrink-0 shadow-[0_0_8px_rgba(102,102,255,0.5)]"></div>
+                          <div>
+                            <p className="ds-caption text-gray-500 mb-0.5">
+                              {isReturn ? "Pickup (Customer)" : "Store (Pickup)"}
+                            </p>
+                            <p className="text-sm font-medium text-gray-800 line-clamp-1">
+                              {isReturn ? (order.customer?.name || "Customer") : (order.seller?.shopName || "Unknown Store")}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start border-t border-[#6666FF]/10 pt-2">
+                          <div className="w-2 h-2 rounded-full bg-[#5555EE] mt-1.5 mr-2 flex-shrink-0 shadow-[0_0_8px_rgba(85,85,238,0.5)]"></div>
+                          <div>
+                            <p className="ds-caption text-gray-500 mb-0.5">
+                              {isReturn ? "Drop (Store)" : "Customer (Drop)"}
+                            </p>
+                            <p className="text-sm font-medium text-gray-800 line-clamp-1">
+                              {isReturn ? (order.seller?.shopName || "Store") : (order.customer?.name || "Customer")}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
                     <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center text-xs text-gray-500">
                       <div className="flex flex-wrap items-center gap-2">
@@ -381,8 +416,9 @@ const OrderHistory = () => {
                   </div>
                 </Card>
               </motion.div>
-            )) : (
-              <motion.div
+            );
+          }) : (
+            <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="text-center py-12">

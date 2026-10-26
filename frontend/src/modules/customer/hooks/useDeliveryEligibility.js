@@ -23,7 +23,7 @@ export function useDeliveryEligibility(product) {
   const [pincodesReady, setPincodesReady] = useState(false);
 
   useEffect(() => {
-    loadLocalPincodes().then(() => {
+    loadLocalPincodes(true).then(() => {
       setPincodesReady(true);
     });
   }, []);

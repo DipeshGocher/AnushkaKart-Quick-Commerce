@@ -12,7 +12,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '@core/context/AuthContext';
 import { onReturnPickupOtp, onReturnDropOtp } from '@core/services/orderSocket';
 import { toast } from 'sonner';
-import { ShieldCheck, Package } from 'lucide-react';
+import { ShieldCheck, Package, X } from 'lucide-react';
 import { setStatusBarColor } from '@/core/utils/statusBar';
 
 
@@ -28,7 +28,15 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
         const cleanupPickup = onReturnPickupOtp(() => token, (payload) => {
             console.log('[CustomerLayout] Return Pickup OTP Received:', payload);
             toast.custom((t) => (
-                <div className="bg-white border-2 border-brand-600 rounded-3xl p-5 shadow-2xl animate-in slide-in-from-bottom-full duration-500 max-w-md w-full">
+                <div className="relative bg-white border-2 border-brand-600 rounded-3xl p-5 pr-12 shadow-2xl animate-in slide-in-from-bottom-full duration-500 max-w-md w-full">
+                    <button
+                        type="button"
+                        onClick={() => toast.dismiss(t)}
+                        className="absolute top-3.5 right-3.5 h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer shadow-sm"
+                        aria-label="Close alert"
+                    >
+                        <X size={16} strokeWidth={2.5} />
+                    </button>
                     <div className="flex items-start gap-4">
                         <div className="h-12 w-12 bg-brand-100 rounded-2xl flex items-center justify-center text-brand-600 shrink-0">
                             <ShieldCheck size={28} />
@@ -52,7 +60,15 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
         const cleanupDrop = onReturnDropOtp(() => token, (payload) => {
             console.log('[CustomerLayout] Return Drop OTP Received:', payload);
             toast.custom((t) => (
-                <div className="bg-white border-2 border-green-600 rounded-3xl p-5 shadow-2xl animate-in slide-in-from-bottom-full duration-500 max-w-md w-full">
+                <div className="relative bg-white border-2 border-green-600 rounded-3xl p-5 pr-12 shadow-2xl animate-in slide-in-from-bottom-full duration-500 max-w-md w-full">
+                    <button
+                        type="button"
+                        onClick={() => toast.dismiss(t)}
+                        className="absolute top-3.5 right-3.5 h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer shadow-sm"
+                        aria-label="Close alert"
+                    >
+                        <X size={16} strokeWidth={2.5} />
+                    </button>
                     <div className="flex items-start gap-4">
                         <div className="h-12 w-12 bg-green-100 rounded-2xl flex items-center justify-center text-green-600 shrink-0">
                             <Package size={28} />

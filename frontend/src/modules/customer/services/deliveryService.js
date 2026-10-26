@@ -2,14 +2,19 @@ import { customerApi } from "./customerApi";
 
 let cachedLocalPincodes = new Set();
 let isPincodesLoaded = false;
+let lastFetchedAt = 0;
 let fetchPromise = null;
 
 /**
- * Loads the active local pincodes from the server once and caches them in memory.
+ * Loads the active local pincodes from the server and caches them in memory.
+ * Supports auto-refresh after 60s or explicit forceRefresh.
  */
-export async function loadLocalPincodes() {
-  if (isPincodesLoaded) return cachedLocalPincodes;
-  if (fetchPromise) return fetchPromise;
+export async function loadLocalPincodes(forceRefresh = false) {
+  const now = Date.now();
+  if (isPincodesLoaded && !forceRefresh && (now - lastFetchedAt < 60000)) {
+    return cachedLocalPincodes;
+  }
+  if (fetchPromise && !forceRefresh) return fetchPromise;
 
   fetchPromise = customerApi
     .getLocalPincodes()
@@ -19,6 +24,7 @@ export async function loadLocalPincodes() {
         cachedLocalPincodes = new Set(list.map((p) => String(p).trim()));
       }
       isPincodesLoaded = true;
+      lastFetchedAt = Date.now();
       return cachedLocalPincodes;
     })
     .catch((err) => {

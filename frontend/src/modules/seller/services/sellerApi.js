@@ -47,11 +47,15 @@ export const sellerApi = {
     approveReturn: (orderId, data) => axiosInstance.put(`/orders/returns/${orderId}/approve`, data),
     rejectReturn: (orderId, data) => axiosInstance.put(`/orders/returns/${orderId}/reject`, data),
     assignReturnDelivery: (orderId, data) => axiosInstance.put(`/orders/returns/${orderId}/assign-delivery`, data),
+    updateReturnQcStatus: (orderId, data) => axiosInstance.put(`/orders/returns/${orderId}/qc`, data),
 
-    // Shiprocket Courier Fulfillment
+    // Shiprocket Courier Fulfillment & Reverse Pickup
     processShiprocketOrder: (orderId) => axiosInstance.post(`/shipping/shiprocket/process/${orderId}`),
     scheduleShiprocketPickup: (orderId) => axiosInstance.post(`/shipping/shiprocket/pickup/${orderId}`),
     getShiprocketLabel: (orderId) => axiosInstance.get(`/shipping/shiprocket/label/${orderId}`),
+    scheduleShiprocketReversePickup: (orderId) => axiosInstance.post(`/shipping/shiprocket/reverse/pickup/${orderId}`),
+    updateShiprocketReverseStatus: (orderId, data) => axiosInstance.post(`/shipping/shiprocket/reverse/manual-status/${orderId}`, data),
+    getShiprocketReverseLabel: (orderId) => axiosInstance.get(`/shipping/shiprocket/reverse/label/${orderId}`),
 
     // Live Tracking & Routes
     getOrderRoute: (orderId, params) => axiosInstance.get(`/orders/workflow/${orderId}/route`, { params }),

@@ -37,6 +37,9 @@ import Pagination from '@shared/components/ui/Pagination';
 import { DatePicker } from "@/components/ui/date-picker";
 import { getOrderStatusVariant } from '../components/orders';
 import { useSellerOrders } from '../context/SellerOrdersContext';
+import { onOrderStatusUpdate } from '@/core/services/orderSocket';
+import { createSocketTokenReader } from '@core/utils/authStorage';
+import { STORAGE_KEYS } from '@core/utils/storage';
 
 const Orders = () => {
     const { orders: ordersFromContext } = useSellerOrders();
@@ -105,6 +108,16 @@ const Orders = () => {
         return () => clearInterval(interval);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page, activeTab, startDate, endDate, sortBy]);
+
+    useEffect(() => {
+        const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_SELLER);
+        const off = onOrderStatusUpdate(getToken, () => {
+            if (hasMountedRef.current) {
+                fetchOrders(page, false, true);
+            }
+        });
+        return () => off();
+    }, [page]);
 
     const fetchOrders = async (requestedPage = 1, showPageLoader = false, silent = false) => {
         try {
@@ -655,13 +668,13 @@ const Orders = () => {
                                                             {order.status === 'confirmed' && (
                                                                 <>
                                                                     <option value="confirmed">Confirmed</option>
-                                                                    <option value="packed">Packed</option>
+                                                                    <option value="packed">{order.fulfillmentType === 'SHIPROCKET' ? 'Mark Packed & Ready' : 'Packed'}</option>
                                                                     <option value="cancelled">Cancel</option>
                                                                 </>
                                                             )}
                                                             {order.status === 'packed' && (
                                                                 <>
-                                                                    <option value="packed">Packed</option>
+                                                                    <option value="packed">{order.fulfillmentType === 'SHIPROCKET' ? 'Packed (Pickup Ready)' : 'Packed'}</option>
                                                                     <option value="cancelled">Cancel</option>
                                                                 </>
                                                             )}
@@ -769,13 +782,13 @@ const Orders = () => {
                                                                     {order.status === 'confirmed' && (
                                                                         <>
                                                                             <option value="confirmed">Confirmed</option>
-                                                                            <option value="packed">Mark Packed</option>
+                                                                            <option value="packed">{order.fulfillmentType === 'SHIPROCKET' ? 'Mark Packed & Ready' : 'Mark Packed'}</option>
                                                                             <option value="cancelled">Cancel Order</option>
                                                                         </>
                                                                     )}
                                                                     {order.status === 'packed' && (
                                                                         <>
-                                                                            <option value="packed">Packed</option>
+                                                                            <option value="packed">{order.fulfillmentType === 'SHIPROCKET' ? 'Packed (Pickup Ready)' : 'Packed'}</option>
                                                                             <option value="cancelled">Cancel Order</option>
                                                                         </>
                                                                     )}
@@ -1139,28 +1152,54 @@ const Orders = () => {
                                                             </button>
                                                         ) : (
                                                             <>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleSchedulePickup(selectedOrder.id)}
-                                                                    disabled={isSchedulingPickup || selectedOrder.shiprocket?.currentStatus === "PICKUP_SCHEDULED"}
-                                                                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
-                                                                >
-                                                                    {isSchedulingPickup ? (
-                                                                        <>
-                                                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                                            <span>Scheduling...</span>
-                                                                        </>
-                                                                    ) : (
-                                                                        <>
-                                                                            <Clock className="h-3.5 w-3.5" />
-                                                                            <span>
-                                                                                {selectedOrder.shiprocket?.currentStatus === "PICKUP_SCHEDULED"
-                                                                                    ? "Pickup Scheduled"
-                                                                                    : "Schedule Pickup"}
-                                                                            </span>
-                                                                        </>
-                                                                    )}
-                                                                </button>
+                                                                {(() => {
+                                                                    const selectedShiprocketStatus = String(selectedOrder.shiprocket?.currentStatus || "").toUpperCase();
+                                                                    const isSelectedPickupScheduled = Boolean(
+                                                                        selectedShiprocketStatus === "PICKUP_SCHEDULED" ||
+                                                                        selectedShiprocketStatus === "PICKUP_QUEUED" ||
+                                                                        selectedOrder.shiprocket?.pickupScheduledAt ||
+                                                                        selectedOrder.shiprocket?.history?.some(h => String(h.status || "").toUpperCase() === "PICKUP_SCHEDULED")
+                                                                    );
+                                                                    const isSelectedPastPickup = Boolean(
+                                                                        ["IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RTO_INITIATED", "RTO_DELIVERED", "RTO_ACKNOWLEDGED"].includes(selectedShiprocketStatus) ||
+                                                                        selectedOrder.shiprocket?.shippedAt ||
+                                                                        selectedOrder.shiprocket?.deliveredAt ||
+                                                                        ["shipped", "out_for_delivery", "delivered", "cancelled"].includes(String(selectedOrder.status || "").toLowerCase())
+                                                                    );
+
+                                                                    if (isSelectedPastPickup) return null;
+
+                                                                    return (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleSchedulePickup(selectedOrder.id)}
+                                                                            disabled={isSchedulingPickup || isSelectedPickupScheduled}
+                                                                            className={cn(
+                                                                                "inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-sm",
+                                                                                isSelectedPickupScheduled
+                                                                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80 cursor-default select-none opacity-95"
+                                                                                    : "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer disabled:opacity-50"
+                                                                            )}
+                                                                        >
+                                                                            {isSchedulingPickup ? (
+                                                                                <>
+                                                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                                                    <span>Scheduling...</span>
+                                                                                </>
+                                                                            ) : isSelectedPickupScheduled ? (
+                                                                                <>
+                                                                                    <Check className="h-3.5 w-3.5 text-emerald-600 stroke-[2.5]" />
+                                                                                    <span>Pickup Scheduled</span>
+                                                                                </>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <Clock className="h-3.5 w-3.5" />
+                                                                                    <span>Schedule Pickup</span>
+                                                                                </>
+                                                                            )}
+                                                                        </button>
+                                                                    );
+                                                                })()}
 
                                                                 <button
                                                                     type="button"

@@ -468,7 +468,7 @@ export const updateOrderStatus = async (req, res) => {
       const ALLOWED_FORWARD_TRANSITIONS = {
         pending: ["confirmed", "cancelled"],
         confirmed: ["packed", "out_for_delivery", "cancelled"],
-        packed: ["out_for_delivery", "cancelled"],
+        packed: ["out_for_delivery", "delivered", "cancelled"],
         out_for_delivery: ["delivered", "cancelled"],
         delivered: [],
         cancelled: [],
@@ -549,6 +549,31 @@ export const updateOrderStatus = async (req, res) => {
     if (status) {
       order.status = status;
       order.orderStatus = status;
+      if (order.workflowVersion >= 2) {
+        if (status === "packed") {
+          order.workflowStatus = WORKFLOW_STATUS.PICKUP_READY;
+          order.pickupReadyAt = order.pickupReadyAt || new Date();
+        } else if (status === "out_for_delivery") {
+          order.workflowStatus = WORKFLOW_STATUS.OUT_FOR_DELIVERY;
+          order.outForDeliveryAt = order.outForDeliveryAt || new Date();
+        } else if (status === "delivered") {
+          order.workflowStatus = WORKFLOW_STATUS.DELIVERED;
+          order.deliveredAt = order.deliveredAt || new Date();
+        } else if (status === "cancelled") {
+          order.workflowStatus = WORKFLOW_STATUS.CANCELLED;
+        }
+      }
+      if (order.fulfillmentType === "SHIPROCKET" && order.shiprocket) {
+        if (status === "packed") {
+          if (!order.shiprocket.currentStatus || order.shiprocket.currentStatus === "NEW") {
+            order.shiprocket.currentStatus = "AWB_ASSIGNED";
+          }
+        } else if (status === "out_for_delivery") {
+          order.shiprocket.currentStatus = "OUT_FOR_DELIVERY";
+        } else if (status === "delivered") {
+          order.shiprocket.currentStatus = "DELIVERED";
+        }
+      }
     }
     if (deliveryBoyId) {
       order.deliveryBoy = deliveryBoyId;
@@ -667,6 +692,18 @@ export const updateOrderStatus = async (req, res) => {
         deliveryId: order.deliveryBoy,
       });
 
+      emitOrderStatusUpdate(
+        canonicalOrderId,
+        {
+          workflowStatus: order.workflowStatus,
+          status: order.status,
+          deliveryBoy: order.deliveryBoy,
+          shiprocket: order.shiprocket,
+          escalated: false,
+        },
+        order.customer,
+      );
+
       const refreshed = await Order.findById(order._id);
       return handleResponse(res, 200, "Order status updated", refreshed || order);
     }
@@ -725,6 +762,18 @@ export const updateOrderStatus = async (req, res) => {
       });
     }
 
+    emitOrderStatusUpdate(
+      canonicalOrderId,
+      {
+        workflowStatus: order.workflowStatus,
+        status: order.status,
+        deliveryBoy: order.deliveryBoy,
+        shiprocket: order.shiprocket,
+        escalated: Boolean(order.deliverySearchMeta?.escalated),
+      },
+      order.customer,
+    );
+
     return handleResponse(res, 200, "Order status updated", order);
   } catch (error) {
     return handleResponse(res, 500, error.message);
@@ -773,10 +822,6 @@ export const updateReturnQcStatus = async (req, res) => {
     const { qcStatus, note } = req.body || {};
     const { id: userId, role } = req.user;
 
-    if (role !== "admin") {
-      return handleResponse(res, 403, "Access denied. Admins only.");
-    }
-
     if (!["qc_passed", "qc_failed"].includes(qcStatus)) {
       return handleResponse(res, 400, "Invalid qcStatus value.");
     }
@@ -789,6 +834,20 @@ export const updateReturnQcStatus = async (req, res) => {
     const order = await Order.findOne(orderKey);
     if (!order) {
       return handleResponse(res, 404, "Order not found");
+    }
+
+    const isOwnerSeller =
+      role === "seller" && (order.seller?._id || order.seller)?.toString() === userId;
+    const isOwnerWarehouse =
+      role === "warehouse" && (order.warehouseId?._id || order.warehouseId)?.toString() === userId;
+    const isAdmin = role === "admin";
+
+    if (!isAdmin && !isOwnerSeller && !isOwnerWarehouse) {
+      return handleResponse(
+        res,
+        403,
+        "Access denied. Only admin or assigned seller/warehouse can perform QC.",
+      );
     }
 
     if (order.returnStatus !== "returned") {

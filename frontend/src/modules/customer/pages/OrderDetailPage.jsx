@@ -28,6 +28,7 @@ import {
   Camera,
   X,
   Star,
+  AlertCircle,
 } from "lucide-react";
 import ReviewSubmissionModal from "../components/shared/ReviewSubmissionModal";
 import { customerApi } from "../services/customerApi";
@@ -339,17 +340,25 @@ const OrderDetailPage = () => {
     const offStatus = onOrderStatusUpdate(getToken, (payload) => {
       // Immediately update order state from socket payload — no waiting for API re-fetch
       const ws = String(payload?.workflowStatus || "").toUpperCase();
-      if (ws) {
+      if (ws || payload?.status || payload?.shiprocket) {
         setOrder((prev) => {
           if (!prev) return prev;
           return {
             ...prev,
-            workflowStatus: ws,
+            ...(ws && { workflowStatus: ws }),
+            ...(payload?.status && { status: payload.status }),
             // Keep legacy status in sync for components that read order.status
             ...(ws === "DELIVERED" && { status: "delivered" }),
             ...(ws === "DELIVERY_SEARCH" && { status: "confirmed" }),
+            ...(ws === "PICKUP_READY" && { status: "packed" }),
             ...(ws === "OUT_FOR_DELIVERY" && { status: "out_for_delivery" }),
             ...(ws === "CANCELLED" && { status: "cancelled" }),
+            ...(payload?.shiprocket && {
+              shiprocket: {
+                ...(prev.shiprocket || {}),
+                ...payload.shiprocket,
+              },
+            }),
           };
         });
       }
@@ -1322,11 +1331,19 @@ const OrderDetailPage = () => {
                   {(status === "delivered" || order?.status === "delivered" || order?.workflowStatus === "DELIVERED") && (
                     <button
                       type="button"
-                      onClick={() => setReviewModalProduct(item)}
+                      onClick={() => {
+                        const pid = String(item.product?._id || (typeof item.product === "string" ? item.product : "") || item._id || "");
+                        setReviewModalProduct({
+                          ...item,
+                          productId: pid,
+                          name: item.name || item.product?.title || "Product",
+                          image: item.image || item.product?.image || item.product?.images?.[0],
+                        });
+                      }}
                       className="mt-1.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 shadow-2xs transition active:scale-95 cursor-pointer"
                     >
                       <Star size={11} className="fill-amber-500 text-amber-500" />
-                      {reviewedProductIds.includes(item.product?._id || item.product || item.id) ? "Reviewed" : "Rate & Review"}
+                      {reviewedProductIds.includes(String(item.product?._id || item.product || item.id)) ? "Reviewed" : "Rate & Review"}
                     </button>
                   )}
                 </div>
@@ -1492,11 +1509,11 @@ const OrderDetailPage = () => {
                         </div>
                         <div>
                           <p className="text-sm font-bold text-sky-900">Courier Reverse Pickup Scheduled</p>
-                          <p className="text-xs text-sky-700">Shiprocket Return Partner: {order?.shiprocket?.reverseCourierName || "Delhivery / Ecom Express"}</p>
+                          <p className="text-xs text-sky-700">Shiprocket Return Partner: {order?.shiprocket?.reverseCourierName || returnDetails?.shiprocket?.reverseCourierName || "Delhivery / Ecom Express"}</p>
                         </div>
                       </div>
                       <div className="ml-11 mt-2 text-xs text-slate-600 space-y-1">
-                        <p>Reverse AWB: <span className="font-mono font-bold text-slate-900">{order?.shiprocket?.reverseAwb || "AWB Generating"}</span></p>
+                        <p>Reverse AWB: <span className="font-mono font-bold text-slate-900">{order?.shiprocket?.reverseAwb || returnDetails?.shiprocket?.reverseAwb || "AWB Generating"}</span></p>
                         <p className="text-[11px] text-slate-500">Please pack the item securely in original packaging. The courier executive will collect it from your doorstep.</p>
                       </div>
                     </div>
@@ -1526,6 +1543,87 @@ const OrderDetailPage = () => {
                       </div>
                     </div>
                   )
+                )}
+
+                {/* Return In Transit */}
+                {returnDetails.returnStatus === "return_in_transit" && (
+                  <div className="bg-sky-50 rounded-2xl p-4 border border-sky-100">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-8 w-8 rounded-full bg-sky-100 flex items-center justify-center">
+                        <Truck size={16} className="text-sky-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-sky-900">Return Package In Transit</p>
+                        <p className="text-xs text-sky-700">
+                          {isShiprocketOrder
+                            ? `Courier Partner: ${order?.shiprocket?.reverseCourierName || returnDetails?.shiprocket?.reverseCourierName || "Delhivery / Ecom Express"}`
+                            : "Local Delivery Partner"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="ml-11 mt-2 text-xs text-slate-600 space-y-1">
+                      {(order?.shiprocket?.reverseAwb || returnDetails?.shiprocket?.reverseAwb) && (
+                        <p>Reverse AWB: <span className="font-mono font-bold text-slate-900">{order?.shiprocket?.reverseAwb || returnDetails?.shiprocket?.reverseAwb}</span></p>
+                      )}
+                      <p className="text-[11px] text-slate-500">
+                        {isShiprocketOrder
+                          ? "Your returned item has been collected and is safely on its way to the seller hub."
+                          : "Package picked up and returning to seller store."}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Returned & Delivered to Seller */}
+                {returnDetails.returnStatus === "returned" && (
+                  <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                        <CheckCircle size={16} className="text-emerald-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-emerald-900">Package Delivered to Seller</p>
+                        <p className="text-xs text-emerald-700">Quality check and refund inspection in progress</p>
+                      </div>
+                    </div>
+                    <div className="ml-11 mt-1 text-xs text-slate-600 space-y-1">
+                      {(order?.shiprocket?.reverseAwb || returnDetails?.shiprocket?.reverseAwb) && (
+                        <p>Reverse AWB: <span className="font-mono font-bold text-slate-900">{order?.shiprocket?.reverseAwb || returnDetails?.shiprocket?.reverseAwb}</span></p>
+                      )}
+                      <p className="text-[11px] text-slate-500">
+                        The seller has received your returned package. Once the item is inspected, your refund will be processed immediately.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* QC Inspection States */}
+                {returnDetails.returnStatus === "qc_passed" && (
+                  <div className="bg-teal-50 rounded-2xl p-4 border border-teal-100">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-teal-100 flex items-center justify-center">
+                        <CheckCircle size={16} className="text-teal-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-teal-900">Quality Check Passed</p>
+                        <p className="text-xs text-teal-700">The returned item passed quality check. Initiating refund to your account...</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {returnDetails.returnStatus === "qc_failed" && (
+                  <div className="bg-rose-50 rounded-2xl p-4 border border-rose-100">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-rose-100 flex items-center justify-center">
+                        <AlertCircle size={16} className="text-rose-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-rose-900">Quality Check Failed</p>
+                        <p className="text-xs text-rose-700">{returnDetails.returnQcNote || "Item did not match acceptable return conditions."}</p>
+                      </div>
+                    </div>
+                  </div>
                 )}
 
                 {returnDetails.returnStatus === "return_rejected" && (
