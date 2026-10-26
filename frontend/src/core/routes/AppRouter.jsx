@@ -199,6 +199,38 @@ const AppRouter = () => {
                     element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="privacy" audience="delivery" /></Suspense>,
                 },
                 {
+                    path: 'privacy/seller',
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="privacy" audience="seller" /></Suspense>,
+                },
+                {
+                    path: 'terms/seller',
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="terms" audience="seller" /></Suspense>,
+                },
+                {
+                    path: 'privacy/delivery',
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="privacy" audience="delivery" /></Suspense>,
+                },
+                {
+                    path: 'terms/delivery',
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="terms" audience="delivery" /></Suspense>,
+                },
+                {
+                    path: 'terms',
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="terms" audience="customer" /></Suspense>,
+                },
+                {
+                    path: 'terms-and-conditions',
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="terms" audience="customer" /></Suspense>,
+                },
+                {
+                    path: 'privacy',
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="privacy" audience="customer" /></Suspense>,
+                },
+                {
+                    path: 'privacy-policy',
+                    element: <Suspense fallback={<PageSkeleton variant="rows" />}><DynamicLegalPage type="privacy" audience="customer" /></Suspense>,
+                },
+                {
                     path: 'delivery/support',
                     element: <Suspense fallback={<PageSkeleton variant="rows" />}><DeliveryHelpSupport /></Suspense>,
                 },

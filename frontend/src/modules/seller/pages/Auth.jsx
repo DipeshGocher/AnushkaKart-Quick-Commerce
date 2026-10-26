@@ -1316,6 +1316,28 @@ const Auth = () => {
                   </div>
                 )}
 
+                {!isLogin && signupStep === 3 && (
+                  <p className="text-[11px] text-slate-500 text-center leading-relaxed px-1">
+                    By submitting your application, you agree to the{" "}
+                    <a
+                      href="/seller/terms"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#6666FF] hover:underline font-semibold">
+                      Seller Terms & Conditions
+                    </a>{" "}
+                    and{" "}
+                    <a
+                      href="/seller/privacy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#6666FF] hover:underline font-semibold">
+                      Seller Privacy Policy
+                    </a>
+                    .
+                  </p>
+                )}
+
                 <div className="flex gap-3 pt-2">
                   {!isLogin && signupStep > 1 && (
                     <button
@@ -1345,7 +1367,7 @@ const Auth = () => {
               </form>
               )}
 
-              <div className="mt-6 text-center">
+              <div className="mt-6 text-center space-y-3">
                 <p className="text-slate-500 text-xs font-medium">
                   {isLogin ? "New to the platform? " : "Already part of us? "}
                   <button
@@ -1370,6 +1392,23 @@ const Auth = () => {
                     {isLogin ? "Register Store" : "Sign In"}
                   </button>
                 </p>
+                <div className="flex items-center justify-center gap-3 text-[11px] text-slate-400">
+                  <a
+                    href="/seller/terms"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-slate-600 underline">
+                    Seller Terms
+                  </a>
+                  <span>•</span>
+                  <a
+                    href="/seller/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-slate-600 underline">
+                    Seller Privacy Policy
+                  </a>
+                </div>
               </div>
 
       {isMapOpen && (

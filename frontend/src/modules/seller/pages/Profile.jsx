@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   User,
@@ -781,7 +782,7 @@ const SellerProfile = () => {
                 </div>
               </div>
 
-              <div className="pt-2">
+              <div className="pt-2 space-y-2">
                 <div className="p-3 rounded-xl bg-gradient-to-r from-[#6666FF]/10 to-blue-500/10 border border-white/10 flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-[#6666FF]/20 text-[#6666FF] shrink-0">
                     <Shield size={16} />
@@ -789,6 +790,15 @@ const SellerProfile = () => {
                   <p className="text-[11px] text-slate-300 font-medium leading-tight">
                     256-Bit Encrypted Data & Store Identity Verification Active
                   </p>
+                </div>
+                <div className="flex items-center justify-between gap-2 px-1 text-xs font-bold text-slate-400">
+                  <Link to="/seller/terms" target="_blank" className="hover:text-white transition-colors underline">
+                    Seller Terms
+                  </Link>
+                  <span>•</span>
+                  <Link to="/seller/privacy" target="_blank" className="hover:text-white transition-colors underline">
+                    Seller Privacy Policy
+                  </Link>
                 </div>
               </div>
             </div>

@@ -16,6 +16,8 @@ import {
   ChevronDown,
   ChevronUp,
   AlertTriangle,
+  ScrollText,
+  Shield,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Button from "@/shared/components/ui/Button";
@@ -188,6 +190,20 @@ const Profile = () => {
               sub="FAQs, Chat support"
               path="/delivery/profile/help-support"
               badgeBg="bg-emerald-50/80 border-emerald-100/70 text-emerald-700"
+          />
+          <MenuItem
+              icon={ScrollText}
+              label="Terms & Conditions"
+              sub="Delivery Partner Agreement & Policies"
+              path="/delivery/terms"
+              badgeBg="bg-indigo-50/80 border-indigo-100/70 text-indigo-700"
+          />
+          <MenuItem
+              icon={Shield}
+              label="Privacy Policy"
+              sub="Location tracking & Rider data protection"
+              path="/delivery/privacy"
+              badgeBg="bg-blue-50/80 border-blue-100/70 text-blue-700"
           />
         </div>
 
