@@ -2,6 +2,7 @@ import Wishlist from "../models/wishlist.js";
 import Product from "../models/product.js";
 import handleResponse from "../utils/helper.js";
 import { getApprovedOrLegacyFilter } from "../services/productModerationService.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 const CUSTOMER_VISIBLE_PRODUCT_MATCH = {
   status: "active",
@@ -82,7 +83,7 @@ export const getWishlist = async (req, res) => {
 
     return handleResponse(res, 200, "Wishlist fetched successfully", wishlist);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -121,7 +122,7 @@ export const addToWishlist = async (req, res) => {
       updatedWishlist,
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -153,7 +154,7 @@ export const removeFromWishlist = async (req, res) => {
       updatedWishlist,
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -193,6 +194,6 @@ export const toggleWishlist = async (req, res) => {
 
     return handleResponse(res, 200, message, updatedWishlist);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };

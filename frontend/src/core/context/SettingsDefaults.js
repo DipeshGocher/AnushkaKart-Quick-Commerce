@@ -1,14 +1,14 @@
 /** Default fallbacks when settings are not yet loaded or API fails */
 export const DEFAULT_SETTINGS = {
-  appName: "AnushkaStore",
+  appName: "Anushka Connect",
   supportEmail: "",
   supportPhone: "",
   whatsappNumber: "8209224481",
   currencySymbol: "₹",
   currencyCode: "INR",
   timezone: "Asia/Kolkata",
-  logoUrl: "/logo.png",
-  faviconUrl: "/logo.png",
+  logoUrl: "/logo.png?v=connect",
+  faviconUrl: "/logo.png?v=connect",
   primaryColor: "#FF5722",
   secondaryColor: "#0047AB",
   companyName: "",
@@ -49,54 +49,40 @@ export const DEFAULT_SETTINGS = {
   footerDescription: "Your daily dose of fresh, organic, and healthy products delivered straight to your door. Freshness guaranteed.",
   footerQuickLinksTitle: "Quick Links",
   footerQuickLinks: [
-    { label: "Home", url: "/" },
-    { label: "About Us", url: "/about" },
-    { label: "Shop Products", url: "/products" },
-    { label: "Special Offers", url: "/offers" },
-    { label: "Contact & Help", url: "/support" },
+    { label: "About Us", href: "/about" },
+    { label: "Privacy Policy", href: "/privacy-policy" },
+    { label: "Terms of Use", href: "/terms" },
   ],
-  footerCategoriesTitle: "Categories",
+  footerCategoriesTitle: "Top Categories",
   footerCategoriesLinks: [
-    { label: "All Categories", url: "/categories" },
-    { label: "Groceries & Daily Essentials", url: "/category/Grocery" },
-    { label: "Fashion & Apparel", url: "/category/Fashion" },
-    { label: "Electronics & Gadgets", url: "/category/Electronics" },
-    { label: "Home & Kitchen Appliances", url: "/category/Home%20Appliances" },
+    { label: "Dairy & Bakery", href: "/category/dairy" },
+    { label: "Fruits & Veggies", href: "/category/fruits" },
+    { label: "Snacks", href: "/category/snacks" },
   ],
-  footerContactTitle: "Contact Us",
+  footerContactTitle: "Get in Touch",
   footerCopyright: "",
-  footerPrivacyUrl: "/privacy",
-  footerTermsUrl: "/terms-and-conditions",
-  footerBgColor: "",
+  footerPrivacyUrl: "/privacy-policy",
+  footerTermsUrl: "/terms",
+  footerBgColor: "#051838",
   footerEnabled: true,
-  deliveryBadgeText: "30 min",
-  deliveryBadgeImage: "",
-  deliveryBadgeBg: "linear-gradient(135deg, #ff9f43 0%, #ff793f 100%)",
-  deliveryBadgeEnabled: true,
-
 };
 
 /**
- * Applies theme CSS variables to document root from settings.
+ * Applies primary and secondary theme colors to document root via CSS variables.
+ * Calculates luminance-based contrast color (white or black) for high readability.
  */
-export function applyThemeVariables(settings) {
-  if (!settings) return;
+export function applyThemeColors(settings = {}) {
+  if (typeof document === "undefined") return;
   const root = document.documentElement;
-  const primary = settings.primaryColor || DEFAULT_SETTINGS.primaryColor;
-  const secondary = settings.secondaryColor || DEFAULT_SETTINGS.secondaryColor;
-  
-  root.style.setProperty("--primary", primary);
-  root.style.setProperty("--secondary", secondary);
-  root.style.setProperty("--primary-color", primary);
-  root.style.setProperty("--secondary-color", secondary);
 
-  // Calculate high-contrast foreground color
-  if (primary && !primary.startsWith("var")) {
-    const hex = primary.replace("#", "");
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+  if (settings.primaryColor) {
+    root.style.setProperty("--primary", settings.primaryColor);
+
+    const hex = settings.primaryColor.replace("#", "");
+    const r = parseInt(hex.substring(0, 2), 16) || 0;
+    const g = parseInt(hex.substring(2, 4), 16) || 0;
+    const b = parseInt(hex.substring(4, 6), 16) || 0;
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
     const contrastColor = yiq >= 160 ? "#000000" : "#FFFFFF";
     root.style.setProperty("--primary-foreground", contrastColor);
   }
@@ -107,28 +93,34 @@ export function applyThemeVariables(settings) {
   }
 }
 
+export const applyThemeVariables = applyThemeColors;
+
 /**
  * Updates dynamic browser favicon across all icon link tags.
  * Replaces tags and adds cache-buster so browsers immediately refresh tab icon.
  */
 export function applyFavicon(faviconUrl) {
   if (typeof document === 'undefined') return;
-  const url = (faviconUrl && String(faviconUrl).trim()) || '/logo.png';
+  const url = (faviconUrl && String(faviconUrl).trim()) || '/logo.png?v=connect';
   if (!url) return;
 
   try {
     const existingLinks = document.querySelectorAll("link[rel*='icon'], link[rel='apple-touch-icon']");
     existingLinks.forEach(el => el.remove());
 
-    const cacheBuster = url.startsWith('data:') ? url : `${url}${url.includes('?') ? '&' : '?'}v=${Date.now()}`;
+    const cacheBuster = url.startsWith('data:')
+      ? url
+      : `${url}${url.includes('?') ? '&' : '?'}v=connect_${Date.now()}`;
 
     const link = document.createElement('link');
     link.rel = 'icon';
+    link.type = 'image/png';
     link.href = cacheBuster;
     document.head.appendChild(link);
 
     const shortcut = document.createElement('link');
     shortcut.rel = 'shortcut icon';
+    shortcut.type = 'image/png';
     shortcut.href = cacheBuster;
     document.head.appendChild(shortcut);
 
@@ -140,5 +132,3 @@ export function applyFavicon(faviconUrl) {
     console.error("Failed to apply favicon:", e);
   }
 }
-
-

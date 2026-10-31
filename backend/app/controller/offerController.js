@@ -1,5 +1,6 @@
 import Offer from "../models/offer.js";
 import handleResponse from "../utils/helper.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 export const getPublicOffers = async (req, res) => {
   try {
@@ -10,7 +11,7 @@ export const getPublicOffers = async (req, res) => {
 
     return handleResponse(res, 200, "Offers fetched successfully", offers);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -29,7 +30,7 @@ export const getAdminOffers = async (req, res) => {
 
     return handleResponse(res, 200, "Admin offers fetched", offers);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -117,7 +118,7 @@ export const deleteOffer = async (req, res) => {
 
     return handleResponse(res, 200, "Offer deleted");
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -145,7 +146,7 @@ export const reorderOffers = async (req, res) => {
 
     return handleResponse(res, 200, "Offers reordered");
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 

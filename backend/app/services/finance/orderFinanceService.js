@@ -19,6 +19,7 @@ import {
   updateCashInHand,
 } from "./walletService.js";
 import { createPendingPayoutForOrder } from "./payoutService.js";
+import { computeOverallSettlement } from "./settlementStatus.js";
 
 function toOrderIdQuery(orderOrId) {
   if (!orderOrId) return null;
@@ -54,25 +55,6 @@ async function findOrderForUpdate(orderOrId, session) {
     }
   }
   return order;
-}
-
-function computeOverallSettlement(order) {
-  const settlement = order.settlementStatus || {};
-  const sellerDone = settlement.sellerPayout === "COMPLETED";
-  const riderDone =
-    settlement.riderPayout === "COMPLETED" ||
-    settlement.riderPayout === "NOT_APPLICABLE";
-  const adminDone = Boolean(settlement.adminEarningCredited);
-
-  if (sellerDone && riderDone && adminDone) {
-    settlement.overall = ORDER_SETTLEMENT_STATUS.COMPLETED;
-    if (!settlement.reconciledAt) settlement.reconciledAt = new Date();
-  } else if (sellerDone || riderDone || adminDone) {
-    settlement.overall = ORDER_SETTLEMENT_STATUS.PARTIAL;
-  } else {
-    settlement.overall = ORDER_SETTLEMENT_STATUS.PENDING;
-  }
-  return settlement;
 }
 
 function syncLegacyPricing(order) {
@@ -601,7 +583,21 @@ export async function settleDeliveredOrder(orderOrId, { actorId = null } = {}) {
         sellerPayout: "HOLD",
       };
     }
-    await createPendingRiderPayout(order, { session, actorId });
+    if (order.paymentMode === "COD") {
+      // On COD the rider keeps their commission out of the collected cash
+      // (handleCodOrderFinance only books gross minus commission as owed), so
+      // queuing a payout as well would pay them twice.
+      order.financeFlags = {
+        ...(order.financeFlags || {}),
+        riderPayoutQueued: true,
+      };
+      order.settlementStatus = {
+        ...(order.settlementStatus || {}),
+        riderPayout: order.deliveryBoy ? "COMPLETED" : "NOT_APPLICABLE",
+      };
+    } else {
+      await createPendingRiderPayout(order, { session, actorId });
+    }
     await creditAdminEarning(order, { session, actorId });
 
     order.financeFlags = {

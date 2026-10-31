@@ -6,6 +6,7 @@ import {
   loginAdminSchema,
   validateSchema,
 } from "../validation/adminAuthValidation.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 const PUBLIC_ADMIN_SIGNUP_ENABLED = () =>
   process.env.ENABLE_PUBLIC_ADMIN_SIGNUP === "true";
@@ -69,7 +70,7 @@ export const bootstrapAdmin = async (req, res) => {
       admin: sanitizeAdmin(admin),
     });
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -103,7 +104,7 @@ export const signupAdmin = async (req, res) => {
       admin: sanitizeAdmin(admin),
     });
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -130,6 +131,6 @@ export const loginAdmin = async (req, res) => {
       admin: sanitizeAdmin(admin),
     });
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };

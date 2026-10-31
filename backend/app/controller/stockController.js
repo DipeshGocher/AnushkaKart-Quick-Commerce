@@ -7,6 +7,7 @@ import {
     createLowStockAlertCandidate,
     isLowStockAlertsEnabled,
 } from "../services/lowStockAlertService.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 /* ===============================
    ADJUST STOCK MANUALLY
@@ -73,7 +74,7 @@ export const adjustStock = async (req, res) => {
         });
 
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -103,6 +104,6 @@ export const getStockHistory = async (req, res) => {
         })));
 
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };

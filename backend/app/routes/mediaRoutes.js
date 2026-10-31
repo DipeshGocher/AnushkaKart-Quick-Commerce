@@ -9,6 +9,7 @@ import {
   uploadToCloudinary,
 } from "../services/mediaService.js";
 import logger from "../services/logger.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -95,7 +96,7 @@ async function handleCreateUploadIntent(req, res) {
       message: error.message,
       userId: req.user?.id,
     });
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 }
 
@@ -144,7 +145,7 @@ router.post("/upload", verifyToken, upload.single("file"), async (req, res) => {
       message: error.message,
       userId: req.user?.id,
     });
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 });
 
@@ -207,7 +208,7 @@ router.post("/confirm", verifyToken, async (req, res) => {
       userId: req.user?.id,
       intentId: req.body?.intentId,
     });
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 });
 
@@ -233,7 +234,7 @@ router.delete("/*publicId", verifyToken, async (req, res) => {
       userId: req.user?.id,
       publicId: req.params?.publicId,
     });
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 });
 

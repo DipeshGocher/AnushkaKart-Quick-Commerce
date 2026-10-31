@@ -833,7 +833,7 @@ const CategoryProductsPage = () => {
               {searchQuery.trim() ? (
                 <div className="flex-1 min-w-0 pr-2">
                   <p className="text-xs text-slate-600 truncate">
-                    Search in <span className="font-bold text-slate-800">{selectedSubCategory?.name || activeMainCategory?.name || 'Category'}</span>: "{searchQuery}"
+                    Search in <span className="font-bold text-slate-800">{selectedSubCategory?.name || activeMainCategory?.name || 'Category'}</span>: &quot;{searchQuery}&quot;
                   </p>
                   <p className="text-[11px] text-slate-500 font-medium">
                     Found {totalProductsCount > 0 ? totalProductsCount : products.length} items
@@ -997,7 +997,7 @@ const CategoryProductsPage = () => {
                 )}
                 {page >= totalPages && products.length > 0 && (
                   <div className="w-full pb-24 pt-2 flex items-center justify-center text-xs text-slate-400 font-medium">
-                    <span>You've reached the end of this catalog</span>
+                    <span>You&apos;ve reached the end of this catalog</span>
                   </div>
                 )}
               </>

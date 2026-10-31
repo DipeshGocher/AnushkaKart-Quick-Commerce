@@ -323,7 +323,7 @@ const InfoRow = ({ label, value, accent }) => (
 );
 
 const GPSNote = () => (
-  <p style={S.note}>📍 Your GPS location will be verified to ensure you're at the warehouse.</p>
+  <p style={S.note}>📍 Your GPS location will be verified to ensure you&apos;re at the warehouse.</p>
 );
 
 const LoadingScreen = () => (

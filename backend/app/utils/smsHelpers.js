@@ -29,7 +29,7 @@ export function buildMessage(otp) {
     process.env.SMS_INDIA_HUB_TEMPLATE_TEXT ||
       "Your OTP is {{OTP}}. Valid for {{MINUTES}} minutes.",
   );
-  const appName = String(process.env.APP_NAME || "Anushka Store").trim();
+  const appName = String(process.env.APP_NAME || "Anushka Connect").trim();
 
   // Primary replacements for common tags
   let msg = template

@@ -303,7 +303,7 @@ const CategoryHierarchy = () => {
                 <div className="p-8 text-center text-gray-400 text-sm">
                   No Level 2 categories in <br />
                   <span className="font-bold text-gray-600">
-                    "{selectedHeader.name}"
+                    &quot;{selectedHeader.name}&quot;
                   </span>
                 </div>
               ) : (
@@ -355,7 +355,7 @@ const CategoryHierarchy = () => {
                 <div className="p-8 text-center text-gray-400 text-sm">
                   No subcategories in <br />
                   <span className="font-bold text-gray-600">
-                    "{selectedLevel2.name}"
+                    &quot;{selectedLevel2.name}&quot;
                   </span>
                 </div>
               ) : (

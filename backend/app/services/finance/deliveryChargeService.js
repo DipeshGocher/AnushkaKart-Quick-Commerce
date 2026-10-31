@@ -7,8 +7,12 @@
  * @returns {number} The calculated customer delivery charge
  */
 export const calculateCustomerDeliveryCharge = ({ distanceKm, settings = {} }) => {
-  const isFixed = settings.customerPricingType === "fixed" || settings.deliveryPricingMode === "fixed_price";
-  if (isFixed) {
+  // customerFixedCharge is what the admin Billing Charges page edits; fixedDeliveryFee
+  // is always populated (schema default), so it must only win in legacy fixed_price mode.
+  if (settings.customerPricingType === "fixed") {
+    return Number(settings.customerFixedCharge ?? settings.fixedDeliveryFee ?? 0);
+  }
+  if (settings.deliveryPricingMode === "fixed_price") {
     return Number(settings.fixedDeliveryFee ?? settings.customerFixedCharge ?? 0);
   }
 

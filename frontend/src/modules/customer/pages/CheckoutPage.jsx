@@ -57,7 +57,7 @@ const CheckoutPage = () => {
   const { showToast } = useToast();
   const { user, isAuthenticated } = useAuth();
   const { settings } = useSettings();
-  const appName = settings?.storeName || settings?.brandName || "Anushka Store";
+  const appName = settings?.storeName || settings?.brandName || "Anushka Connect";
 
   const {
     savedAddresses: locationSavedAddresses,
@@ -752,87 +752,87 @@ const CheckoutPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA] pb-28 font-sans select-none">
+    <div className="min-h-screen bg-[#F5F7FA] pb-[calc(10rem+env(safe-area-inset-bottom,0px))] font-sans select-none">
       {/* ── 1. Top Header with 3-Step Progress Bar — Matches Image 1 ── */}
       <header className="bg-white sticky top-0 z-40 border-b border-slate-100 shadow-2xs">
-        <div className="max-w-xl mx-auto px-4 py-3 flex items-center gap-3">
+        <div className="max-w-xl mx-auto px-3 py-2 sm:py-2.5 flex items-center gap-2">
           <button
             type="button"
             onClick={handleBack}
             className="p-1 -ml-1 text-slate-800 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
             aria-label="Go Back"
           >
-            <ChevronLeft size={24} className="stroke-[2.2]" />
+            <ChevronLeft size={20} className="stroke-[2.2]" />
           </button>
-          <h1 className="text-[17px] font-bold text-slate-900 tracking-tight">
+          <h1 className="text-[15px] font-bold text-slate-900 tracking-tight">
             Confirm details
           </h1>
         </div>
 
         {/* Stepper Progress Bar */}
-        <div className="max-w-xl mx-auto px-8 pb-3 pt-1">
+        <div className="max-w-xl mx-auto px-6 pb-2 pt-0.5">
           <div className="flex items-center justify-between relative">
             {/* Step 1: Address (Done) */}
             <div className="flex flex-col items-center gap-1 z-10">
-              <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xs">
-                <Check size={14} strokeWidth={3} />
+              <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                <Check size={11} strokeWidth={3} />
               </div>
-              <span className="text-[11px] font-semibold text-slate-700">Address</span>
+              <span className="text-[10px] font-semibold text-slate-700">Address</span>
             </div>
 
             {/* Connecting Line 1-2 (Active Blue) */}
-            <div className="flex-1 h-0.5 bg-blue-600 -mt-4 mx-2" />
+            <div className="flex-1 h-0.5 bg-blue-600 -mt-3.5 mx-1.5" />
 
             {/* Step 2: Confirm details (Current Active) */}
             <div className="flex flex-col items-center gap-1 z-10">
-              <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[12px] shadow-xs">
+              <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[10.5px] shadow-xs">
                 2
               </div>
-              <span className="text-[11px] font-bold text-blue-900">Confirm details</span>
+              <span className="text-[10px] font-bold text-blue-900">Confirm details</span>
             </div>
 
             {/* Connecting Line 2-3 (Inactive Grey) */}
-            <div className="flex-1 h-0.5 bg-slate-200 -mt-4 mx-2" />
+            <div className="flex-1 h-0.5 bg-slate-200 -mt-3.5 mx-1.5" />
 
             {/* Step 3: Payment (Next Step) */}
             <div className="flex flex-col items-center gap-1 z-10">
-              <div className="w-6 h-6 rounded-full border-2 border-slate-300 text-slate-400 flex items-center justify-center font-bold text-[12px] bg-white">
+              <div className="w-5 h-5 rounded-full border-2 border-slate-300 text-slate-400 flex items-center justify-center font-bold text-[10.5px] bg-white">
                 3
               </div>
-              <span className="text-[11px] font-medium text-slate-400">Payment</span>
+              <span className="text-[10px] font-medium text-slate-400">Payment</span>
             </div>
           </div>
         </div>
       </header>
 
       {/* ── Main Content Container ── */}
-      <main className="max-w-xl mx-auto px-4 pt-3.5 space-y-3.5">
+      <main className="max-w-xl mx-auto px-3 sm:px-4 pt-2.5 space-y-2.5">
         {/* ── 2. Delivering to Section — Matches Image 1 ── */}
         <section className="space-y-2">
-          <h2 className="text-[15px] font-bold text-slate-900 tracking-tight">
+          <h2 className="text-[13px] sm:text-[14px] font-bold text-slate-900 tracking-tight">
             Delivering to
           </h2>
-          <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs space-y-2">
+          <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs space-y-1.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Home size={18} className="text-slate-800" />
-                <span className="font-bold text-[14.5px] text-slate-900">
+                <Home size={15} className="text-slate-800" />
+                <span className="font-bold text-[13px] text-slate-900">
                   {displayName}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAddressModalOpen(true)}
-                className="text-[13px] font-bold text-blue-600 hover:text-blue-700 transition cursor-pointer"
+                className="text-[12px] font-bold text-blue-600 hover:text-blue-700 transition cursor-pointer"
               >
                 Change
               </button>
             </div>
-            <p className="text-[12.5px] text-slate-600 leading-relaxed font-normal">
+            <p className="text-[11.5px] text-slate-600 leading-relaxed font-normal">
               {displayAddress}
             </p>
             {displayPhone && (
-              <div className="flex items-center gap-1.5 text-[12.5px] text-slate-700 font-medium pt-0.5">
+              <div className="flex items-center gap-1.5 text-[11.5px] text-slate-700 font-medium pt-0.5">
                 <Phone size={13} className="text-slate-500" />
                 <span>{displayPhone}</span>
               </div>
@@ -841,7 +841,7 @@ const CheckoutPage = () => {
         </section>
 
         {/* ── 3. Buy Now / Cart Order Item Card — Matches Image 1 ── */}
-        <section className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs space-y-3">
+        <section className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs space-y-2.5">
           {hasMixedFulfillment && (
             <div className="bg-blue-50/70 border border-blue-200/70 rounded-xl p-3 flex items-start gap-2.5 text-xs text-blue-950 mb-1">
               <Sparkles size={16} className="text-blue-600 shrink-0 mt-0.5" />
@@ -873,7 +873,7 @@ const CheckoutPage = () => {
               <div key={item.id || item._id || idx} className="space-y-3">
                 <div className="flex gap-3.5">
                   {/* Thumbnail Image */}
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-slate-100 flex items-center justify-center overflow-hidden shrink-0 p-1 border border-slate-100">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg bg-slate-100 flex items-center justify-center overflow-hidden shrink-0 p-1 border border-slate-100">
                     {item.image ? (
                       <img
                         src={applyCloudinaryTransform(item.image, "f_auto,q_auto,w_240")}
@@ -892,11 +892,11 @@ const CheckoutPage = () => {
                         Top Discount of the Sale
                       </p>
                     )}
-                    <h3 className="text-[13.5px] font-semibold text-slate-900 line-clamp-1 leading-snug">
+                    <h3 className="text-[12.5px] sm:text-[13.5px] font-semibold text-slate-900 line-clamp-1 leading-snug">
                       {item.name}
                     </h3>
                     {(item.variantName || item.unit) && (
-                      <p className="text-[12px] text-slate-500 font-medium mt-0.5">
+                      <p className="text-[11px] text-slate-500 font-medium mt-0.5">
                         {item.variantName ? `Size: ${item.variantName}` : `Unit: ${item.unit}`}
                       </p>
                     )}
@@ -912,7 +912,7 @@ const CheckoutPage = () => {
                     {/* Price Row: Discount % + MRP + Selling Price */}
                     <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                       {itemDiscount && (
-                        <span className="text-[13px] font-bold text-emerald-700 flex items-center">
+                        <span className="text-[11.5px] sm:text-[13px] font-bold text-emerald-700 flex items-center">
                           ↓{itemDiscount}%
                         </span>
                       )}
@@ -921,7 +921,7 @@ const CheckoutPage = () => {
                           ₹{itemOriginalPrice.toLocaleString('en-IN')}
                         </span>
                       )}
-                      <span className="text-[15px] font-bold text-slate-900">
+                      <span className="text-[14px] sm:text-[15px] font-bold text-slate-900">
                         ₹{itemSellingPrice.toLocaleString('en-IN')}
                       </span>
                     </div>
@@ -932,17 +932,17 @@ const CheckoutPage = () => {
                         <button
                           type="button"
                           onClick={() => handleItemDecrement(item)}
-                          className="w-7 h-7 flex items-center justify-center text-slate-700 hover:bg-slate-50 active:scale-90 transition cursor-pointer"
+                          className="w-6 h-6 flex items-center justify-center text-slate-700 hover:bg-slate-50 active:scale-90 transition cursor-pointer"
                         >
                           <Minus size={13} strokeWidth={2.5} />
                         </button>
-                        <span className="w-8 text-center text-xs font-bold text-slate-900">
+                        <span className="w-6 text-center text-[11px] font-bold text-slate-900">
                           {item.quantity}
                         </span>
                         <button
                           type="button"
                           onClick={() => handleItemIncrement(item)}
-                          className="w-7 h-7 flex items-center justify-center text-slate-700 hover:bg-slate-50 active:scale-90 transition cursor-pointer"
+                          className="w-6 h-6 flex items-center justify-center text-slate-700 hover:bg-slate-50 active:scale-90 transition cursor-pointer"
                         >
                           <Plus size={13} strokeWidth={2.5} />
                         </button>
@@ -1008,7 +1008,7 @@ const CheckoutPage = () => {
         </section>
 
         {/* ── 4. Savings Zone Card — Matches Image 1 ── */}
-        <section className="bg-blue-50/70 rounded-2xl p-3.5 border border-blue-200/70 shadow-2xs space-y-2">
+        <section className="bg-blue-50/70 rounded-xl p-2.5 border border-blue-200/70 shadow-2xs space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-blue-600 text-white">
               WOW!
@@ -1020,7 +1020,7 @@ const CheckoutPage = () => {
           <button
             type="button"
             onClick={() => setIsCouponModalOpen(true)}
-            className="w-full bg-white rounded-xl p-3 border border-blue-100 flex items-center justify-between hover:bg-blue-50/50 transition cursor-pointer shadow-2xs"
+            className="w-full bg-white rounded-lg p-2.5 border border-blue-100 flex items-center justify-between hover:bg-blue-50/50 transition cursor-pointer shadow-2xs"
           >
             <div className="flex items-center gap-2">
               <Tag size={16} className="text-blue-600" />
@@ -1034,10 +1034,10 @@ const CheckoutPage = () => {
 
         {/* ── 5. Price Details Card — Matches Image 2 ── */}
         <section className="space-y-2">
-          <h2 className="text-[15px] font-bold text-slate-900 tracking-tight">
+          <h2 className="text-[13px] sm:text-[14px] font-bold text-slate-900 tracking-tight">
             Price Details
           </h2>
-          <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs space-y-3">
+          <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs space-y-2">
             <div className="flex items-center justify-between text-[13.5px]">
               <span className="text-slate-600 font-medium">ITEM TOTAL</span>
               <span className="text-slate-900 font-medium">₹{itemTotal}</span>
@@ -1112,7 +1112,7 @@ const CheckoutPage = () => {
             {totalSavings > 0 && (
               <div className="bg-emerald-50 rounded-xl px-3 py-2 border border-emerald-200/80 flex items-center gap-2 text-emerald-800 text-[12.5px] font-bold">
                 <Sparkles size={15} className="text-emerald-600 shrink-0" />
-                <span>You'll Save ₹{totalSavings} on this order</span>
+                <span>You&apos;ll Save ₹{totalSavings} on this order</span>
               </div>
             )}
           </div>
@@ -1127,7 +1127,7 @@ const CheckoutPage = () => {
         </div>
 
         <p className="text-[11px] text-slate-400 px-2 leading-relaxed">
-          By proceeding, you confirm that you're above 18 years of age and you agree to {appName}'s{" "}
+          By proceeding, you confirm that you&apos;re above 18 years of age and you agree to {appName}&apos;s{" "}
           <Link to="/terms" className="text-blue-600 underline">
             Terms of Use
           </Link>{" "}
@@ -1139,20 +1139,25 @@ const CheckoutPage = () => {
       </main>
 
       {/* ── 7. Sticky Bottom Action Bar with Continue Button — Matches Image 3 ── */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200/90 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] z-50">
+      <div 
+        className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200/90 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] z-50"
+        style={{
+          paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))'
+        }}
+      >
         {totalSavings > 0 && (
-          <div className="bg-emerald-50 border-b border-emerald-100 py-1.5 px-4 text-center text-[12px] font-bold text-emerald-800 flex items-center justify-center gap-1.5">
-            <span>You'll save ₹{totalSavings} on this order</span>
+          <div className="bg-emerald-50 border-b border-emerald-100 py-1 px-4 text-center text-[11px] font-bold text-emerald-800 flex items-center justify-center gap-1.5">
+            <span>You&apos;ll save ₹{totalSavings} on this order</span>
           </div>
         )}
-        <div className="max-w-xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+        <div className="max-w-xl mx-auto px-3 sm:px-4 pt-2 pb-1 flex items-center justify-between gap-3">
           <div>
             {totalMRP > finalAmountToPay && (
-              <span className="text-[12px] text-slate-400 line-through block leading-none">
+              <span className="text-[11px] text-slate-400 line-through block leading-none">
                 ₹{totalMRP}
               </span>
             )}
-            <span className="text-[19px] font-black text-slate-900 tracking-tight leading-tight">
+            <span className="text-[16px] sm:text-[17px] font-black text-slate-900 tracking-tight leading-tight">
               ₹{finalAmountToPay}
             </span>
           </div>
@@ -1162,7 +1167,7 @@ const CheckoutPage = () => {
             onClick={handleContinueToPayment}
             disabled={isContinueDisabled}
             className={cn(
-              "font-extrabold text-[15px] px-8 py-3 rounded-xl shadow-md transition-all flex-1 max-w-[220px] flex items-center justify-center gap-2 select-none",
+              "font-extrabold text-[13.5px] sm:text-[14px] px-6 py-2.5 rounded-lg sm:rounded-xl shadow-md transition-all flex-1 max-w-[180px] flex items-center justify-center gap-1.5 select-none",
               isContinueDisabled
                 ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
                 : "bg-[#FFC200] hover:bg-[#F5B800] active:scale-95 text-slate-900 shadow-amber-200/50 cursor-pointer"

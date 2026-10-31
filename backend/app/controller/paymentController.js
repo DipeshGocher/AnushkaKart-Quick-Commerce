@@ -10,6 +10,7 @@ import {
   validateSchema,
 } from "../validation/paymentValidation.js";
 import logger from "../services/logger.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 function resolvePaymentErrorMessage(error) {
   const directMessage = String(error?.message || "").trim();
@@ -84,7 +85,7 @@ export const verifyPaymentStatus = async (req, res) => {
       payment: verification.payment,
     });
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -99,7 +100,7 @@ export const handleRazorpayWebhook = async (req, res) => {
           correlationId: req.correlationId || null,
           ip: req.ip,
         });
-        return res.status(401).send("Unauthorized");
+        return handleResponse(res, 401, "Missing webhook signature");
     }
 
     const result = await processGatewayWebhook({
@@ -109,10 +110,10 @@ export const handleRazorpayWebhook = async (req, res) => {
     });
 
     if (result.accepted) {
-      return res.status(200).send("OK");
+      return handleResponse(res, 200, "Webhook accepted");
     }
-    
-    return res.status(400).send("Bad Request");
+
+    return handleResponse(res, 400, "Webhook rejected");
   } catch (error) {
     logger.error("Razorpay webhook processing failed", {
       scope: "PaymentController.handleRazorpayWebhook",
@@ -120,8 +121,10 @@ export const handleRazorpayWebhook = async (req, res) => {
       message: error?.message,
       error,
     });
-    return res.status(error?.statusCode === 401 ? 401 : 500)
-      .send(error?.statusCode === 401 ? "Unauthorized" : "Internal Server Error");
+    // A 5xx makes Razorpay retry; the message stays generic on purpose.
+    return error?.statusCode === 401
+      ? handleResponse(res, 401, "Invalid webhook signature")
+      : handleResponse(res, 500, "Webhook processing failed");
   }
 };
 
@@ -143,6 +146,6 @@ export const getPaymentStatus = async (req, res) => {
           currency: verification.payment.currency,
         });
       } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
       }
 };

@@ -1,6 +1,6 @@
-import React, { useEffect } from "react";
+import React, { useEffect, Suspense } from "react";
+import PageSkeleton from "@/shared/components/PageSkeleton";
 import { Routes, Route, Navigate } from "react-router-dom";
-import DashboardLayout from "@shared/layout/DashboardLayout";
 import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
 import Orders from "../pages/Orders";
 import {
@@ -15,6 +15,10 @@ import {
   HiOutlineMapPin,
   HiOutlineBuildingStorefront,
 } from "react-icons/hi2";
+
+// Lazy so the panel shell (sidebar, topbar, icon sets) stays out of the
+// customer-facing main bundle.
+const DashboardLayout = React.lazy(() => import("@shared/layout/DashboardLayout"));
 
 const Dashboard = React.lazy(() => import("../pages/Dashboard"));
 const ProductManagement = React.lazy(() => import("../pages/ProductManagement"));
@@ -53,6 +57,7 @@ const WarehouseRoutes = () => {
   }, []);
 
   return (
+    <Suspense fallback={<PageSkeleton variant="dashboard" />}>
     <DashboardLayout navItems={navItems} title="Warehouse Panel">
       <Routes>
         <Route path="/" element={<Dashboard />} />
@@ -73,6 +78,7 @@ const WarehouseRoutes = () => {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </DashboardLayout>
+    </Suspense>
   );
 };
 

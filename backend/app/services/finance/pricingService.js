@@ -263,12 +263,15 @@ export function calculateRiderPayout(distanceKm, deliverySettings = {}) {
   const basePayout = Number(deliverySettings.riderBaseEarning ?? deliverySettings.riderBasePayout ?? 0);
   const extraPerKm = Number(deliverySettings.riderExtraPerKm ?? deliverySettings.deliveryPartnerRatePerKm ?? 0);
 
-  const roundedExtraKm = normalizedDistance > baseDistance ? Math.ceil(normalizedDistance - baseDistance) : 0;
+  const isFixed = deliverySettings.riderEarningType === "fixed" || deliverySettings.deliveryPricingMode === "fixed_price";
+  const roundedExtraKm = !isFixed && normalizedDistance > baseDistance ? Math.ceil(normalizedDistance - baseDistance) : 0;
   const riderPayoutDistance = roundedExtraKm * extraPerKm;
   const payout = calculateRiderEarning({ distanceKm: normalizedDistance, settings: deliverySettings });
 
+  // Callers rebuild the total from base + distance + bonus, so in fixed mode the
+  // whole payout has to sit in the base component.
   return {
-    riderPayoutBase: basePayout,
+    riderPayoutBase: isFixed ? payout : basePayout,
     riderPayoutDistance,
     riderPayoutBonus: 0,
     riderPayoutTotal: payout,

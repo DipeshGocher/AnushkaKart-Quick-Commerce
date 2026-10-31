@@ -25,10 +25,10 @@ const ROLE_TO_STORAGE_KEY = {
 // itself encodes the intended role. The primary source is the activeRoleStore.
 function tokenForRequestUrl(url) {
     if (!url) return null;
-    if (url.startsWith('/seller')) return getStoredAuthToken(STORAGE_KEYS.AUTH_SELLER);
-    if (url.startsWith('/admin')) return getStoredAuthToken(STORAGE_KEYS.AUTH_ADMIN);
-    if (url.startsWith('/delivery')) return getStoredAuthToken(STORAGE_KEYS.AUTH_DELIVERY);
-    if (url.startsWith('/warehouse')) return getStoredAuthToken(STORAGE_KEYS.AUTH_WAREHOUSE);
+    if (url.startsWith('/seller') || url.includes('/seller/')) return getStoredAuthToken(STORAGE_KEYS.AUTH_SELLER);
+    if (url.startsWith('/admin') || url.includes('/admin/')) return getStoredAuthToken(STORAGE_KEYS.AUTH_ADMIN);
+    if (url.startsWith('/delivery') || url.includes('/delivery/')) return getStoredAuthToken(STORAGE_KEYS.AUTH_DELIVERY);
+    if (url.startsWith('/warehouse') || url.includes('/warehouse/')) return getStoredAuthToken(STORAGE_KEYS.AUTH_WAREHOUSE);
     if (
         url.startsWith('/customer') ||
         url.startsWith('/cart') ||

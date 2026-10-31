@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useLocation as useCustomerLocation } from "../context/LocationContext";
+import { useOptionalLocation } from "../context/LocationContext";
 import {
   loadLocalPincodes,
   evaluateProductDelivery,
@@ -12,13 +12,8 @@ import {
  * @returns {Object} { isDeliverable, canAddToCart, badge, warning, deliveryEstimate, fulfillmentType, customerPincode }
  */
 export function useDeliveryEligibility(product) {
-  let locationCtx = null;
-  try {
-    locationCtx = useCustomerLocation();
-  } catch (e) {
-    // Graceful fallback if invoked outside LocationProvider
-    locationCtx = null;
-  }
+  // Null when rendered outside LocationProvider.
+  const locationCtx = useOptionalLocation();
   const currentLocation = locationCtx?.currentLocation;
   const [pincodesReady, setPincodesReady] = useState(false);
 

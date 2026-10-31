@@ -52,7 +52,7 @@ const VEHICLE_TYPES = [
 const DeliveryAuth = () => {
   const navigate = useNavigate();
   const { settings } = useSettings();
-  const appName = settings?.appName || "AnushkaStore";
+  const appName = settings?.appName || "Anushka Connect";
   const logoUrl = settings?.logoUrl || "/logo.png";
   const { login, authData } = useAuth();
 

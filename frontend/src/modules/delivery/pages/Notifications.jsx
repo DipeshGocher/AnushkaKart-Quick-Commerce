@@ -184,7 +184,7 @@ const Notifications = () => {
                 <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Bell size={40} className="text-gray-300" />
                 </div>
-                <h3 className="ds-h3 text-gray-900 mb-2">You're All Caught Up!</h3>
+                <h3 className="ds-h3 text-gray-900 mb-2">You&apos;re All Caught Up!</h3>
                 <p className="text-gray-500 text-sm max-w-[200px] mx-auto">
                   New notifications will appear here automatically.
                 </p>

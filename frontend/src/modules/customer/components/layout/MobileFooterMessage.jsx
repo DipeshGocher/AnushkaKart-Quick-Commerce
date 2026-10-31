@@ -3,7 +3,7 @@ import { useSettings } from '@core/context/SettingsContext';
 
 const MobileFooterMessage = () => {
     const { settings } = useSettings();
-    const appName = settings?.appName || 'Anushka Store';
+    const appName = settings?.appName || 'Anushka Connect';
 
     return (
         <div className="md:hidden w-full flex flex-col items-center mt-6 pt-0 pb-24 px-6 bg-transparent">

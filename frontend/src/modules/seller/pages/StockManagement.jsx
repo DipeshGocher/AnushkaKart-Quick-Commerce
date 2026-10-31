@@ -28,7 +28,7 @@ import { MagicCard } from '@/components/ui/magic-card';
 import { sellerApi } from '../services/sellerApi';
 import { toast } from 'sonner';
 
-const StockTableRow = React.memo(({ item, onAdjust }) => {
+const StockTableRow = React.memo(function StockTableRow({ item, onAdjust }) {
     return (
         <tr className="group hover:bg-slate-50/80 transition-colors cursor-default">
             <td className="px-6 py-5">

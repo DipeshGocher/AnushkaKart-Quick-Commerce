@@ -1,26 +1,30 @@
-import React, { useEffect } from "react";
+import React, { useEffect, Suspense } from "react";
 import { Navigate } from "react-router-dom";
-import DeliveryLayout from "../layout/DeliveryLayout";
 import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
-import Splash from "../pages/Splash";
+import PageSkeleton from "@/shared/components/PageSkeleton";
+import NotFoundPage from "@/shared/components/NotFoundPage";
+// Already in the main bundle via AppRouter, so keep it eager.
 import DeliveryAuth from "../pages/DeliveryAuth";
-import Dashboard from "../pages/Dashboard";
-import OrderDetails from "../pages/OrderDetails";
-import Navigation from "../pages/Navigation";
-import DeliveryConfirmation from "../pages/DeliveryConfirmation";
-import EarningsPage from "../pages/EarningsPage";
-import CodCash from "../pages/CodCash";
-import OrderHistory from "../pages/OrderHistory";
-import Profile from "../pages/Profile";
-import PersonalDetails from "../pages/profile/PersonalDetails";
-import VehicleInfo from "../pages/profile/VehicleInfo";
-import BankAccount from "../pages/profile/BankAccount";
-import Documents from "../pages/profile/Documents";
-import SafetyPrivacy from "../pages/profile/SafetyPrivacy";
-import HelpSupport from "../pages/profile/HelpSupport";
-import Withdrawals from "../pages/profile/Withdrawals";
-import Notifications from "../pages/Notifications";
-import WarehouseCheckin from "../pages/WarehouseCheckin";
+
+// The rider app is code-split so customers don't download it on first load.
+const DeliveryLayout = React.lazy(() => import("../layout/DeliveryLayout"));
+const Dashboard = React.lazy(() => import("../pages/Dashboard"));
+const OrderDetails = React.lazy(() => import("../pages/OrderDetails"));
+const Navigation = React.lazy(() => import("../pages/Navigation"));
+const DeliveryConfirmation = React.lazy(() => import("../pages/DeliveryConfirmation"));
+const EarningsPage = React.lazy(() => import("../pages/EarningsPage"));
+const CodCash = React.lazy(() => import("../pages/CodCash"));
+const OrderHistory = React.lazy(() => import("../pages/OrderHistory"));
+const Profile = React.lazy(() => import("../pages/Profile"));
+const PersonalDetails = React.lazy(() => import("../pages/profile/PersonalDetails"));
+const VehicleInfo = React.lazy(() => import("../pages/profile/VehicleInfo"));
+const BankAccount = React.lazy(() => import("../pages/profile/BankAccount"));
+const Documents = React.lazy(() => import("../pages/profile/Documents"));
+const SafetyPrivacy = React.lazy(() => import("../pages/profile/SafetyPrivacy"));
+const HelpSupport = React.lazy(() => import("../pages/profile/HelpSupport"));
+const Withdrawals = React.lazy(() => import("../pages/profile/Withdrawals"));
+const Notifications = React.lazy(() => import("../pages/Notifications"));
+const WarehouseCheckin = React.lazy(() => import("../pages/WarehouseCheckin"));
 
 export const deliveryRoutes = [
   { index: true, element: <Navigate to="dashboard" replace /> },
@@ -44,7 +48,7 @@ export const deliveryRoutes = [
   { path: "profile/cod-cash", element: <CodCash /> },
   { path: "notifications", element: <Notifications /> },
   { path: "warehouse-checkin", element: <WarehouseCheckin /> },
-  { path: "*", element: <Navigate to="/delivery/dashboard" replace /> },
+  { path: "*", element: <NotFoundPage /> },
 ];
 
 const DeliveryRoutes = () => {
@@ -52,7 +56,11 @@ const DeliveryRoutes = () => {
     setActiveRole(ROLES.DELIVERY);
   }, []);
 
-  return <DeliveryLayout />;
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <DeliveryLayout />
+    </Suspense>
+  );
 };
 
 export default DeliveryRoutes;

@@ -295,7 +295,7 @@ const LiveTrackingMap = memo(({
             Searching for delivery partner{dots}
           </h3>
           <p className="text-sm text-gray-500 mt-1 font-medium">
-            Hang tight! We're finding the best rider near you.
+            Hang tight! We&apos;re finding the best rider near you.
           </p>
         </div>
 

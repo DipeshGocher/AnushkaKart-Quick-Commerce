@@ -761,7 +761,7 @@ const OrderDetails = () => {
                       <p className="text-[10px] uppercase font-bold text-brand-200 mb-1">Reason for return</p>
                       <p className="text-xs text-white leading-relaxed line-clamp-2">{order.returnReason}</p>
                       {order.returnReasonDetail && (
-                        <p className="text-[10px] text-brand-100 italic mt-1 line-clamp-2">"{order.returnReasonDetail}"</p>
+                        <p className="text-[10px] text-brand-100 italic mt-1 line-clamp-2">&quot;{order.returnReasonDetail}&quot;</p>
                       )}
 
                       {order.returnImages?.length > 0 && (

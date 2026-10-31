@@ -7,8 +7,6 @@ const InvoiceModal = ({ isOpen, onClose, order }) => {
     const { settings } = useSettings();
     const appName = settings?.appName || 'App';
     const primaryColor = settings?.primaryColor || 'var(--primary)';
-    if (!order) return null;
-
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
@@ -19,6 +17,8 @@ const InvoiceModal = ({ isOpen, onClose, order }) => {
             document.body.style.overflow = 'unset';
         };
     }, [isOpen]);
+
+    if (!order) return null;
 
     const handlePrint = () => {
         window.print();
@@ -62,7 +62,7 @@ const InvoiceModal = ({ isOpen, onClose, order }) => {
                                         <p className="text-xs text-slate-500 mt-1 truncate">{settings?.companyName || 'Quick Commerce'}<br />{settings?.address || '—'}</p>
                                         <div className="mt-4">
                                             <p className="text-sm font-bold text-slate-800">Order ID: <span className="font-medium text-slate-600 break-all">#{order.orderId || order.id}</span></p>
-                                            <p className="text-sm font-bold text-slate-800">Date: <span className="font-medium text-slate-600">{new Date(order.createdAt || Date.now()).toLocaleDateString()}</span></p>
+                                            <p className="text-sm font-bold text-slate-800">Date: <span className="font-medium text-slate-600">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : "—"}</span></p>
                                         </div>
                                     </div>
                                     <div className="text-right shrink-0">

@@ -5,6 +5,7 @@ import { sendSmsIndiaHubOtp } from "../services/smsIndiaHubService.js";
 import { generateOTP, useRealSMS } from "../utils/otp.js";
 import { uploadToCloudinary } from "../services/mediaService.js";
 import { clearRiderPresence } from "../services/firebaseService.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 const generateToken = (delivery) =>
     jwt.sign(
@@ -107,7 +108,7 @@ export const signupDelivery = async (req, res) => {
 
         return handleResponse(res, 200, "OTP sent successfully", { otp });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -149,7 +150,8 @@ export const loginDelivery = async (req, res) => {
         return handleResponse(res, 200, "OTP sent successfully", { otp });
     } catch (error) {
         console.error("loginDelivery Error:", error);
-        return handleResponse(res, 500, error.message, { stack: error.stack });
+        // The stack is logged above; never send it to the client.
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -193,7 +195,7 @@ export const verifyDeliveryOTP = async (req, res) => {
             delivery,
         });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -208,7 +210,7 @@ export const getDeliveryProfile = async (req, res) => {
         }
         return handleResponse(res, 200, "Profile fetched successfully", delivery);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -286,7 +288,7 @@ export const updateDeliveryProfile = async (req, res) => {
 
         return handleResponse(res, 200, "Profile updated successfully", delivery);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -329,7 +331,7 @@ export const uploadDeliveryDocument = async (req, res) => {
             delivery,
         });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -357,7 +359,7 @@ export const deleteDeliveryAccount = async (req, res) => {
 
         return handleResponse(res, 200, "Account deleted successfully");
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 

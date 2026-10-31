@@ -1,5 +1,6 @@
 import LegalPage from "../models/legalPage.js";
 import { handleResponse } from "../utils/helper.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 /**
  * GET /api/legal?type=terms|privacy
@@ -31,7 +32,7 @@ export const getPublicLegalPage = async (req, res) => {
             exists: true,
         });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -65,6 +66,6 @@ export const upsertLegalPage = async (req, res) => {
 
         return handleResponse(res, 200, "Legal page saved successfully", page);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };

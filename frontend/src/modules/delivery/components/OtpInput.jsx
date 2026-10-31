@@ -377,7 +377,7 @@ const OtpInput = ({ orderId, isReturn = false, isReturnDrop = false, onSuccess, 
       {/* Help Text */}
       <div className="bg-brand-50 border border-brand-200 rounded-xl p-3">
         <p className="text-xs text-brand-800 text-center">
-          💡 The customer will see this OTP on their app when you're nearby
+          💡 The customer will see this OTP on their app when you&apos;re nearby
         </p>
       </div>
     </div>

@@ -15,6 +15,7 @@ export const sellerApi = {
     createProduct: (data) => axiosInstance.post('/products', data),
     updateProduct: (id, data) => axiosInstance.put(`/products/${id}`, data),
     deleteProduct: (id) => axiosInstance.delete(`/products/${id}`),
+    bulkDeleteProducts: (productIds) => axiosInstance.post("/products/bulk-delete", { productIds }),
 
     // Categories (Public)
     getCategories: (params) => axiosInstance.get('/admin/categories', { params }),

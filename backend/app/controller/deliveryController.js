@@ -23,6 +23,7 @@ import {
     getDeliveryCodCashSummary as getDeliveryCodCashSummaryFromService,
 } from "../services/delivery/deliveryEarningsService.js";
 import { buildKey, del } from "../services/cacheService.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 /* ===============================
    GET DELIVERY DASHBOARD STATS
@@ -32,7 +33,7 @@ export const getDeliveryStats = async (req, res) => {
         const result = await getDeliveryStatsFromService(req.user.id);
         return handleResponse(res, 200, "Stats fetched", result);
     } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -45,7 +46,7 @@ export const getDeliveryEarnings = async (req, res) => {
         const result = await getDeliveryEarningsFromService(req.user.id, timeframe, date);
         return handleResponse(res, 200, "Earnings fetched", result);
     } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -58,7 +59,7 @@ export const getDeliveryCodCashSummary = async (req, res) => {
         const result = await getDeliveryCodCashSummaryFromService(rawId);
         return handleResponse(res, 200, "COD cash summary fetched", result);
     } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -182,7 +183,7 @@ export const submitDeliveryCodCashToAdmin = async (req, res) => {
             message: "Show this deposit reference to the Hub Manager to verify & settle cash.",
         });
     } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -343,7 +344,7 @@ export const getMyDeliveryOrders = async (req, res) => {
 
         return handleResponse(res, 200, "Delivery orders fetched", tasks);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -403,7 +404,7 @@ export const requestWithdrawal = async (req, res) => {
 
         return handleResponse(res, 201, "Withdrawal request submitted successfully", withdrawal);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -477,7 +478,7 @@ export const getDeliveryWithdrawals = async (req, res) => {
             transactions: history,
         });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -597,7 +598,7 @@ export const updateDeliveryLocation = async (req, res) => {
             activeOrderId,
         });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 /*

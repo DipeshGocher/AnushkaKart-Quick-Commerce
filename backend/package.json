@@ -1,12 +1,12 @@
 {
   "name": "anushka-Store-backend",
   "version": "1.0.0",
-  "description": "Anushka Store - Backend API",
+  "description": "Anushka Connect - Backend API",
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "node api.js && nodemon index.js",
-    "start": "node api.js && node index.js",
+    "dev": "node init && nodemon index.js",
+    "start": "node init && node index.js",
     "worker": "node worker.js",
     "scheduler": "node scheduler.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",

@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import admin from "firebase-admin";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -10,22 +11,51 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 let firebaseAdminApp = null;
 
 /**
- * Returns a firebase-admin app when FIREBASE_SERVICE_ACCOUNT (JSON string)
- * is set. FIREBASE_DATABASE_URL is optional (required only for Realtime DB).
+ * Reads the service account from, in order:
+ *  - FIREBASE_SERVICE_ACCOUNT: the JSON itself
+ *  - FIREBASE_SERVICE_ACCOUNT_BASE64: base64 of the JSON (single-line, safe for hosting dashboards)
+ *  - GOOGLE_APPLICATION_CREDENTIALS: path to the downloaded key file
+ * Returns null when none is configured.
+ */
+function loadServiceAccount() {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (raw && raw.trim()) {
+    try {
+      return JSON.parse(raw);
+    } catch (error) {
+      // Some .env loaders escape double quotes as \"; only retry that way when
+      // the raw value is not valid JSON, so a correct key is never rewritten.
+      return JSON.parse(raw.replace(/\\"/g, '"'));
+    }
+  }
+
+  const base64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+  if (base64 && base64.trim()) {
+    return JSON.parse(Buffer.from(base64.trim(), "base64").toString("utf8"));
+  }
+
+  const filePath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (filePath && filePath.trim()) {
+    return JSON.parse(fs.readFileSync(path.resolve(filePath.trim()), "utf8"));
+  }
+
+  return null;
+}
+
+/**
+ * Returns a firebase-admin app when a service account is configured (see
+ * loadServiceAccount). FIREBASE_DATABASE_URL is optional (Realtime DB only).
  */
 export const getFirebaseAdminApp = () => {
   if (firebaseAdminApp) return firebaseAdminApp;
 
-  const json = process.env.FIREBASE_SERVICE_ACCOUNT;
   const databaseURL = process.env.FIREBASE_DATABASE_URL;
-  if (!json) {
-    return null;
-  }
 
   try {
-    // Some .env loaders escape double quotes as \", which breaks JSON.parse
-    const cleanJson = json.replace(/\\"/g, '"');
-    const serviceAccount = JSON.parse(cleanJson);
+    const serviceAccount = loadServiceAccount();
+    if (!serviceAccount) {
+      return null;
+    }
     if (serviceAccount.private_key) {
       serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
     }

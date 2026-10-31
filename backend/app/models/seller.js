@@ -29,6 +29,12 @@ const sellerSchema = new mongoose.Schema(
       select: false,
     },
 
+    slug: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      index: true,
+    },
     shopName: {
       type: String,
       required: true,
@@ -155,6 +161,13 @@ const sellerSchema = new mongoose.Schema(
       type: Number,
       default: 5, // Default 5km
     },
+    storeBanners: [
+      {
+        imageUrl: { type: String, trim: true, default: "" },
+        title: { type: String, trim: true, default: "" },
+        linkUrl: { type: String, trim: true, default: "" },
+      },
+    ],
     lastLogin: Date,
   },
   { timestamps: true },
@@ -165,6 +178,15 @@ sellerSchema.index({ isActive: 1, isVerified: 1 });
 
 // Hash password before saving
 sellerSchema.pre("save", async function (next) {
+  if (!this.slug || this.isModified("shopName")) {
+    const raw = String(this.shopName || this.name || "store")
+      .toLowerCase()
+      .trim()
+      .replace(/['’]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    this.slug = raw || `store-${this._id ? this._id.toString().slice(-6) : Date.now()}`;
+  }
   if (!this.isModified("password")) return next();
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);

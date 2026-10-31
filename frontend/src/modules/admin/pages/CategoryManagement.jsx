@@ -870,7 +870,7 @@ const CategoryManagement = () => {
 
                                         <div className="max-h-40 overflow-y-auto space-y-1.5 p-2 bg-slate-50 border border-slate-100 rounded-xl">
                                             {allAttributes.length === 0 ? (
-                                                <p className="text-[11px] text-slate-400 p-2">No global attributes found. Click 'New Attribute' to create one.</p>
+                                                <p className="text-[11px] text-slate-400 p-2">No global attributes found. Click &apos;New Attribute&apos; to create one.</p>
                                             ) : (
                                                 allAttributes.map((attr) => {
                                                     const mappedItem = (formData.mappedAttributes || []).find(
@@ -1025,7 +1025,7 @@ const CategoryManagement = () => {
                         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="w-full max-w-md relative z-10 bg-white rounded-xl p-4 text-center shadow-2xl">
                             <div className="h-20 w-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6"><AlertTriangle className="h-10 w-10" /></div>
                             <h3 className="text-xl font-bold text-slate-900 uppercase tracking-tight">Irreversible Action</h3>
-                            <p className="text-slate-500 text-xs font-bold mt-2 leading-relaxed uppercase tracking-tight">You are deleting <span className="text-rose-600">"{deleteTarget?.name}"</span>. This will destroy all linked categories and products within this group.</p>
+                            <p className="text-slate-500 text-xs font-bold mt-2 leading-relaxed uppercase tracking-tight">You are deleting <span className="text-rose-600">&quot;{deleteTarget?.name}&quot;</span>. This will destroy all linked categories and products within this group.</p>
                             <div className="flex gap-3 mt-8">
                                 <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 py-4 rounded-xl text-xs font-black tracking-widest text-slate-400 hover:bg-slate-50 uppercase">Abort</button>
                                 <button onClick={handleDelete} className="flex-1 py-4 rounded-xl text-xs font-black tracking-widest bg-rose-500 text-white shadow-xl hover:bg-rose-600 transition-colors uppercase">Destroy</button>

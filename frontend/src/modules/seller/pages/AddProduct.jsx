@@ -1212,7 +1212,7 @@ const AddProduct = () => {
                   <option value="both">🔄 Both (Local + Shiprocket)</option>
                 </select>
                 <p className="text-[11px] text-slate-500 break-words">
-                  'Follow Category' uses the category's default delivery rule. Set 'Quick Only' for perishables (milk/veggies) and 'Both' for electronics/fashion.
+                  &apos;Follow Category&apos; uses the category&apos;s default delivery rule. Set &apos;Quick Only&apos; for perishables (milk/veggies) and &apos;Both&apos; for electronics/fashion.
                 </p>
               </div>
             </div>
@@ -1309,7 +1309,7 @@ const AddProduct = () => {
                     <div>
                       <p className="text-xs font-bold text-slate-700">No details added yet</p>
                       <p className="text-[11px] text-slate-400 mt-0.5">
-                        Click 'Add Field' above or select any quick suggestion to add attributes.
+                        Click &apos;Add Field&apos; above or select any quick suggestion to add attributes.
                       </p>
                     </div>
                     <button

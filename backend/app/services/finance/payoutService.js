@@ -11,7 +11,8 @@ import {
   LEDGER_TRANSACTION_TYPE,
   LEDGER_DIRECTION,
 } from "../../constants/finance.js";
-import { getOrCreateWallet } from "./walletService.js";
+import { getOrCreateWallet, debitWallet } from "./walletService.js";
+import { computeOverallSettlement } from "./settlementStatus.js";
 import { createLedgerEntry } from "./ledgerService.js";
 
 const roundCurrency = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
@@ -33,11 +34,14 @@ export async function createPendingPayoutForOrder({
   amount,
   remarks = "Automatic payout creation on delivery.",
   metadata = {},
-}) {
+}, { session: externalSession } = {}) {
   if (!order || !beneficiaryId || amount <= 0) return null;
 
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  // Join the caller's transaction when given one, so the payout rolls back
+  // with the settlement that created it.
+  const ownsSession = !externalSession;
+  const session = externalSession || (await mongoose.startSession());
+  if (ownsSession) session.startTransaction();
 
   try {
     const existing = await Payout.findOne({
@@ -47,7 +51,7 @@ export async function createPendingPayoutForOrder({
     }).session(session);
 
     if (existing) {
-      await session.abortTransaction();
+      if (ownsSession) await session.abortTransaction();
       return existing;
     }
 
@@ -91,13 +95,13 @@ export async function createPendingPayoutForOrder({
       { session },
     );
 
-    await session.commitTransaction();
+    if (ownsSession) await session.commitTransaction();
     return payout[0];
   } catch (error) {
-    await session.abortTransaction();
+    if (ownsSession) await session.abortTransaction();
     throw error;
   } finally {
-    session.endSession();
+    if (ownsSession) session.endSession();
   }
 }
 
@@ -116,6 +120,39 @@ export async function processPayout(payoutId, { remarks = "", adminId = null } =
     const wallet = await getOrCreateWallet(ownerType, payout.beneficiaryId, { session });
 
     const amount = roundCurrency(payout.amount);
+
+    // Payouts are paid from funds the platform holds, so they leave the admin
+    // wallet. debitWallet enforces the balance and writes the
+    // *_PAYOUT_PROCESSED ledger row in the same transaction.
+    if (amount > 0) {
+      try {
+        await debitWallet({
+          ownerType: OWNER_TYPE.ADMIN,
+          ownerId: null,
+          amount,
+          session,
+          ledgerType:
+            payout.payoutType === PAYOUT_TYPE.SELLER
+              ? LEDGER_TRANSACTION_TYPE.SELLER_PAYOUT_PROCESSED
+              : LEDGER_TRANSACTION_TYPE.RIDER_PAYOUT_PROCESSED,
+          ledgerReference: String(payout._id),
+          ledgerDescription: `${payout.payoutType} payout processed`,
+          orderId: payout.relatedOrderIds?.length === 1 ? payout.relatedOrderIds[0] : null,
+          payoutId: payout._id,
+          syncUserWalletBalance: false,
+        });
+      } catch (error) {
+        if (/Insufficient/i.test(error.message)) {
+          const err = new Error(
+            "Insufficient platform balance to process this payout. Reconcile pending COD cash first.",
+          );
+          err.statusCode = 409;
+          throw err;
+        }
+        throw error;
+      }
+    }
+
     if (wallet.pendingBalance < amount) {
       console.warn(`[Payout] Warning: Pending balance (${wallet.pendingBalance}) less than payout (${amount}) for ${ownerType} ${payout.beneficiaryId}`);
     }
@@ -141,6 +178,7 @@ export async function processPayout(payoutId, { remarks = "", adminId = null } =
         order.settlementStatus = { ...(order.settlementStatus || {}), riderPayout: "COMPLETED" };
         order.financeFlags = { ...(order.financeFlags || {}), riderPayoutQueued: true };
       }
+      order.settlementStatus = computeOverallSettlement(order);
       await order.save({ session });
     }
 
@@ -295,6 +333,25 @@ export const bulkProcessPayouts = async ({
   const results = [];
   for (const id of targets) {
     try {
+      // Seller payouts on return-window HOLD are released only by
+      // returnWindowReleaseJob or cancelled by the return flow; paying them here
+      // would leave nothing to cancel if the customer later returns the order.
+      const target = await Payout.findById(id).select("payoutType relatedOrderIds").lean();
+      if (
+        target?.payoutType === PAYOUT_TYPE.SELLER &&
+        (await Order.exists({
+          _id: { $in: target.relatedOrderIds || [] },
+          "settlementStatus.sellerPayout": "HOLD",
+        }))
+      ) {
+        results.push({
+          payoutId: String(id),
+          status: "SKIPPED",
+          reason: "Seller payout is on hold until the return window closes",
+        });
+        continue;
+      }
+
       const payout = await processPayout(id, { remarks, adminId });
       results.push({
         payoutId: String(payout._id),
@@ -313,6 +370,7 @@ export const bulkProcessPayouts = async ({
     total: results.length,
     completed: results.filter((row) => row.status === "COMPLETED").length,
     failed: results.filter((row) => row.status === "FAILED").length,
+    skipped: results.filter((row) => row.status === "SKIPPED").length,
     results,
   };
 }

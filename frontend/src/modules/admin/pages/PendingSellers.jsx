@@ -348,7 +348,7 @@ const PendingSellers = () => {
                                             <div className="pt-6 border-t border-slate-200">
                                                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Application Memo</h4>
                                                 <p className="text-xs font-medium text-slate-600 italic leading-relaxed">
-                                                    "{viewingSeller.description}"
+                                                    &quot;{viewingSeller.description}&quot;
                                                 </p>
                                             </div>
                                         </div>

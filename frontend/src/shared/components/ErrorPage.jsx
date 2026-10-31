@@ -17,7 +17,7 @@ const ErrorPage = () => {
                 
                 <h1 className="text-3xl font-black text-slate-800 mb-4 tracking-tight">Oops! Something went wrong</h1>
                 <p className="text-slate-500 mb-8 leading-relaxed font-medium">
-                    We encountered an unexpected error. Don't worry, our team has been notified.
+                    We encountered an unexpected error. Don&apos;t worry, our team has been notified.
                 </p>
 
                 {isDev && (

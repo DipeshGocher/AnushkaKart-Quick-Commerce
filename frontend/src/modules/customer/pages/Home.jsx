@@ -24,6 +24,7 @@ import quickCommerceBanner from "@/assets/quick_commerce_banner.png";
 import ForYouProductsSection from "../components/home/ForYouProductsSection";
 import HeaderCategoryPageView from "../components/home/HeaderCategoryPageView";
 import PageSkeleton from '@/shared/components/PageSkeleton';
+import NotFoundPage from '@/shared/components/NotFoundPage';
 import { getDefaultHomeHeroBanners } from '@shared/constants/homeHeroDefaults';
 import { clearAllCache, invalidateCache } from "@core/api/dedupe";
 
@@ -58,7 +59,7 @@ const EMPTY_HERO_CONFIG = {
 const homePageDataCache = new Map();
 const heroConfigMemoryCache = {};
 
-const HOME_PAGE_PERSISTENT_CACHE_KEY = "anushkakart:home_cache:v8";
+const HOME_PAGE_PERSISTENT_CACHE_KEY = "anushkakart:home_cache:v9";
 
 const readPersistentHomeCache = (key) => {
   try {
@@ -165,12 +166,13 @@ const Home = () => {
   const [displayCategories, setDisplayCategories] = useState(categories);
   const [displayCategoryMap, setDisplayCategoryMap] = useState(categoryMap);
   const [displaySubcategoryMap, setDisplaySubcategoryMap] = useState(subcategoryMap);
+  const [isCategoryNotFound, setIsCategoryNotFound] = useState(false);
 
   // Synchronize activeCategory with URL route :headerSlug
   useEffect(() => {
-    if (!categories || categories.length <= 1) return;
-
     if (!headerSlug || headerSlug.toLowerCase() === 'all') {
+      setIsCategoryNotFound(false);
+      if (!categories || categories.length <= 1) return;
       const allCat = categories.find((c) => c._id === 'all' || c.id === 'all' || c.slug === 'all') || ALL_CATEGORY;
       setActiveCategory((prev) => {
         if (String(prev?._id || prev?.id) === String(allCat._id || allCat.id)) return prev;
@@ -179,25 +181,37 @@ const Home = () => {
       return;
     }
 
-    const targetSlug = slugify(headerSlug);
-    const matchedCategory = categories.find((c) => {
-      const catSlug = slugify(c.slug || c.name || '');
-      return catSlug === targetSlug;
-    });
-
-    if (matchedCategory) {
-      setActiveCategory((prev) => {
-        if (
-          String(prev?._id || prev?.id) === String(matchedCategory._id || matchedCategory.id) &&
-          prev?.headerColor === matchedCategory?.headerColor &&
-          prev?.headerFontColor === matchedCategory?.headerFontColor
-        ) {
-          return prev;
-        }
-        return matchedCategory;
-      });
+    const cleanHeader = String(headerSlug || '').toLowerCase();
+    const reservedModuleKeywords = ['admin', 'seller', 'delivery', 'warehouse', 'unauthorized', 'login', 'signup', 'orders', 'cart', 'checkout', 'profile', 'settings', 'wishlist'];
+    if (reservedModuleKeywords.includes(cleanHeader)) {
+      setIsCategoryNotFound(true);
+      return;
     }
-  }, [headerSlug, categories]);
+
+    if (!isLoading && categories && categories.length > 0) {
+      const targetSlug = slugify(cleanHeader);
+      const matchedCategory = categories.find((c) => {
+        const catSlug = slugify(c.slug || c.name || '');
+        return catSlug === targetSlug;
+      });
+
+      if (matchedCategory) {
+        setIsCategoryNotFound(false);
+        setActiveCategory((prev) => {
+          if (
+            String(prev?._id || prev?.id) === String(matchedCategory._id || matchedCategory.id) &&
+            prev?.headerColor === matchedCategory?.headerColor &&
+            prev?.headerFontColor === matchedCategory?.headerFontColor
+          ) {
+            return prev;
+          }
+          return matchedCategory;
+        });
+      } else {
+        setIsCategoryNotFound(true);
+      }
+    }
+  }, [headerSlug, categories, isLoading]);
 
   // Reset activeCategory to "All" when Home tab is clicked in BottomNav
   useEffect(() => {
@@ -389,9 +403,16 @@ const Home = () => {
         setSubcategoryMap(subMap);
       }
 
-      partialHomeData.fetchedAt = Date.now();
-      setIsLoading(false);
-      applyHomePageData(partialHomeData, { cacheKey, persist: true });
+      if (catRes?.data?.success && partialHomeData.formattedHeaders?.length > 0) {
+        partialHomeData.fetchedAt = Date.now();
+        setIsLoading(false);
+        applyHomePageData(partialHomeData, { cacheKey, persist: true });
+      } else {
+        if (cached && cached.categories?.length > 1) {
+          applyHomePageData(cached, { cacheKey, persist: false });
+        }
+        setIsLoading(false);
+      }
     } catch (error) {
       console.error("Error fetching home data:", error);
     } finally {
@@ -400,6 +421,17 @@ const Home = () => {
   };
 
   useEffect(() => { fetchData(); }, [currentLocation?.latitude, currentLocation?.longitude]);
+
+  // Auto-refresh home data when network connection is restored
+  useEffect(() => {
+    const handleNetworkRestored = () => {
+      homePageDataCache.clear();
+      clearAllCache();
+      fetchData({ forceRefresh: true });
+    };
+    window.addEventListener("app:network-restored", handleNetworkRestored);
+    return () => window.removeEventListener("app:network-restored", handleNetworkRestored);
+  }, [currentLocation]);
 
   // Auto-retry if initial fetch happened while backend was still starting up (only "All" category present)
   useEffect(() => {
@@ -557,6 +589,10 @@ const Home = () => {
     }
   };
 
+  if (isCategoryNotFound) {
+    return <NotFoundPage />;
+  }
+
   return (
     <div
       className="min-h-screen bg-white pt-[194px] sm:pt-[200px] md:pt-[168px]"
@@ -661,7 +697,7 @@ const Home = () => {
               >
                 <img
                   src={bannerImg}
-                  alt={allBanner?.title || "Anushka Store Quick Commerce - Daily Essentials Delivered in Minutes"}
+                  alt={allBanner?.title || "Anushka Connect Quick Commerce - Daily Essentials Delivered in Minutes"}
                   className="w-full h-auto max-h-[220px] object-cover block"
                   loading="lazy"
                   decoding="async"

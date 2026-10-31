@@ -93,7 +93,7 @@ const OtpInputExample = () => {
             <div>
               <strong className="text-gray-900">4. Mobile Optimization:</strong>
               <p className="mt-1">
-                Uses inputMode="numeric" for mobile numeric keyboard.
+                Uses inputMode=&quot;numeric&quot; for mobile numeric keyboard.
                 Supports paste for quick entry.
               </p>
             </div>

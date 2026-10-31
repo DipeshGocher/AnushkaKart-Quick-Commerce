@@ -18,6 +18,7 @@ import {
 import { notify } from "./notification.service.js";
 import { NOTIFICATION_EVENTS } from "./notification.constants.js";
 import { deliverNotificationById } from "./notification.worker.js";
+import { getErrorStatus } from "../../utils/httpError.js";
 
 function resolveRole(req) {
   return normalizeNotificationRole(req?.user?.role);
@@ -185,7 +186,7 @@ export const registerPushToken = async (req, res) => {
       },
     });
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -208,7 +209,7 @@ export const removePushToken = async (req, res) => {
       deletedTokens: Number(result.deletedCount || 0),
     });
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -247,7 +248,7 @@ export const getNotifications = async (req, res) => {
       totalPages: Math.ceil(total / limit) || 1,
     });
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -284,7 +285,7 @@ export const markNotificationsRead = async (req, res) => {
       modifiedCount: Number(result.modifiedCount || 0),
     });
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -304,7 +305,7 @@ export const getNotificationPreferences = async (req, res) => {
 
     return handleResponse(res, 200, "Notification preferences fetched", preference);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -338,7 +339,7 @@ export const updateNotificationPreferences = async (req, res) => {
 
     return handleResponse(res, 200, "Notification preferences updated", preference);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -367,7 +368,7 @@ export const testPushNotification = async (req, res) => {
       skipped: Number(result?.skipped || 0),
     });
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -418,7 +419,7 @@ export const getTestPushNotificationStatus = async (req, res) => {
       },
     });
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -539,7 +540,7 @@ export const broadcastNotification = async (req, res) => {
       failed,
     });
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -568,7 +569,7 @@ export const getBroadcastAudienceStats = async (req, res) => {
 
     return handleResponse(res, 200, "Audience stats fetched", result);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 

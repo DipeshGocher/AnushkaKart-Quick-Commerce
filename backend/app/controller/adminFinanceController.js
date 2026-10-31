@@ -23,13 +23,14 @@ import {
   updateDeliverySettingsSchema,
 } from "../validation/financeValidation.js";
 import { validateBodySafe as validateWithJoi } from "../middleware/validate.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 export const getAdminFinanceSummaryController = async (req, res) => {
   try {
     const summary = await getAdminFinanceSummary();
     return handleResponse(res, 200, "Admin finance summary fetched", summary);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -42,7 +43,7 @@ export const getAdminFinanceLedgerController = async (req, res) => {
     const ledger = await getLedgerEntries(validated.value);
     return handleResponse(res, 200, "Finance ledger fetched", ledger);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -116,7 +117,7 @@ export const getAdminFinancePayoutsController = async (req, res) => {
       totalPages: Math.ceil(total / safeLimit) || 1,
     });
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -137,7 +138,7 @@ export const processAdminFinancePayoutsController = async (req, res) => {
 
     return handleResponse(res, 200, "Payout processing completed", result);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -151,7 +152,7 @@ export const exportAdminFinanceStatementController = async (req, res) => {
     );
     return res.status(200).send(statement.csv);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -160,7 +161,7 @@ export const getDeliverySettingsController = async (req, res) => {
     const settings = await getOrCreateFinanceSettings();
     return handleResponse(res, 200, "Delivery finance settings fetched", settings);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -181,7 +182,7 @@ export const updateDeliverySettingsController = async (req, res) => {
     });
     return handleResponse(res, 200, "Delivery finance settings updated", updated);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -198,7 +199,7 @@ export const getSellerWalletSummaryController = async (req, res) => {
       totalDebited: wallet?.totalDebited || 0,
     });
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -249,6 +250,6 @@ export const getRiderWalletSummaryController = async (req, res) => {
       totalDebited: wallet?.totalDebited || settledWithdrawals,
     });
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };

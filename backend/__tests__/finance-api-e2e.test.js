@@ -19,6 +19,7 @@ import Payout from "../app/models/payout.js";
 import LedgerEntry from "../app/models/ledgerEntry.js";
 import FinanceAuditLog from "../app/models/financeAuditLog.js";
 import StockHistory from "../app/models/stockHistory.js";
+import LocalPincode from "../app/models/localPincode.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,6 +40,8 @@ const {
   getAdminFinanceSummaryController,
   processAdminFinancePayoutsController,
 } = await import("../app/controller/adminFinanceController.js");
+const { handleOnlineOrderFinance } = await import("../app/services/finance/orderFinanceService.js");
+const { getReturnWindowReleaseJobHandler } = await import("../app/jobs/returnWindowReleaseJob.js");
 
 jest.setTimeout(120000);
 const RUN_E2E = process.env.RUN_E2E_TESTS === "true";
@@ -123,6 +126,7 @@ async function resetCollections() {
     LedgerEntry.deleteMany({}),
     FinanceAuditLog.deleteMany({}),
     StockHistory.deleteMany({}),
+    LocalPincode.deleteMany({}),
   ]);
 }
 
@@ -142,6 +146,7 @@ async function seedCoreData() {
     phone: `91000${suffix.slice(-5)}`,
     password: "Password@123",
     shopName: "E2E Fresh Mart",
+    pincode: "452001",
     isVerified: true,
     location: {
       type: "Point",
@@ -160,6 +165,10 @@ async function seedCoreData() {
       coordinates: [77.6000, 12.9750],
     },
   });
+
+  // Checkout requires a pincode; seller and customer share a local zone so the
+  // order stays on the local-rider pricing path these assertions expect.
+  await LocalPincode.create({ pincode: "452001", city: "Indore", isActive: true });
 
   const header = await Category.create({
     name: `Header ${suffix}`,
@@ -214,6 +223,12 @@ async function seedCoreData() {
     deliveryPartnerRatePerKm: 5,
     fleetCommissionRatePerKm: 5,
     fixedDeliveryFee: 30,
+    // Current pricing reads these fields; flat amounts keep the assertions
+    // independent of the server-computed route distance.
+    customerPricingType: "fixed",
+    customerFixedCharge: 50,
+    riderEarningType: "fixed",
+    riderFixedEarning: 40,
     handlingFeeStrategy: "highest_category_fee",
     codEnabled: true,
     onlineEnabled: true,
@@ -240,6 +255,14 @@ async function seedCoreData() {
       serverSelectionTimeoutMS: 15000,
       socketTimeoutMS: 45000,
     });
+    // Fresh DB: create collections/indexes up front, otherwise checkout transactions
+    // race the background index builds and abort with "Unable to acquire IX lock".
+    await Promise.all(
+      Object.values(mongoose.models).map(async (model) => {
+        await model.createCollection().catch(() => {});
+        await model.init();
+      }),
+    );
     app = buildApp();
   });
 
@@ -283,6 +306,7 @@ async function seedCoreData() {
         name: "E2E Customer",
         address: "Indore Test Road",
         city: "Indore",
+        pincode: "452001",
         phone: "9999999999",
         location: { lat: 12.9800, lng: 77.6100 },
       },
@@ -309,7 +333,7 @@ async function seedCoreData() {
       .send(orderPayload);
 
     expect(createRes.status).toBe(201);
-    const created = createRes.body.result;
+    const created = createRes.body.result.order;
     expect(created.paymentMode).toBe("ONLINE");
     expect(created.paymentBreakdown.grandTotal).toBe(270);
     expect(created.paymentBreakdown.sellerPayoutTotal).toBe(180);
@@ -330,19 +354,27 @@ async function seedCoreData() {
       "Cannot settle delivered online order before payment capture",
     );
 
-    const verifyOnlineRes = await request(app)
+    // An unsigned client callback must never mark the order paid.
+    const unsignedVerifyRes = await request(app)
       .post(`/api/orders/${orderId}/payment/verify-online`)
       .set("Authorization", `Bearer ${customerToken}`)
       .send({ transactionId: `txn_${randomSuffix()}` });
-    expect(verifyOnlineRes.status).toBe(200);
-    expect(verifyOnlineRes.body.result.paymentStatus).toBe("PAID");
+    expect(unsignedVerifyRes.status).toBe(400);
+
+    // Capture through the same finance path paymentService runs after a
+    // gateway signature has been verified.
+    const captured = await handleOnlineOrderFinance(orderId, {
+      transactionId: `txn_${randomSuffix()}`,
+    });
+    expect(captured.paymentStatus).toBe("PAID");
 
     const deliveredRes = await request(app)
       .post(`/api/orders/${orderId}/delivered`)
       .set("Authorization", `Bearer ${riderToken}`)
       .send({});
     expect(deliveredRes.status).toBe(200);
-    expect(deliveredRes.body.result.settlementStatus.sellerPayout).toBe("PENDING");
+    // Seller payout is held until the return window closes.
+    expect(deliveredRes.body.result.settlementStatus.sellerPayout).toBe("HOLD");
     expect(deliveredRes.body.result.settlementStatus.riderPayout).toBe("PENDING");
     expect(deliveredRes.body.result.settlementStatus.adminEarningCredited).toBe(true);
 
@@ -354,6 +386,8 @@ async function seedCoreData() {
     expect(adminSummaryBeforePayout.body.result.totalAdminEarning).toBe(50);
     expect(adminSummaryBeforePayout.body.result.sellerPendingPayouts).toBe(180);
     expect(adminSummaryBeforePayout.body.result.deliveryPendingPayouts).toBe(40);
+    // Free cash: 270 held minus 220 owed.
+    expect(adminSummaryBeforePayout.body.result.availableBalance).toBe(50);
 
     const pendingPayouts = await Payout.find({ status: "PENDING" }).sort({ createdAt: 1 });
     expect(pendingPayouts).toHaveLength(2);
@@ -366,7 +400,20 @@ async function seedCoreData() {
         remarks: "E2E payout processing",
       });
     expect(processRes.status).toBe(200);
-    expect(processRes.body.result.completed).toBe(2);
+    // Only the rider is paid; the held seller payout must be skipped.
+    expect(processRes.body.result.completed).toBe(1);
+    expect(processRes.body.result.skipped).toBe(1);
+    expect(
+      (await Wallet.findOne({ ownerType: "SELLER", ownerId: storedOrder.seller }).lean())
+        .availableBalance,
+    ).toBe(0);
+
+    // Close the return window and let the release job pay the seller.
+    await Order.updateOne(
+      { orderId },
+      { $set: { returnWindowExpiresAt: new Date(Date.now() - 1000) } },
+    );
+    await getReturnWindowReleaseJobHandler()();
 
     const sellerWallet = await Wallet.findOne({
       ownerType: "SELLER",
@@ -390,6 +437,14 @@ async function seedCoreData() {
     expect(completedOrder.settlementStatus.overall).toBe("COMPLETED");
     expect(completedOrder.settlementStatus.sellerPayout).toBe("COMPLETED");
     expect(completedOrder.settlementStatus.riderPayout).toBe("COMPLETED");
+
+    // Paying out must not inflate the dashboard balance back to the gross amount.
+    const adminSummaryAfterPayout = await request(app)
+      .get("/api/admin/finance/summary")
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(adminSummaryAfterPayout.body.result.availableBalance).toBe(50);
+    expect(adminSummaryAfterPayout.body.result.sellerPendingPayouts).toBe(0);
+    expect(adminSummaryAfterPayout.body.result.deliveryPendingPayouts).toBe(0);
 
     const ledgerTypes = await LedgerEntry.distinct("type", { orderId: storedOrder._id });
     expect(ledgerTypes).toEqual(
@@ -430,6 +485,7 @@ async function seedCoreData() {
           name: "E2E Customer",
           address: "Bhopal Test Road",
           city: "Bhopal",
+          pincode: "452001",
           phone: "9999999999",
           location: { lat: 12.9800, lng: 77.6100 },
         },
@@ -440,7 +496,7 @@ async function seedCoreData() {
       });
 
     expect(createRes.status).toBe(201);
-    const orderId = createRes.body.result.orderId;
+    const orderId = createRes.body.result.order.orderId;
     const orderDoc = await Order.findOne({ orderId });
     orderDoc.deliveryBoy = rider._id;
     orderDoc.deliveryPartner = rider._id;
@@ -460,9 +516,9 @@ async function seedCoreData() {
     expect(deliveredRes.status).toBe(200);
     expect(deliveredRes.body.result.paymentMode).toBe("COD");
     expect(deliveredRes.body.result.paymentStatus).toBe("CASH_COLLECTED");
-    // Net of rider commission (grandTotal 160 - riderPayoutTotal 35)
-    expect(deliveredRes.body.result.paymentBreakdown.codCollectedAmount).toBe(125);
-    expect(deliveredRes.body.result.paymentBreakdown.codPendingAmount).toBe(125);
+    // Net of rider commission (grandTotal 170 - riderPayoutTotal 40)
+    expect(deliveredRes.body.result.paymentBreakdown.codCollectedAmount).toBe(130);
+    expect(deliveredRes.body.result.paymentBreakdown.codPendingAmount).toBe(130);
 
     const collectRes = await request(app)
       .post(`/api/orders/${orderId}/cod/mark-collected`)
@@ -471,7 +527,7 @@ async function seedCoreData() {
     expect(collectRes.status).toBe(200);
     expect(collectRes.body.message).toContain("already marked");
     expect(collectRes.body.result.paymentStatus).toBe("CASH_COLLECTED");
-    expect(collectRes.body.result.paymentBreakdown.codPendingAmount).toBe(125);
+    expect(collectRes.body.result.paymentBreakdown.codPendingAmount).toBe(130);
 
     const collectAgainRes = await request(app)
       .post(`/api/orders/${orderId}/cod/mark-collected`)
@@ -493,15 +549,15 @@ async function seedCoreData() {
       .send({ amount: 60, deliveryPartnerId: String(rider._id) });
     expect(reconcilePartial.status).toBe(200);
     expect(reconcilePartial.body.result.paymentBreakdown.codRemittedAmount).toBe(60);
-    expect(reconcilePartial.body.result.paymentBreakdown.codPendingAmount).toBe(65);
+    expect(reconcilePartial.body.result.paymentBreakdown.codPendingAmount).toBe(70);
     expect(reconcilePartial.body.result.paymentStatus).toBe("PARTIALLY_REMITTED");
 
     const reconcileFinal = await request(app)
       .post(`/api/orders/${orderId}/cod/reconcile`)
       .set("Authorization", `Bearer ${adminToken}`)
-      .send({ amount: 65, deliveryPartnerId: String(rider._id) });
+      .send({ amount: 70, deliveryPartnerId: String(rider._id) });
     expect(reconcileFinal.status).toBe(200);
-    expect(reconcileFinal.body.result.paymentBreakdown.codRemittedAmount).toBe(125);
+    expect(reconcileFinal.body.result.paymentBreakdown.codRemittedAmount).toBe(130);
     expect(reconcileFinal.body.result.paymentBreakdown.codPendingAmount).toBe(0);
     expect(reconcileFinal.body.result.paymentStatus).toBe("COD_RECONCILED");
 
@@ -516,7 +572,7 @@ async function seedCoreData() {
     const codOrder = await Order.findOne({ orderId }).lean();
 
     expect(riderWallet.cashInHand).toBe(0);
-    expect(adminWallet.availableBalance).toBe(125);
+    expect(adminWallet.availableBalance).toBe(130);
     expect(codOrder.paymentBreakdown.codPendingAmount).toBe(0);
 
     const summaryRes = await request(app)
@@ -524,9 +580,15 @@ async function seedCoreData() {
       .set("Authorization", `Bearer ${adminToken}`);
     expect(summaryRes.status).toBe(200);
     expect(summaryRes.body.result.systemFloatCOD).toBe(0);
-    expect(summaryRes.body.result.reconciledCODInflows).toBe(125);
+    expect(summaryRes.body.result.reconciledCODInflows).toBe(130);
     expect(summaryRes.body.result.sellerPendingPayouts).toBe(90);
-    expect(summaryRes.body.result.deliveryPendingPayouts).toBe(35);
+    // The rider already kept their 40 commission out of the COD cash, so
+    // nothing more is owed to them.
+    expect(summaryRes.body.result.deliveryPendingPayouts).toBe(0);
+    expect(codOrder.settlementStatus.riderPayout).toBe("COMPLETED");
+    expect(await Payout.countDocuments({ payoutType: "DELIVERY_PARTNER", relatedOrderIds: codOrder._id })).toBe(0);
+    // Free cash: 130 remitted minus 90 owed to the seller.
+    expect(summaryRes.body.result.availableBalance).toBe(40);
 
     const codLedger = await LedgerEntry.find({ orderId: codOrder._id }).lean();
     const codTypes = codLedger.map((entry) => entry.type);
@@ -535,8 +597,46 @@ async function seedCoreData() {
         "ORDER_COD_COLLECTED",
         "COD_REMITTED",
         "SELLER_PAYOUT_PENDING",
-        "RIDER_PAYOUT_PENDING",
       ]),
     );
+    expect(codTypes).not.toContain("RIDER_PAYOUT_PENDING");
+  });
+
+  it("refuses to pay out more than the platform holds", async () => {
+    const { customer, rider, product } = await seedCoreData();
+    const customerToken = createToken({ id: String(customer._id), role: "user" });
+    const riderToken = createToken({ id: String(rider._id), role: "delivery" });
+    const adminToken = createToken({ id: new mongoose.Types.ObjectId().toString(), role: "admin" });
+
+    // COD delivered but the rider has not remitted the cash yet: the platform
+    // holds nothing, so the seller payout cannot be funded.
+    const createRes = await request(app)
+      .post("/api/orders")
+      .set("Authorization", `Bearer ${customerToken}`)
+      .send({
+        items: [{ product: String(product._id), quantity: 1, price: 100 }],
+        address: {
+          type: "Home", name: "E2E Customer", address: "Indore Test Road", city: "Indore",
+          pincode: "452001", phone: "9999999999", location: { lat: 12.98, lng: 77.61 },
+        },
+        paymentMode: "COD",
+        timeSlot: "now",
+      });
+    expect(createRes.status).toBe(201);
+    const orderId = createRes.body.result.order.orderId;
+    await Order.updateOne({ orderId }, { $set: { deliveryBoy: rider._id, deliveryPartner: rider._id } });
+    expect((await request(app).post(`/api/orders/${orderId}/delivered`).set("Authorization", `Bearer ${riderToken}`).send({})).status).toBe(200);
+    await Order.updateOne({ orderId }, { $set: { returnWindowExpiresAt: new Date(Date.now() - 1000), "settlementStatus.sellerPayout": "PENDING" } });
+
+    const sellerPayout = await Payout.findOne({ payoutType: "SELLER", status: "PENDING" });
+    const processRes = await request(app)
+      .post("/api/admin/finance/payouts/process")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ payoutIds: [String(sellerPayout._id)] });
+    expect(processRes.status).toBe(200);
+    expect(processRes.body.result.completed).toBe(0);
+    expect(processRes.body.result.failed).toBe(1);
+    expect(processRes.body.result.results[0].reason).toContain("Insufficient platform balance");
+    expect((await Payout.findById(sellerPayout._id)).status).toBe("PENDING");
   });
 });

@@ -31,7 +31,7 @@ const Login = () => {
             title="Welcome Back"
             subtitle="Enter your details to continue"
             logoUrl="/logo.png"
-            appName="Anushka Store"
+            appName="Anushka Connect"
         >
             <form className="space-y-4" onSubmit={handleSubmit}>
                 <div>
@@ -90,7 +90,7 @@ const Login = () => {
 
                 <div className="mt-6 text-center space-y-2">
                     <p className="text-xs text-slate-500 font-medium">
-                        Don't have an account?{' '}
+                        Don&apos;t have an account?{' '}
                         <span className="cursor-pointer font-bold text-[#6666FF] hover:underline transition-colors" onClick={() => navigate('/signup')}>
                             Sign up
                         </span>

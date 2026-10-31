@@ -189,7 +189,7 @@ const EmployeeDetail = () => {
                             {customers.length === 0 && (
                                 <tr>
                                     <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                                        This employee hasn't added any customers yet.
+                                        This employee hasn&apos;t added any customers yet.
                                     </td>
                                 </tr>
                             )}

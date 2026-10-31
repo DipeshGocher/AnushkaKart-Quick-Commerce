@@ -13,6 +13,9 @@ const CategoryIcon = ({ iconId, imageUrl, alt = 'Category', className = 'w-6 h-6
 
   const FontAwesomeIcon = resolveFontAwesomeCategoryIcon(iconId, alt);
   if (FontAwesomeIcon) {
+    // Lookup into a static map of module-level icon components: the same
+    // iconId always yields the same component, so nothing is recreated.
+    // eslint-disable-next-line react-hooks/static-components
     return <FontAwesomeIcon aria-hidden="true" style={style} className={className} />;
   }
 

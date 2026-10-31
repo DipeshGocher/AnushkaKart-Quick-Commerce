@@ -486,6 +486,10 @@ export async function deliveryAcceptAtomic(deliveryId, orderId, idempotencyKey) 
       err.statusCode = 404;
       throw err;
     }
+    // Re-accepting an order this rider already holds (retry, double tap) is a no-op.
+    if (o.deliveryBoy && o.deliveryBoy.toString() === deliveryOid.toString()) {
+      return { order: o, duplicate: true };
+    }
     let msg = "Order already assigned or not available";
     if (o.fulfillmentType === "SHIPROCKET") {
       msg = "This is a Shiprocket courier shipment and cannot be accepted by local delivery partners.";

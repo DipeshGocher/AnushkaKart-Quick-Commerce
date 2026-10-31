@@ -935,7 +935,7 @@ const OrderDetailPage = () => {
         key: razorpayKeyId,
         amount: amountPaise,
         currency: "INR",
-        name: "Anushka Store",
+        name: "Anushka Connect",
         description: `Payment for Order ${paymentRef}`,
         order_id: razorpayOrderId,
         handler: async function (response) {

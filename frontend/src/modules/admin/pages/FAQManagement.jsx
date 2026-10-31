@@ -395,7 +395,7 @@ const FAQManagement = () => {
                                                         <div className="mt-6 pt-6 border-t border-slate-50 ml-14">
                                                             <div className="bg-slate-50 p-6 rounded-xl relative">
                                                                 <p className="text-sm font-bold text-slate-600 leading-relaxed italic">
-                                                                    "{faq.answer}"
+                                                                    &quot;{faq.answer}&quot;
                                                                 </p>
                                                             </div>
                                                             <div className="flex items-center justify-between mt-4">

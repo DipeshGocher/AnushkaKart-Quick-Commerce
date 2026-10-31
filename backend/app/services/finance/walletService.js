@@ -570,13 +570,14 @@ export async function getAdminFinanceSummary() {
     pendingPayouts.find((row) => row._id === PAYOUT_TYPE.DELIVERY_PARTNER)?.amount || 0;
 
   const totalPlatformEarning = roundCurrency(platformGross[0]?.amount || 0);
-  // "Available Balance" in the admin wallet UI is treated as a business-level net balance:
-  // total checkout value placed by customers minus pending payout liabilities.
-  // This makes the number update immediately on order placement (COD + ONLINE) and
-  // automatically decreases as seller/rider payout requests are queued.
+  // "Available Balance" in the admin wallet UI is the platform's free cash:
+  // funds actually held (captured online payments + remitted COD, less processed
+  // payouts) minus payout liabilities already owed to sellers and riders.
   const availableBalanceVirtual = roundCurrency(
     Math.max(
-      totalPlatformEarning - roundCurrency(sellerPendingPayouts) - roundCurrency(riderPendingPayouts),
+      roundCurrency(adminWallet.availableBalance || 0) -
+        roundCurrency(sellerPendingPayouts) -
+        roundCurrency(riderPendingPayouts),
       0,
     ),
   );

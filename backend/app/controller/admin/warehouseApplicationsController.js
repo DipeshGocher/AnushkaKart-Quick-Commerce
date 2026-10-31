@@ -6,6 +6,7 @@ import {
   rejectWarehouseApplicationById,
   getActiveWarehousesList,
 } from "../../services/admin/warehouseApplicationService.js";
+import { getErrorStatus } from "../../utils/httpError.js";
 
 export const getPendingWarehouses = async (req, res) => {
   try {
@@ -15,7 +16,7 @@ export const getPendingWarehouses = async (req, res) => {
     const data = await getPendingWarehouseApplications({ q, status, page, limit, skip });
     return handleResponse(res, 200, "Pending warehouse applications fetched", data);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -27,7 +28,7 @@ export const getActiveWarehouses = async (req, res) => {
     const data = await getActiveWarehousesList({ q, page, limit, skip });
     return handleResponse(res, 200, "Active warehouses fetched", data);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -42,7 +43,7 @@ export const approveWarehouseApplication = async (req, res) => {
 
     return handleResponse(res, 200, "Warehouse approved successfully", warehouse);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -62,6 +63,6 @@ export const rejectWarehouseApplication = async (req, res) => {
 
     return handleResponse(res, 200, "Warehouse application rejected", warehouse);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };

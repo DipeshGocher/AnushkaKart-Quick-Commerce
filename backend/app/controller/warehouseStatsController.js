@@ -3,6 +3,7 @@ import Transaction from "../models/transaction.js";
 import { handleResponse } from "../utils/helper.js";
 import mongoose from "mongoose";
 import Wallet from "../models/wallet.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 /* ===============================
    GET WAREHOUSE DASHBOARD STATS
@@ -71,7 +72,7 @@ export const getWarehouseStats = async (req, res) => {
             })),
         });
     } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -168,6 +169,6 @@ export const getWarehouseEarnings = async (req, res) => {
             })),
         });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };

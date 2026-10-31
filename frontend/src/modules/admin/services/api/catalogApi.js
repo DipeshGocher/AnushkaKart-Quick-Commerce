@@ -36,6 +36,7 @@ export const adminCatalogApi = {
     updateProduct: (id, formData) =>
         axiosInstance.put(`/products/${id}`, formData),
     deleteProduct: (id) => axiosInstance.delete(`/products/${id}`),
+    bulkDeleteProducts: (productIds) => axiosInstance.post("/products/bulk-delete", { productIds }),
 
     // Dynamic Attributes Management
     getAttributes: (params) => axiosInstance.get('/attributes', { params }),

@@ -54,7 +54,7 @@ const OrderOfferModal = ({ offer, onAccept, onReject }) => {
         {/* Header */}
         <div style={styles.header}>
           <div style={styles.headerBadge}>🛒 New Order</div>
-          <p style={styles.headerSub}>Queue Assignment — You're Next!</p>
+          <p style={styles.headerSub}>Queue Assignment — You&apos;re Next!</p>
         </div>
 
         {/* Countdown Ring */}

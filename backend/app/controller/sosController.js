@@ -2,6 +2,7 @@ import Delivery from "../models/delivery.js";
 import SOSAlert from "../models/sosAlert.js";
 import handleResponse from "../utils/helper.js";
 import { getIO } from "../socket/socketManager.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 /* ===============================
    TRIGGER SOS (Delivery Boy)
@@ -56,7 +57,7 @@ export const triggerSOS = async (req, res) => {
         return handleResponse(res, 201, "SOS alert triggered successfully", sosAlert);
     } catch (error) {
         console.error("[SOS] Trigger error:", error);
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -106,7 +107,7 @@ export const updateEmergencyContacts = async (req, res) => {
         );
     } catch (error) {
         console.error("[SOS] Update contacts error:", error);
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -139,7 +140,7 @@ export const getSOSAlerts = async (req, res) => {
         });
     } catch (error) {
         console.error("[SOS] Get alerts error:", error);
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -170,7 +171,7 @@ export const acknowledgeSOSAlert = async (req, res) => {
         return handleResponse(res, 200, "SOS alert acknowledged", alert);
     } catch (error) {
         console.error("[SOS] Acknowledge error:", error);
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -199,6 +200,6 @@ export const resolveSOSAlert = async (req, res) => {
         return handleResponse(res, 200, "SOS alert resolved", alert);
     } catch (error) {
         console.error("[SOS] Resolve error:", error);
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };

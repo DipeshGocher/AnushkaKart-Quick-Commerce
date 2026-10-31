@@ -5,6 +5,7 @@ import { createSocketTokenReader } from "@core/utils/authStorage";
 import { STORAGE_KEYS } from "@core/utils/storageKeys";
 import { toast } from "sonner";
 import { useAuth } from "@core/context/AuthContext";
+import { useNow } from "@shared/hooks/useNow";
 
 /* ── API ──────────────────────────────────────────────────────────────────── */
 const api = {
@@ -147,8 +148,9 @@ const StatCard = ({ icon, label, value, color }) => (
 );
 
 const RiderRow = ({ entry, pos }) => {
+  const now = useNow();
   const r = entry.rider || {};
-  const sinceCheckin = entry.checkinTime ? Math.round((Date.now() - new Date(entry.checkinTime).getTime()) / 60000) : null;
+  const sinceCheckin = entry.checkinTime ? Math.round((now - new Date(entry.checkinTime).getTime()) / 60000) : null;
 
   return (
     <div style={S.riderRow}>

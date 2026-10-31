@@ -114,6 +114,7 @@ import {
   resolveProductApprovalStatus,
 } from "../services/productModerationService.js";
 import { buildSearchRegex } from "../utils/regex.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 // Phase 3 P3-5: when search term is reasonably specific and the env flag
 // is enabled, prefer Mongo's `name + tags` text index over case-insensitive
@@ -325,7 +326,7 @@ export const getProducts = async (req, res) => {
     } = req.query;
     const enforceRadius = isCustomerVisibilityRequest(req);
 
-    const query = {};
+    const query = { isDeleted: { $ne: true } };
     if (conditionType && conditionType !== "all") {
       query.conditionType = conditionType;
     } else if (!conditionType) {
@@ -748,7 +749,10 @@ export const getProducts = async (req, res) => {
     const sortQuery = sortMap[String(sort || "newest").toLowerCase()] || sortMap.newest;
 
     const fetchFn = async () => {
-      const [rawProducts, total] = await Promise.all([
+      const baseSummaryQuery = { ...finalQuery };
+      delete baseSummaryQuery.status;
+
+      const [rawProducts, total, activeCount, lowStockCount, outOfStockCount] = await Promise.all([
         Product.find(finalQuery)
           .select(
             "name slug description sku price salePrice stock brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights conditionType refurbishedDetails createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
@@ -759,6 +763,38 @@ export const getProducts = async (req, res) => {
           .limit(limit)
           .lean(),
         Product.countDocuments(finalQuery),
+        Product.countDocuments({ ...baseSummaryQuery, status: "active" }),
+        Product.countDocuments({
+          ...baseSummaryQuery,
+          $expr: {
+            $and: [
+              {
+                $gt: [
+                  { $convert: { input: "$stock", to: "double", onError: 0, onNull: 0 } },
+                  0,
+                ],
+              },
+              {
+                $lte: [
+                  { $convert: { input: "$stock", to: "double", onError: 0, onNull: 0 } },
+                  {
+                    $let: {
+                      vars: {
+                        rawThreshold: {
+                          $convert: { input: "$lowStockAlert", to: "double", onError: 0, onNull: 0 },
+                        },
+                      },
+                      in: {
+                        $cond: [{ $gt: ["$$rawThreshold", 0] }, "$$rawThreshold", 5],
+                      },
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+        Product.countDocuments({ ...baseSummaryQuery, stock: 0 }),
       ]);
 
       // Collect unique category IDs (headerId, categoryId, subcategoryId) and seller IDs
@@ -831,6 +867,7 @@ export const getProducts = async (req, res) => {
             ? {
                 _id: p.sellerId,
                 shopName: selMeta?.shopName ?? null,
+                slug: selMeta?.slug ?? null,
                 pincode: selMeta?.pincode ?? null,
                 city: selMeta?.city ?? null,
                 state: selMeta?.state ?? null,
@@ -854,6 +891,12 @@ export const getProducts = async (req, res) => {
         limit,
         total,
         totalPages: Math.ceil(total / limit) || 1,
+        summary: {
+          total,
+          active: activeCount,
+          lowStock: lowStockCount,
+          outOfStock: outOfStockCount,
+        },
       };
     };
 
@@ -866,7 +909,7 @@ export const getProducts = async (req, res) => {
 
     return handleResponse(res, 200, "Products fetched successfully", result);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -894,7 +937,9 @@ export const getSellerProducts = async (req, res) => {
     });
 
     const role = String(req.user?.role || "").toLowerCase();
-    const baseSellerQuery = role === "warehouse" ? { warehouseId: sellerId } : { sellerId };
+    const baseSellerQuery = role === "warehouse"
+      ? { warehouseId: sellerId, isDeleted: { $ne: true } }
+      : { sellerId, isDeleted: { $ne: true } };
     const andConditions = [{ ...baseSellerQuery }];
 
     if (stockStatus === "in") {
@@ -1130,7 +1175,7 @@ export const getSellerProducts = async (req, res) => {
       },
     });
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -1429,7 +1474,7 @@ export const createProduct = async (req, res) => {
     if (error.code === 11000) {
       return handleResponse(res, 400, "Slug or SKU already exists");
     }
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -1753,12 +1798,12 @@ export const updateProduct = async (req, res) => {
     if (error.code === 11000) {
       return handleResponse(res, 400, "Slug or SKU already exists");
     }
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
 /* ===============================
-   DELETE PRODUCT
+   DELETE PRODUCT (Safe Delete)
 ================================ */
 export const deleteProduct = async (req, res) => {
   try {
@@ -1766,11 +1811,37 @@ export const deleteProduct = async (req, res) => {
     const sellerId = req.user.id;
     const role = req.user.role;
 
-    const query = role === "admin" ? { _id: id } : role === "warehouse" ? { _id: id, warehouseId: sellerId } : { _id: id, sellerId };
-    const product = await Product.findOneAndDelete(query);
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return handleResponse(res, 400, "Valid product ID is required");
+    }
+
+    const query = role === "admin" 
+      ? { _id: id } 
+      : role === "warehouse" 
+        ? { _id: id, warehouseId: sellerId } 
+        : { _id: id, sellerId };
+
+    const product = await Product.findOne(query);
 
     if (!product) {
       return handleResponse(res, 404, "Product not found or unauthorized");
+    }
+
+    // Safety check: Has this product ever been ordered?
+    const hasOrders = await Order.exists({ "items.product": id });
+
+    if (hasOrders) {
+      // Case B: Soft-delete / Archive to preserve customer invoices & order history
+      await Product.findByIdAndUpdate(id, {
+        $set: {
+          isDeleted: true,
+          status: "inactive",
+          stock: 0,
+        }
+      });
+    } else {
+      // Case A: Permanently delete from database (no historical dependencies)
+      await Product.findByIdAndDelete(id);
     }
 
     // Enqueue search index removal asynchronously
@@ -1787,9 +1858,105 @@ export const deleteProduct = async (req, res) => {
       });
     }
 
-    return handleResponse(res, 200, "Product deleted successfully");
+    return handleResponse(
+      res, 
+      200, 
+      hasOrders 
+        ? "Product archived and hidden (order history preserved)" 
+        : "Product deleted successfully"
+    );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
+  }
+};
+
+/* ===============================
+   BULK DELETE PRODUCTS (Safe Bulk Delete)
+================================ */
+export const bulkDeleteProducts = async (req, res) => {
+  try {
+    const { productIds } = req.body;
+    const sellerId = req.user.id;
+    const role = req.user.role;
+
+    if (!Array.isArray(productIds) || productIds.length === 0) {
+      return handleResponse(res, 400, "productIds array is required and must not be empty");
+    }
+
+    const validIds = productIds
+      .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
+      .map((id) => new mongoose.Types.ObjectId(id));
+
+    if (validIds.length === 0) {
+      return handleResponse(res, 400, "No valid product IDs provided");
+    }
+
+    const query = role === "admin"
+      ? { _id: { $in: validIds } }
+      : role === "warehouse"
+        ? { _id: { $in: validIds }, warehouseId: sellerId }
+        : { _id: { $in: validIds }, sellerId };
+
+    const matchingProducts = await Product.find(query).select("_id name").lean();
+    if (!matchingProducts.length) {
+      return handleResponse(res, 404, "No matching products found to delete or unauthorized");
+    }
+
+    const targetIds = matchingProducts.map((p) => p._id);
+
+    // Safety check: Which of these products have past orders?
+    const orderedProductIds = await Order.distinct("items.product", {
+      "items.product": { $in: targetIds },
+    });
+    const orderedSet = new Set(orderedProductIds.map(String));
+
+    const toHardDelete = targetIds.filter((id) => !orderedSet.has(String(id)));
+    const toSoftDelete = targetIds.filter((id) => orderedSet.has(String(id)));
+
+    // Case A: Hard-delete products without orders
+    if (toHardDelete.length > 0) {
+      await Product.deleteMany({ _id: { $in: toHardDelete } });
+    }
+
+    // Case B: Soft-delete / Archive products with past orders
+    if (toSoftDelete.length > 0) {
+      await Product.updateMany(
+        { _id: { $in: toSoftDelete } },
+        {
+          $set: {
+            isDeleted: true,
+            status: "inactive",
+            stock: 0,
+          },
+        }
+      );
+    }
+
+    // Cleanup search index and catalog caches
+    for (const id of targetIds) {
+      await enqueueProductRemoval(id);
+      await invalidate(`cache:catalog:product:${id}`);
+    }
+
+    try {
+      await invalidate(buildKey("catalog", "productList", "*"));
+      await invalidate(buildKey("catalog", "categories", "*"));
+    } catch (cacheErr) {
+      logger.error("Cache invalidation error in bulkDeleteProducts", { error: cacheErr });
+    }
+
+    const message = toSoftDelete.length > 0
+      ? `${targetIds.length} products deleted (${toHardDelete.length} permanently removed, ${toSoftDelete.length} archived to protect order invoices)`
+      : `${targetIds.length} products permanently deleted successfully`;
+
+    return handleResponse(res, 200, message, {
+      total: targetIds.length,
+      hardDeleted: toHardDelete.length,
+      softDeleted: toSoftDelete.length,
+      message,
+    });
+  } catch (error) {
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -1825,7 +1992,7 @@ export const getProductById = async (req, res) => {
           .populate("headerId", "name slug trustBadges deliveryMode catalogType")
           .populate("categoryId", "name slug trustBadges deliveryMode catalogType")
           .populate("subcategoryId", "name slug trustBadges deliveryMode catalogType")
-          .populate("sellerId", "shopName pincode address city state")
+          .populate("sellerId", "shopName slug pincode address city state")
           .populate("warehouseId", "name pincode address city state")
           .lean();
       },
@@ -1898,7 +2065,7 @@ export const getProductById = async (req, res) => {
       payload,
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -1925,7 +2092,7 @@ export const getModerationProducts = async (req, res) => {
       maxLimit: 500,
     });
 
-    const andClauses = [];
+    const andClauses = [{ isDeleted: { $ne: true } }];
     if (status && status !== "all") {
       andClauses.push({ status });
     }
@@ -2005,40 +2172,106 @@ export const getModerationProducts = async (req, res) => {
     };
     const sortQuery = sortMap[String(sort || "newest").toLowerCase()] || sortMap.newest;
 
-    const [items, total, allCount, pendingCount, approvedCount, rejectedCount] =
-      await Promise.all([
-        Product.find(moderatedQuery)
-          .select(
-            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
-          )
-          .populate("headerId", "name")
-          .populate("categoryId", "name")
-          .populate("subcategoryId", "name")
-          .populate("sellerId", "shopName name")
-          .populate("warehouseId", "name")
-          .populate("approvalReviewedBy", "name email")
-          .sort(sortQuery)
-          .skip(skip)
-          .limit(limit)
-          .lean(),
-        Product.countDocuments(moderatedQuery),
-        Product.countDocuments(baseQuery),
-        Product.countDocuments(
-          andClauses.length > 0
-            ? { $and: [...andClauses, { approvalStatus: PRODUCT_APPROVAL_STATUS.PENDING }] }
-            : { approvalStatus: PRODUCT_APPROVAL_STATUS.PENDING },
-        ),
-        Product.countDocuments(
-          andClauses.length > 0
-            ? { $and: [...andClauses, buildApprovalStatusFilter(PRODUCT_APPROVAL_STATUS.APPROVED)] }
-            : buildApprovalStatusFilter(PRODUCT_APPROVAL_STATUS.APPROVED),
-        ),
-        Product.countDocuments(
-          andClauses.length > 0
-            ? { $and: [...andClauses, { approvalStatus: PRODUCT_APPROVAL_STATUS.REJECTED }] }
-            : { approvalStatus: PRODUCT_APPROVAL_STATUS.REJECTED },
-        ),
-      ]);
+    const summaryClauses = andClauses.filter((clause) => !clause.status);
+    const summaryBaseQuery = summaryClauses.length > 0 ? { $and: summaryClauses } : { isDeleted: { $ne: true } };
+
+    const lowStockExpr = {
+      $expr: {
+        $and: [
+          {
+            $gt: [
+              {
+                $convert: {
+                  input: "$stock",
+                  to: "double",
+                  onError: 0,
+                  onNull: 0,
+                },
+              },
+              0,
+            ],
+          },
+          {
+            $lte: [
+              {
+                $convert: {
+                  input: "$stock",
+                  to: "double",
+                  onError: 0,
+                  onNull: 0,
+                },
+              },
+              {
+                $let: {
+                  vars: {
+                    rawThreshold: {
+                      $convert: {
+                        input: "$lowStockAlert",
+                        to: "double",
+                        onError: 0,
+                        onNull: 0,
+                      },
+                    },
+                  },
+                  in: {
+                    $cond: [{ $gt: ["$$rawThreshold", 0] }, "$$rawThreshold", 5],
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    const [
+      items,
+      total,
+      allCount,
+      pendingCount,
+      approvedCount,
+      rejectedCount,
+      summaryTotalCount,
+      activeCount,
+      lowStockCount,
+      outOfStockCount,
+    ] = await Promise.all([
+      Product.find(moderatedQuery)
+        .select(
+          "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
+        )
+        .populate("headerId", "name")
+        .populate("categoryId", "name")
+        .populate("subcategoryId", "name")
+        .populate("sellerId", "shopName name")
+        .populate("warehouseId", "name")
+        .populate("approvalReviewedBy", "name email")
+        .sort(sortQuery)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Product.countDocuments(moderatedQuery),
+      Product.countDocuments(baseQuery),
+      Product.countDocuments(
+        andClauses.length > 0
+          ? { $and: [...andClauses, { approvalStatus: PRODUCT_APPROVAL_STATUS.PENDING }] }
+          : { approvalStatus: PRODUCT_APPROVAL_STATUS.PENDING },
+      ),
+      Product.countDocuments(
+        andClauses.length > 0
+          ? { $and: [...andClauses, buildApprovalStatusFilter(PRODUCT_APPROVAL_STATUS.APPROVED)] }
+          : buildApprovalStatusFilter(PRODUCT_APPROVAL_STATUS.APPROVED),
+      ),
+      Product.countDocuments(
+        andClauses.length > 0
+          ? { $and: [...andClauses, { approvalStatus: PRODUCT_APPROVAL_STATUS.REJECTED }] }
+          : { approvalStatus: PRODUCT_APPROVAL_STATUS.REJECTED },
+      ),
+      Product.countDocuments(summaryBaseQuery),
+      Product.countDocuments({ ...summaryBaseQuery, status: "active" }),
+      Product.countDocuments({ ...summaryBaseQuery, ...lowStockExpr }),
+      Product.countDocuments({ ...summaryBaseQuery, stock: 0 }),
+    ]);
 
     return handleResponse(res, 200, "Moderation products fetched", {
       items: normalizeProductListModeration(items),
@@ -2052,9 +2285,15 @@ export const getModerationProducts = async (req, res) => {
         approved: approvedCount,
         rejected: rejectedCount,
       },
+      summary: {
+        total: summaryTotalCount,
+        active: activeCount,
+        lowStock: lowStockCount,
+        outOfStock: outOfStockCount,
+      },
     });
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -2097,7 +2336,7 @@ export const approveProduct = async (req, res) => {
       normalizeProductDocumentModeration(updated?.toObject?.() || updated),
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -2137,7 +2376,7 @@ export const rejectProduct = async (req, res) => {
       normalizeProductDocumentModeration(updated?.toObject?.() || updated),
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -2325,7 +2564,7 @@ export const getHeaderProducts = async (req, res) => {
 
     return handleResponse(res, 200, "Header products fetched successfully", validSections || []);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 

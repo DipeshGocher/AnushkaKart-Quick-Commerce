@@ -50,12 +50,12 @@ router.post("/verify-otp", verifyDeliveryOTP);
 router.use(verifyToken, requireActiveDelivery);
 
 // Profile routes
-router.get("/profile", verifyToken, getDeliveryProfile);
-router.put("/profile", verifyToken, updateDeliveryProfile);
-router.post("/upload-document", verifyToken, upload.single("file"), uploadDeliveryDocument);
-router.delete("/delete-account", verifyToken, deleteDeliveryAccount);
-router.get("/stats", verifyToken, getDeliveryStats);
-router.get("/earnings", verifyToken, getDeliveryEarnings);
+router.get("/profile", verifyToken, allowRoles("delivery"), getDeliveryProfile);
+router.put("/profile", verifyToken, allowRoles("delivery"), updateDeliveryProfile);
+router.post("/upload-document", verifyToken, allowRoles("delivery"), upload.single("file"), uploadDeliveryDocument);
+router.delete("/delete-account", verifyToken, allowRoles("delivery"), deleteDeliveryAccount);
+router.get("/stats", verifyToken, allowRoles("delivery"), getDeliveryStats);
+router.get("/earnings", verifyToken, allowRoles("delivery"), getDeliveryEarnings);
 router.get("/cod/summary", verifyToken, allowRoles("delivery"), getDeliveryCodCashSummary);
 router.post("/cod/pay", verifyToken, allowRoles("delivery"), submitDeliveryCodCashToAdmin);
 router.get("/wallet/summary", verifyToken, allowRoles("delivery"), getRiderWalletSummaryController);
@@ -65,9 +65,9 @@ router.get(
   allowRoles("delivery"),
   getMyDeliveryOrders,
 );
-router.get("/withdrawals", verifyToken, getDeliveryWithdrawals);
-router.post("/request-withdrawal", verifyToken, requestWithdrawal);
-router.post("/location", verifyToken, updateDeliveryLocation);
+router.get("/withdrawals", verifyToken, allowRoles("delivery"), getDeliveryWithdrawals);
+router.post("/request-withdrawal", verifyToken, allowRoles("delivery"), requestWithdrawal);
+router.post("/location", verifyToken, allowRoles("delivery"), updateDeliveryLocation);
 
 // SOS & Emergency Contacts
 router.post("/sos/trigger", verifyToken, allowRoles("delivery"), triggerSOS);

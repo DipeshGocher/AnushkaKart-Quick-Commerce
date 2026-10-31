@@ -836,7 +836,7 @@ const AddProduct = () => {
                   <option value="both">🔄 Both (Local 15 Mins + Shiprocket Pan-India)</option>
                 </select>
                 <p className="text-[11px] text-slate-500">
-                  'Follow Category' category ki default delivery setting use karega. Doodh/Sabzi jaise items ko 'Quick Delivery Only' aur Electronics/Fashion ko 'Both' set karein.
+                  &apos;Follow Category&apos; category ki default delivery setting use karega. Doodh/Sabzi jaise items ko &apos;Quick Delivery Only&apos; aur Electronics/Fashion ko &apos;Both&apos; set karein.
                 </p>
               </div>
             </div>

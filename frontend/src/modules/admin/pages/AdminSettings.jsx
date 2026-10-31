@@ -333,7 +333,7 @@ const AdminSettings = () => {
                                         maxLength={50}
                                         value={settings.appName}
                                         onChange={(e) => handleInputChange('appName', e.target.value)}
-                                        placeholder="e.g. Anushka Store"
+                                        placeholder="e.g. Anushka Connect"
                                         className={cn(
                                             "w-full px-5 py-4 bg-slate-50 border rounded-2xl text-sm font-bold text-slate-900 outline-none transition-all",
                                             !settings.appName?.trim()
@@ -481,7 +481,7 @@ const AdminSettings = () => {
                                         />
                                     </div>
                                     <p className="text-[11px] text-slate-500 font-medium">
-                                        Used for customer No Cost EMI deep linking ("Contact on WhatsApp for EMI") to directly chat with admin.
+                                        Used for customer No Cost EMI deep linking (&quot;Contact on WhatsApp for EMI&quot;) to directly chat with admin.
                                     </p>
                                     {settings.whatsappNumber && settings.whatsappNumber.length > 0 && settings.whatsappNumber.length < 10 && (
                                         <p className="text-[11px] font-bold text-amber-600 flex items-center gap-1">
@@ -876,7 +876,7 @@ const AdminSettings = () => {
                                         maxLength={70}
                                         value={settings.metaTitle || ''}
                                         onChange={(e) => handleInputChange('metaTitle', e.target.value)}
-                                        placeholder="e.g. Anushka Store - Fresh Groceries & Quick 30-Min Delivery"
+                                        placeholder="e.g. Anushka Connect - Fresh Groceries & Quick 30-Min Delivery"
                                         className="w-full px-5 py-4 bg-slate-50 border border-slate-200/80 rounded-2xl text-sm font-bold text-slate-900 outline-none focus:border-indigo-500/40 focus:bg-white transition-all"
                                     />
                                 </div>
@@ -896,7 +896,7 @@ const AdminSettings = () => {
                                         maxLength={160}
                                         value={settings.metaDescription || ''}
                                         onChange={(e) => handleInputChange('metaDescription', e.target.value)}
-                                        placeholder="Order daily essentials, fruits, vegetables, snacks, and dairy products online at Anushka Store with instant doorstep delivery."
+                                        placeholder="Order daily essentials, fruits, vegetables, snacks, and dairy products online at Anushka Connect with instant doorstep delivery."
                                         className="w-full px-5 py-4 bg-slate-50 border border-slate-200/80 rounded-2xl text-sm font-bold text-slate-900 outline-none focus:border-indigo-500/40 focus:bg-white transition-all resize-none"
                                     />
                                     <p className="text-[10px] font-bold text-slate-400 italic text-right">Recommended length for Google snippets: 150-160 characters</p>
@@ -918,7 +918,7 @@ const AdminSettings = () => {
                                         value={settings.metaKeywords || ''}
                                         onChange={(e) => handleInputChange('metaKeywords', e.target.value)}
                                         className="w-full px-5 py-4 bg-slate-50 border border-slate-200/80 rounded-2xl text-sm font-bold text-slate-900 outline-none focus:border-indigo-500/40 focus:bg-white transition-all"
-                                        placeholder="grocery, anushka store, online store, fast delivery, fresh vegetables"
+                                        placeholder="grocery, anushka connect, online store, fast delivery, fresh vegetables"
                                     />
                                     <p className="text-[10px] font-bold text-slate-400 italic text-right">Separate keywords with commas</p>
                                 </div>

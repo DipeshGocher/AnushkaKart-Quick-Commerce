@@ -683,7 +683,7 @@ const Returns = () => {
                                             <div className="bg-white/60 p-3 rounded-xl border border-black/5">
                                                 <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">QC Decision Note:</p>
                                                 <p className="text-sm text-slate-800 italic leading-relaxed">
-                                                    "{selectedReturn.returnQcNote}"
+                                                    &quot;{selectedReturn.returnQcNote}&quot;
                                                 </p>
                                             </div>
                                         )}

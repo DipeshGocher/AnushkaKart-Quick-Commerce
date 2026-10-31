@@ -144,7 +144,7 @@ function CategoryNavColumn({
   );
 }
 
-const SearchPlaceholderTypewriter = React.memo(({ categories = [] }) => {
+const SearchPlaceholderTypewriter = React.memo(function SearchPlaceholderTypewriter({ categories = [] }) {
   const [searchPlaceholder, setSearchPlaceholder] = useState('Search "Mobile"');
   const [typingState, setTypingState] = useState({
     textIndex: 0,
@@ -558,7 +558,7 @@ const MainLocationHeader = ({
               >
                 <img
                   src={logoUrl || "/logo.png"}
-                  alt={`${appName || 'AnushkaStore'} Logo`}
+                  alt={`${appName || 'Anushka Connect'} Logo`}
                   loading="lazy"
                   className="h-full w-auto max-h-[39px] max-w-[125px] object-contain"
                 />
@@ -718,7 +718,7 @@ const MainLocationHeader = ({
                 >
                   <img
                     src={logoUrl || "/logo.png"}
-                    alt="AnushkaStore Logo"
+                    alt="Anushka Connect Logo"
                     className="h-full w-auto max-h-[39px] max-w-[125px] object-contain shrink-0"
                   />
                 </div>

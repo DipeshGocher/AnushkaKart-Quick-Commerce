@@ -1,6 +1,7 @@
 import Setting from "../../models/setting.js";
 import handleResponse from "../../utils/helper.js";
 import { normalizeProductApprovalConfig } from "../../services/productModerationService.js";
+import { getErrorStatus } from "../../utils/httpError.js";
 
 function flattenForMongoSet(prefix, value, target) {
   if (value === undefined) return;
@@ -48,7 +49,7 @@ export const getPlatformSettings = async (req, res) => {
       result,
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -76,6 +77,6 @@ export const updatePlatformSettings = async (req, res) => {
       result,
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };

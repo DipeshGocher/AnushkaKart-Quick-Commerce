@@ -93,13 +93,13 @@ export default defineConfig(({ mode }) => ({
 
           // ── Animation ────────────────────────────────────────────────────
           if (id.includes('framer-motion')) return 'vendor-motion';
-          if (id.includes('lottie-react') || id.includes('lottie-web')) return 'vendor-lottie';
+          // lottie, recharts and react-icons are deliberately NOT grouped here:
+          // a named vendor chunk is shared, so one eager import of any of them
+          // pulled the whole group onto first load. Left ungrouped, Rollup keeps
+          // each in the lazy route chunks that actually use it.
 
           // ── Firebase (heavy — defer until needed) ─────────────────────────
           if (id.includes('firebase')) return 'vendor-firebase';
-
-          // ── Charts ───────────────────────────────────────────────────────
-          if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
 
           // ── React core + router (tiny, stays in main) ────────────────────
           if (id.includes('react-dom') || id.includes('react-router')) return 'vendor-react';
@@ -109,13 +109,6 @@ export default defineConfig(({ mode }) => ({
 
           // ── Icons & UI utilities ─────────────────────────────────────────
           if (id.includes('lucide-react')) return 'vendor-icons';
-
-          // ── Admin-only FontAwesome icon catalog (heavy registry) ──────────
-          if (
-            id.includes('react-icons') ||
-            id.includes('fontAwesomeFreeClassicCatalog') ||
-            id.includes('IconSelector')
-          ) return 'vendor-admin-icons';
         },
       },
     },

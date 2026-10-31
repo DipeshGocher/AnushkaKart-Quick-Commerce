@@ -8,17 +8,12 @@ export default function VoiceSearchModal({ isOpen, onClose, onQuerySubmit }) {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [isSupported, setIsSupported] = useState(true);
+  // Known on first render, so no effect is needed (avoids a flash of "supported").
+  const [isSupported, setIsSupported] = useState(
+    () => typeof window !== 'undefined' && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition),
+  );
   const recognitionRef = useRef(null);
   const timerRef = useRef(null);
-
-  useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setIsSupported(false);
-      return;
-    }
-  }, []);
 
   const stopRecognition = () => {
     if (recognitionRef.current) {
@@ -220,7 +215,7 @@ export default function VoiceSearchModal({ isOpen, onClose, onQuerySubmit }) {
                     className="space-y-1"
                   >
                     <p className="text-lg font-black text-slate-900 leading-snug">
-                      "{transcript}"
+                      &quot;{transcript}&quot;
                     </p>
                     <p className="text-xs font-semibold text-emerald-600">
                       Searching store...
@@ -234,7 +229,7 @@ export default function VoiceSearchModal({ isOpen, onClose, onQuerySubmit }) {
                     <div className="flex items-center justify-center gap-1">
                       <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-ping" />
                       <span className="text-xs font-medium text-slate-400">
-                        Try saying "Atta", "Amul Milk", "Maggi", "Cold drink"
+                        Try saying &quot;Atta&quot;, &quot;Amul Milk&quot;, &quot;Maggi&quot;, &quot;Cold drink&quot;
                       </span>
                     </div>
                   </div>

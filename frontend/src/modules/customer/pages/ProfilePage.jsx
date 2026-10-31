@@ -266,7 +266,7 @@ const ProfilePage = () => {
                 <h2 className="text-base font-bold text-slate-800">FAQs & Account Settings</h2>
                 <div className="space-y-2 text-sm text-slate-600">
                     <p className="font-semibold text-slate-800">What happens when I update my email address (or mobile number)?</p>
-                    <p className="text-xs text-slate-500 leading-relaxed">Your login identifier will be updated. You'll receive all future notifications on the updated contact address.</p>
+                    <p className="text-xs text-slate-500 leading-relaxed">Your login identifier will be updated. You&apos;ll receive all future notifications on the updated contact address.</p>
                 </div>
 
                 <div className="pt-4">

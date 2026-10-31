@@ -12,7 +12,7 @@ export function SignInCard2({
   backPath = "/customer",
   showBackButton = true,
   logoUrl = "/logo.png",
-  appName = "Anushka Store",
+  appName = "Anushka Connect",
   footer,
   className,
   containerClassName
@@ -48,11 +48,11 @@ export function SignInCard2({
 
           <div className={cn("auth-reference-content w-full max-w-[480px] sm:max-w-[540px] mx-auto flex flex-col justify-center px-6 sm:px-8 py-12 sm:py-16", className)}>
             <div className="text-center mb-6 sm:mb-8">
-              {/* Anushka Store Logo replacing "Welcome here" text */}
+              {/* Anushka Connect Logo replacing "Welcome here" text */}
               <div className="flex justify-center mb-6 sm:mb-8">
                 <img 
                   src={logoUrl || "/logo.png"} 
-                  alt={appName || "Anushka Store"} 
+                  alt={appName || "Anushka Connect"} 
                   className="h-11 sm:h-13 w-auto object-contain max-w-[200px]"
                 />
               </div>

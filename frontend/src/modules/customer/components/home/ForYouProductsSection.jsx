@@ -47,7 +47,7 @@ const getForYouCacheKey = (tabId, lat, lng) => {
   return `${tabId}:${loc}`;
 };
 
-const ForYouProductsSection = React.memo(({ categories: propCategories, latitude, longitude }) => {
+const ForYouProductsSection = React.memo(function ForYouProductsSection({ categories: propCategories, latitude, longitude }) {
   const { openProduct } = useProductDetail();
   const { language } = useTranslation();
   const { translateObject } = useDynamicTranslation();
@@ -278,6 +278,17 @@ const ForYouProductsSection = React.memo(({ categories: propCategories, latitude
       fetchProducts(1, true, activeTab);
     }
   }, [activeTab, fetchProducts, latitude, longitude]);
+
+  // Auto-refresh products when network connection is restored
+  useEffect(() => {
+    const handleNetworkRestored = () => {
+      forYouProductsCache.clear();
+      seenIdsRef.current.clear();
+      fetchProducts(1, true, activeTab);
+    };
+    window.addEventListener("app:network-restored", handleNetworkRestored);
+    return () => window.removeEventListener("app:network-restored", handleNetworkRestored);
+  }, [fetchProducts, activeTab]);
 
   // Infinite scroll observer
   useEffect(() => {

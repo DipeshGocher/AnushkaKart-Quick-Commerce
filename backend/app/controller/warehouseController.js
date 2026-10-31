@@ -4,6 +4,7 @@ import WarehouseCheckin from "../models/warehouseCheckin.js";
 import { handleResponse, calculateDistance } from "../utils/helper.js";
 import { generateWarehouseQR, getCurrentWarehouseQR } from "../services/warehouseQrService.js";
 import mongoose from "mongoose";
+import { getErrorStatus } from "../utils/httpError.js";
 
 
 
@@ -42,7 +43,7 @@ export const getNearbyWarehouses = async (req, res) => {
 
     return handleResponse(res, 200, "Nearby warehouses fetched successfully", nearbyWarehouses);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -88,7 +89,7 @@ export const requestWarehouseWithdrawal = async (req, res) => {
 
     return handleResponse(res, 201, "Withdrawal request submitted successfully", withdrawal);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -103,7 +104,7 @@ export const getWarehouseProfile = async (req, res) => {
     }
     return handleResponse(res, 200, "Warehouse profile fetched successfully", warehouse);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -147,7 +148,7 @@ export const updateWarehouseProfile = async (req, res) => {
     if (error.code === 11000) {
       return handleResponse(res, 400, "Phone number already in use");
     }
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -160,7 +161,7 @@ export const generateQRCode = async (req, res) => {
     const result = await generateWarehouseQR(warehouseId);
     return handleResponse(res, 200, "QR code generated successfully", result);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -176,7 +177,7 @@ export const getCurrentQR = async (req, res) => {
     }
     return handleResponse(res, 200, "Current QR code fetched", result);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -211,6 +212,6 @@ export const updateCheckinSettings = async (req, res) => {
       checkinRadius: warehouse.checkinRadius,
     });
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
