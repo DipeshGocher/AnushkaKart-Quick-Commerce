@@ -6,6 +6,7 @@ import {
   getRiderCashDetailsData,
   settleRiderCashEntry,
 } from "../../services/admin/cashService.js";
+import { getErrorStatus } from "../../utils/httpError.js";
 
 export const getDeliveryCashBalances = async (req, res) => {
   try {
@@ -18,7 +19,7 @@ export const getDeliveryCashBalances = async (req, res) => {
     return handleResponse(res, 200, "Cash balances fetched", data);
   } catch (error) {
     console.error("Aggregation Error:", error);
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -51,7 +52,7 @@ export const getRiderCashDetails = async (req, res) => {
     const formatted = await getRiderCashDetailsData(riderId);
     return handleResponse(res, 200, "Rider cash details fetched", formatted);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -65,6 +66,6 @@ export const getCashSettlementHistory = async (req, res) => {
     const data = await getCashSettlementHistoryData({ page, limit, skip });
     return handleResponse(res, 200, "Settlement history fetched", data);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };

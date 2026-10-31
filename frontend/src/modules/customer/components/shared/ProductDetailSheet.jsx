@@ -40,11 +40,10 @@ const ProgressiveProductImage = ({
     containerClassName = "",
     onClick
 }) => {
-    const [highResLoaded, setHighResLoaded] = useState(false);
-
-    useEffect(() => {
-        setHighResLoaded(false);
-    }, [highResSrc]);
+    // Track which source finished loading; a new highResSrc is "not loaded"
+    // automatically, with no reset effect.
+    const [loadedSrc, setLoadedSrc] = useState(null);
+    const highResLoaded = loadedSrc === highResSrc;
 
     if (!highResSrc || thumbSrc === highResSrc) {
         return (
@@ -88,7 +87,7 @@ const ProgressiveProductImage = ({
                 fetchPriority={fetchPriority}
                 decoding="async"
                 referrerPolicy="no-referrer"
-                onLoad={() => setHighResLoaded(true)}
+                onLoad={() => setLoadedSrc(highResSrc)}
                 className={cn(
                     imgClassName,
                     "relative transition-opacity duration-200",
@@ -143,6 +142,27 @@ const ProductDetailSheet = () => {
 
     const [extendedProduct, setExtendedProduct] = useState(null);
     const activeProduct = extendedProduct || selectedProduct;
+    const storeTarget = useMemo(() => {
+        const sel = activeProduct?.sellerId || selectedProduct?.sellerId;
+        if (!sel) return null;
+        if (typeof sel === 'object') {
+            if (sel.slug) return sel.slug;
+            if (sel.shopName) {
+                const slug = String(sel.shopName)
+                    .toLowerCase()
+                    .trim()
+                    .replace(/['’]/g, "")
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/^-+|-+$/g, "");
+                if (slug) return slug;
+            }
+            if (sel._id) return String(sel._id);
+        }
+        if (typeof sel === 'string' && sel.trim()) {
+            return sel.trim();
+        }
+        return null;
+    }, [activeProduct, selectedProduct]);
 
     const {
         isDeliverable,
@@ -651,9 +671,9 @@ const ProductDetailSheet = () => {
 
         const idOrSlug = prod.slug || prod._id || prod.id;
         const shareUrl = `${window.location.origin}/product/${idOrSlug}`;
-        const shareTitle = prod.name || "Check out this product on AnushkaKart";
+        const shareTitle = prod.name || "Check out this product on Anushka Connect";
         const priceToShare = selectedVariant?.salePrice || selectedVariant?.price || prod.salePrice || prod.price;
-        const shareText = `Check out ${prod.name} on AnushkaKart for just ₹${priceToShare}!\n${shareUrl}`;
+        const shareText = `Check out ${prod.name} on Anushka Connect for just ₹${priceToShare}!\n${shareUrl}`;
 
         if (navigator.share) {
             try {
@@ -1527,23 +1547,23 @@ const ProductDetailSheet = () => {
                                         </div>
                                     </motion.div>
 
-                                    {/* Seller / Warehouse Name */}
-                                    {(selectedProduct.sellerId?.shopName || selectedProduct.warehouseId?.name) && (
-                                        <motion.div
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: 0.17 }}
-                                            className="flex items-center gap-1.5 mt-2 mb-3 text-[13px] font-semibold text-slate-500"
+                                    {/* Visit Store Link between Product Name and Price */}
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.17 }}
+                                        className="mt-2 mb-2"
+                                    >
+                                        <Link
+                                            to={storeTarget ? `/store/${storeTarget}` : "/products"}
+                                            onClick={() => closeProduct()}
+                                            className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#2874F0] hover:text-blue-700 hover:underline active:opacity-80 transition-opacity"
                                         >
-                                            {selectedProduct.sellerId?.shopName ? (
-                                                <><Store size={15} className="text-slate-400" /> <span>{selectedProduct.sellerId.shopName}</span></>
-                                            ) : (
-                                                <><Building2 size={15} className="text-slate-400" /> <span>{selectedProduct.warehouseId?.name}</span></>
-                                            )}
-                                        </motion.div>
-                                    )}
-
-                                    {/* Price + Add-to-Cart Card */}
+                                            <span>Visit store</span>
+                                            <ChevronRight size={13} className="text-[#2874F0]" />
+                                        </Link>
+                                    </motion.div>
+                                                                        {/* Price + Add-to-Cart Card */}
                                     <motion.div
                                         initial={{ opacity: 0, y: 12 }}
                                         animate={{ opacity: 1, y: 0 }}
@@ -1962,6 +1982,18 @@ const ProductDetailSheet = () => {
                                     <h2 className="text-xl font-extrabold text-[#0F172A] leading-snug tracking-tight">
                                         {selectedProduct.name}
                                     </h2>
+                                </div>
+
+                                {/* Visit Store Link between Product Name and Price */}
+                                <div>
+                                    <Link
+                                        to={storeTarget ? `/store/${storeTarget}` : "/products"}
+                                        onClick={() => closeProduct()}
+                                        className="inline-flex items-center gap-0.5 text-[12px] font-semibold text-[#2874F0] hover:text-blue-700 hover:underline active:opacity-80 transition-opacity"
+                                    >
+                                        <span>Visit store</span>
+                                        <ChevronRight size={13} className="text-[#2874F0]" />
+                                    </Link>
                                 </div>
 
                                 {/* Price Row */}

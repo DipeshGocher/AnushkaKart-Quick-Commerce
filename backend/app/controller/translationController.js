@@ -4,10 +4,10 @@ export const translateSingle = async (req, res, next) => {
   try {
     const { text, targetLang, sourceLang = 'en' } = req.body;
     if (!text) {
-      return res.status(400).json({ success: false, error: 'Text parameter is required' });
+      return res.status(400).json({ success: false, error: 'Text parameter is required', message: 'Text parameter is required' });
     }
     if (!targetLang) {
-      return res.status(400).json({ success: false, error: 'Target language is required' });
+      return res.status(400).json({ success: false, error: 'Target language is required', message: 'Target language is required' });
     }
 
     const translation = await translationService.translateText(text, targetLang, sourceLang);
@@ -29,13 +29,13 @@ export const translateBatchRoute = async (req, res, next) => {
   try {
     const { texts, targetLang, sourceLang = 'en' } = req.body;
     if (!Array.isArray(texts)) {
-      return res.status(400).json({ success: false, error: 'Texts parameter must be an array' });
+      return res.status(400).json({ success: false, error: 'Texts parameter must be an array', message: 'Texts parameter must be an array' });
     }
     if (texts.length > 100) {
-      return res.status(400).json({ success: false, error: 'Maximum batch size is 100' });
+      return res.status(400).json({ success: false, error: 'Maximum batch size is 100', message: 'Maximum batch size is 100' });
     }
     if (!targetLang) {
-      return res.status(400).json({ success: false, error: 'Target language is required' });
+      return res.status(400).json({ success: false, error: 'Target language is required', message: 'Target language is required' });
     }
 
     const translations = await translationService.translateBatch(texts, targetLang, sourceLang);
@@ -57,10 +57,10 @@ export const translateObjectRoute = async (req, res, next) => {
   try {
     const { obj, targetLang, sourceLang = 'en', keysToTranslate = [] } = req.body;
     if (!obj || typeof obj !== 'object') {
-      return res.status(400).json({ success: false, error: 'Object parameter is required' });
+      return res.status(400).json({ success: false, error: 'Object parameter is required', message: 'Object parameter is required' });
     }
     if (!targetLang) {
-      return res.status(400).json({ success: false, error: 'Target language is required' });
+      return res.status(400).json({ success: false, error: 'Target language is required', message: 'Target language is required' });
     }
 
     const translatedObj = await translationService.translateObject(obj, targetLang, sourceLang, keysToTranslate);

@@ -149,7 +149,7 @@ const CustomerAuth = () => {
             title={isLogin ? 'Welcome Back' : 'Create Account'}
             subtitle={isLogin ? 'Login to access your orders & deliveries' : 'Enter your details to get started'}
             logoUrl={settings?.logoUrl || "/logo.png"}
-            appName="Anushka Store"
+            appName="Anushka Connect"
             bgImageUrl="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1920&q=80"
             footer={
                 <p className="text-xs font-semibold text-slate-500">

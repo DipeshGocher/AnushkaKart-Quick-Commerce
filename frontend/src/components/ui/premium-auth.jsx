@@ -268,7 +268,7 @@ export function AuthForm({
             <KeyRound className="h-12 w-12 text-[#E60067] mx-auto mb-3" />
             <h3 className="text-xl font-bold text-slate-900 mb-2">Password Recovery</h3>
             <p className="text-slate-500 text-sm">
-              Enter your email address and we'll send you a link to reset your password.
+              Enter your email address and we&apos;ll send you a link to reset your password.
             </p>
           </div>
 
@@ -337,7 +337,7 @@ export function AuthForm({
             <Mail className="h-12 w-12 text-[#E60067] mx-auto mb-3" />
             <h3 className="text-xl font-bold text-slate-900 mb-2">Verify Your Email</h3>
             <p className="text-slate-500 text-sm">
-              We've sent a 6-digit code to <span className="font-bold text-slate-800">{formData.email}</span>
+              We&apos;ve sent a 6-digit code to <span className="font-bold text-slate-800">{formData.email}</span>
             </p>
           </div>
 

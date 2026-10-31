@@ -6,6 +6,7 @@ import getPagination from "../utils/pagination.js";
 import { emitTicketCreated, emitTicketMessage } from "../services/ticketSocketEmitter.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 async function getAdminIds() {
     const admins = await Admin.find().select("_id").lean();
@@ -80,7 +81,7 @@ export const createTicket = async (req, res) => {
 
         return handleResponse(res, 201, "Ticket created successfully", newTicket);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -90,7 +91,7 @@ export const getMyTickets = async (req, res) => {
         const tickets = await Ticket.find({ userId: req.user.id }).sort({ createdAt: -1 });
         return handleResponse(res, 200, "Tickets fetched successfully", tickets);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -128,7 +129,7 @@ export const getAllTickets = async (req, res) => {
             totalPages: Math.ceil(total / limit) || 1,
         });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -211,7 +212,7 @@ export const replyToTicket = async (req, res) => {
 
         return handleResponse(res, 200, "Reply sent successfully", ticket);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -226,6 +227,6 @@ export const updateTicketStatus = async (req, res) => {
 
         return handleResponse(res, 200, `Ticket status updated to ${status}`, ticket);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };

@@ -37,6 +37,8 @@ import {
     updateUserStatus,
     sendUserNotification,
     getSellers,
+    getSellerStoreBanners,
+    updateSellerStoreBanners,
     getSellerLocations,
     getPlatformSettings,
     updatePlatformSettings
@@ -165,6 +167,8 @@ router.get("/users/:id", verifyToken, allowRoles("admin"), getUserById);
 router.patch("/users/:id/status", verifyToken, allowRoles("admin"), updateUserStatus);
 router.post("/users/:id/notify", verifyToken, allowRoles("admin"), sendUserNotification);
 router.get("/sellers", verifyToken, allowRoles("admin"), getSellers);
+router.get("/sellers/:sellerId/banners", verifyToken, allowRoles("admin"), getSellerStoreBanners);
+router.put("/sellers/:sellerId/banners", verifyToken, allowRoles("admin"), updateSellerStoreBanners);
 router.get("/sellers/locations", verifyToken, allowRoles("admin"), getSellerLocations);
 router.get("/sellers/active", verifyToken, allowRoles("admin"), getActiveSellers);
 router.get(

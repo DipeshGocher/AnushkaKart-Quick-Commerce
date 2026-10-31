@@ -9,6 +9,7 @@ import {
     verifyWarehouseResetOtpCode,
 } from "../services/warehouseVerificationService.js";
 import { uploadToCloudinary } from "../services/mediaService.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 /* ===============================
    Utils
@@ -161,7 +162,7 @@ export const signupWarehouse = async (req, res) => {
             requiresApproval: true,
         });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -175,7 +176,7 @@ export const sendWarehouseSignupOtp = async (req, res) => {
         const result = await issueWarehouseVerificationOtp({ channel, rawValue: targetValue, ipAddress: req.ip });
         return handleResponse(res, 200, "OTP sent successfully", result);
     } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -189,7 +190,7 @@ export const verifyWarehouseSignupOtp = async (req, res) => {
         const result = await verifyWarehouseOtpCode({ channel, rawValue: targetValue, otp, ipAddress: req.ip });
         return handleResponse(res, 200, "OTP verified successfully", result);
     } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -247,7 +248,7 @@ export const loginWarehouse = async (req, res) => {
 
         return handleResponse(res, 200, "Login successful", { token, seller: warehouse });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -265,7 +266,7 @@ export const sendWarehouseResetOtp = async (req, res) => {
         const result = await issueWarehouseResetOtp({ channel, rawValue, ipAddress });
         return handleResponse(res, 200, "Reset OTP sent successfully", result);
     } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -279,7 +280,7 @@ export const verifyWarehouseResetOtp = async (req, res) => {
         const result = await verifyWarehouseResetOtpCode({ channel, rawValue, otp, ipAddress });
         return handleResponse(res, 200, "OTP verified successfully", result);
     } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -305,7 +306,7 @@ export const resetWarehousePassword = async (req, res) => {
 
         return handleResponse(res, 200, "Password reset successfully");
     } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -326,6 +327,6 @@ export const checkWarehouseExists = async (req, res) => {
         const warehouse = await Warehouse.findOne({ $or: query }).select("_id").lean();
         return handleResponse(res, 200, "Check completed", { exists: !!warehouse });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };

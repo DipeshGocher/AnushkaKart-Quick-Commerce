@@ -732,7 +732,7 @@ export async function createShiprocketReversePickup(orderParam) {
     warehouse = await Warehouse.findById(order.warehouseId).lean();
   }
 
-  const destinationName = seller?.shopName || warehouse?.name || "AnushkaKart Central Store";
+  const destinationName = seller?.shopName || warehouse?.name || "Anushka Connect Central Store";
   const destinationPhone = seller?.phone || warehouse?.phone || order.address?.phone || "9999999999";
   const destinationAddress = seller?.address || warehouse?.address || "Jhansi Store Hub";
   const destinationCity = seller?.city || warehouse?.city || "Jhansi";
@@ -817,7 +817,7 @@ export async function createShiprocketReversePickup(orderParam) {
     pickup_state: order.address?.state || "",
     pickup_country: "India",
     pickup_pincode: String(order.address?.pincode || "").trim(),
-    pickup_email: order.address?.email || "customer@anushkakart.com",
+    pickup_email: order.address?.email || "customer@anushkaconnect.com",
     pickup_phone: String(order.address?.phone || "").trim(),
     shipping_customer_name: destinationName,
     shipping_address: destinationAddress,

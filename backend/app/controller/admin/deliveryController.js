@@ -3,6 +3,7 @@ import Order from "../../models/order.js";
 import handleResponse from "../../utils/helper.js";
 import getPagination from "../../utils/pagination.js";
 import { clearRiderPresence } from "../../services/firebaseService.js";
+import { getErrorStatus } from "../../utils/httpError.js";
 
 export const getDeliveryPartners = async (req, res) => {
   try {
@@ -89,7 +90,7 @@ export const getDeliveryPartners = async (req, res) => {
       totalPages: Math.ceil(total / limit) || 1,
     });
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -120,7 +121,7 @@ export const updateDeliveryPartnerStatus = async (req, res) => {
       rider
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -143,7 +144,7 @@ export const deleteDeliveryPartner = async (req, res) => {
       "Delivery partner completely removed from database"
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -162,7 +163,7 @@ export const approveDeliveryPartner = async (req, res) => {
 
     return handleResponse(res, 200, "Rider approved successfully", rider);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -185,6 +186,6 @@ export const rejectDeliveryPartner = async (req, res) => {
       "Rider application rejected and removed",
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };

@@ -29,7 +29,7 @@ export function resolveMediaUrl(url) {
     return `http://localhost:5000${cleanUrl}`;
   }
   
-  // If it has localhost:5000 but user is on production domain (anushkakart.in), map it to current domain
+  // If it has localhost:5000 but user is on production domain (anushkaconnect.in), map it to current domain
   if (url.includes("localhost:5000/uploads/") && typeof window !== "undefined" && !window.location.hostname.includes("localhost")) {
     return url.replace(/https?:\/\/localhost:5000/i, window.location.origin);
   }

@@ -21,6 +21,7 @@ import OrderDetailPage from '../pages/OrderDetailPage';
 import ProductDetailPage from '../pages/ProductDetailPage';
 
 import ProductsPage from '../pages/ProductsPage';
+import StorePage from '../pages/StorePage';
 import CheckoutPage from '../pages/CheckoutPage';
 import PaymentStatusPage from '../pages/PaymentStatusPage';
 import ScrollToTop from '../components/shared/ScrollToTop';
@@ -57,6 +58,7 @@ const CustomerRoutes = () => {
                                 <Route path="offers" element={<OffersPage />} />
                                 <Route path="cart" element={<CartPage />} />
                                 <Route path="products" element={<ProductsPage />} />
+                                <Route path="store/:sellerId" element={<StorePage />} />
 
                                 {/* Protected Customer Routes */}
                                 <Route path="wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />

@@ -172,6 +172,11 @@ const productSchema = new mongoose.Schema(
             enum: ["active", "inactive"],
             default: "active",
         },
+        isDeleted: {
+            type: Boolean,
+            default: false,
+            index: true,
+        },
         approvalStatus: {
             type: String,
             enum: ["pending", "approved", "rejected"],

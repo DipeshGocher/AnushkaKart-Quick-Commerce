@@ -493,3 +493,6 @@ export const useLocation = () => {
 };
 
 export const useLocationContext = useLocation;
+
+/** Like useLocation, but returns null outside a LocationProvider instead of throwing. */
+export const useOptionalLocation = () => useContext(LocationContext) ?? null;

@@ -5,6 +5,7 @@ import {
   getPendingSellerApplications,
   rejectSellerApplicationById,
 } from "../../services/admin/sellerApplicationService.js";
+import { getErrorStatus } from "../../utils/httpError.js";
 
 export const getPendingSellers = async (req, res) => {
   try {
@@ -24,7 +25,7 @@ export const getPendingSellers = async (req, res) => {
 
     return handleResponse(res, 200, "Pending seller applications fetched", data);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -42,7 +43,7 @@ export const approveSellerApplication = async (req, res) => {
 
     return handleResponse(res, 200, "Seller approved successfully", seller);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -62,6 +63,6 @@ export const rejectSellerApplication = async (req, res) => {
 
     return handleResponse(res, 200, "Seller application rejected", seller);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };

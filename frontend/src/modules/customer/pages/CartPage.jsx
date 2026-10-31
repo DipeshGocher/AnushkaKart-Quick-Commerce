@@ -172,22 +172,22 @@ const CartPage = ({ asOverlay = false, onClose }) => {
       initial={asOverlay || reduceMotion ? false : { opacity: 0.94, top: 20 }}
       animate={{ opacity: 1, top: 0 }}
       transition={{ duration: reduceMotion ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
-      className={`relative bg-white font-sans antialiased text-[#212121] ${asOverlay ? 'h-full overflow-y-auto pb-32' : 'min-h-screen pb-64 md:pb-32'}`}
+      className={`relative bg-white font-sans antialiased text-[#212121] ${asOverlay ? 'h-full overflow-y-auto pb-32' : 'min-h-screen pb-[calc(11rem+env(safe-area-inset-bottom,0px))] md:pb-24'}`}
     >
       <LocationDrawer isOpen={isLocationOpen} onClose={() => setIsLocationOpen(false)} />
 
       {/* Top Header */}
       <div className="sticky top-0 z-30 bg-white border-b border-[#e5e5e5]">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 py-3.5 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 md:px-6 py-2 md:py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-2 flex-1">
             <button
               onClick={() => (asOverlay && onClose ? onClose() : navigate(-1))}
-              className="w-10 h-10 flex items-center justify-center hover:bg-slate-100 rounded-full transition-colors -ml-1 cursor-pointer"
+              className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center hover:bg-slate-100 rounded-full transition-colors -ml-1 cursor-pointer"
             >
-              <ChevronLeft size={24} className="text-slate-800" />
+              <ChevronLeft size={20} className="text-slate-800" />
             </button>
             <div>
-              <h1 className="text-lg font-bold text-[#212121] tracking-tight leading-tight">My Cart</h1>
+              <h1 className="text-base md:text-lg font-bold text-[#212121] tracking-tight leading-tight">My Cart</h1>
               {activeCart.length > 0 && (
                 <p className="text-[11px] text-slate-500 font-semibold">
                   {activeCart.length} {activeCart.length === 1 ? 'item' : 'items'} in grocery basket
@@ -199,7 +199,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
       </div>
 
       {/* Main Cart Items Content */}
-      <div className="w-full max-w-7xl mx-auto px-4 md:px-6 pt-3">
+      <div className="w-full max-w-7xl mx-auto px-3 md:px-6 pt-2 md:pt-3">
         {activeCart.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* Left Column (8 cols / ~68%) */}
@@ -207,7 +207,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
               {/* Delivery Address Bar */}
               <div 
                 onClick={() => setIsLocationOpen(true)}
-                className="bg-[#f5f5f5] rounded-xl px-3 py-3 flex items-center justify-between gap-2 cursor-pointer hover:bg-slate-100 transition-colors border border-slate-200/60"
+                className="bg-[#f5f5f5] rounded-lg md:rounded-xl px-3 py-2 md:py-3 flex items-center justify-between gap-2 cursor-pointer hover:bg-slate-100 transition-colors border border-slate-200/60"
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <MapPin size={16} className="text-[#212121] shrink-0" />
@@ -248,12 +248,12 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                   return (
                     <div 
                       key={`${item.id || item._id}-${item.variantSku || ''}`}
-                      className="bg-white py-4 first:pt-0 last:pb-0"
+                      className="bg-white py-3 first:pt-0 last:pb-0"
                     >
                       <div className="flex gap-3.5">
                         {/* Left Column: Image Box + Stepper underneath */}
                         <div className="flex flex-col items-center shrink-0">
-                          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-lg bg-[#f5f5f5] flex items-center justify-center overflow-hidden">
+                          <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-lg bg-[#f5f5f5] flex items-center justify-center overflow-hidden">
                             <img
                               src={applyCloudinaryTransform(item.image || item.mainImage, IMAGE_PRESETS.PRODUCT_THUMB)}
                               alt={item.name}
@@ -264,12 +264,12 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                           </div>
 
                           {/* Quantity Stepper */}
-                          <div className="mt-2.5 flex items-center border border-[#d6d6d6] rounded-lg overflow-hidden bg-white">
+                          <div className="mt-2 flex items-center border border-[#d6d6d6] rounded-md sm:rounded-lg overflow-hidden bg-white">
                             <button
                               onClick={() => handleQuantityMinus(item)}
                               disabled={item.quantity <= 1}
                               className={cn(
-                                "w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center transition",
+                                "w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center transition",
                                 item.quantity <= 1
                                   ? "opacity-30 cursor-not-allowed text-slate-300 bg-slate-50"
                                   : "text-slate-700 hover:bg-slate-100 active:scale-90 cursor-pointer"
@@ -278,7 +278,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                             >
                               <Minus size={13} strokeWidth={2.5} />
                             </button>
-                            <span className="w-8 sm:w-9 text-center text-xs sm:text-sm font-extrabold text-slate-900 select-none">
+                            <span className="w-7 sm:w-8 text-center text-xs font-extrabold text-slate-900 select-none">
                               {item.quantity}
                             </span>
                             {(() => {
@@ -291,7 +291,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                                   onClick={() => handleQuantityPlus(item)}
                                   disabled={isMaxStock}
                                   className={cn(
-                                    "w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center transition",
+                                    "w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center transition",
                                     isMaxStock
                                       ? "opacity-30 cursor-not-allowed text-slate-300 bg-slate-50"
                                       : "text-slate-700 hover:bg-slate-100 active:scale-90 cursor-pointer"
@@ -314,27 +314,27 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                         {/* Right Column: Product Info & Pricing */}
                         <div className="flex-1 min-w-0 flex flex-col justify-between">
                           <div>
-                            <h3 className="text-sm sm:text-base font-medium text-[#212121] leading-snug line-clamp-2">
+                            <h3 className="text-[13px] sm:text-sm md:text-base font-medium text-[#212121] leading-snug line-clamp-2">
                               {item.name}
                             </h3>
 
-                            <p className="text-sm font-normal text-[#757575] mt-1">
+                            <p className="text-[11px] sm:text-xs font-normal text-[#757575] mt-0.5">
                               {item.variantName || item.weight || item.unit || '1 Unit'}
                             </p>
 
                             {/* Price Row */}
-                            <div className="mt-2 flex items-baseline gap-2 flex-wrap">
+                            <div className="mt-1.5 flex items-baseline gap-1.5 sm:gap-2 flex-wrap">
                               {hasDiscount && (
-                                <span className="text-sm sm:text-base font-bold text-[#16864a]">
+                                <span className="text-xs sm:text-sm font-bold text-[#16864a]">
                                   ↓ {discountPercent}%
                                 </span>
                               )}
                               {hasDiscount && (
-                                <span className="text-sm text-[#757575] line-through font-normal">
+                                <span className="text-[11px] sm:text-xs text-[#757575] line-through font-normal">
                                   ₹{mrp}
                                 </span>
                               )}
-                              <span className="text-base sm:text-lg font-bold text-[#212121]">
+                              <span className="text-[15px] sm:text-base font-bold text-[#212121]">
                                 ₹{unitPrice}
                               </span>
                             </div>
@@ -378,10 +378,10 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                       </div>
 
                       {/* Actions Row */}
-                      <div className="mt-4 grid grid-cols-3 gap-2">
+                      <div className="mt-2.5 grid grid-cols-3 gap-1.5 sm:gap-2">
                         <button
                           onClick={() => handleRemove(item)}
-                          className="py-2 px-2 rounded-xl border border-[#d6d6d6] text-xs sm:text-sm font-bold text-[#424242] hover:bg-slate-50 transition cursor-pointer flex items-center justify-center gap-1"
+                          className="py-1.5 px-1.5 rounded-lg border border-[#d6d6d6] text-[11px] sm:text-xs font-semibold text-[#424242] hover:bg-slate-50 transition cursor-pointer flex items-center justify-center gap-1"
                         >
                           <Trash2 size={13} />
                           <span>Remove</span>
@@ -389,7 +389,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
 
                         <button
                           onClick={() => handleMoveToWishlist(item)}
-                          className="py-2 px-2 rounded-xl border border-[#d6d6d6] text-xs sm:text-sm font-bold text-[#424242] hover:bg-slate-50 transition cursor-pointer flex items-center justify-center gap-1"
+                          className="py-1.5 px-1.5 rounded-lg border border-[#d6d6d6] text-[11px] sm:text-xs font-semibold text-[#424242] hover:bg-slate-50 transition cursor-pointer flex items-center justify-center gap-1"
                         >
                           <Heart size={13} />
                           <span className="truncate">Move to Wishlist</span>
@@ -397,7 +397,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
 
                         <button
                           onClick={() => handleBuyNow(item)}
-                          className="py-2 px-2 rounded-xl border border-[#d6d6d6] text-xs sm:text-sm font-bold text-[#212121] hover:bg-slate-50 transition cursor-pointer flex items-center justify-center gap-1"
+                          className="py-1.5 px-1.5 rounded-lg border border-[#d6d6d6] text-[11px] sm:text-xs font-bold text-[#212121] hover:bg-slate-50 transition cursor-pointer flex items-center justify-center gap-1"
                         >
                           <span>Buy Now</span>
                         </button>
@@ -509,24 +509,29 @@ const CartPage = ({ asOverlay = false, onClose }) => {
 
       {/* Bottom Sticky Checkout Bar (Positioned above Footer Navigation on Mobile, hidden on desktop lg:) */}
       {activeCart.length > 0 && (
-        <div className={`${asOverlay ? 'absolute bottom-0' : 'fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:bottom-0'} lg:hidden left-0 right-0 z-40 bg-white border-y border-slate-200/90 shadow-[0_-4px_25px_rgba(0,0,0,0.08)]`}>
+        <div 
+          className={`${asOverlay ? 'absolute bottom-0' : 'fixed bottom-0'} lg:hidden left-0 right-0 z-40 bg-white border-t border-slate-200/90 shadow-[0_-4px_25px_rgba(0,0,0,0.08)]`}
+          style={{
+            paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))'
+          }}
+        >
           {/* Green Savings Strip */}
           {totalSavings > 0 && (
-            <div className="bg-emerald-50 text-emerald-800 text-xs font-bold px-4 py-1.5 flex items-center justify-center gap-1.5 border-b border-emerald-100">
+            <div className="bg-emerald-50 text-emerald-800 text-[11px] font-bold px-4 py-1 flex items-center justify-center gap-1.5 border-b border-emerald-100">
               <Sparkles size={12} className="text-emerald-600" />
               <span>You&apos;ll save ₹{totalSavings} on this order</span>
             </div>
           )}
 
-          <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+          <div className="max-w-2xl mx-auto px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between gap-3">
             {/* Left: Total Price */}
             <div>
               {totalSavings > 0 && (
-                <p className="text-xs text-slate-400 line-through font-semibold leading-tight">
+                <p className="text-[11px] text-slate-400 line-through font-semibold leading-tight">
                   ₹{totalMrp}
                 </p>
               )}
-              <p className="text-lg sm:text-xl font-black text-slate-900 leading-tight">
+              <p className="text-base sm:text-lg font-black text-slate-900 leading-tight">
                 ₹{activeTotal}
               </p>
             </div>
@@ -539,7 +544,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                 destinationPincode,
               }}
               onClick={handleProceedToCheckout}
-              className={`${unserviceableCartItems.length > 0 ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-[#ffdf00] hover:bg-[#f5d500] text-[#212121]'} active:scale-95 font-bold text-sm sm:text-base px-7 py-3.5 rounded-xl transition-all flex items-center gap-2 cursor-pointer shrink-0`}
+              className={`${unserviceableCartItems.length > 0 ? 'bg-slate-300 text-slate-600 cursor-not-allowed' : 'bg-[#ffdf00] hover:bg-[#f5d500] text-[#212121]'} active:scale-95 font-bold text-xs sm:text-sm px-5 py-2.5 rounded-lg sm:rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shrink-0`}
             >
               <span>{!deliveryReady ? 'Checking delivery...' : unserviceableCartItems.length > 0 ? 'Fix Cart' : 'Proceed to buy'}</span>
               <ArrowRight size={16} strokeWidth={2.5} />

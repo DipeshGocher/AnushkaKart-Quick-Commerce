@@ -442,7 +442,7 @@ const ProductsPage = () => {
           {searchQuery && (
             <>
               <span className="text-slate-300">/</span>
-              <span className="text-slate-900 font-bold">"{searchQuery}"</span>
+              <span className="text-slate-900 font-bold">&quot;{searchQuery}&quot;</span>
             </>
           )}
         </nav>
@@ -528,7 +528,7 @@ const ProductsPage = () => {
             )}
             {page >= totalPages && products.length > 0 && (
               <div className="w-full py-6 flex items-center justify-center text-xs text-slate-400 font-medium">
-                <span>You've reached the end of this catalog</span>
+                <span>You&apos;ve reached the end of this catalog</span>
               </div>
             )}
           </>

@@ -110,12 +110,13 @@ export async function resolveSellerMeta(id) {
   const key = buildKey("catalog", "sellerMeta", String(id));
   const seller = await getOrSet(
     key,
-    () => Seller.findById(id).select("shopName pincode city state").lean(),
+    () => Seller.findById(id).select("shopName pincode city state slug").lean(),
     getTTL("categoryName"),
   );
   return seller
     ? {
         shopName: seller.shopName ?? null,
+        slug: seller.slug ?? null,
         pincode: seller.pincode ?? null,
         city: seller.city ?? null,
         state: seller.state ?? null,

@@ -10,6 +10,7 @@ import {
   evaluateDeliveryEligibility,
   resolveProductDeliveryMode,
 } from "../services/shipping/localPincodeService.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 const CART_POPULATE_FIELDS =
   "name slug price salePrice mainImage stock status headerId categoryId subcategoryId sellerId warehouseId variants conditionType catalogType refurbishedDetails isFeatured brand weight unit isMonthlyKit";
@@ -90,7 +91,7 @@ export const getCart = async (req, res) => {
 
     return handleResponse(res, 200, "Cart fetched successfully", sanitizeCartItems(cart));
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -212,7 +213,7 @@ export const addToCart = async (req, res) => {
 
     return handleResponse(res, 200, "Item added to cart", updatedCart);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -269,7 +270,7 @@ export const updateQuantity = async (req, res) => {
     return handleResponse(res, 200, "Cart updated successfully", updatedCart);
   } catch (error) {
     console.error("CRITICAL BACKEND ERROR IN updateQuantity:", error);
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -306,7 +307,7 @@ export const removeFromCart = async (req, res) => {
     return handleResponse(res, 200, "Item removed from cart", updatedCart);
   } catch (error) {
     console.error("CRITICAL BACKEND ERROR IN removeFromCart:", error);
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -325,6 +326,6 @@ export const clearCart = async (req, res) => {
 
     return handleResponse(res, 200, "Cart cleared successfully");
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };

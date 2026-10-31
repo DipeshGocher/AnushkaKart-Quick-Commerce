@@ -7,6 +7,7 @@ import {
   getUserByIdData,
   getUsersData,
 } from "../../services/admin/userAdminService.js";
+import { getErrorStatus } from "../../utils/httpError.js";
 
 export const getUsers = async (req, res) => {
   try {
@@ -18,7 +19,7 @@ export const getUsers = async (req, res) => {
     const data = await getUsersData({ page, limit, skip });
     return handleResponse(res, 200, "Users fetched successfully", data);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -38,7 +39,7 @@ export const getUserById = async (req, res) => {
       user,
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -61,7 +62,7 @@ export const updateUserStatus = async (req, res) => {
       status: user.isActive ? "active" : "inactive",
     });
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -110,6 +111,6 @@ export const sendUserNotification = async (req, res) => {
 
     return handleResponse(res, 200, "Notification sent successfully to customer", notification);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };

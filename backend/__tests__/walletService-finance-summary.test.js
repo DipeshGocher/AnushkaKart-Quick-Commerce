@@ -77,7 +77,8 @@ describe("getAdminFinanceSummary", () => {
 
     expect(summary.systemFloatCOD).toBe(375.55);
     expect(summary.totalPlatformEarning).toBe(9999);
-    expect(summary.availableBalance).toBe(9779);
+    // Free cash: wallet 999 minus pending payouts (180 + 40).
+    expect(summary.availableBalance).toBe(779);
     expect(summary.walletAvailableBalance).toBe(999);
     expect(mockOrderAggregate).toHaveBeenCalledTimes(4);
     expect(mockPayoutAggregate).toHaveBeenCalledTimes(1);

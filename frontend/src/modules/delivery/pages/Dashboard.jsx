@@ -107,13 +107,6 @@ const Dashboard = () => {
     }
   };
 
-  useEffect(() => {
-    fetchStats();
-    fetchNotifications();
-    fetchCheckinStatus();
-    if (isOnline) fetchAvailableOrders();
-  }, [isOnline, activeTab]);
-
   // Fetch warehouse check-in status
   const fetchCheckinStatus = async () => {
     try {
@@ -121,6 +114,13 @@ const Dashboard = () => {
       setCheckinStatus(res.data?.data);
     } catch { /* non-fatal */ }
   };
+
+  useEffect(() => {
+    fetchStats();
+    fetchNotifications();
+    fetchCheckinStatus();
+    if (isOnline) fetchAvailableOrders();
+  }, [isOnline, activeTab]);
 
   // Listen for queue order offers from socket
   useEffect(() => {
@@ -334,7 +334,7 @@ const Dashboard = () => {
 
           <div className="relative z-10 flex-1">
             <h3 className="text-xs font-bold text-white/90 uppercase tracking-wider mb-2">
-              Today's Earnings
+              Today&apos;s Earnings
             </h3>
 
             <div className="mb-2">
@@ -496,7 +496,7 @@ const Dashboard = () => {
                     Finding Orders Nearby...
                   </h3>
                   <p className="text-sm text-gray-500 max-w-[220px] mx-auto mb-6">
-                    We're looking for delivery requests in your area. Stay
+                    We&apos;re looking for delivery requests in your area. Stay
                     online!
                   </p>
                 </div>

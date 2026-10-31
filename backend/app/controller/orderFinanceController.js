@@ -18,6 +18,7 @@ import { orderMatchQueryFromRouteParam } from "../utils/orderLookup.js";
 import { verifyClientPaymentCallback } from "../services/paymentService.js";
 import { buildCheckoutPricingSnapshot } from "../services/checkoutPricingService.js";
 import { validateBody as validateWithJoi } from "../middleware/validate.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 export const previewCheckoutFinance = async (req, res) => {
   try {
@@ -77,7 +78,7 @@ export const previewCheckoutFinance = async (req, res) => {
       ...(distanceDebug ? { distanceDebug } : {}),
     });
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -133,7 +134,7 @@ export const createOrderWithFinancialSnapshot = async (req, res) => {
       },
     );
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -158,7 +159,7 @@ export const verifyOnlineOrderPayment = async (req, res) => {
       transactionId: verification.payment.gatewayPaymentId,
     });
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -201,7 +202,9 @@ export const markCodCollectedAfterDelivery = async (req, res) => {
       (req.user?.role === "delivery" ? req.user.id : null);
 
     if (order.financeFlags?.codMarkedCollected) {
-      return handleResponse(res, 200, "COD amount already marked as collected", order);
+      // Return the full order so retries get the same shape as the first call.
+      const current = await Order.findById(order._id).lean();
+      return handleResponse(res, 200, "COD amount already marked as collected", current);
     }
 
     const updated = await handleCodOrderFinance(order._id, {
@@ -212,7 +215,7 @@ export const markCodCollectedAfterDelivery = async (req, res) => {
 
     return handleResponse(res, 200, "COD amount marked as collected", updated);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -265,7 +268,7 @@ export const markOrderDeliveredAndSettle = async (req, res) => {
 
     return handleResponse(res, 200, "Order delivered and settlement queued", updated);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -307,6 +310,6 @@ export const reconcileCodCashSubmission = async (req, res) => {
 
     return handleResponse(res, 200, "COD cash reconciled successfully", updated);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };

@@ -6,6 +6,7 @@ import {
     createProduct,
     updateProduct,
     deleteProduct,
+    bulkDeleteProducts,
     getProductById,
     getModerationProducts,
     approveProduct,
@@ -54,6 +55,22 @@ router.put(
     requireApprovedSeller,
     upload.any(),
     updateProduct
+);
+
+// Bulk delete products (safe delete)
+router.post(
+    "/bulk-delete",
+    verifyToken,
+    allowRoles("seller", "admin", "warehouse"),
+    requireApprovedSeller,
+    bulkDeleteProducts
+);
+router.delete(
+    "/bulk",
+    verifyToken,
+    allowRoles("seller", "admin", "warehouse"),
+    requireApprovedSeller,
+    bulkDeleteProducts
 );
 
 router.delete(

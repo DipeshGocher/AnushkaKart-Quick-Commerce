@@ -1,5 +1,10 @@
 import Admin from "../../models/admin.js";
 import handleResponse from "../../utils/helper.js";
+import { getErrorStatus } from "../../utils/httpError.js";
+import {
+  updateAdminPasswordSchema,
+  validateSchema,
+} from "../../validation/adminAuthValidation.js";
 
 export const getAdminProfile = async (req, res) => {
   try {
@@ -24,7 +29,7 @@ export const getAdminProfile = async (req, res) => {
     );
   } catch (error) {
     console.error('[ProfileService] FATAL ERROR:', error);
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -58,22 +63,26 @@ export const updateAdminProfile = async (req, res) => {
       return handleResponse(res, 400, "Email already in use");
     }
 
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
 export const updateAdminPassword = async (req, res) => {
   try {
-    const { currentPassword, newPassword } = req.body;
+    const { currentPassword, newPassword } = validateSchema(
+      updateAdminPasswordSchema,
+      req.body || {},
+    );
 
     const admin = await Admin.findById(req.user.id).select("+password");
     if (!admin) {
       return handleResponse(res, 404, "Admin not found");
     }
 
+    // 400, not 401: the session is valid, only the submitted field is wrong.
     const isMatch = await admin.comparePassword(currentPassword);
     if (!isMatch) {
-      return handleResponse(res, 401, "Invalid current password");
+      return handleResponse(res, 400, "Current password is incorrect");
     }
 
     admin.password = newPassword;
@@ -81,6 +90,6 @@ export const updateAdminPassword = async (req, res) => {
 
     return handleResponse(res, 200, "Password updated successfully");
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };

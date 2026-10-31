@@ -49,7 +49,7 @@ const PaymentPage = () => {
   const { showToast } = useToast();
   const { clearCartSection, removeFromCart, cart } = useCart();
 
-  const appName = settings?.storeName || settings?.brandName || "Anushka Store";
+  const appName = settings?.storeName || settings?.brandName || "Anushka Connect";
 
   // Retrieve checkout state from route state or sessionStorage backup
   const checkoutData = useMemo(() => {
@@ -180,13 +180,15 @@ const PaymentPage = () => {
 
   const orderAddress = rawOrderAddress || rawCurrentAddress;
 
-  const whatsAppEmiUrl = useMemo(() => {
+  // Cheap string building; computed inline because this runs after the early
+  // return above, where hooks are not allowed.
+  const whatsAppEmiUrl = (() => {
     const rawPhone = settings?.whatsappNumber || settings?.supportPhone || settings?.phone || "8209224481";
     const cleanDigits = String(rawPhone).replace(/[^\d]/g, "");
     const phoneWithCountry = cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
-    const message = `Hello, I want to inquire about No Cost EMI for my order of ₹${finalAmountToPay} on ${appName}.`;
+    const message = `Hello, I want to inquire about Finance options for my order of ₹${finalAmountToPay} on ${appName}.`;
     return `https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(message)}`;
-  }, [settings?.whatsappNumber, settings?.supportPhone, settings?.phone, finalAmountToPay, appName]);
+  })();
 
   const handleWhatsAppEMI = (e) => {
     try {
@@ -611,7 +613,7 @@ const PaymentPage = () => {
                 </div>
                 <div>
                   <h3 className="text-[14.5px] font-bold text-slate-900 leading-snug">
-                    No Cost EMI
+                    Contact for Finance
                   </h3>
                 </div>
               </div>
@@ -627,7 +629,7 @@ const PaymentPage = () => {
               <div className="px-4 pb-4 pt-1 border-t border-slate-100 space-y-3 animate-in fade-in-50 duration-200">
                 <div className="p-3 bg-emerald-50/70 rounded-xl text-[12px] text-slate-700 border border-emerald-100">
                   <p className="text-slate-600 text-[11.5px] leading-relaxed">
-                    Contact our admin directly on WhatsApp to check your eligibility and activate easy No Cost EMI on this order.
+                    Contact our admin directly on WhatsApp to check your eligibility and activate easy finance options on this order.
                   </p>
                 </div>
 
@@ -639,7 +641,7 @@ const PaymentPage = () => {
                   className="w-full bg-[#FFC200] hover:bg-[#F5B800] active:scale-[0.98] text-slate-900 font-extrabold text-[15px] py-3.5 px-6 rounded-xl shadow-md shadow-amber-200/60 transition-all flex items-center justify-center gap-2 cursor-pointer no-underline text-center"
                 >
                   <MessageCircle size={19} className="text-slate-900 stroke-[2.4]" />
-                  <span>Contact on WhatsApp for EMI</span>
+                  <span>Contact on WhatsApp for Finance</span>
                 </a>
               </div>
             )}

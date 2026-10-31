@@ -8,11 +8,6 @@ import { cn } from '@/lib/utils';
 const AllCategoriesGreeting = ({ categories, firstName, greetingConfig }) => {
   const scrollRef = useRef(null);
 
-  // If section is explicitly disabled by admin in CMS
-  if (greetingConfig?.enabled === false) {
-    return null;
-  }
-
   // Determine categories to display
   const displayCategories = useMemo(() => {
     if (Array.isArray(greetingConfig?.categoryIds) && greetingConfig.categoryIds.length > 0) {
@@ -51,6 +46,12 @@ const AllCategoriesGreeting = ({ categories, firstName, greetingConfig }) => {
     }
     return categories || [];
   }, [greetingConfig?.categoryIds, categories]);
+
+  // If section is explicitly disabled by admin in CMS. Checked after the hooks
+  // because the config can arrive after the first render.
+  if (greetingConfig?.enabled === false) {
+    return null;
+  }
 
   if (!displayCategories || !displayCategories.length) return null;
 

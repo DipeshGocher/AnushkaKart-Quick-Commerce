@@ -6,6 +6,7 @@ import { handleResponse, calculateDistance } from "../utils/helper.js";
 import mongoose from "mongoose";
 import { invalidateSellerName } from "../services/entityNameCache.js";
 import { syncSellerPickupLocationToShiprocket } from "../services/shipping/shiprocketService.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 /* ===============================
    GET NEARBY SELLERS
@@ -62,7 +63,7 @@ export const getNearbySellers = async (req, res) => {
       nearbySellers,
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -184,7 +185,7 @@ export const requestWithdrawal = async (req, res) => {
       withdrawal,
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -204,7 +205,7 @@ export const getSellerProfile = async (req, res) => {
       seller,
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -329,6 +330,66 @@ export const updateSellerProfile = async (req, res) => {
     if (error.code === 11000) {
       return handleResponse(res, 400, "Phone number already in use");
     }
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
+  }
+};
+
+
+/* ===============================
+   GET PUBLIC SELLER STORE
+================================ */
+export const getPublicSellerStore = async (req, res) => {
+  try {
+    const rawId = String(req.params.sellerId || "").trim();
+    if (!rawId || rawId === "undefined" || rawId === "null") {
+      const fallbackSeller = await Seller.findOne({ isActive: true, isVerified: true })
+        .select(
+          "_id name shopName slug category description address locality city state pincode storeBanners isVerified isActive applicationStatus createdAt"
+        )
+        .lean();
+      if (fallbackSeller) {
+        return handleResponse(res, 200, "Seller store details retrieved", fallbackSeller);
+      }
+      return handleResponse(res, 404, "Seller not found");
+    }
+
+    let seller = null;
+    if (mongoose.Types.ObjectId.isValid(rawId)) {
+      seller = await Seller.findById(rawId)
+        .select(
+          "_id name shopName slug category description address locality city state pincode storeBanners isVerified isActive applicationStatus createdAt"
+        )
+        .lean();
+    }
+
+    if (!seller) {
+      const normalized = rawId.toLowerCase();
+      const escaped = normalized.replace(/[-_]/g, "[ -_]?");
+      seller = await Seller.findOne({
+        $or: [
+          { slug: normalized },
+          { shopName: new RegExp(`^${escaped}$`, "i") },
+          { shopName: new RegExp(normalized.replace(/[-_]/g, " "), "i") },
+          { name: new RegExp(`^${escaped}$`, "i") },
+        ],
+      })
+        .select(
+          "_id name shopName slug category description address locality city state pincode storeBanners isVerified isActive applicationStatus createdAt"
+        )
+        .lean();
+    }
+
+    if (!seller) {
+      return handleResponse(res, 404, "Seller not found");
+    }
+
+    return handleResponse(
+      res,
+      200,
+      "Seller store details retrieved successfully",
+      seller
+    );
+  } catch (error) {
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };

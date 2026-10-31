@@ -7,6 +7,7 @@ import {
   DEFAULT_PRODUCT_APPROVAL_CONFIG,
   normalizeProductApprovalConfig,
 } from "../services/productModerationService.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 /** Allowed keys for settings update (strip unknown keys) */
 const ALLOWED_KEYS = [
@@ -261,7 +262,7 @@ export const getPublicSettings = async (req, res) => {
 
     return handleResponse(res, 200, "Settings fetched successfully", settings);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -346,7 +347,7 @@ export const updateSettings = async (req, res) => {
 
     return handleResponse(res, 200, "Settings updated successfully", result);
   } catch (err) {
-    return handleResponse(res, 500, err.message);
+    return handleResponse(res, getErrorStatus(err), err.message);
   }
 };
 
@@ -380,6 +381,6 @@ export const uploadSettingsImage = async (req, res) => {
     await invalidate("cache:platform:settings:*");
     return handleResponse(res, 200, "Image URL accepted", { url: providedUrl, type });
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };

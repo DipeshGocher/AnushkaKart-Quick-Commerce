@@ -35,7 +35,7 @@ const formatINR = (val) => {
   });
 };
 
-const TransactionTableRow = React.memo(({ txn, onSelect, onDownloadReceipt }) => {
+const TransactionTableRow = React.memo(function TransactionTableRow({ txn, onSelect, onDownloadReceipt }) {
   const isCancelled = txn.status === "Cancelled" || txn.status === "Failed";
   const isWithdrawal = txn.type === "Withdrawal";
   const isSettled = txn.status === "Settled";

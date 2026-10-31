@@ -256,7 +256,7 @@ const PaymentStatusPage = () => {
                                 <div className="bg-amber-50 rounded-2xl p-4 mb-8 border border-amber-100 flex items-start gap-3 text-left">
                                     <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
                                     <p className="text-xs text-amber-800 font-medium leading-relaxed">
-                                        We haven't received confirmation from Razorpay yet. This sometimes happens due to bank delays. Please check your order history in a few minutes.
+                                        We haven&apos;t received confirmation from Razorpay yet. This sometimes happens due to bank delays. Please check your order history in a few minutes.
                                     </p>
                                 </div>
                                 <div className="flex flex-col gap-3">

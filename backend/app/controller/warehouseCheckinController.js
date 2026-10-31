@@ -16,6 +16,7 @@ import {
   getQueueStats,
   getAllWarehouseSnapshots,
 } from "../services/warehouseMonitorService.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 /* ─── Delivery Partner Endpoints ─────────────────────────────────────────── */
 
@@ -69,7 +70,7 @@ export const warehouseCheckout = async (req, res) => {
     await checkOutRider(deliveryId, "manual");
     return handleResponse(res, 200, "Checked out successfully");
   } catch (err) {
-    return handleResponse(res, err.statusCode || 500, err.message);
+    return handleResponse(res, getErrorStatus(err), err.message);
   }
 };
 
@@ -82,7 +83,7 @@ export const getCheckinStatus = async (req, res) => {
     const status = await getRiderCheckinStatus(deliveryId);
     return handleResponse(res, 200, "Checkin status fetched", status);
   } catch (err) {
-    return handleResponse(res, err.statusCode || 500, err.message);
+    return handleResponse(res, getErrorStatus(err), err.message);
   }
 };
 
@@ -95,7 +96,7 @@ export const getCheckinHistory = async (req, res) => {
     const history = await getRiderCheckinHistory(deliveryId);
     return handleResponse(res, 200, "Checkin history fetched", history);
   } catch (err) {
-    return handleResponse(res, err.statusCode || 500, err.message);
+    return handleResponse(res, getErrorStatus(err), err.message);
   }
 };
 
@@ -114,7 +115,7 @@ export const getWarehouseQueueHandler = async (req, res) => {
     const queue = await getWarehouseQueue(warehouseId);
     return handleResponse(res, 200, "Queue fetched", { queue, total: queue.length });
   } catch (err) {
-    return handleResponse(res, err.statusCode || 500, err.message);
+    return handleResponse(res, getErrorStatus(err), err.message);
   }
 };
 
@@ -130,7 +131,7 @@ export const getQueueSnapshotHandler = async (req, res) => {
     const snapshot = await getQueueSnapshot(warehouseId);
     return handleResponse(res, 200, "Queue snapshot fetched", snapshot);
   } catch (err) {
-    return handleResponse(res, err.statusCode || 500, err.message);
+    return handleResponse(res, getErrorStatus(err), err.message);
   }
 };
 
@@ -146,7 +147,7 @@ export const getQueueStatsHandler = async (req, res) => {
     const stats = await getQueueStats(warehouseId);
     return handleResponse(res, 200, "Queue stats fetched", stats);
   } catch (err) {
-    return handleResponse(res, err.statusCode || 500, err.message);
+    return handleResponse(res, getErrorStatus(err), err.message);
   }
 };
 
@@ -159,6 +160,6 @@ export const getAllWarehouseQueuesHandler = async (req, res) => {
     const snapshots = await getAllWarehouseSnapshots();
     return handleResponse(res, 200, "All warehouse queues fetched", snapshots);
   } catch (err) {
-    return handleResponse(res, err.statusCode || 500, err.message);
+    return handleResponse(res, getErrorStatus(err), err.message);
   }
 };

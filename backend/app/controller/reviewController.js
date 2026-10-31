@@ -1,9 +1,13 @@
 import mongoose from "mongoose";
 import Review from "../models/review.js";
 import Order from "../models/order.js";
+import User from "../models/customer.js";
+import Product from "../models/product.js";
+import Seller from "../models/seller.js";
 import handleResponse from "../utils/helper.js";
 import getPagination from "../utils/pagination.js";
 import { uploadToCloudinary } from "../utils/cloudinary.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 // Check if customer is eligible to review a product
 export const checkReviewEligibility = async (req, res) => {
@@ -40,7 +44,7 @@ export const checkReviewEligibility = async (req, res) => {
             existingReview: existingReview || null
         });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -137,7 +141,7 @@ export const submitReview = async (req, res) => {
         await newReview.save();
         return handleResponse(res, 201, "Review submitted and pending approval", newReview);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -155,42 +159,67 @@ export const getProductReviews = async (req, res) => {
         }
 
         const reviews = await Review.find(query)
-            .populate("userId", "name image")
+            .populate("userId", "name image profileImage")
             .sort({ createdAt: -1 });
 
         return handleResponse(res, 200, "Reviews fetched successfully", reviews);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
-// Admin: Get all pending reviews
+// Admin: Get all reviews with status & search filters
 export const getPendingReviews = async (req, res) => {
     try {
         const { page, limit, skip } = getPagination(req, { defaultLimit: 25, maxLimit: 200 });
+        const { status = "all", search = "" } = req.query;
 
-        const query = { status: "pending" };
+        const query = {};
 
-        const [reviews, total] = await Promise.all([
+        // Status filter: "all", "pending", "approved", "rejected"
+        if (status && status !== "all") {
+            query.status = status;
+        }
+
+        // Search in comments
+        if (search && search.trim()) {
+            query.comment = { $regex: search.trim(), $options: "i" };
+        }
+
+        const [reviews, total, allCount, pendingCount, approvedCount, rejectedCount] = await Promise.all([
             Review.find(query)
-                .populate("userId", "name email image")
-                .populate("productId", "name images price")
+                .populate("userId", "name email phone image profileImage")
+                .populate({
+                    path: "productId",
+                    select: "name images price slug sellerId",
+                    populate: { path: "sellerId", select: "shopName name" }
+                })
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
                 .lean(),
-            Review.countDocuments(query)
+            Review.countDocuments(query),
+            Review.countDocuments({}),
+            Review.countDocuments({ status: "pending" }),
+            Review.countDocuments({ status: "approved" }),
+            Review.countDocuments({ status: "rejected" }),
         ]);
 
-        return handleResponse(res, 200, "Pending reviews fetched successfully", {
+        return handleResponse(res, 200, "Reviews fetched successfully", {
             items: reviews,
             page,
             limit,
             total,
             totalPages: Math.ceil(total / limit) || 1,
+            counts: {
+                all: allCount,
+                pending: pendingCount,
+                approved: approvedCount,
+                rejected: rejectedCount,
+            }
         });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -200,11 +229,28 @@ export const updateReviewStatus = async (req, res) => {
         const { status } = req.body; // approved or rejected
         const { id } = req.params;
 
+        if (!["approved", "rejected", "pending"].includes(status)) {
+            return handleResponse(res, 400, "Invalid status. Allowed values: pending, approved, rejected");
+        }
+
         const review = await Review.findByIdAndUpdate(id, { status }, { new: true });
         if (!review) return handleResponse(res, 404, "Review not found");
 
-        return handleResponse(res, 200, `Review ${status} successfully`, review);
+        return handleResponse(res, 200, `Review status updated to ${status} successfully`, review);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
+    }
+};
+
+// Admin: Delete review permanently
+export const deleteReview = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const review = await Review.findByIdAndDelete(id);
+        if (!review) return handleResponse(res, 404, "Review not found");
+
+        return handleResponse(res, 200, "Review deleted permanently");
+    } catch (error) {
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };

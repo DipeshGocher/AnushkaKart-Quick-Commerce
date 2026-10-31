@@ -13,6 +13,7 @@ import {
     validateSchema,
     verifyOtpSchema,
 } from "../validation/customerAuthValidation.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 const generateToken = (customer) =>
     jwt.sign(
@@ -38,7 +39,7 @@ export const signupCustomer = async (req, res) => {
 
         return handleResponse(res, 200, "If the number is eligible, OTP has been sent");
     } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -57,7 +58,7 @@ export const loginCustomer = async (req, res) => {
 
         return handleResponse(res, 200, "If the number is eligible, OTP has been sent");
     } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -84,7 +85,7 @@ export const verifyCustomerOTP = async (req, res) => {
             }
         );
     } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -102,7 +103,7 @@ export const getCustomerProfile = async (req, res) => {
         }
         return handleResponse(res, 200, "Profile fetched successfully", customer);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -128,19 +129,16 @@ export const updateCustomerProfile = async (req, res) => {
         }
         if (addresses) customer.addresses = addresses;
 
+        // Registered mobile number is permanently tied to customer identity & OTP login; cannot be changed
         if (phone && phone !== customer.phone) {
-            const existingPhone = await Customer.findOne({ phone, _id: { $ne: req.user.id } });
-            if (existingPhone) {
-                return handleResponse(res, 400, "Phone number is already in use");
-            }
-            customer.phone = phone;
+            return handleResponse(res, 400, "Registered phone number cannot be changed");
         }
 
         await customer.save();
 
         return handleResponse(res, 200, "Profile updated successfully", customer);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -181,7 +179,7 @@ export const getCustomerTransactions = async (req, res) => {
             totalPages: Math.ceil(total / perPage) || 1,
         });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -200,6 +198,6 @@ export const deleteCustomerAccount = async (req, res) => {
 
         return handleResponse(res, 200, "Account deleted successfully");
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };

@@ -27,6 +27,9 @@ jest.unstable_mockModule("../app/services/shipping/shiprocketService.js", () => 
   processShiprocketWebhook: jest.fn(),
   isShiprocketConfigured: jest.fn().mockReturnValue(false),
   recordShiprocketWeightDiscrepancy: jest.fn(),
+  createShiprocketReversePickup: jest.fn(),
+  getShiprocketReverseLabel: jest.fn(),
+  updateShiprocketReverseStatus: jest.fn(),
 }));
 
 jest.unstable_mockModule("../app/models/product.js", () => ({

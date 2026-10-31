@@ -105,7 +105,7 @@ const Header = () => {
                     {/* Logo */}
                     <div className="flex items-center gap-6 mr-4 md:mr-12">
                         <Link to="/" className="flex items-center gap-2">
-                            <img src={settings?.logoUrl || "/logo.png"} alt={settings?.appName || "AnushkaStore"} className="h-10 md:h-12 w-auto object-contain" />
+                            <img src={settings?.logoUrl || "/logo.png"} alt={settings?.appName || "Anushka Connect"} className="h-10 md:h-12 w-auto object-contain" />
                         </Link>
 
                         {/* Location Selector (Desktop ONLY) */}

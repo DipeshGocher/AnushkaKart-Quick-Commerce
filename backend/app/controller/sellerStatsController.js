@@ -5,6 +5,7 @@ import handleResponse from "../utils/helper.js";
 import mongoose from "mongoose";
 import Wallet from "../models/wallet.js";
 import { getSellerStats as getSellerStatsFromService } from "../services/seller/sellerStatsService.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 /* ===============================
    GET SELLER DASHBOARD STATS
@@ -21,7 +22,7 @@ export const getSellerStats = async (req, res) => {
         });
         return handleResponse(res, 200, "Stats fetched successfully", result);
     } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -231,6 +232,6 @@ export const getSellerEarnings = async (req, res) => {
             }),
         });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };

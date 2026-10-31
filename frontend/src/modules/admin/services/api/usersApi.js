@@ -16,6 +16,10 @@ export const adminUsersApi = {
         axiosInstance.post(`/admin/users/${id}/notify`, data),
 
     getSellers: (params) => axiosInstance.get('/admin/sellers', { params }),
+    getSellerStoreBanners: (sellerId) =>
+        axiosInstance.get(`/admin/sellers/${sellerId}/banners`),
+    updateSellerStoreBanners: (sellerId, data) =>
+        axiosInstance.put(`/admin/sellers/${sellerId}/banners`, data),
     getActiveSellers: (params) =>
         axiosInstance.get('/admin/sellers/active', { params }),
     getSellerLocations: (params) =>

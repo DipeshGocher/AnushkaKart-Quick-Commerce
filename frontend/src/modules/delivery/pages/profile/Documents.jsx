@@ -26,7 +26,7 @@ const Documents = () => {
   const navigate = useNavigate();
   const { user: authUser } = useAuth();
   const { settings } = useSettings();
-  const appName = settings?.appName || "Anushka Store";
+  const appName = settings?.appName || "Anushka Connect";
 
   const [profile, setProfile] = useState(authUser || null);
   const [loading, setLoading] = useState(false);

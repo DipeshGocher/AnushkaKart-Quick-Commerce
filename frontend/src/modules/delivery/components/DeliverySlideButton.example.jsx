@@ -123,7 +123,7 @@ function OrderDetailsIntegrationExample({ order, phase }) {
   const navigate = useNavigate();
 
   // For phase 2 (out for delivery → complete delivery)
-  if (phase === 2 && !isOrderDelivered(order)) {
+  if (phase === 2 && order?.status !== "delivered") {
     return (
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 shadow-lg z-40 max-w-md mx-auto">
         <DeliverySlideButton

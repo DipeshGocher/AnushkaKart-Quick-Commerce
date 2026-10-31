@@ -7,6 +7,7 @@ import { uploadToCloudinary } from "../services/mediaService.js";
 import mongoose from "mongoose";
 import { invalidateCategoryName } from "../services/entityNameCache.js";
 import { buildSearchRegex } from "../utils/regex.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 function normalizeUrl(value) {
   if (!value || typeof value !== "string") return "";
@@ -240,7 +241,7 @@ export const getCategories = async (req, res) => {
       categories,
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -520,6 +521,6 @@ export const deleteCategory = async (req, res) => {
 
     return handleResponse(res, 200, "Category and all descendants deleted");
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };

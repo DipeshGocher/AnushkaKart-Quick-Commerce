@@ -33,13 +33,13 @@ import { toast } from "sonner";
 import Pagination from "@shared/components/ui/Pagination";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
 
-const SellerStatusBadge = React.memo(({ status, stock }) => {
+const SellerStatusBadge = React.memo(function SellerStatusBadge({ status, stock }) {
   if (stock === 0) return <Badge variant="rose" className="text-[10px] px-2 py-0.5">Out of Stock</Badge>;
   if (status === "active") return <Badge variant="success" className="text-[10px] px-2 py-0.5">Active</Badge>;
   return <Badge variant="gray" className="text-[10px] px-2 py-0.5">Inactive</Badge>;
 });
 
-const SellerProductTableRow = React.memo(({ p, onEdit, onDelete, onViewVariants, skuText }) => {
+const SellerProductTableRow = React.memo(function SellerProductTableRow({ p, onEdit, onDelete, onViewVariants, skuText, isSelected, onToggleSelect }) {
   const mainImg = p.mainImage || p.variants?.[0]?.images?.[0] || p.image;
   const transformedImg = useMemo(() => {
     return mainImg ? applyCloudinaryTransform(mainImg, 'f_auto,q_auto,w_100,h_100,c_fill') : null;
@@ -47,6 +47,14 @@ const SellerProductTableRow = React.memo(({ p, onEdit, onDelete, onViewVariants,
 
   return (
     <tr className="hover:bg-gray-50/50 transition-colors group border-b border-gray-100 last:border-b-0">
+      <td className="w-12 px-4 py-4 text-center">
+        <input
+          type="checkbox"
+          checked={Boolean(isSelected)}
+          onChange={() => onToggleSelect(p._id || p.id)}
+          className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500/20 cursor-pointer accent-brand-600"
+        />
+      </td>
       <td className="px-6 py-4">
         <div className="flex items-center gap-4">
           <div className="h-14 w-14 shrink-0 rounded-lg overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center">
@@ -179,6 +187,9 @@ const ProductManagement = () => {
   const filterDropdownRef = useRef(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState([]);
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [viewingVariants, setViewingVariants] = useState(null);
   const [isVariantsViewModalOpen, setIsVariantsViewModalOpen] = useState(false);
@@ -561,6 +572,38 @@ const ProductManagement = () => {
     alert("Exporting " + safeProducts.length + " products as CSV (Simulation)");
   };
 
+  const handleToggleSelectProduct = useCallback((id) => {
+    setSelectedProductIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  }, []);
+
+  const handleToggleSelectAll = useCallback(() => {
+    if (selectedProductIds.length === filteredProducts.length && filteredProducts.length > 0) {
+      setSelectedProductIds([]);
+    } else {
+      setSelectedProductIds(filteredProducts.map((p) => p._id || p.id).filter(Boolean));
+    }
+  }, [filteredProducts, selectedProductIds.length]);
+
+  const handleBulkDelete = async () => {
+    if (!selectedProductIds.length) return;
+    try {
+      setIsDeleting(true);
+      const res = await sellerApi.bulkDeleteProducts(selectedProductIds);
+      const msg = res?.data?.message || `${selectedProductIds.length} products deleted successfully`;
+      toast.success(msg);
+      setSelectedProductIds([]);
+      setIsBulkDeleteModalOpen(false);
+      fetchProducts(page);
+    } catch (error) {
+      console.error("Bulk delete error:", error);
+      toast.error(error.response?.data?.message || "Failed to delete selected products");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleDeleteClick = (product) => {
     setItemToDelete(product);
     setIsDeleteModalOpen(true);
@@ -863,12 +906,57 @@ const ProductManagement = () => {
       </Card>
 
 
+      {/* Bulk Action Bar */}
+      {selectedProductIds.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50/90 border border-amber-200 rounded-xl px-5 py-3 mb-4 shadow-sm animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center justify-center h-6 min-w-6 px-2 text-xs font-bold bg-amber-600 text-white rounded-full">
+              {selectedProductIds.length}
+            </span>
+            <span className="text-sm font-semibold text-slate-800">
+              {selectedProductIds.length} product{selectedProductIds.length > 1 ? "s" : ""} selected out of {filteredProducts.length}
+            </span>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setSelectedProductIds([])}
+              className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-xs"
+            >
+              Deselect All
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsBulkDeleteModalOpen(true)}
+              className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition-all active:scale-95"
+            >
+              <HiOutlineTrash className="h-4 w-4" />
+              <span>Delete Selected ({selectedProductIds.length})</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Product Table */}
       <Card className="border-none shadow-xl ring-1 ring-slate-100 overflow-hidden rounded-xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/90 backdrop-blur-sm sticky top-0 z-10 border-b border-slate-100">
+                <th className="w-12 px-4 py-3 text-center">
+                  <input
+                    type="checkbox"
+                    checked={filteredProducts.length > 0 && selectedProductIds.length === filteredProducts.length}
+                    ref={(el) => {
+                      if (el) {
+                        el.indeterminate = selectedProductIds.length > 0 && selectedProductIds.length < filteredProducts.length;
+                      }
+                    }}
+                    onChange={handleToggleSelectAll}
+                    className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500/20 cursor-pointer accent-brand-600"
+                    title="Select all products"
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
                   Product
                 </th>
@@ -898,7 +986,7 @@ const ProductManagement = () => {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan="9" className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <HiOutlineArrowPath className="h-6 w-6 animate-spin text-brand-600" />
                       <span className="text-sm font-medium">Loading products...</span>
@@ -907,7 +995,7 @@ const ProductManagement = () => {
                 </tr>
               ) : filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan="9" className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <HiOutlineCube className="h-8 w-8 text-slate-400" />
                       <span className="text-sm font-medium">No products found matching your search or filters.</span>
@@ -919,6 +1007,8 @@ const ProductManagement = () => {
                   <SellerProductTableRow
                     key={p._id || p.id}
                     p={p}
+                    isSelected={selectedProductIds.includes(p._id || p.id)}
+                    onToggleSelect={handleToggleSelectProduct}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     onViewVariants={handleViewVariants}
@@ -1885,7 +1975,7 @@ const ProductManagement = () => {
                             <div>
                               <p className="text-xs font-bold text-slate-700">No details added yet</p>
                               <p className="text-[11px] text-slate-400 mt-0.5">
-                                Click 'Add Field' above or select any quick suggestion to add attributes.
+                                Click &apos;Add Field&apos; above or select any quick suggestion to add attributes.
                               </p>
                             </div>
                             <button
@@ -2016,6 +2106,60 @@ const ProductManagement = () => {
               </span>{" "}
               from the catalog.
             </p>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Bulk Delete Modal */}
+      <Modal
+        isOpen={isBulkDeleteModalOpen}
+        onClose={() => !isDeleting && setIsBulkDeleteModalOpen(false)}
+        title="Confirm Bulk Deletion"
+        size="sm"
+        footer={
+          <div className="flex gap-4 justify-end w-full">
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={() => setIsBulkDeleteModalOpen(false)}
+              className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-700 transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={handleBulkDelete}
+              className="flex items-center gap-2 px-6 py-2.5 bg-rose-600 text-white rounded-xl text-sm font-semibold shadow-lg shadow-rose-100 hover:bg-rose-700 transition-all active:scale-95 disabled:opacity-50"
+            >
+              {isDeleting ? (
+                <>
+                  <HiOutlineArrowPath className="h-4 w-4 animate-spin" />
+                  <span>Deleting...</span>
+                </>
+              ) : (
+                <span>Delete {selectedProductIds.length} Products</span>
+              )}
+            </button>
+          </div>
+        }
+      >
+        <div className="px-6 py-6 flex flex-col items-center text-center space-y-5">
+          <div className="h-18 w-18 md:h-20 md:w-20 bg-rose-50 rounded-full flex items-center justify-center text-rose-500">
+            <HiOutlineTrash className="h-9 w-9 md:h-10 md:w-10" />
+          </div>
+          <div className="space-y-2 max-w-md">
+            <h4 className="text-lg font-semibold text-slate-900">
+              Delete {selectedProductIds.length} Selected Products?
+            </h4>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Are you sure you want to delete these <span className="font-semibold text-slate-900">{selectedProductIds.length}</span> products?
+            </p>
+            <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-3.5 text-left">
+              <p className="text-xs text-amber-900 leading-relaxed font-medium">
+                🛡️ <strong>Safety Protection Active:</strong> Products with no past orders will be permanently deleted. Products associated with past customer orders will be archived and hidden to preserve customer order receipts and invoices.
+              </p>
+            </div>
           </div>
         </div>
       </Modal>

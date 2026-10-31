@@ -20,7 +20,7 @@ const DEFAULT_LEGAL_PAGES = {
 <div class="space-y-4 text-slate-700 text-sm leading-relaxed">
   <div>
     <h3 class="text-base font-bold text-slate-900 mb-1">1. Account Registration & Eligibility</h3>
-    <p>To place orders on AnushkaKart, you must be at least 18 years of age or access the service under parental supervision. You agree to provide accurate, current contact numbers and delivery addresses to ensure smooth order processing.</p>
+    <p>To place orders on Anushka Connect, you must be at least 18 years of age or access the service under parental supervision. You agree to provide accurate, current contact numbers and delivery addresses to ensure smooth order processing.</p>
   </div>
 
   <div>
@@ -35,7 +35,7 @@ const DEFAULT_LEGAL_PAGES = {
 
   <div>
     <h3 class="text-base font-bold text-slate-900 mb-1">4. Cancellations, Returns & Refunds</h3>
-    <p>You may cancel an order before the seller begins packing. For delivered eligible goods, returns must be requested within the product return window in original, unused condition. Approved refunds are credited to your AnushkaKart wallet or original payment source.</p>
+    <p>You may cancel an order before the seller begins packing. For delivered eligible goods, returns must be requested within the product return window in original, unused condition. Approved refunds are credited to your Anushka Connect wallet or original payment source.</p>
   </div>
 
   <div>
@@ -86,7 +86,7 @@ const DEFAULT_LEGAL_PAGES = {
 <div class="space-y-4 text-slate-700 text-sm leading-relaxed">
   <div>
     <h3 class="text-base font-bold text-slate-900 mb-1">1. Independent Contractor Relationship</h3>
-    <p>You join AnushkaKart as an independent freelance delivery executive. You have the full freedom to choose when to log in, accept delivery assignments, and take breaks. This agreement does not create an employer-employee relationship.</p>
+    <p>You join Anushka Connect as an independent freelance delivery executive. You have the full freedom to choose when to log in, accept delivery assignments, and take breaks. This agreement does not create an employer-employee relationship.</p>
   </div>
 
   <div>
@@ -101,7 +101,7 @@ const DEFAULT_LEGAL_PAGES = {
 
   <div>
     <h3 class="text-base font-bold text-slate-900 mb-1">4. Cash on Delivery (COD) Remittance</h3>
-    <p>All cash collected for COD orders is the exclusive property of AnushkaKart. Partners must remit or deposit all cash collections on the same day within the assigned cash limit. Unauthorized cash retention results in immediate deactivation and recovery proceedings.</p>
+    <p>All cash collected for COD orders is the exclusive property of Anushka Connect. Partners must remit or deposit all cash collections on the same day within the assigned cash limit. Unauthorized cash retention results in immediate deactivation and recovery proceedings.</p>
   </div>
 
   <div>
@@ -121,7 +121,7 @@ const DEFAULT_LEGAL_PAGES = {
 <div class="space-y-4 text-slate-700 text-sm leading-relaxed">
   <div>
     <h3 class="text-base font-bold text-slate-900 mb-1">1. Information We Collect</h3>
-    <p>We collect your name, mobile number, email address, delivery addresses, and order history when you create an account and place orders on AnushkaKart. Payment card details and net banking credentials are never stored on our servers; they are processed securely through RBI-authorized payment gateways.</p>
+    <p>We collect your name, mobile number, email address, delivery addresses, and order history when you create an account and place orders on Anushka Connect. Payment card details and net banking credentials are never stored on our servers; they are processed securely through RBI-authorized payment gateways.</p>
   </div>
 
   <div>
@@ -141,7 +141,7 @@ const DEFAULT_LEGAL_PAGES = {
 
   <div>
     <h3 class="text-base font-bold text-slate-900 mb-1">5. Your Privacy Rights & Account Management</h3>
-    <p>You have full control over your information. You can review, update, or request the deletion of your account and personal data at any time through the in-app Profile Settings or by reaching out to our Grievance Officer at <strong>support@anushkakart.com</strong>.</p>
+    <p>You have full control over your information. You can review, update, or request the deletion of your account and personal data at any time through the in-app Profile Settings or by reaching out to our Grievance Officer at <strong>support@anushkaconnect.com</strong>.</p>
   </div>
 </div>
 `
@@ -154,7 +154,7 @@ const DEFAULT_LEGAL_PAGES = {
 <div class="space-y-4 text-slate-700 text-sm leading-relaxed">
   <div>
     <h3 class="text-base font-bold text-slate-900 mb-1">1. Introduction</h3>
-    <p>This Seller Privacy Policy explains how <strong>AnushkaKart</strong> collects, utilizes, stores, and protects the business and personal information of Merchant Partners and Shop Owners using our Seller Center and Merchant Mobile Application.</p>
+    <p>This Seller Privacy Policy explains how <strong>Anushka Connect</strong> collects, utilizes, stores, and protects the business and personal information of Merchant Partners and Shop Owners using our Seller Center and Merchant Mobile Application.</p>
   </div>
 
   <div>
@@ -187,12 +187,12 @@ const DEFAULT_LEGAL_PAGES = {
 <div class="space-y-4 text-slate-700 text-sm leading-relaxed">
   <div>
     <h3 class="text-base font-bold text-slate-900 mb-1">1. Introduction</h3>
-    <p>This Delivery Partner Privacy Policy outlines how <strong>AnushkaKart</strong> collects, utilizes, and protects the personal and location data of delivery executives using our Rider Mobile Application.</p>
+    <p>This Delivery Partner Privacy Policy outlines how <strong>Anushka Connect</strong> collects, utilizes, and protects the personal and location data of delivery executives using our Rider Mobile Application.</p>
   </div>
 
   <div class="bg-amber-50/90 border border-amber-300 p-3.5 rounded-xl">
     <h3 class="text-base font-bold text-amber-950 mb-1">2. Prominent Background Location Disclosure (Google Play Requirement)</h3>
-    <p class="text-xs text-amber-900 leading-relaxed mb-2">The AnushkaKart Delivery Partner App collects real-time location data, including when the app is running in the <strong>background (app minimized, closed, or screen locked)</strong>, for the following essential purposes:</p>
+    <p class="text-xs text-amber-900 leading-relaxed mb-2">The Anushka Connect Delivery Partner App collects real-time location data, including when the app is running in the <strong>background (app minimized, closed, or screen locked)</strong>, for the following essential purposes:</p>
     <ul class="text-xs list-disc pl-5 space-y-1 text-amber-900 font-medium">
       <li><strong>Proximity Order Matching:</strong> Assigning delivery orders to you based on your live distance from merchant stores.</li>
       <li><strong>Customer Live Tracking:</strong> Allowing the customer to view live delivery progress on the order map.</li>
@@ -214,7 +214,7 @@ const DEFAULT_LEGAL_PAGES = {
 
   <div>
     <h3 class="text-base font-bold text-slate-900 mb-1">5. Data Protection & Account Management</h3>
-    <p>All rider operational logs and payout histories are encrypted and stored securely. You may review your profile details or request account deactivation at any time through Rider Support at <strong>delivery-support@anushkakart.com</strong>.</p>
+    <p>All rider operational logs and payout histories are encrypted and stored securely. You may review your profile details or request account deactivation at any time through Rider Support at <strong>delivery-support@anushkaconnect.com</strong>.</p>
   </div>
 </div>
 `
@@ -227,7 +227,7 @@ const DynamicLegalPage = ({ type: propType, audience: propAudience, onBack }) =>
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const { settings } = useSettings();
-    const appName = settings?.general?.storeName || 'AnushkaKart';
+    const appName = settings?.general?.storeName || 'Anushka Connect';
 
     // 1. Resolve document type: 'terms' | 'privacy'
     const resolvedType = propType || (() => {
@@ -385,10 +385,10 @@ const DynamicLegalPage = ({ type: propType, audience: propAudience, onBack }) =>
                             <p className="text-[11px] text-slate-400">For inquiries or compliance requests</p>
                         </div>
                         <a
-                            href={`mailto:${resolvedAudience === 'seller' ? 'seller-support@anushkakart.com' : resolvedAudience === 'delivery' ? 'delivery-support@anushkakart.com' : 'support@anushkakart.com'}`}
+                            href={`mailto:${resolvedAudience === 'seller' ? 'seller-support@anushkaconnect.com' : resolvedAudience === 'delivery' ? 'delivery-support@anushkaconnect.com' : 'support@anushkaconnect.com'}`}
                             className="font-bold text-primary hover:underline"
                         >
-                            {resolvedAudience === 'seller' ? 'seller-support@anushkakart.com' : resolvedAudience === 'delivery' ? 'delivery-support@anushkakart.com' : 'support@anushkakart.com'}
+                            {resolvedAudience === 'seller' ? 'seller-support@anushkaconnect.com' : resolvedAudience === 'delivery' ? 'delivery-support@anushkaconnect.com' : 'support@anushkaconnect.com'}
                         </a>
                     </div>
                 </article>

@@ -5,6 +5,7 @@ import {
     getProductReviews,
     getPendingReviews,
     updateReviewStatus,
+    deleteReview,
     checkReviewEligibility
 } from "../controller/reviewController.js";
 import { verifyToken, allowRoles, optionalVerifyToken } from "../middleware/authMiddleware.js";
@@ -27,7 +28,9 @@ router.get("/check-eligibility/:productId", verifyToken, checkReviewEligibility)
 router.post("/submit", verifyToken, upload.array("images", 5), submitReview);
 
 // Admin only routes
-router.get("/admin/pending", verifyToken, allowRoles("admin"), getPendingReviews);
-router.patch("/admin/status/:id", verifyToken, allowRoles("admin"), updateReviewStatus);
+router.get("/admin/pending", verifyToken, allowRoles("admin", "employee", "member", "support", "staff", "superadmin"), getPendingReviews);
+router.get("/admin/all", verifyToken, allowRoles("admin", "employee", "member", "support", "staff", "superadmin"), getPendingReviews);
+router.patch("/admin/status/:id", verifyToken, allowRoles("admin", "employee", "member", "support", "staff", "superadmin"), updateReviewStatus);
+router.delete("/admin/:id", verifyToken, allowRoles("admin", "employee", "member", "support", "staff", "superadmin"), deleteReview);
 
 export default router;

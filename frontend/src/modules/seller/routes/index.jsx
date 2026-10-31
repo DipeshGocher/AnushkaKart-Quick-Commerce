@@ -1,7 +1,7 @@
 import React, { useEffect, Suspense } from "react";
 import { Outlet, Navigate } from "react-router-dom";
-import DashboardLayout from "@shared/layout/DashboardLayout";
 import PageSkeleton from "@/shared/components/PageSkeleton";
+import NotFoundPage from "@/shared/components/NotFoundPage";
 import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
 import Orders from "../pages/Orders";
 import {
@@ -15,6 +15,10 @@ import {
   HiOutlineCreditCard,
   HiOutlineMapPin,
 } from "react-icons/hi2";
+
+// Lazy so the panel shell (sidebar, topbar, icon sets) stays out of the
+// customer-facing main bundle.
+const DashboardLayout = React.lazy(() => import("@shared/layout/DashboardLayout"));
 
 const Dashboard = React.lazy(() => import("../pages/Dashboard"));
 const ProductManagement = React.lazy(
@@ -74,7 +78,7 @@ export const sellerRoutes = [
   { path: "earnings", element: <Earnings /> },
   { path: "withdrawals", element: <Withdrawals /> },
   { path: "profile", element: <Profile /> },
-  { path: "*", element: <Navigate to="/seller" replace /> },
+  { path: "*", element: <NotFoundPage /> },
 ];
 
 const SellerRoutes = () => {
@@ -83,11 +87,13 @@ const SellerRoutes = () => {
   }, []);
 
   return (
+    <Suspense fallback={<PageSkeleton variant="dashboard" />}>
     <DashboardLayout navItems={navItems} title="Seller Panel">
       <Suspense fallback={<PageSkeleton variant="dashboard" />}>
         <Outlet />
       </Suspense>
     </DashboardLayout>
+    </Suspense>
   );
 };
 

@@ -9,7 +9,7 @@ import {
     resetSellerPassword,
     checkSellerExists,
 } from "../controller/sellerAuthController.js";
-import { getSellerProfile, updateSellerProfile, requestWithdrawal, getNearbySellers } from "../controller/sellerController.js";
+import { getSellerProfile, updateSellerProfile, requestWithdrawal, getNearbySellers, getPublicSellerStore } from "../controller/sellerController.js";
 import { getSellerStats, getSellerEarnings } from "../controller/sellerStatsController.js";
 import { getSellerWalletSummaryController } from "../controller/adminFinanceController.js";
 import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
@@ -50,6 +50,7 @@ router.post(
 router.post("/check-exists", checkSellerExists);
 router.post("/login", loginSeller);
 router.get("/nearby", getNearbySellers);
+router.get("/store/:sellerId", getPublicSellerStore);
 
 // Profile routes
 router.get(

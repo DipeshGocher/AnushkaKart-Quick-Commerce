@@ -1420,7 +1420,7 @@ export default function HeroCategoriesPerPage() {
             <div className="p-3.5 sm:p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <span className="text-xs font-extrabold text-emerald-950 flex items-center gap-1.5">
-                  Welcome to Anushka Store, Rahul! ☀️
+                  Welcome to Anushka Connect, Rahul! ☀️
                 </span>
                 <span className="text-[11px] text-emerald-700/90 font-medium block mt-0.5">
                   Mini Live Preview (Exact customer look with your selected colors)
@@ -1873,7 +1873,7 @@ export default function HeroCategoriesPerPage() {
                 Curated Deals Cards
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Displays promotional deal cards with custom offer badges (e.g. "Min. 50% Off").
+                Displays promotional deal cards with custom offer badges (e.g. &quot;Min. 50% Off&quot;).
               </p>
             </div>
             <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -2402,7 +2402,7 @@ export default function HeroCategoriesPerPage() {
               Pages Summary & Configuration Status
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Click "Configure Page" on any page row to quickly switch to its settings.
+              Click &quot;Configure Page&quot; on any page row to quickly switch to its settings.
             </p>
           </div>
 

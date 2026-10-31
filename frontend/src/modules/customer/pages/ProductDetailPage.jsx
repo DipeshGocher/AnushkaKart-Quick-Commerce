@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import NotFoundPage from '@/shared/components/NotFoundPage';
 
-const RESERVED_MODULE_SLUGS = new Set(['admin', 'seller', 'delivery', 'unauthorized', 'marketplace']);
+const RESERVED_MODULE_SLUGS = new Set(['admin', 'seller', 'delivery', 'warehouse', 'unauthorized', 'marketplace', 'login', 'signup']);
 
 /**
  * ProductDetailPage
@@ -15,19 +16,18 @@ const ProductDetailPage = () => {
   const headerSlug = String(params.headerSlug || '').toLowerCase();
   const productId = searchParams.get('id') || params.id || params.productSlug;
 
-  useEffect(() => {
-    if (headerSlug && RESERVED_MODULE_SLUGS.has(headerSlug)) {
-      navigate(`/${headerSlug}`, { replace: true });
-      return;
-    }
+  if (headerSlug && RESERVED_MODULE_SLUGS.has(headerSlug)) {
+    return <NotFoundPage />;
+  }
 
+  useEffect(() => {
     if (productId) {
       // Redirect with ?product query param which automatically triggers ProductDetailSheet globally
       navigate(`/?product=${encodeURIComponent(productId)}`, { replace: true });
     } else {
       navigate('/', { replace: true });
     }
-  }, [headerSlug, productId, navigate]);
+  }, [productId, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-white">

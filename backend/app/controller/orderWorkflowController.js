@@ -23,6 +23,7 @@ import { sendSmsIndiaHubOtp } from "../services/smsIndiaHubService.js";
 import { creditWallet } from "../services/finance/walletService.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 export const confirmPickup = async (req, res) => {
   try {
@@ -31,7 +32,7 @@ export const confirmPickup = async (req, res) => {
     const result = await confirmPickupAtomic(req.user.id, orderId, lat, lng);
     return handleResponse(res, 200, "Pickup confirmed", result);
   } catch (e) {
-    return handleResponse(res, e.statusCode || 500, e.message);
+    return handleResponse(res, getErrorStatus(e), e.message);
   }
 };
 
@@ -47,7 +48,7 @@ export const markArrivedAtStore = async (req, res) => {
     );
     return handleResponse(res, 200, "Arrived at store", result);
   } catch (e) {
-    return handleResponse(res, e.statusCode || 500, e.message);
+    return handleResponse(res, getErrorStatus(e), e.message);
   }
 };
 
@@ -57,7 +58,7 @@ export const advanceDeliveryRiderUi = async (req, res) => {
     const result = await advanceDeliveryRiderUiAtomic(req.user.id, orderId);
     return handleResponse(res, 200, "Delivery progress updated", result);
   } catch (e) {
-    return handleResponse(res, e.statusCode || 500, e.message);
+    return handleResponse(res, getErrorStatus(e), e.message);
   }
 };
 
@@ -271,7 +272,7 @@ export const getOrderRoute = async (req, res) => {
     const route = await getCachedRoute(origin, dest, "driving", orderId, phase);
     return handleResponse(res, 200, "Route", { ...route, destination: dest });
   } catch (e) {
-    return handleResponse(res, 500, e.message);
+    return handleResponse(res, getErrorStatus(e), e.message);
   }
 };
 
@@ -330,7 +331,7 @@ export const requestReturnPickupOtp = async (req, res) => {
       expiresAt: result.expiresAt,
     });
   } catch (e) {
-    return handleResponse(res, e.statusCode || 500, e.message);
+    return handleResponse(res, getErrorStatus(e), e.message);
   }
 };
 
@@ -410,7 +411,7 @@ export const verifyReturnPickupOtp = async (req, res) => {
 
     return handleResponse(res, 200, "Return pickup verified. Navigate to seller now.", order);
   } catch (e) {
-    return handleResponse(res, e.statusCode || 500, e.message);
+    return handleResponse(res, getErrorStatus(e), e.message);
   }
 };
 
@@ -421,7 +422,7 @@ export const verifyReturnPickupOtp = async (req, res) => {
 export const requestReturnDropOtp = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { id: userId } = req.user;
+    const { id: userId, role } = req.user;
 
     const orderKey = orderMatchQueryFromRouteParam(orderId);
     const order = await Order.findOne(orderKey)
@@ -430,7 +431,8 @@ export const requestReturnDropOtp = async (req, res) => {
       .lean();
     if (!order) return handleResponse(res, 404, "Order not found");
 
-    if (order.returnDeliveryBoy?.toString() !== userId) {
+    // The route admits admins (support override); riders must own the return.
+    if (role !== "admin" && order.returnDeliveryBoy?.toString() !== userId) {
       return handleResponse(res, 403, "Not assigned to this return");
     }
 
@@ -504,7 +506,7 @@ export const requestReturnDropOtp = async (req, res) => {
         : {}),
     });
   } catch (e) {
-    return handleResponse(res, e.statusCode || 500, e.message);
+    return handleResponse(res, getErrorStatus(e), e.message);
   }
 };
 
@@ -515,13 +517,14 @@ export const verifyReturnDropOtp = async (req, res) => {
   try {
     const { orderId } = req.params;
     const { code } = req.body || {};
-    const { id: userId } = req.user;
+    const { id: userId, role } = req.user;
 
     const orderKey = orderMatchQueryFromRouteParam(orderId);
     const order = await Order.findOne(orderKey);
     if (!order) return handleResponse(res, 404, "Order not found");
 
-    if (order.returnDeliveryBoy?.toString() !== userId) {
+    // The route admits admins (support override); riders must own the return.
+    if (role !== "admin" && order.returnDeliveryBoy?.toString() !== userId) {
       return handleResponse(res, 403, "Not assigned to this return");
     }
 
@@ -546,7 +549,7 @@ export const verifyReturnDropOtp = async (req, res) => {
         customerId: order.customer,
         userId: order.customer,
         sellerId: order.seller?._id || order.seller,
-        deliveryId: userId,
+        deliveryId: order.returnDeliveryBoy || userId,
         data: { message: "Product returned to seller. Admin QC pending." },
       });
     } catch (notifErr) {
@@ -563,6 +566,6 @@ export const verifyReturnDropOtp = async (req, res) => {
 
     return handleResponse(res, 200, "Return delivery complete! Admin will review the product.", order);
   } catch (e) {
-    return handleResponse(res, e.statusCode || 500, e.message);
+    return handleResponse(res, getErrorStatus(e), e.message);
   }
 };

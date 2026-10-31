@@ -99,7 +99,7 @@ const Withdrawals = () => {
     const handleDownloadReceipt = (item) => {
         const id = item.id || item.ref || item.reference || 'withdrawal';
         const lines = [];
-        lines.push('AnushkaKart - Withdrawal Payout Receipt');
+        lines.push('Anushka Connect - Withdrawal Payout Receipt');
         lines.push(`Receipt ID,${id}`);
         lines.push(`Status,${item.status ?? 'Pending'}`);
         lines.push(`Date,${item.date ?? ''}`);

@@ -279,7 +279,7 @@ const DeliveryPincodes = () => {
         <div className="space-y-1 text-sm">
           <h4 className="font-bold text-slate-800">How Hybrid Delivery Routing Works:</h4>
           <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
-            <span className="font-semibold text-emerald-700">1. Local Quick Commerce (In-House Boys):</span> When a customer's address matches an active pincode in the table below (such as Mauranipur <b>284204</b> or <b>284205</b>), the order is assigned to local delivery boys using your existing broadcast / manual workflow with instant 20-35 min delivery & OTP.
+            <span className="font-semibold text-emerald-700">1. Local Quick Commerce (In-House Boys):</span> When a customer&apos;s address matches an active pincode in the table below (such as Mauranipur <b>284204</b> or <b>284205</b>), the order is assigned to local delivery boys using your existing broadcast / manual workflow with instant 20-35 min delivery & OTP.
           </p>
           <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
             <span className="font-semibold text-blue-700">2. Out-of-Reach (Shiprocket Courier):</span> Any address with a pincode outside this local list is automatically classified as a <b>Shiprocket Courier Order</b>. The customer sees estimated delivery in 3-4 days at checkout, and Super Admin can generate AWBs, schedule pickups, print labels, and track shipments directly from the Orders dashboard.

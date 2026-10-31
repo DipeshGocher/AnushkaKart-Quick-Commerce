@@ -405,7 +405,7 @@ const CustomerDetail = () => {
                     <div className="p-4 bg-primary/10 rounded-2xl flex items-start gap-3">
                         <Bell className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                         <p className="text-xs font-bold text-primary leading-relaxed">
-                            This notification will appear in the customer's bell icon on their homepage and notifications screen.
+                            This notification will appear in the customer&apos;s bell icon on their homepage and notifications screen.
                         </p>
                     </div>
                     <div>

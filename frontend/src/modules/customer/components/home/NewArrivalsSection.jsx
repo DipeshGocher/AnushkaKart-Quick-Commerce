@@ -37,7 +37,7 @@ const getItems = (response) => {
  * 3. Variant (below name)
  * 4. Price (below variant)
  */
-const NewArrivalProductCard = React.memo(({ product }) => {
+const NewArrivalProductCard = React.memo(function NewArrivalProductCard({ product }) {
   const { openProduct } = useProductDetail();
   const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
   const { openVariantSelection } = useVariantSelection();

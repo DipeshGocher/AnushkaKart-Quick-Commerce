@@ -40,6 +40,23 @@ export default defineConfig([
         { allowConstantExport: true },
       ],
       'react/prop-types': 'off',
+      // Best-effort calls (localStorage, JSON.parse, vibrate) deliberately swallow errors.
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      // React Compiler guidance. The compiler is not enabled in this project, and
+      // the remaining setState-in-effect sites sync with browser APIs, timers or
+      // late-arriving props, so keep these visible as warnings, not build errors.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/preserve-manual-memoization': 'warn',
     },
+  },
+  {
+    // Jest test files
+    files: ['**/__tests__/**/*.{js,jsx}', '**/*.test.{js,jsx}'],
+    languageOptions: { globals: { ...globals.jest } },
+  },
+  {
+    // Firebase messaging service worker (loads the SDK via importScripts)
+    files: ['src/sw/**/*.js', 'public/**/*sw*.js'],
+    languageOptions: { globals: { ...globals.serviceworker, firebase: 'readonly' } },
   },
 ])

@@ -42,14 +42,14 @@ async function createTestCustomer(customerId = null) {
     _id: customerId || new mongoose.Types.ObjectId(),
     name: "Test Customer",
     email: `test.customer.${Date.now()}@test.com`,
-    phone: "1234567890",
+    phone: `9${String(Date.now()).slice(-9)}${Math.floor(Math.random() * 10)}`.slice(0, 10),
     password: "hashedpassword",
-    role: "customer",
+    role: "user",
     walletBalance: 0,
   });
 
   const token = jwt.sign(
-    { id: customer._id.toString(), role: "customer" },
+    { id: customer._id.toString(), role: "user" },
     JWT_SECRET,
     { expiresIn: "1h" }
   );
@@ -114,6 +114,7 @@ async function createValidOtp(orderId, orderMongoId, code = "1234") {
     orderId,
     orderMongoId,
     codeHash,
+    code,
     expiresAt,
     lastGeneratedAt: new Date(),
     consumedAt: null,
@@ -194,7 +195,7 @@ describeDb("Bug Condition Exploration: Customer Cannot See OTP After Page Refres
           // **CRITICAL ASSERTION**: OTP should be included in the response
           // This will FAIL on unfixed code because getOrderDetails doesn't fetch/return OTP
           expect(orderData.deliveryOtp).toBeDefined();
-          expect(orderData.deliveryOtp).toBe(otpCode);
+          expect(orderData.deliveryOtp?.code).toBe(otpCode);
 
           // Additional assertions: Verify order is in correct state
           expect(orderData.orderId).toBe(orderId);
@@ -239,7 +240,7 @@ describeDb("Bug Condition Exploration: Customer Cannot See OTP After Page Refres
     const orderData = response.body.result;
 
     // **CRITICAL**: OTP should be present in response (will FAIL on unfixed code)
-    expect(orderData.deliveryOtp).toBe(otpCode);
+    expect(orderData.deliveryOtp?.code).toBe(otpCode);
 
     // Cleanup
     await Order.deleteOne({ _id: order._id });
@@ -280,7 +281,7 @@ describeDb("Bug Condition Exploration: Customer Cannot See OTP After Page Refres
     const orderData = response.body.result;
 
     // **CRITICAL**: OTP should be present even though socket event was missed (will FAIL on unfixed code)
-    expect(orderData.deliveryOtp).toBe(otpCode);
+    expect(orderData.deliveryOtp?.code).toBe(otpCode);
 
     // Cleanup
     await Order.deleteOne({ _id: order._id });
@@ -314,7 +315,7 @@ describeDb("Bug Condition Exploration: Customer Cannot See OTP After Page Refres
     const orderData = response.body.result;
 
     // **CRITICAL**: OTP should be fetched from database via REST API (will FAIL on unfixed code)
-    expect(orderData.deliveryOtp).toBe(otpCode);
+    expect(orderData.deliveryOtp?.code).toBe(otpCode);
 
     // Cleanup
     await Order.deleteOne({ _id: order._id });

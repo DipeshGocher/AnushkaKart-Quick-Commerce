@@ -151,7 +151,7 @@ const TrustBadgesManager = ({
               Koi custom badge set nahi hai.
             </p>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Aap presets select kar sakte hain ya "+ Add Trust Badge" se custom badge bana sakte hain. (Khali rakhne par system defaults use karega).
+              Aap presets select kar sakte hain ya &quot;+ Add Trust Badge&quot; se custom badge bana sakte hain. (Khali rakhne par system defaults use karega).
             </p>
           </div>
         ) : (

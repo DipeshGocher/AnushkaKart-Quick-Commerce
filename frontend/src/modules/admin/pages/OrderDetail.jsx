@@ -588,7 +588,7 @@ const OrderDetail = () => {
                                             Status: {order.status.replace(/_/g, ' ')}
                                         </h4>
                                     </div>
-                                    <p className="text-[11px] font-bold text-slate-400 leading-relaxed italic">"System verified current logistical state as {order.status}."</p>
+                                    <p className="text-[11px] font-bold text-slate-400 leading-relaxed italic">&quot;System verified current logistical state as {order.status}.&quot;</p>
                                 </div>
                             </div>
                         </div>
@@ -652,7 +652,7 @@ const OrderDetail = () => {
                                         )}
                                 </div>
                                 <p className="text-xs font-bold text-slate-600 leading-relaxed italic">
-                                    "{order.address?.address}, {order.address?.landmark}, {order.address?.city}"
+                                    &quot;{order.address?.address}, {order.address?.landmark}, {order.address?.city}&quot;
                                 </p>
                             </div>
                             {order.address?.type === "Other" &&
@@ -959,7 +959,7 @@ const OrderDetail = () => {
                             {settings?.logoUrl ? (
                                 <img src={settings.logoUrl} alt="Logo" width="130" style={{ display: "inline-block", marginBottom: "16px" }} crossOrigin="anonymous" />
                             ) : (
-                                <div style={{ fontSize: "26px", fontWeight: "900", color: "#0f172a", marginBottom: "4px" }}>{settings?.appName || 'ANUSHKA STORE'}</div>
+                                <div style={{ fontSize: "26px", fontWeight: "900", color: "#0f172a", marginBottom: "4px" }}>{settings?.appName || 'ANUSHKA CONNECT'}</div>
                             )}
                             <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "800", textTransform: "uppercase", letterSpacing: "3px" }}>Official Tax Invoice</div>
                         </div>
@@ -1071,7 +1071,7 @@ const OrderDetail = () => {
                                 This is a system-generated commercial invoice. No physical signature required.
                             </div>
                             <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "5px" }}>
-                                {settings?.appName || 'Anushka Store'} • Customer Support: support@anushkastore.com
+                                {settings?.appName || 'Anushka Connect'} • Customer Support: support@anushkaconnect.com
                             </div>
                         </div>
                     </div>

@@ -2,6 +2,7 @@ import React from 'react';
 import { useRouteError, useNavigate, isRouteErrorResponse } from 'react-router-dom';
 import { ShoppingBag, RefreshCw, Home, AlertCircle } from 'lucide-react';
 import { useSettings } from '@core/context/SettingsContext';
+import NotFoundPage from './NotFoundPage';
 
 const RootErrorBoundary = () => {
     const error = useRouteError();
@@ -35,6 +36,10 @@ const RootErrorBoundary = () => {
             }
         }
     }, [isDynamicImportError]);
+
+    if (errorStatus === 404) {
+        return <NotFoundPage />;
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 font-outfit">

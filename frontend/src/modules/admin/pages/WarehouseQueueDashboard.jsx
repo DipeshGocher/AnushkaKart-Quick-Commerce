@@ -4,6 +4,7 @@ import { getOrderSocket } from "@core/services/orderSocket";
 import { createSocketTokenReader } from "@core/utils/authStorage";
 import { STORAGE_KEYS } from "@core/utils/storageKeys";
 import { toast } from "sonner";
+import { useNow } from "@shared/hooks/useNow";
 
 /* ── API ──────────────────────────────────────────────────────────────────── */
 const api = {
@@ -193,6 +194,7 @@ const MiniStat = ({ label, value, color }) => (
 );
 
 const WarehouseDetail = ({ snapshot }) => {
+  const now = useNow();
   const { queue = [], stats = {}, warehouseName } = snapshot;
 
   return (
@@ -216,7 +218,7 @@ const WarehouseDetail = ({ snapshot }) => {
           {queue.map((entry) => {
             const r = entry.rider || {};
             const since = entry.checkinTime
-              ? Math.round((Date.now() - new Date(entry.checkinTime).getTime()) / 60000)
+              ? Math.round((now - new Date(entry.checkinTime).getTime()) / 60000)
               : null;
             return (
               <div key={entry.checkinId} style={S.riderRow}>

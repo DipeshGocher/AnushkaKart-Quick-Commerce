@@ -1,7 +1,7 @@
 import React, { useEffect, Suspense } from "react";
 import { Outlet, Navigate } from "react-router-dom";
-import DashboardLayout from "@shared/layout/DashboardLayout";
 import PageSkeleton from "@/shared/components/PageSkeleton";
+import NotFoundPage from "@/shared/components/NotFoundPage";
 import { useSupportUnread } from "@core/context/SupportUnreadContext";
 import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
 import {
@@ -27,9 +27,14 @@ import {
   ScrollText,
   Image as ImageIcon,
   Palette,
+  Store,
 } from "lucide-react";
 
 import lazyWithRetry from "@/core/utils/lazyWithRetry";
+
+// Lazy so the panel shell (sidebar, topbar, icon sets) stays out of the
+// customer-facing main bundle.
+const DashboardLayout = React.lazy(() => import("@shared/layout/DashboardLayout"));
 
 const LayoutBranding = lazyWithRetry(() => import("../pages/LayoutBranding"));
 const Dashboard = React.lazy(() => import("../pages/Dashboard"));
@@ -82,6 +87,7 @@ const SupportTickets = React.lazy(() => import("../pages/SupportTickets"));
 const ReviewModeration = React.lazy(() => import("../pages/ReviewModeration"));
 const CouponManagement = React.lazy(() => import("../pages/CouponManagement"));
 const HeroCategoriesPerPage = React.lazy(() => import("../pages/HeroCategoriesPerPage"));
+const StoreBannerManager = React.lazy(() => import("../pages/StoreBannerManager"));
 const NotificationComposer = React.lazy(
   () => import("../pages/NotificationComposer"),
 );
@@ -228,6 +234,16 @@ const navItems = [
     path: "/admin/hero-categories",
     icon: ImageIcon,
     color: "violet",
+
+
+  },
+  {
+    label: "Seller Store Banners",
+    path: "/admin/store-banners",
+    icon: Store,
+    color: "blue",
+
+
   },
   {
     label: "FAQs",
@@ -270,6 +286,7 @@ export const adminRoutes = [
   { path: "content/festival-deals", element: <Navigate to="/admin" replace /> },
   { path: "experience-studio", element: <Navigate to="/admin/hero-categories" replace /> },
   { path: "hero-categories", element: <HeroCategoriesPerPage /> },
+  { path: "store-banners", element: <StoreBannerManager /> },
   { path: "notifications", element: <NotificationComposer /> },
   { path: "offers", element: <OffersManagement /> },
   { path: "coupons", element: <CouponManagement /> },
@@ -297,7 +314,7 @@ export const adminRoutes = [
   { path: "settings", element: <AdminSettings /> },
   { path: "delivery-pincodes", element: <DeliveryPincodes /> },
   { path: "legal-pages", element: <LegalPageEditor /> },
-  { path: "*", element: <Navigate to="/admin" replace /> },
+  { path: "*", element: <NotFoundPage /> },
 ];
 
 const AdminRoutes = () => {
@@ -317,11 +334,13 @@ const AdminRoutes = () => {
   }, [totalUnread]);
 
   return (
+    <Suspense fallback={<PageSkeleton variant="dashboard" />}>
     <DashboardLayout navItems={navItemsWithBadges} title="Admin Center">
       <Suspense fallback={<PageSkeleton variant="dashboard" />}>
         <Outlet />
       </Suspense>
     </DashboardLayout>
+    </Suspense>
   );
 };
 

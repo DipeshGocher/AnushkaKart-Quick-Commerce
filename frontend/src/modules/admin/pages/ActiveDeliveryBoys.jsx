@@ -331,7 +331,7 @@ const ActiveDeliveryBoys = () => {
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="bg-slate-50 p-3 rounded-2xl">
                                                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">
-                                                    Today's Orders
+                                                    Today&apos;s Orders
                                                 </p>
                                                 <div className="flex items-center gap-1.5">
                                                     <Package className="h-3.5 w-3.5 text-primary" />
@@ -515,7 +515,7 @@ const ActiveDeliveryBoys = () => {
                                 <div className="grid grid-cols-2 gap-4 p-5 bg-white rounded-2xl border border-slate-200/80 mb-8">
                                     <div className="text-center">
                                         <p className="text-[9px] font-black text-slate-400 uppercase mb-1">
-                                            Today's Deliveries
+                                            Today&apos;s Deliveries
                                         </p>
                                         <span className="text-2xl font-black text-primary">
                                             {viewingRider.todayDeliveries}

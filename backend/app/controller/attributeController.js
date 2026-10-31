@@ -1,6 +1,7 @@
 import Attribute from "../models/attribute.js";
 import Category from "../models/category.js";
 import handleResponse from "../utils/helper.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 /**
  * Get all available attributes
@@ -19,7 +20,7 @@ export const getAttributes = async (req, res) => {
     const attributes = await Attribute.find(query).sort({ name: 1 }).lean();
     return handleResponse(res, 200, "Attributes fetched successfully", attributes);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -47,7 +48,7 @@ export const createAttribute = async (req, res) => {
 
     return handleResponse(res, 201, "Attribute created successfully", newAttribute);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -81,7 +82,7 @@ export const updateAttribute = async (req, res) => {
     await attribute.save();
     return handleResponse(res, 200, "Attribute updated successfully", attribute);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -103,7 +104,7 @@ export const deleteAttribute = async (req, res) => {
 
     return handleResponse(res, 200, "Attribute deleted successfully");
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -160,6 +161,6 @@ export const getCategoryAttributes = async (req, res) => {
     const mergedAttributes = Array.from(attributeMap.values());
     return handleResponse(res, 200, "Category attributes fetched successfully", mergedAttributes);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };

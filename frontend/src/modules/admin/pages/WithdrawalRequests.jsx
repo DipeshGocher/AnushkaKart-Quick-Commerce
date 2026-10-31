@@ -1008,7 +1008,7 @@ const WithdrawalRequests = () => {
                             ) : (
                                 <div className="space-y-3">
                                     <div className="p-3 bg-rose-50 rounded-xl border border-rose-100 text-xs text-rose-700 font-medium">
-                                        Declining this request will restore <b className="font-bold">₹{amount.toLocaleString('en-IN')}</b> back to the requester's available wallet balance.
+                                        Declining this request will restore <b className="font-bold">₹{amount.toLocaleString('en-IN')}</b> back to the requester&apos;s available wallet balance.
                                     </div>
                                     <div>
                                         <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">

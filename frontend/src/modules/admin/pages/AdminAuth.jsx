@@ -68,7 +68,7 @@ const AdminAuth = () => {
             title="Welcome Back"
             subtitle="Enter your details to manage the platform"
             logoUrl={logoUrl}
-            appName="Anushka Store"
+            appName="Anushka Connect"
         >
             <form className="space-y-4 relative z-10" onSubmit={handleSubmit}>
                 <div>

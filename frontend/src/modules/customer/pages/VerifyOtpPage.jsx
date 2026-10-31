@@ -278,7 +278,7 @@ const VerifyOtpPage = () => {
             title="Verify with OTP"
             subtitle={`${t('sentTo') || 'Sent to'} +91 ${phone}`}
             logoUrl={settings?.logoUrl || "/logo.png"}
-            appName="Anushka Store"
+            appName="Anushka Connect"
             bgImageUrl="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1920&q=80"
         >
             <form onSubmit={handleVerifyOtp} className="space-y-6">

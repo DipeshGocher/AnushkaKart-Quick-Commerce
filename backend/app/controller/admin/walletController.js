@@ -8,6 +8,7 @@ import {
   getWarehouseWithdrawalsData,
   updateWithdrawalStatusById,
 } from "../../services/admin/walletAdminService.js";
+import { getErrorStatus } from "../../utils/httpError.js";
 
 export const getAdminWalletData = async (req, res) => {
   try {
@@ -22,7 +23,7 @@ export const getAdminWalletData = async (req, res) => {
     return handleResponse(res, 200, "Admin wallet data fetched", data);
   } catch (error) {
     console.error('[WalletService] FATAL ERROR:', error);
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -42,7 +43,7 @@ export const getSellerWithdrawals = async (req, res) => {
     });
     return handleResponse(res, 200, "Seller withdrawals fetched", data);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -56,7 +57,7 @@ export const getWarehouseWithdrawals = async (req, res) => {
     const data = await getWarehouseWithdrawalsData({ page, limit, skip });
     return handleResponse(res, 200, "Warehouse withdrawals fetched", data);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -77,7 +78,7 @@ export const getSellerTransactions = async (req, res) => {
     });
     return handleResponse(res, 200, "Seller transactions fetched", data);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -96,7 +97,7 @@ export const getDeliveryWithdrawals = async (req, res) => {
     });
     return handleResponse(res, 200, "Delivery withdrawals fetched", data);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 

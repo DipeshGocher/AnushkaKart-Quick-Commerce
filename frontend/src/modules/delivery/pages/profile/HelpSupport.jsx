@@ -457,7 +457,7 @@ const HelpSupport = () => {
             </div>
           ) : (
             <div className="p-6 text-center bg-white rounded-xl border border-gray-100 text-gray-400 text-xs">
-              No matching questions found for "{searchQuery}". Try a different keyword or tap Chat Support above.
+              No matching questions found for &quot;{searchQuery}&quot;. Try a different keyword or tap Chat Support above.
             </div>
           )}
         </section>

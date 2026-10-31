@@ -171,7 +171,7 @@ const Analytics = () => {
         return /[",\n\r]/.test(s) ? `"${s}"` : s;
       };
       const lines = [];
-      lines.push("AnushkaKart - Seller Analytics & Sales Report");
+      lines.push("Anushka Connect - Seller Analytics & Sales Report");
       lines.push(`Generated On,${new Date().toLocaleString()}`);
       lines.push(`Time Range Selected,${timeRange.toUpperCase()}`);
       lines.push("");

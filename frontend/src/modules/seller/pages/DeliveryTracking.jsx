@@ -57,7 +57,7 @@ const coordsToLatLng = (coords) => {
   return { lat, lng };
 };
 
-const DeliveryCard = React.memo(({ dlv, onAction }) => {
+const DeliveryCard = React.memo(function DeliveryCard({ dlv, onAction }) {
   return (
     <div className="group relative bg-white rounded-2xl border border-slate-100 p-2 sm:p-2.5 hover:shadow-xl hover:shadow-primary/5 hover:border-primary/20 transition-all duration-300 min-w-0">
       <div className="flex flex-col lg:flex-row items-stretch gap-2">

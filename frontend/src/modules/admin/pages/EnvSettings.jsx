@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
 import {
@@ -19,6 +19,45 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@shared/components/ui/Toast';
+
+// Defined at module level so inputs keep their identity across renders;
+// a component declared inside EnvSettings remounted on every keystroke and
+// dropped focus. Page state arrives through context.
+const EnvFieldContext = createContext(null);
+
+const InputField = ({ label, name, type = 'text', icon: Icon, isSecret = false, placeholder = '' }) => {
+    const { config, showSecrets, handleInputChange, toggleSecret } = useContext(EnvFieldContext);
+    return (
+        <div className="space-y-3">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                {label}
+                {name && <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[9px] lowercase font-mono">{name}</span>}
+            </label>
+            <div className="relative group">
+                {Icon && <Icon className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />}
+                <input
+                    type={isSecret ? (showSecrets[name] ? 'text' : 'password') : type}
+                    value={config[name]}
+                    onChange={(e) => handleInputChange(name, e.target.value)}
+                    placeholder={placeholder}
+                    className={cn(
+                        "w-full pr-12 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all font-mono",
+                        Icon ? "pl-12" : "pl-5"
+                    )}
+                />
+                {isSecret && (
+                    <button
+                        type="button"
+                        onClick={() => toggleSecret(name)}
+                        className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                        {showSecrets[name] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+};
 
 const EnvSettings = () => {
     const { showToast } = useToast();
@@ -76,37 +115,8 @@ const EnvSettings = () => {
         }, 1500);
     };
 
-    const InputField = ({ label, name, type = 'text', icon: Icon, isSecret = false, placeholder = '' }) => (
-        <div className="space-y-3">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                {label}
-                {name && <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[9px] lowercase font-mono">{name}</span>}
-            </label>
-            <div className="relative group">
-                {Icon && <Icon className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />}
-                <input
-                    type={isSecret ? (showSecrets[name] ? 'text' : 'password') : type}
-                    value={config[name]}
-                    onChange={(e) => handleInputChange(name, e.target.value)}
-                    placeholder={placeholder}
-                    className={cn(
-                        "w-full pr-12 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all font-mono",
-                        Icon ? "pl-12" : "pl-5"
-                    )}
-                />
-                {isSecret && (
-                    <button
-                        onClick={() => toggleSecret(name)}
-                        className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                    >
-                        {showSecrets[name] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                )}
-            </div>
-        </div>
-    );
-
     return (
+        <EnvFieldContext.Provider value={{ config, showSecrets, handleInputChange, toggleSecret }}>
         <div className="ds-section-spacing animate-in fade-in slide-in-from-bottom-4 duration-700 pb-12">
             {/* Header Section */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 px-1">
@@ -288,6 +298,7 @@ const EnvSettings = () => {
                 )}
             </div>
         </div>
+        </EnvFieldContext.Provider>
     );
 };
 

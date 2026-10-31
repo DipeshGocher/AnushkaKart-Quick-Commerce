@@ -50,8 +50,10 @@ const PaymentPage = lazy(() => import('../../modules/customer/pages/PaymentPage'
 const PaymentStatusPage = lazy(() => import('../../modules/customer/pages/PaymentStatusPage'));
 const SearchPage = lazy(() => import('../../modules/customer/pages/SearchPage'));
 const ProductsPage = lazy(() => import('../../modules/customer/pages/ProductsPage'));
+const StorePage = lazy(() => import('../../modules/customer/pages/StorePage'));
 const WalletPage = lazy(() => import('../../modules/customer/pages/WalletPage'));
 const NotificationsPage = lazy(() => import('../../modules/customer/pages/NotificationsPage'));
+import NotFoundPage from '../../shared/components/NotFoundPage';
 
 
 import SellerRoutes, { sellerRoutes } from '../../modules/seller/routes/index';
@@ -107,7 +109,7 @@ const CustomerLayoutWrapper = () => {
 };
 
 const RESERVED_CUSTOMER_SLUGS = new Set([
-    'admin', 'seller', 'delivery', 'unauthorized', 'marketplace', 'api', 
+    'admin', 'seller', 'delivery', 'unauthorized', 'marketplace', 'api', 'store', 
     'login', 'signup', 'verify-otp', 'categories', 'category', 'product', 'products', 
     'search', 'orders', 'cart', 'wishlist', 'settings', 'profile', 
     'wallet', 'notifications', 'checkout', 'payment', 'support', 'help', 'privacy', 'privacy-policy', 'about', 'offers',
@@ -117,11 +119,8 @@ const RESERVED_CUSTOMER_SLUGS = new Set([
 const HierarchicalProductRoute = () => {
     const { headerSlug } = useParams();
     const cleanHeader = String(headerSlug || '').toLowerCase();
-    if (cleanHeader && RESERVED_CUSTOMER_SLUGS.has(cleanHeader)) {
-        if (['admin', 'seller', 'delivery', 'warehouse'].includes(cleanHeader)) {
-            return <Navigate to={window.location.pathname} replace />;
-        }
-        return <Navigate to={`/${cleanHeader}`} replace />;
+    if (cleanHeader && (RESERVED_CUSTOMER_SLUGS.has(cleanHeader) || ['admin', 'seller', 'delivery', 'warehouse'].includes(cleanHeader))) {
+        return <NotFoundPage />;
     }
     return <ProductDetailPage />;
 };
@@ -288,6 +287,22 @@ const AppRouter = () => {
                     children: deliveryRoutes,
                 },
                 {
+                    path: 'admin/*',
+                    element: <NotFoundPage />,
+                },
+                {
+                    path: 'seller/*',
+                    element: <NotFoundPage />,
+                },
+                {
+                    path: 'delivery/*',
+                    element: <NotFoundPage />,
+                },
+                {
+                    path: 'warehouse/*',
+                    element: <NotFoundPage />,
+                },
+                {
                     path: 'unauthorized',
                     element: <div className="flex h-screen items-center justify-center font-outfit">Unauthorized Access</div>,
                 },
@@ -331,6 +346,7 @@ const AppRouter = () => {
                         { path: 'notifications', element: <ProtectedRoute><NotificationsPage /></ProtectedRoute> },
                         { path: 'products', element: <ProductsPage /> },
                         { path: 'product', element: <ProductsPage /> },
+                        { path: 'store/:sellerId', element: <StorePage /> },
                         { path: 'search', element: <SearchPage /> },
                         { path: ':headerSlug/:categorySlug/:subCategorySlug/:productSlug', element: <HierarchicalProductRoute /> },
                         { path: ':headerSlug/:categorySlug/:productSlug', element: <HierarchicalProductRoute /> },
@@ -340,7 +356,7 @@ const AppRouter = () => {
                 },
                 {
                     path: '*',
-                    element: <Navigate to="/" replace />
+                    element: <NotFoundPage />
                 }
             ]
         }

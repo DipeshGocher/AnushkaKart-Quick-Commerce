@@ -1,7 +1,7 @@
 const HOME_BANNER_ITEMS = [
   {
     imageUrl: "https://res.cloudinary.com/b5hik8gu/image/upload/v1791528972/banners/qe65rs7t9azgesktaxzj.png",
-    title: "Anushka Store Mega Sale",
+    title: "Anushka Connect Mega Sale",
     subtitle: "Daily essentials delivered in 20-30 mins",
     linkType: "none",
     linkValue: "",

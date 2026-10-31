@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
+import PageSkeleton from "@/shared/components/PageSkeleton";
 import { createPortal } from "react-dom";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
@@ -915,7 +916,9 @@ const DeliveryLayout = () => {
         className="flex-1 min-h-0 overflow-y-auto no-scrollbar"
         style={{ paddingBottom: shouldShowBottomNav ? "calc(5.5rem + env(safe-area-inset-bottom, 0px))" : undefined }}
       >
-        <Outlet />
+        <Suspense fallback={<PageSkeleton />}>
+          <Outlet />
+        </Suspense>
       </main>
 
       {shouldShowBottomNav && <BottomNav />}

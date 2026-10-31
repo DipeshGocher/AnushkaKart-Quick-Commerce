@@ -10,6 +10,7 @@ import {
 } from "../services/sellerVerificationService.js";
 import { uploadToCloudinary } from "../services/mediaService.js";
 import { syncSellerPickupLocationToShiprocket } from "../services/shipping/shiprocketService.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 /* ===============================
    Utils
@@ -248,7 +249,7 @@ export const signupSeller = async (req, res) => {
             requiresApproval: true,
         });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -270,7 +271,7 @@ export const sendSellerSignupOtp = async (req, res) => {
 
         return handleResponse(res, 200, "OTP sent successfully", result);
     } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -293,7 +294,7 @@ export const verifySellerSignupOtp = async (req, res) => {
 
         return handleResponse(res, 200, "OTP verified successfully", result);
     } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -357,7 +358,7 @@ export const loginSeller = async (req, res) => {
             seller,
         });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -378,7 +379,7 @@ export const sendSellerResetOtp = async (req, res) => {
         
         return handleResponse(res, 200, "Reset OTP sent successfully", result);
     } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -394,7 +395,7 @@ export const verifySellerResetOtp = async (req, res) => {
         
         return handleResponse(res, 200, "OTP verified successfully", result);
     } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -423,7 +424,7 @@ export const resetSellerPassword = async (req, res) => {
 
         return handleResponse(res, 200, "Password reset successfully");
     } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -445,6 +446,6 @@ export const checkSellerExists = async (req, res) => {
         
         return handleResponse(res, 200, "Check completed", { exists: !!seller });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };

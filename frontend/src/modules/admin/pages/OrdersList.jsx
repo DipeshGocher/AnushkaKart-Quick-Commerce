@@ -72,7 +72,7 @@ const getStatusStyles = (status) => {
     }
 };
 
-const AdminOrderTableRow = React.memo(({ order, status, onNavigate, onStatusUpdate }) => {
+const AdminOrderTableRow = React.memo(function AdminOrderTableRow({ order, status, onNavigate, onStatusUpdate }) {
     const hasReturn = Boolean(order.returnStatus && order.returnStatus !== 'none');
     const returnInfo = hasReturn ? getReturnDisplayInfo(order.returnStatus) : null;
 
@@ -619,7 +619,7 @@ const OrdersList = () => {
                                             </div>
                                             <div>
                                                 <h4 className="text-lg font-black text-slate-300 uppercase tracking-tight">No Orders Found</h4>
-                                                <p className="text-sm font-bold text-slate-300 mt-1">We couldn't find any orders matching your search.</p>
+                                                <p className="text-sm font-bold text-slate-300 mt-1">We couldn&apos;t find any orders matching your search.</p>
                                             </div>
                                         </div>
                                     </td>

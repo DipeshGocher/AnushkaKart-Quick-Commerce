@@ -134,7 +134,7 @@ const NotificationsPage = () => {
                         </div>
                         <h3 className="text-lg font-bold text-slate-900 mb-2">No notifications yet</h3>
                         <p className="text-slate-500 text-sm max-w-[250px]">
-                            When you get notifications about orders or promotions, they'll show up here.
+                            When you get notifications about orders or promotions, they&apos;ll show up here.
                         </p>
                     </div>
                 )}

@@ -41,7 +41,7 @@ const Footer = () => {
 
     const copyrightText = settings?.footerCopyright
         ? settings.footerCopyright.replace('{year}', new Date().getFullYear())
-        : `© ${new Date().getFullYear()} ${settings?.appName || 'AnushkaStore'}. All rights reserved.`;
+        : `© ${new Date().getFullYear()} ${settings?.appName || 'Anushka Connect'}. All rights reserved.`;
 
     return (
         <footer
@@ -61,7 +61,7 @@ const Footer = () => {
                     <div className="space-y-4 md:space-y-8">
                         <div className="flex items-center">
                             <Link to="/">
-                                <img src={logoUrl || Logo || "/logo.png"} alt={`${settings?.appName || 'AnushkaStore'} Logo`} loading="lazy" className="h-12 md:h-16 w-auto object-contain cursor-pointer" />
+                                <img src={logoUrl || Logo || "/logo.png"} alt={`${settings?.appName || 'Anushka Connect'} Logo`} loading="lazy" className="h-12 md:h-16 w-auto object-contain cursor-pointer" />
                             </Link>
                         </div>
                         <p className="text-sm leading-relaxed md:text-base md:leading-loose text-white/90 md:max-w-xs transition-opacity hover:opacity-100 font-medium">
@@ -129,7 +129,7 @@ const Footer = () => {
                             <li className="flex items-center gap-3 md:gap-5 group">
                                 <div className="hidden md:flex h-12 w-12 rounded-xl bg-white/10 items-center justify-center text-white transition-all shrink-0 group-hover:opacity-90"><Mail size={22} /></div>
                                 <Mail className="shrink-0 md:hidden" size={18} style={{ color: primaryColor }} />
-                                <span className="md:text-base text-white font-medium">{settings?.supportEmail || 'support@anushkastore.com'}</span>
+                                <span className="md:text-base text-white font-medium">{settings?.supportEmail || 'support@anushkaconnect.com'}</span>
                             </li>
                         </ul>
                     </div>

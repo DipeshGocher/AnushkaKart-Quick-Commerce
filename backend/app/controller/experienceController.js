@@ -7,6 +7,7 @@ import handleResponse from "../utils/helper.js";
 import mongoose from "mongoose";
 import { buildKey, getOrSet, getTTL, invalidate } from "../services/cacheService.js";
 import { uploadToCloudinary } from "../services/mediaService.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 /* ===============================
    Helpers
@@ -217,7 +218,7 @@ export const getAdminExperienceSections = async (req, res) => {
 
     return handleResponse(res, 200, "Experience sections fetched", sections);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -299,7 +300,7 @@ export const deleteExperienceSection = async (req, res) => {
 
     return handleResponse(res, 200, "Experience section deleted");
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -376,7 +377,7 @@ export const getPublicExperienceSections = async (req, res) => {
 
     return handleResponse(res, 200, "Experience sections fetched", sections);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -401,7 +402,7 @@ export const uploadBannerImage = async (req, res) => {
     await invalidate("cache:experience:public:*");
     return handleResponse(res, 200, "Banner image uploaded", { url });
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -549,7 +550,7 @@ export const getPublicHeroConfig = async (req, res) => {
 
     return handleResponse(res, 200, "Hero config fetched", payload);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -609,7 +610,7 @@ export const getAdminHeroConfig = async (req, res) => {
       }
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -802,6 +803,6 @@ export const upsertHeroConfig = async (req, res) => {
 
     return handleResponse(res, 200, "Hero config saved", config);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };

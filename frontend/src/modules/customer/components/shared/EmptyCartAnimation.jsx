@@ -226,7 +226,7 @@ const EmptyCartAnimation = ({ onActionClick }) => {
         transition={{ duration: 0.3, delay: 0.1 }}
         className="text-slate-500 font-medium text-xs sm:text-sm max-w-xs sm:max-w-sm mb-7 leading-relaxed"
       >
-        Looks like you haven't added anything to your cart yet. Explore all categories to start shopping!
+        Looks like you haven&apos;t added anything to your cart yet. Explore all categories to start shopping!
       </motion.p>
 
       {/* Orange "Start Shopping" Button Redirecting to /categories */}

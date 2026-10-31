@@ -27,6 +27,7 @@ import {
   getShiprocketReverseLabel,
   updateShiprocketReverseStatus,
 } from "../services/shipping/shiprocketService.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 /**
  * Public: Get active local quick delivery pincodes list
@@ -41,7 +42,7 @@ export const getPublicLocalPincodes = async (req, res) => {
       details: list,
     });
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -101,7 +102,7 @@ export const checkPincodeServiceability = async (req, res) => {
       state: details?.state || "",
     });
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -175,7 +176,7 @@ export const validateCartDelivery = async (req, res) => {
       items: evaluatedItems,
     });
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -188,7 +189,7 @@ export const getPincodes = async (req, res) => {
     const result = await listLocalPincodes({ search, status, page, limit });
     return handleResponse(res, 200, "Pincodes retrieved", result);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -200,7 +201,7 @@ export const createPincode = async (req, res) => {
     const record = await addLocalPincode(req.body);
     return handleResponse(res, 201, "Local delivery pincode added successfully", record);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -213,7 +214,7 @@ export const updatePincode = async (req, res) => {
     const updated = await updateLocalPincode(id, req.body);
     return handleResponse(res, 200, "Pincode updated successfully", updated);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -226,7 +227,7 @@ export const deletePincode = async (req, res) => {
     const deleted = await deleteLocalPincode(id);
     return handleResponse(res, 200, "Pincode removed successfully", deleted);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -239,7 +240,7 @@ export const togglePincode = async (req, res) => {
     const toggled = await toggleLocalPincodeStatus(id);
     return handleResponse(res, 200, `Pincode is now ${toggled.isActive ? "Active" : "Inactive"}`, toggled);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -286,7 +287,7 @@ export const processShiprocket = async (req, res) => {
     const result = await processShiprocketOrder(orderId);
     return handleResponse(res, 200, result.message || "Shiprocket shipment processed", result);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -300,7 +301,7 @@ export const scheduleShiprocketPickup = async (req, res) => {
     const result = await requestShiprocketPickup(orderId);
     return handleResponse(res, 200, result.message || "Pickup requested", result);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -314,7 +315,7 @@ export const fetchShiprocketLabel = async (req, res) => {
     const result = await getShiprocketLabel(orderId);
     return handleResponse(res, 200, "Shipping label fetched", result);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -328,7 +329,7 @@ export const updateShiprocketStatusManual = async (req, res) => {
     const result = await updateShiprocketManualStatus(orderId, { status, remarks, location }, req.user?.id);
     return handleResponse(res, 200, result.message, result);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -381,7 +382,7 @@ export const recordDiscrepancy = async (req, res) => {
     });
     return handleResponse(res, 200, result.message, result);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -395,7 +396,7 @@ export const scheduleShiprocketReversePickupHandler = async (req, res) => {
     const result = await createShiprocketReversePickup(orderId);
     return handleResponse(res, 200, result.message || "Shiprocket reverse pickup scheduled", result);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -409,7 +410,7 @@ export const fetchShiprocketReverseLabel = async (req, res) => {
     const result = await getShiprocketReverseLabel(orderId);
     return handleResponse(res, 200, "Reverse shipping label fetched successfully", result);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -424,7 +425,7 @@ export const updateShiprocketReverseStatusManual = async (req, res) => {
     const result = await updateShiprocketReverseStatus(orderId, { status, remarks, location }, req.user?.id);
     return handleResponse(res, 200, result.message, result);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 

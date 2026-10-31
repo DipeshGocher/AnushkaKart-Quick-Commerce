@@ -105,15 +105,15 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
         '/terms', '/terms-and-conditions', '/terms-conditions', '/terms&conditions', '/term-and-conditions',
         '/search', '/chat', '/notifications', '/cart'
     ];
-    const hideBottomNavRoutes = ['/checkout', '/payment', '/search', '/chat'];
-    const hideCartRoutes = ['/checkout', '/payment', '/search', '/chat'];
+    const hideBottomNavRoutes = ['/checkout', '/payment', '/search', '/chat', '/cart'];
+    const hideCartRoutes = ['/checkout', '/payment', '/search', '/chat', '/cart'];
 
     const pathSegments = path.split('/').filter(Boolean);
     const isHeaderCategoryRoute = pathSegments.length === 1 && !hideHeaderRoutes.includes(path) && !['offers'].includes(pathSegments[0]);
     const isHierarchicalProduct = Boolean(new URLSearchParams(location.search).get('id') || (pathSegments.length >= 2 && !['category', 'orders', 'profile', 'seller', 'admin', 'delivery'].includes(pathSegments[0])));
     const showHeader = showHeaderProp !== undefined ? showHeaderProp : (!hideHeaderRoutes.includes(path) && !isHeaderCategoryRoute && !path.startsWith('/category') && !path.startsWith('/orders') && !path.startsWith('/products') && !path.startsWith('/product') && !isHierarchicalProduct);
-    const showBottomNav = showBottomNavProp !== undefined ? showBottomNavProp : !hideBottomNavRoutes.includes(path);
-    const showCart = showCartProp !== undefined ? showCartProp : (!hideCartRoutes.includes(path) && !path.startsWith('/orders'));
+    const showBottomNav = showBottomNavProp !== undefined ? showBottomNavProp : (!hideBottomNavRoutes.includes(path) && !path.startsWith('/cart'));
+    const showCart = showCartProp !== undefined ? showCartProp : (!hideCartRoutes.includes(path) && !path.startsWith('/orders') && !path.startsWith('/cart'));
 
     // Synchronize Mobile Status Bar (Android / Flutter WebView / PWA)
     useEffect(() => {

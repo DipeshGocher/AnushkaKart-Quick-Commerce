@@ -2,6 +2,7 @@ import FAQ from '../models/faq.js';
 import { handleResponse } from '../utils/helper.js';
 import getPagination from '../utils/pagination.js';
 import { buildSearchRegex } from '../utils/regex.js';
+import { getErrorStatus } from "../utils/httpError.js";
 
 export const getFAQs = async (req, res) => {
     try {
@@ -34,7 +35,7 @@ export const getFAQs = async (req, res) => {
             totalPages: Math.ceil(total / limit) || 1,
         });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -45,7 +46,7 @@ export const createFAQ = async (req, res) => {
         await newFAQ.save();
         return handleResponse(res, 201, "FAQ created successfully", newFAQ);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -56,7 +57,7 @@ export const updateFAQ = async (req, res) => {
         if (!updatedFAQ) return handleResponse(res, 404, "FAQ not found");
         return handleResponse(res, 200, "FAQ updated successfully", updatedFAQ);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -67,6 +68,6 @@ export const deleteFAQ = async (req, res) => {
         if (!deletedFAQ) return handleResponse(res, 404, "FAQ not found");
         return handleResponse(res, 200, "FAQ deleted successfully");
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };

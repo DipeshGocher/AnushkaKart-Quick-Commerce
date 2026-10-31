@@ -6,10 +6,12 @@ import { buildSearchRegex } from "../utils/regex.js";
 import { isServerSideCouponEngineEnabled } from "../constants/finance.js";
 import { computeOrderDiscount } from "../services/finance/couponService.js";
 import { hydrateOrderItems } from "../services/finance/pricingService.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 export const listCoupons = async (req, res) => {
     try {
-        const { status, search } = req.query;
+        const { search } = req.query;
+        const status = req.couponScope === "public" ? "active" : req.query.status;
         const query = {};
 
         if (status === "active") {
@@ -35,7 +37,7 @@ export const listCoupons = async (req, res) => {
         const coupons = await Coupon.find(query).sort({ createdAt: -1 }).lean();
         return handleResponse(res, 200, "Coupons fetched successfully", coupons);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -60,7 +62,7 @@ export const createCoupon = async (req, res) => {
         if (error.code === 11000) {
             return handleResponse(res, 400, "Coupon code already exists");
         }
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -89,17 +91,20 @@ export const updateCoupon = async (req, res) => {
         }
         return handleResponse(res, 200, "Coupon updated successfully", coupon);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
 export const deleteCoupon = async (req, res) => {
     try {
         const { id } = req.params;
-        await Coupon.findByIdAndDelete(id);
+        const deleted = await Coupon.findByIdAndDelete(id);
+        if (!deleted) {
+            return handleResponse(res, 404, "Coupon not found");
+        }
         return handleResponse(res, 200, "Coupon deleted successfully");
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -302,7 +307,7 @@ export const validateCoupon = async (req, res) => {
         // intended HTTP status. Legacy throws without a `statusCode`
         // continue to return 500 — preserving existing semantics for
         // unexpected DB/system failures.
-        return handleResponse(res, error.statusCode || 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 

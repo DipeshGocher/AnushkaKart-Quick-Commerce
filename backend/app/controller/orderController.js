@@ -60,6 +60,7 @@ import { computeReturnWindowForOrder } from "../utils/returnWindow.js";
 import logger from "../services/logger.js";
 import { validateBody as validateWithJoi } from "../middleware/validate.js";
 import OrderReturnService from "../services/order/orderReturnService.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 function normalizePaymentMode(value) {
   const raw = String(value || "").trim().toUpperCase();
@@ -211,7 +212,7 @@ export const placeOrder = async (req, res) => {
       correlationId: req.correlationId,
       error,
     });
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 /* ===============================
@@ -226,7 +227,7 @@ export const getMyOrders = async (req, res) => {
     const result = await getCustomerOrders(req.user.id, pagination);
     return handleResponse(res, 200, "Orders fetched successfully", result);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -247,7 +248,7 @@ export const getSellerReturns = async (req, res) => {
     });
     return handleResponse(res, 200, "Seller returns fetched", result);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -281,7 +282,7 @@ export const getOrderDetails = async (req, res) => {
         error,
       });
     }
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -325,7 +326,7 @@ export const cancelOrder = async (req, res) => {
         );
         return handleResponse(res, 200, "Order cancelled successfully", updated);
       } catch (e) {
-        return handleResponse(res, e.statusCode || 500, e.message);
+        return handleResponse(res, getErrorStatus(e), e.message);
       }
     }
 
@@ -374,7 +375,7 @@ export const cancelOrder = async (req, res) => {
 
     return handleResponse(res, 200, "Order cancelled successfully", order);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -395,7 +396,7 @@ export const requestReturn = async (req, res) => {
       order,
     );
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -411,7 +412,7 @@ export const getReturnDetails = async (req, res) => {
     );
     return handleResponse(res, 200, "Return details fetched", payload);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -501,7 +502,7 @@ export const updateOrderStatus = async (req, res) => {
           const updated = await sellerAcceptAtomic(userId, canonicalOrderId);
           return handleResponse(res, 200, "Order accepted", updated);
         } catch (e) {
-          return handleResponse(res, e.statusCode || 500, e.message);
+          return handleResponse(res, getErrorStatus(e), e.message);
         }
       }
       if (status === "cancelled") {
@@ -509,7 +510,7 @@ export const updateOrderStatus = async (req, res) => {
           const updated = await sellerRejectAtomic(userId, canonicalOrderId, req.body?.cancelReason || req.body?.reason);
           return handleResponse(res, 200, "Order cancelled successfully", updated);
         } catch (e) {
-          return handleResponse(res, e.statusCode || 500, e.message);
+          return handleResponse(res, getErrorStatus(e), e.message);
         }
       }
     }
@@ -521,7 +522,7 @@ export const updateOrderStatus = async (req, res) => {
           const updated = await warehouseAcceptAtomic(userId, canonicalOrderId);
           return handleResponse(res, 200, "Order accepted by warehouse", updated);
         } catch (e) {
-          return handleResponse(res, e.statusCode || 500, e.message);
+          return handleResponse(res, getErrorStatus(e), e.message);
         }
       }
       // Warehouse reject is not fully defined yet, can add if needed.
@@ -776,7 +777,7 @@ export const updateOrderStatus = async (req, res) => {
 
     return handleResponse(res, 200, "Order status updated", order);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -792,7 +793,7 @@ export const approveReturnRequest = async (req, res) => {
     );
     return handleResponse(res, 200, "Return request approved", order);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -809,7 +810,7 @@ export const rejectReturnRequest = async (req, res) => {
     );
     return handleResponse(res, 200, "Return request rejected", order);
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -908,7 +909,7 @@ export const updateReturnQcStatus = async (req, res) => {
 
     return handleResponse(res, 200, "QC failed recorded", order);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -1022,7 +1023,7 @@ export const assignReturnDelivery = async (req, res) => {
       order,
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -1093,7 +1094,7 @@ export const acceptReturnPickup = async (req, res) => {
 
     return handleResponse(res, 200, "Return pickup accepted", order);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -1166,7 +1167,7 @@ export const rejectReturnPickup = async (req, res) => {
 
     return handleResponse(res, 200, "Pickup rejected successfully.");
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -1428,7 +1429,7 @@ export const updateReturnStatus = async (req, res) => {
 
     return handleResponse(res, 200, "Return status updated", order);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -1497,7 +1498,7 @@ export const getSellerOrders = async (req, res) => {
       },
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -1538,7 +1539,7 @@ export const getAvailableOrders = async (req, res) => {
       orders,
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -1585,7 +1586,7 @@ export const acceptOrder = async (req, res) => {
           updated,
         );
       } catch (e) {
-        return handleResponse(res, e.statusCode || 500, e.message);
+        return handleResponse(res, getErrorStatus(e), e.message);
       }
     }
 
@@ -1612,7 +1613,7 @@ export const acceptOrder = async (req, res) => {
 
     return handleResponse(res, 200, "Order accepted successfully", order);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -1657,7 +1658,7 @@ export const skipOrder = async (req, res) => {
 
     return handleResponse(res, 200, "Order skipped successfully");
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };
 
@@ -1711,6 +1712,6 @@ export const uploadReturnPickupProof = async (req, res) => {
       returnPickupCondition: order.returnPickupCondition,
     });
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, getErrorStatus(error), error.message);
   }
 };

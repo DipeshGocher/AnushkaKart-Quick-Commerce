@@ -185,11 +185,6 @@ function CuratedCategoryDealsSection({
 
   const curatedData = loadedConfig?.curatedDeals;
 
-  // If section is explicitly disabled by admin in CMS, return null
-  if (curatedData && curatedData.enabled === false) {
-    return null;
-  }
-
   // Determine section heading
   const sectionTitle =
     curatedData?.title?.trim() ||
@@ -261,6 +256,12 @@ function CuratedCategoryDealsSection({
 
     return [];
   }, [curatedData?.items, pageType, subCategories, allFallbackSubcategories]);
+
+  // If section is explicitly disabled by admin in CMS. Checked after the hooks
+  // because the config loads asynchronously.
+  if (curatedData && curatedData.enabled === false) {
+    return null;
+  }
 
   if (!items || items.length === 0) {
     return null;

@@ -1,7 +1,7 @@
 {
   "name": "anushka-Store-backend",
   "version": "1.0.0",
-  "description": "Anushka Store - Backend API",
+  "description": "Anushka Connect - Backend API",
   "main": "index.js",
   "type": "module",
   "scripts": {

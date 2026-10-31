@@ -226,15 +226,9 @@ const SidebarContent = ({ items, title, onClose, openMenu, handleToggle, hovered
     <div className="flex flex-col h-full min-h-0">
       <div className="flex-shrink-0 flex h-16 items-center justify-between px-5 border-b border-[#060606]/10 bg-gradient-to-b from-black/[0.02] to-transparent z-10">
         <div className="flex items-center space-x-2.5">
-          {settings?.logoUrl || '/logo.png' ? (
-            <div className="h-9 w-9 rounded-xl overflow-hidden shadow-sm ring-1 ring-black/10 group-hover:scale-110 transition-all duration-500 ease-out">
-              <img src={settings?.logoUrl || '/logo.png'} alt={appName} className="h-full w-full object-contain" />
-            </div>
-          ) : (
-            <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center text-white shadow-sm transform -rotate-6 hover:rotate-0 transition-all duration-500 ease-out">
-              <span className="text-lg font-black italic">{appName.charAt(0)}</span>
-            </div>
-          )}
+          <div className="h-9 w-9 rounded-xl overflow-hidden shadow-sm ring-1 ring-black/10 group-hover:scale-110 transition-all duration-500 ease-out">
+            <img src={settings?.logoUrl || '/logo.png'} alt={appName} className="h-full w-full object-contain" />
+          </div>
           <div>
             <h1 className="text-base font-black tracking-tight text-[#060606] leading-none">
               {appName}
@@ -298,15 +292,9 @@ const SidebarContent = ({ items, title, onClose, openMenu, handleToggle, hovered
         <div className="bg-black/[0.04] rounded-lg p-3 shadow-sm border border-[#060606]/10 hover:bg-black/[0.08] hover:border-[#060606]/15 transition-all group cursor-pointer">
           <div className="flex items-center space-x-2.5">
             <div className="relative group">
-              {settings?.logoUrl || '/logo.png' ? (
-                <div className="h-8 w-8 rounded-lg overflow-hidden border border-[#060606]/10 shadow-sm group-hover:scale-110 transition-all duration-500">
-                  <img src={settings?.logoUrl || '/logo.png'} alt={appName} className="h-full w-full object-contain" />
-                </div>
-              ) : (
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary via-brand-500 to-violet-600 flex items-center justify-center text-white font-black text-xs shadow-sm group-hover:scale-110 transition-all duration-500">
-                  {appName.charAt(0)}
-                </div>
-              )}
+              <div className="h-8 w-8 rounded-lg overflow-hidden border border-[#060606]/10 shadow-sm group-hover:scale-110 transition-all duration-500">
+                <img src={settings?.logoUrl || '/logo.png'} alt={appName} className="h-full w-full object-contain" />
+              </div>
               <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-brand-500 rounded-full border-2 border-[#FFFDD0] shadow-sm animate-pulse"></div>
             </div>
             <div className="flex-1 min-w-0">

@@ -480,7 +480,7 @@ const AdminWallet = () => {
                             </div>
                             <div className="col-span-2 p-4 bg-slate-50 rounded-2xl border border-slate-100">
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Notes / Description</p>
-                                <p className="text-xs font-medium text-slate-600 italic">"{selectedTransaction.notes}"</p>
+                                <p className="text-xs font-medium text-slate-600 italic">&quot;{selectedTransaction.notes}&quot;</p>
                             </div>
                         </div>
 

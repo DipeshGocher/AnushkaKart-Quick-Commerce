@@ -2,6 +2,7 @@ import Employee from "../models/employee.js";
 import Customer from "../models/customer.js";
 import Order from "../models/order.js";
 import handleResponse from "../utils/helper.js";
+import { getErrorStatus } from "../utils/httpError.js";
 
 // Admin: Create Employee
 export const createEmployee = async (req, res) => {
@@ -29,7 +30,7 @@ export const createEmployee = async (req, res) => {
 
         return handleResponse(res, 201, "Employee created successfully", employee);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -68,7 +69,7 @@ export const listEmployees = async (req, res) => {
 
         return handleResponse(res, 200, "Employees fetched", enrichedEmployees);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -104,7 +105,7 @@ export const getEmployee = async (req, res) => {
             }
         });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -127,7 +128,7 @@ export const updateEmployee = async (req, res) => {
         
         return handleResponse(res, 200, "Employee updated successfully", employee);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -140,7 +141,7 @@ export const deleteEmployee = async (req, res) => {
         }
         return handleResponse(res, 200, "Employee deleted successfully");
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -168,7 +169,7 @@ export const getEmployeeCustomers = async (req, res) => {
             
         return handleResponse(res, 200, "Customers fetched", enrichedCustomers);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -202,7 +203,7 @@ export const getLeaderboard = async (req, res) => {
         
         return handleResponse(res, 200, "Leaderboard fetched", leaderboard);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };
 
@@ -226,6 +227,6 @@ export const validateReferralCode = async (req, res) => {
             referralCode: employee.referralCode
         });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, getErrorStatus(error), error.message);
     }
 };

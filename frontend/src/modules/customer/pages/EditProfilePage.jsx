@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, UserRound, Phone, Mail, FileText, Save } from 'lucide-react';
+import { ArrowLeft, UserRound, Phone, Mail, FileText, Save, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAuth } from '@core/context/AuthContext';
@@ -37,11 +37,15 @@ const EditProfilePage = () => {
         e.preventDefault();
         setIsLoading(true);
         try {
-            const response = await customerApi.updateProfile(formData);
-            const updatedUser = response.data.result;
+            // Strip phone from payload so registered mobile number is never modified
+            const { phone, ...payload } = formData;
+            const response = await customerApi.updateProfile(payload);
+            const updatedUser = response.data?.result || response.data?.data || response.data;
 
             // Update local auth state
-            updateUser(updatedUser);
+            if (updatedUser) {
+                updateUser(updatedUser);
+            }
 
             toast.success('Profile updated successfully!');
             navigate('/profile');
@@ -87,19 +91,33 @@ const EditProfilePage = () => {
                             </div>
                         </div>
 
+                        {/* Phone Number - Locked / Non-editable */}
                         <div className="customer-edit-profile-field">
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Phone Number</label>
-                            <div className="customer-edit-profile-control flex items-center gap-3 bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200 focus-within:border-[#6666FF] focus-within:ring-4 focus-within:ring-[#6666FF]/15 transition-all">
-                                <Phone className="customer-edit-profile-icon text-[#6666FF]" size={16} />
-                                <input
-                                    type="tel"
-                                    name="phone"
-                                    value={formData.phone}
-                                    onChange={handleChange}
-                                    className="bg-transparent w-full text-[#0F172A] font-medium outline-none placeholder:font-normal text-sm"
-                                    placeholder="Enter phone number"
-                                />
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Phone Number</label>
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                                    <Lock size={10} />
+                                    <span>Non-editable</span>
+                                </span>
                             </div>
+                            <div className="customer-edit-profile-control flex items-center justify-between gap-3 bg-slate-100/80 px-3 py-2.5 rounded-xl border border-slate-200 cursor-not-allowed select-none">
+                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                    <Phone className="customer-edit-profile-icon text-slate-400 shrink-0" size={16} />
+                                    <input
+                                        type="tel"
+                                        name="phone"
+                                        value={formData.phone}
+                                        disabled
+                                        readOnly
+                                        className="bg-transparent w-full text-slate-600 font-semibold outline-none text-sm cursor-not-allowed"
+                                        placeholder="Phone number"
+                                    />
+                                </div>
+                                <Lock size={14} className="text-slate-400 shrink-0" />
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1 font-medium">
+                                Mobile number is permanently linked to your account and cannot be changed.
+                            </p>
                         </div>
 
                         <div className="customer-edit-profile-field">

@@ -109,7 +109,7 @@ export default function LayoutBranding() {
 
     // Settings state
     const [settings, setSettings] = useState({
-        appName: 'Anushka Store',
+        appName: 'Anushka Connect',
         logoUrl: '',
         faviconUrl: '',
         primaryColor: '#FF6B00',
@@ -763,7 +763,7 @@ export default function LayoutBranding() {
                                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500/20"
                                         placeholder="E.g. 30 min, 15 min, Express"
                                     />
-                                    <p className="text-[11px] text-slate-400">Examples: "30 min", "10-15 mins", "Express", "Same Day"</p>
+                                    <p className="text-[11px] text-slate-400">Examples: &quot;30 min&quot;, &quot;10-15 mins&quot;, &quot;Express&quot;, &quot;Same Day&quot;</p>
                                 </div>
 
                                 {/* Background Presets & Custom Gradient */}
@@ -1136,7 +1136,7 @@ export default function LayoutBranding() {
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <Mail size={12} className="text-brand-400 shrink-0" />
-                                            <span className="truncate">{settings.supportEmail || 'support@anushkastore.com'}</span>
+                                            <span className="truncate">{settings.supportEmail || 'support@anushkaconnect.com'}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1147,7 +1147,7 @@ export default function LayoutBranding() {
                                 <div>
                                     {settings.footerCopyright
                                         ? settings.footerCopyright.replace('{year}', new Date().getFullYear())
-                                        : `© ${new Date().getFullYear()} ${settings.appName || 'AnushkaStore'}. All rights reserved.`}
+                                        : `© ${new Date().getFullYear()} ${settings.appName || 'Anushka Connect'}. All rights reserved.`}
                                 </div>
                                 <div className="flex gap-4">
                                     <span>Privacy Policy</span>
@@ -1482,7 +1482,7 @@ export default function LayoutBranding() {
                                     type="text"
                                     value={settings.footerCopyright || ''}
                                     onChange={(e) => handleInputChange('footerCopyright', e.target.value)}
-                                    placeholder="© {year} Anushka Store. All rights reserved."
+                                    placeholder="© {year} Anushka Connect. All rights reserved."
                                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:bg-white"
                                 />
                             </div>
