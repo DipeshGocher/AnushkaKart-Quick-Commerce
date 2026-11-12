@@ -26,6 +26,7 @@ import CategoryIcon from "@shared/components/CategoryIcon";
 import Pagination from "@shared/components/ui/Pagination";
 import { getFontAwesomeIconId } from "@shared/constants/fontAwesomeCategoryIcons";
 import TrustBadgesManager from "../../components/categories/TrustBadgesManager";
+import { FormCard, FieldLabel, ChoiceCard, SwitchRow, inputClass } from "../../components/categories/CategoryFormParts";
 import { invalidateCache } from "@core/api/dedupe";
 
 const broadcastCategoryUpdate = () => {
@@ -298,11 +299,11 @@ const HeaderCategories = () => {
 
   const handleSave = async () => {
     if (!formData.name) {
-      toast.error("Name is required");
+      toast.error("Please enter the category name.");
       return;
     }
     if (!formData.iconId) {
-      toast.error("Select a Font Awesome category icon");
+      toast.error("Please choose an icon for the category.");
       return;
     }
 
@@ -776,7 +777,7 @@ const HeaderCategories = () => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden my-auto"
+              className="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden my-auto"
             >
               {/* Modal Header */}
               <div className="p-6 border-b border-gray-100 flex justify-between items-center shrink-0">
@@ -797,93 +798,115 @@ const HeaderCategories = () => {
 
               {/* Modal Body */}
               <div
-                className="p-6 space-y-5 overflow-y-auto flex-1 min-h-0 overscroll-contain touch-pan-y"
+                className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0 overscroll-contain touch-pan-y bg-gray-50"
                 tabIndex={0}
                 onWheel={(e) => e.stopPropagation()}
                 onTouchMove={(e) => e.stopPropagation()}
               >
-                {/* Icon selector */}
-                <div className="flex flex-col items-center gap-3 rounded-xl border border-slate-700/80 bg-slate-900 py-5 px-4 text-white shadow-sm">
-                  <div
-                    className="flex h-16 w-16 items-center justify-center rounded-full border border-white/20 shadow-md transition-colors"
-                    style={{ background: formData.headerColor || DEFAULT_HEADER_COLOR }}
-                  >
-                    <CategoryIcon
-                      iconId={formData.iconId}
-                      alt={formData.name}
-                      className="h-8 w-8 text-white"
-                      style={{ color: "#ffffff" }}
+                {/* Basic details: name, icon, picture */}
+                <FormCard
+                  title="Basic details"
+                  hint={
+                    isAllCategory(editingItem)
+                      ? 'This is the "All" tab on the home page.'
+                      : "This is how the category looks to your customers."
+                  }
+                >
+                  <div>
+                    <FieldLabel required>Category name</FieldLabel>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => {
+                        const newName = e.target.value;
+                        setFormData({
+                          ...formData,
+                          name: newName,
+                          slug: isAllCategory(editingItem) ? "all" : makeSlug(newName),
+                        });
+                      }}
+                      className={inputClass}
+                      placeholder="e.g. Mobiles, Grocery, Fashion"
                     />
+                    {!isAllCategory(editingItem) && formData.slug && (
+                      <p className="text-xs text-gray-400 mt-1.5">Page link (made automatically): /{formData.slug}</p>
+                    )}
                   </div>
-                  <span className="text-xs font-semibold text-white/95">
-                    {formData.name || "Preview Icon (White)"}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsIconSelectorOpen(true)}
-                    className="rounded-lg bg-white px-4 py-2 text-sm font-bold text-slate-950 hover:bg-slate-100 shadow-sm transition-colors cursor-pointer"
-                  >
-                    {formData.iconId ? "Change Icon" : "Select Header Icon"} *
-                  </button>
-                  <p className="text-xs text-slate-400">
-                    Font Awesome icon (displayed in white on header)
-                  </p>
-                </div>
 
-                {/* Image Upload */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Category Image
-                    <span className="text-gray-400 font-normal ml-1">
-                      {isAllCategory(editingItem)
-                        ? '(used for customer "For You" on /categories page)'
-                        : "(for categories page & sidebar)"}
-                    </span>
-                  </label>
-                  <div className="flex items-start gap-3">
-                    {/* Preview */}
-                    <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center shrink-0">
-                      {imagePreview ? (
-                        <img
-                          src={imagePreview}
-                          alt="preview"
-                          className="w-full h-full object-cover"
+                  <div>
+                    <FieldLabel required hint="Shown in white on the top menu.">
+                      Icon
+                    </FieldLabel>
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="flex h-14 w-14 items-center justify-center rounded-full border border-black/10 shadow-sm shrink-0"
+                        style={{ background: formData.headerColor || DEFAULT_HEADER_COLOR }}
+                      >
+                        <CategoryIcon
+                          iconId={formData.iconId}
+                          alt={formData.name}
+                          className="h-7 w-7 text-white"
+                          style={{ color: "#ffffff" }}
                         />
-                      ) : (
-                        <ImageIcon className="w-7 h-7 text-gray-300" />
-                      )}
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      <input
-                        ref={imageInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleImageChange}
-                      />
+                      </div>
                       <button
                         type="button"
-                        onClick={() => imageInputRef.current?.click()}
-                        className="flex items-center gap-2 w-full justify-center px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors font-medium"
+                        onClick={() => setIsIconSelectorOpen(true)}
+                        className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-bold text-gray-800 hover:bg-gray-50 transition-colors cursor-pointer"
                       >
-                        <Upload className="w-4 h-4" />
-                        {imagePreview ? "Change Image" : "Upload Image"}
+                        {formData.iconId ? "Change icon" : "Choose an icon"}
                       </button>
-                      {imagePreview && (
-                        <button
-                          type="button"
-                          onClick={clearImage}
-                          className="flex items-center gap-2 w-full justify-center px-4 py-2 text-sm text-red-500 hover:text-red-700 transition-colors"
-                        >
-                          <X className="w-3.5 h-3.5" /> Remove image
-                        </button>
-                      )}
-                      <p className="text-xs text-gray-400">
-                        PNG, JPG or WebP · max 5 MB
-                      </p>
                     </div>
                   </div>
-                </div>
+
+                  <div>
+                    <FieldLabel
+                      hint={
+                        isAllCategory(editingItem)
+                          ? 'Shown in the "For You" section of the categories page.'
+                          : "Shown on the categories page and in the side menu."
+                      }
+                    >
+                      Picture (optional)
+                    </FieldLabel>
+                    <div className="flex items-center gap-3">
+                      <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center shrink-0">
+                        {imagePreview ? (
+                          <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <ImageIcon className="w-7 h-7 text-gray-300" />
+                        )}
+                      </div>
+                      <div className="flex-1 space-y-1.5">
+                        <input
+                          ref={imageInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleImageChange}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => imageInputRef.current?.click()}
+                          className="flex items-center gap-2 w-full justify-center px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          <Upload className="w-4 h-4" />
+                          {imagePreview ? "Change picture" : "Upload a picture"}
+                        </button>
+                        {imagePreview && (
+                          <button
+                            type="button"
+                            onClick={clearImage}
+                            className="flex items-center gap-1.5 w-full justify-center px-4 py-1.5 text-sm text-red-500 hover:text-red-700 transition-colors"
+                          >
+                            <X className="w-3.5 h-3.5" /> Remove picture
+                          </button>
+                        )}
+                        <p className="text-xs text-gray-400">PNG, JPG or WebP, up to 5 MB.</p>
+                      </div>
+                    </div>
+                  </div>
+                </FormCard>
 
                 {/* Header Background Color - ONLY for "All" Home Page Category */}
                 {isAllCategory(editingItem) && (
@@ -964,178 +987,102 @@ const HeaderCategories = () => {
                   </div>
                 )}
 
-                {/* Name */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => {
-                      const newName = e.target.value;
-                      setFormData({
-                        ...formData,
-                        name: newName,
-                        slug: isAllCategory(editingItem) ? "all" : makeSlug(newName),
-                      });
-                    }}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-                    placeholder="e.g., Electronics"
-                  />
-                </div>
-
-                {/* Slug (readonly) */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-gray-700">Slug</label>
-                    {isAllCategory(editingItem) && (
-                      <span className="text-[11px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium border border-amber-200">
-                        System Protected Slug
-                      </span>
-                    )}
-                  </div>
-                  <input
-                    type="text"
-                    value={formData.slug}
-                    readOnly
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-gray-500 text-sm focus:outline-none"
-                    placeholder="auto-generated"
-                  />
-                </div>
-
-                {/* Status & Sort Order */}
                 {!isAllCategory(editingItem) && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Status</label>
-                      <select
-                        value={formData.status}
-                        onChange={(e) =>
-                          setFormData({ ...formData, status: e.target.value })
-                        }
-                        className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-                      >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">
-                        Sort Order
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.sortOrder}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            sortOrder: parseInt(e.target.value) || 0,
-                          })
-                        }
-                        className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-                        min="0"
+                  <>
+                    {/* Visibility and order */}
+                    <FormCard title="Show on the website">
+                      <SwitchRow
+                        checked={formData.status !== "inactive"}
+                        onChange={(on) => setFormData({ ...formData, status: on ? "active" : "inactive" })}
+                        title="Show this category to customers"
+                        description="Switch OFF to hide it from the website without deleting it."
                       />
-                      <p className="text-xs text-gray-400">Lower = appears first</p>
-                    </div>
-                  </div>
-                )}
+                      <div>
+                        <FieldLabel hint="Smaller number comes first. 1 is the first category, 2 is the next, and so on.">
+                          Position in the menu
+                        </FieldLabel>
+                        <input
+                          type="number"
+                          value={formData.sortOrder}
+                          onChange={(e) =>
+                            setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })
+                          }
+                          className={`${inputClass} max-w-[140px]`}
+                          min="0"
+                        />
+                      </div>
+                    </FormCard>
 
-                {/* Delivery Mode (Rules Engine) */}
-                {!isAllCategory(editingItem) && (
-                  <div className="space-y-2 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                    <label className="text-sm font-semibold text-gray-800 flex items-center justify-between">
-                      <span>Delivery Fulfillment Mode</span>
-                      <span className="text-[11px] font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full border border-brand-200 uppercase tracking-wider">
-                        Rules Engine
-                      </span>
-                    </label>
-                    <select
-                      value={formData.deliveryMode || "both"}
-                      onChange={(e) =>
-                        setFormData({ ...formData, deliveryMode: e.target.value })
-                      }
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-semibold text-xs text-gray-800 bg-white"
-                    >
-                      <option value="quick_only">
-                        ⚡ Quick Delivery Only (Local Pincodes Only - In-house Riders 15 Mins)
-                      </option>
-                      <option value="both">
-                        🔄 Both (Local 15 Mins Riders + Shiprocket Pan-India Standard Courier)
-                      </option>
-                    </select>
-                    <p className="text-xs text-gray-500">
-                      {formData.deliveryMode === "quick_only"
-                        ? "Perishables like Doodh/Sabzi: Sirf Jhansi local pincodes par allow hoga. Bahar ke customers ko 'Quick Delivery not available' dikhega."
-                        : "Pan-India items like Clothes/Gadgets: Local pincode par 15-min delivery boy, bahar Shiprocket se customer shipping fee ke sath."}
-                    </p>
-                  </div>
-                )}
+                    {/* Delivery */}
+                    <FormCard title="Delivery" hint="How should products in this category reach the customer?">
+                      <div className="space-y-2.5">
+                        <ChoiceCard
+                          emoji="⚡"
+                          selected={formData.deliveryMode === "quick_only"}
+                          onClick={() => setFormData({ ...formData, deliveryMode: "quick_only" })}
+                          title="Fast local delivery only"
+                          description="Delivered by your own riders in about 15 minutes, only inside your local delivery area. Customers outside the area cannot order these. Good for milk, vegetables and other fresh items."
+                        />
+                        <ChoiceCard
+                          emoji="🚚"
+                          selected={(formData.deliveryMode || "both") === "both"}
+                          onClick={() => setFormData({ ...formData, deliveryMode: "both" })}
+                          title="Local delivery + courier to everywhere"
+                          description="Your own riders deliver inside the local area. For everywhere else, a courier (Shiprocket) delivers and the customer pays the shipping. Good for mobiles, clothes and gadgets."
+                        />
+                      </div>
+                    </FormCard>
 
-                {/* EMI / Finance */}
-                {!isAllCategory(editingItem) && (
-                  <label className="flex items-start gap-3 p-3.5 rounded-xl bg-blue-50/60 border border-blue-200 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="mt-0.5 h-5 w-5"
-                      checked={formData.financeEnabled === true}
-                      onChange={(e) => setFormData({ ...formData, financeEnabled: e.target.checked })}
+                    {/* EMI / Finance */}
+                    <FormCard title="EMI (pay in installments)">
+                      <SwitchRow
+                        checked={formData.financeEnabled === true}
+                        onChange={(on) => setFormData({ ...formData, financeEnabled: on })}
+                        title="Allow EMI on this category"
+                        description='Customers see a "Buy on EMI" button on the product page. Turn this ON for Mobiles. Interest and file charges are set under Finance (EMI) → EMI Settings.'
+                      />
+                    </FormCard>
+
+                    {/* Charges */}
+                    <FormCard title="Charges" hint="Leave these as 0 if you do not charge anything extra.">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <FieldLabel hint="The share of each sale that you keep from the seller.">
+                            Our commission (%)
+                          </FieldLabel>
+                          <input
+                            type="number"
+                            value={formData.adminCommission}
+                            onChange={(e) => setFormData({ ...formData, adminCommission: e.target.value })}
+                            className={inputClass}
+                            placeholder="0"
+                            min="0"
+                            max="100"
+                          />
+                        </div>
+                        <div>
+                          <FieldLabel hint="An extra charge added to the customer's bill for each order.">
+                            Handling charge (₹)
+                          </FieldLabel>
+                          <input
+                            type="number"
+                            value={formData.handlingFees}
+                            onChange={(e) => setFormData({ ...formData, handlingFees: e.target.value })}
+                            className={inputClass}
+                            placeholder="0"
+                            min="0"
+                          />
+                        </div>
+                      </div>
+                    </FormCard>
+
+                    {/* Trust badges */}
+                    <TrustBadgesManager
+                      value={formData.trustBadges || []}
+                      onChange={(newBadges) => setFormData({ ...formData, trustBadges: newBadges })}
+                      maxBadges={3}
                     />
-                    <span>
-                      <span className="block text-sm font-semibold text-gray-800">Offer EMI / Finance on products in this category</span>
-                      <span className="block text-xs text-gray-500 mt-0.5">
-                        Customers see a &quot;Buy on EMI&quot; button on the product page (use for Mobile). Interest and file charges are set in Finance (EMI) → EMI Settings.
-                      </span>
-                    </span>
-                  </label>
-                )}
-
-                {/* Commission & Fees */}
-                {!isAllCategory(editingItem) && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">
-                        Admin Commission (%)
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.adminCommission}
-                        onChange={(e) =>
-                          setFormData({ ...formData, adminCommission: e.target.value })
-                        }
-                        className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-                        placeholder="0"
-                        min="0"
-                        max="100"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">
-                        Handling Fees (₹)
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.handlingFees}
-                        onChange={(e) =>
-                          setFormData({ ...formData, handlingFees: e.target.value })
-                        }
-                        className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-                        placeholder="0"
-                        min="0"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Category Trust Badges / Policies (Max 3) */}
-                {!isAllCategory(editingItem) && (
-                  <TrustBadgesManager
-                    value={formData.trustBadges || []}
-                    onChange={(newBadges) =>
-                      setFormData({ ...formData, trustBadges: newBadges })
-                    }
-                    maxBadges={3}
-                  />
+                  </>
                 )}
               </div>
 

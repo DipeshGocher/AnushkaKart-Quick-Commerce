@@ -11,6 +11,7 @@ import {
   listAdminQuotes,
   getAdminQuote,
   updateAdminQuote,
+  deleteAdminQuote,
 } from "../controller/emiController.js";
 
 const router = express.Router();
@@ -46,5 +47,6 @@ router.put("/admin/config", verifyToken, allowRoles("admin"), saveAdminConfig);
 router.get("/admin/quotes", verifyToken, allowRoles("admin"), listAdminQuotes);
 router.get("/admin/quotes/:id", verifyToken, allowRoles("admin"), getAdminQuote);
 router.patch("/admin/quotes/:id", verifyToken, allowRoles("admin"), updateAdminQuote);
+router.delete("/admin/quotes/:id", verifyToken, allowRoles("admin"), deleteAdminQuote);
 
 export default router;

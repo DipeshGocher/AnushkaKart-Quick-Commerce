@@ -476,6 +476,14 @@ export async function updateQuote(id, { status, adminNote }) {
   return updated;
 }
 
+/** Permanently removes one quotation (admin clean-up). */
+export async function deleteQuote(id) {
+  const query = mongoose.Types.ObjectId.isValid(String(id)) ? { _id: id } : { quoteId: String(id) };
+  const removed = await FinanceQuote.findOneAndDelete(query).select("quoteId").lean();
+  if (!removed) throw err("Quotation not found.", 404);
+  return { quoteId: removed.quoteId };
+}
+
 export default {
   getConfig,
   saveConfig,
@@ -488,4 +496,5 @@ export default {
   listQuotes,
   getQuote,
   updateQuote,
+  deleteQuote,
 };

@@ -6,6 +6,9 @@ import { useAuth } from "@core/context/AuthContext";
 import { useToast } from "@shared/components/ui/Toast";
 import { downloadEmiPdf, emiDate, emiMoney } from "@shared/utils/emiPdf";
 import { validateEmiForm } from "@shared/utils/emiForm";
+import { openWhatsappChat, isMobileDevice } from "@shared/utils/whatsappLink";
+import { copyText } from "@shared/utils/clipboard";
+import { toast } from "sonner";
 
 const inputCls =
   "w-full px-3.5 py-3 rounded-xl border border-slate-200 bg-white text-[15px] text-slate-900 outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 placeholder:text-slate-400";
@@ -128,15 +131,20 @@ export default function FinanceCalculatorModal({ productId, variantKey, onClose 
   const sendWhatsapp = async () => {
     if (working || !precheck()) return;
     setWorking("whatsapp");
-    // Open the tab inside the click, otherwise phone browsers block it after the network call.
-    const popup = window.open("", "_blank");
     try {
       const data = await ensureQuote();
-      if (popup) popup.location.href = data.whatsappUrl;
-      else window.location.href = data.whatsappUrl;
-      showToast("Quotation saved. Send the message on WhatsApp.", "success");
+      // Copy the message first (a tab that is not in focus cannot write to the clipboard). If WhatsApp
+      // opens the chat without the text, which some installed WhatsApp Web apps do, it can just be pasted.
+      const copied = await copyText(data.message);
+      // Straight into the shop's chat with the quotation typed: the WhatsApp app on a phone,
+      // WhatsApp Web on a computer. The customer only has to press Send.
+      openWhatsappChat(data.whatsappUrl);
+      if (copied && !isMobileDevice()) {
+        toast.success("Quotation saved and copied. WhatsApp is opening - press Send. If the chat opens empty, paste with Ctrl+V.", { duration: 10000 });
+      } else {
+        showToast("Quotation saved. WhatsApp is opening - press Send.", "success");
+      }
     } catch (err) {
-      if (popup) popup.close();
       showToast(err?.response?.data?.message || "Could not create the quotation. Please try again.", "error");
     } finally {
       setWorking(null);

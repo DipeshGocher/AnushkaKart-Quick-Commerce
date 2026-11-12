@@ -3,11 +3,14 @@ import Card from "@shared/components/ui/Card";
 import { Loader2, Plus, Save, Trash2, Calculator } from "lucide-react";
 import { useToast } from "@shared/components/ui/Toast";
 import { adminEmiApi } from "../services/api/emiApi";
+import { rulesToRows, rowsToRules, rowsProblem, slabsProblem, slabRangeLabel, firstEmiExample } from "@shared/utils/emiSettingsForm";
 
 const TENURE_CHOICES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 18, 24, 30, 36];
 
-const field =
-  "w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-400";
+// `inputBase` has no width so a row can size its own inputs; `field` is the full-width version.
+const inputBase =
+  "px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-400";
+const field = `w-full ${inputBase}`;
 const label = "block text-xs font-bold text-slate-600 mb-1.5";
 
 function Section({ title, hint, children }) {
@@ -30,7 +33,7 @@ function toForm(c) {
     interestRatePerMonth: String(c.interestRatePerMonth ?? 5),
     fileChargeSlabs: (c.fileChargeSlabs || []).map((s) => ({ upTo: s.upTo == null ? "" : String(s.upTo), fileCharge: String(s.fileCharge ?? 0) })),
     tenures: [...(c.tenures || [])],
-    dueDateRules: (c.dueDateRules || []).map((r) => ({ fromDay: String(r.fromDay), toDay: String(r.toDay), dueDay: String(r.dueDay) })),
+    dueDateRules: rulesToRows(c.dueDateRules),
     lateFee: String(c.lateFee ?? 0),
     minDownPaymentPercent: String(c.minDownPaymentPercent ?? 0),
     whatsappNumber: c.whatsappNumber || "",
@@ -49,7 +52,7 @@ function toPayload(f) {
       fileCharge: s.fileCharge,
     })),
     tenures: f.tenures,
-    dueDateRules: f.dueDateRules,
+    dueDateRules: rowsToRules(f.dueDateRules),
     lateFee: f.lateFee,
     minDownPaymentPercent: f.minDownPaymentPercent,
     whatsappNumber: f.whatsappNumber,
@@ -80,6 +83,11 @@ const FinanceSettings = () => {
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
 
   const save = async () => {
+    const problem = slabsProblem(form.fileChargeSlabs) || rowsProblem(form.dueDateRules);
+    if (problem) {
+      showToast(problem, "error");
+      return;
+    }
     setSaving(true);
     try {
       const res = await adminEmiApi.saveEmiConfig(toPayload(form));
@@ -109,8 +117,16 @@ const FinanceSettings = () => {
   };
   const removeSlab = (i) => set({ fileChargeSlabs: slabs.filter((_, idx) => idx !== i) });
 
-  const rules = form.dueDateRules;
-  const updateRule = (i, patch) => set({ dueDateRules: rules.map((r, idx) => (idx === i ? { ...r, ...patch } : r)) });
+  const rows = form.dueDateRules;
+  const updateRow = (i, patch) => set({ dueDateRules: rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)) });
+  const addRow = () => {
+    const prevTo = Number(rows[rows.length - 2]?.toDay || 0);
+    const newTo = Math.min(30, prevTo + 5);
+    set({ dueDateRules: [...rows.slice(0, -1), { toDay: String(newTo), dueDay: "1" }, rows[rows.length - 1]] });
+  };
+  const rowsError = rowsProblem(rows);
+  const slabsError = slabsProblem(slabs);
+  const example = rowsError ? null : firstEmiExample(rowsToRules(rows));
 
   const toggleTenure = (t) =>
     set({ tenures: form.tenures.includes(t) ? form.tenures.filter((x) => x !== t) : [...form.tenures, t].sort((a, b) => a - b) });
@@ -178,33 +194,61 @@ const FinanceSettings = () => {
 
       <Section
         title="File charge"
-        hint="Picked by the finance amount (price minus down payment). The file charge is taken out of the interest, it is not added on top. If the interest is smaller than the file charge, the customer pays the file charge."
+        hint="The shop's charge for making the finance. It depends on how much money is financed (price minus down payment) and it is already part of the interest, not extra."
       >
-        <div className="space-y-2">
+        <div className="rounded-xl border border-slate-100 overflow-hidden">
+          <div className="grid grid-cols-[1fr_9rem_2.5rem] gap-3 px-4 py-2 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            <span>If the finance amount is</span>
+            <span>File charge</span>
+            <span />
+          </div>
           {slabs.map((s, i) => {
             const isLast = i === slabs.length - 1;
             return (
-              <div key={i} className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm text-slate-600 w-44 shrink-0">
-                  {isLast ? "Finance amount above that" : "Finance amount below ₹"}
+              <div key={i} className="grid grid-cols-[1fr_9rem_2.5rem] gap-3 items-center px-4 py-2.5 border-t border-slate-100">
+                <div className="flex items-center gap-2 text-sm text-slate-700">
+                  <span className="whitespace-nowrap">{slabRangeLabel(slabs, i)}</span>
+                  {!isLast && (
+                    <span className="flex items-center gap-1">
+                      <span className="text-slate-400">₹</span>
+                      <input
+                        className={`${inputBase} w-28`}
+                        inputMode="numeric"
+                        aria-label={`Slab ${i + 1} upper limit`}
+                        value={s.upTo}
+                        onChange={(e) => updateSlab(i, { upTo: e.target.value.replace(/\D/g, "") })}
+                      />
+                    </span>
+                  )}
+                </div>
+                <span className="flex items-center gap-1 text-sm">
+                  <span className="text-slate-400">₹</span>
+                  <input
+                    className={`${inputBase} w-full`}
+                    inputMode="numeric"
+                    aria-label={`Slab ${i + 1} file charge`}
+                    value={s.fileCharge}
+                    onChange={(e) => updateSlab(i, { fileCharge: e.target.value.replace(/\D/g, "") })}
+                  />
                 </span>
-                {!isLast && (
-                  <input className={`${field} w-32`} inputMode="numeric" value={s.upTo} onChange={(e) => updateSlab(i, { upTo: e.target.value.replace(/\D/g, "") })} />
-                )}
-                <span className="text-sm text-slate-600">→ file charge ₹</span>
-                <input className={`${field} w-28`} inputMode="numeric" value={s.fileCharge} onChange={(e) => updateSlab(i, { fileCharge: e.target.value.replace(/\D/g, "") })} />
-                {!isLast && slabs.length > 1 && (
+                {!isLast && slabs.length > 1 ? (
                   <button type="button" onClick={() => removeSlab(i)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg" aria-label="Remove slab">
                     <Trash2 size={16} />
                   </button>
+                ) : (
+                  <span />
                 )}
               </div>
             );
           })}
         </div>
+        {slabsError && <p className="text-xs font-semibold text-rose-600">{slabsError}</p>}
         <button type="button" onClick={addSlab} className="text-sm font-bold text-blue-600 inline-flex items-center gap-1">
-          <Plus size={15} /> Add another slab
+          <Plus size={15} /> Add another amount range
         </button>
+        <p className="text-[11px] text-slate-400">
+          If a plan is so short that its interest is less than the file charge, the customer pays the file charge.
+        </p>
       </Section>
 
       <Section title="EMI durations" hint="The months a customer can choose from.">
@@ -222,31 +266,69 @@ const FinanceSettings = () => {
         </div>
       </Section>
 
-      <Section title="First EMI date" hint="Based on the day of the month the finance is taken. The first EMI is always in the next month. The rules must cover days 1 to 31.">
-        <div className="space-y-2">
-          {rules.map((r, i) => (
-            <div key={i} className="flex items-center gap-2 flex-wrap text-sm text-slate-600">
-              <span>If finance is taken from day</span>
-              <input className={`${field} w-20`} inputMode="numeric" value={r.fromDay} onChange={(e) => updateRule(i, { fromDay: e.target.value.replace(/\D/g, "") })} />
-              <span>to day</span>
-              <input className={`${field} w-20`} inputMode="numeric" value={r.toDay} onChange={(e) => updateRule(i, { toDay: e.target.value.replace(/\D/g, "") })} />
-              <span>→ first EMI on day</span>
-              <input className={`${field} w-20`} inputMode="numeric" value={r.dueDay} onChange={(e) => updateRule(i, { dueDay: e.target.value.replace(/\D/g, "") })} />
-              <span>(1 to 28) of next month</span>
-              {rules.length > 1 && (
-                <button type="button" onClick={() => set({ dueDateRules: rules.filter((_, idx) => idx !== i) })} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg" aria-label="Remove rule">
-                  <Trash2 size={16} />
-                </button>
-              )}
-            </div>
-          ))}
+      <Section
+        title="First EMI date"
+        hint="The first EMI is always in the next month. Choose which day it falls on, depending on the day of the month the customer takes the finance."
+      >
+        <div className="rounded-xl border border-slate-100 overflow-hidden">
+          <div className="grid grid-cols-[1fr_1fr_2.5rem] gap-3 px-4 py-2 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            <span>Finance taken on day</span>
+            <span>First EMI on</span>
+            <span />
+          </div>
+          {rows.map((r, i) => {
+            const isLast = i === rows.length - 1;
+            const fromDay = i === 0 ? 1 : Number(rows[i - 1].toDay) + 1;
+            return (
+              <div key={i} className="grid grid-cols-[1fr_1fr_2.5rem] gap-3 items-center px-4 py-2.5 border-t border-slate-100 text-sm text-slate-700">
+                <span className="flex items-center gap-2">
+                  <span className="whitespace-nowrap">{Number.isFinite(fromDay) ? fromDay : "?"} to</span>
+                  {isLast ? (
+                    <span className="font-bold text-slate-900">31</span>
+                  ) : (
+                    <input
+                      className={`${inputBase} w-20`}
+                      inputMode="numeric"
+                      aria-label={`Rule ${i + 1} last day`}
+                      value={r.toDay}
+                      onChange={(e) => updateRow(i, { toDay: e.target.value.replace(/\D/g, "").slice(0, 2) })}
+                    />
+                  )}
+                </span>
+                <span className="flex items-center gap-2">
+                  <input
+                    className={`${inputBase} w-20`}
+                    inputMode="numeric"
+                    aria-label={`Rule ${i + 1} EMI day`}
+                    value={r.dueDay}
+                    onChange={(e) => updateRow(i, { dueDay: e.target.value.replace(/\D/g, "").slice(0, 2) })}
+                  />
+                  <span className="text-slate-500">of next month</span>
+                </span>
+                {!isLast && rows.length > 1 ? (
+                  <button type="button" onClick={() => set({ dueDateRules: rows.filter((_, idx) => idx !== i) })} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg" aria-label="Remove rule">
+                    <Trash2 size={16} />
+                  </button>
+                ) : (
+                  <span />
+                )}
+              </div>
+            );
+          })}
         </div>
+        {rowsError && <p className="text-xs font-semibold text-rose-600">{rowsError}</p>}
+        {example && (
+          <p className="text-xs text-slate-600 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+            Example: a customer who takes finance today (day {example.day}) pays the first EMI on <span className="font-bold">{example.text}</span>.
+          </p>
+        )}
         <button
           type="button"
-          onClick={() => set({ dueDateRules: [...rules, { fromDay: String((Number(rules[rules.length - 1]?.toDay) || 0) + 1), toDay: "31", dueDay: "1" }] })}
-          className="text-sm font-bold text-blue-600 inline-flex items-center gap-1"
+          onClick={addRow}
+          disabled={Number(rows[rows.length - 2]?.toDay || 0) >= 30}
+          className="text-sm font-bold text-blue-600 inline-flex items-center gap-1 disabled:opacity-40"
         >
-          <Plus size={15} /> Add a date rule
+          <Plus size={15} /> Add a day range
         </button>
       </Section>
 

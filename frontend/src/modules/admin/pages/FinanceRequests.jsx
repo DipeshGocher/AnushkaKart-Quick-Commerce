@@ -1,22 +1,25 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Card from "@shared/components/ui/Card";
-import { Calculator, Download, Eye, EyeOff, Loader2, MessageCircle, Search, X } from "lucide-react";
+import { Calculator, CheckCircle2, Download, Eye, EyeOff, Loader2, RotateCcw, Search, Trash2, X } from "lucide-react";
 import { useToast } from "@shared/components/ui/Toast";
 import { adminEmiApi } from "../services/api/emiApi";
 import { downloadEmiPdf, emiDate, emiMoney } from "@shared/utils/emiPdf";
 
+// Three views: everything, not yet followed up, and followed up.
+// "Followed up" is stored as the "contacted" status, so no data change was needed.
+// It is marked only from inside a quotation (the detail panel), never from the list.
 const STATUS_TABS = [
   ["all", "All"],
   ["new", "New"],
-  ["contacted", "Contacted"],
-  ["approved", "Approved"],
-  ["rejected", "Rejected"],
-  ["cancelled", "Cancelled"],
+  ["contacted", "Followed up"],
 ];
+
+const FOLLOWED_UP = "contacted";
+const STATUS_LABEL = { new: "New", contacted: "Followed up" };
 
 const STATUS_STYLE = {
   new: "bg-blue-50 text-blue-700 border-blue-200",
-  contacted: "bg-amber-50 text-amber-700 border-amber-200",
+  contacted: "bg-emerald-50 text-emerald-700 border-emerald-200",
   approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
   rejected: "bg-rose-50 text-rose-700 border-rose-200",
   cancelled: "bg-slate-100 text-slate-600 border-slate-200",
@@ -25,12 +28,12 @@ const STATUS_STYLE = {
 function StatusBadge({ status }) {
   return (
     <span className={`inline-block px-2.5 py-1 rounded-lg text-[11px] font-extrabold uppercase border ${STATUS_STYLE[status] || STATUS_STYLE.new}`}>
-      {status}
+      {STATUS_LABEL[status] || status}
     </span>
   );
 }
 
-function Detail({ id, onClose, onChanged }) {
+function Detail({ id, onClose, onChanged, onDelete }) {
   const { showToast } = useToast();
   const [quote, setQuote] = useState(null);
   const [note, setNote] = useState("");
@@ -176,20 +179,19 @@ function Detail({ id, onClose, onChanged }) {
             </section>
 
             <section className="rounded-2xl border border-slate-100 p-4 space-y-3">
-              <p className="text-sm font-extrabold text-slate-900">Status</p>
-              <div className="flex flex-wrap gap-2">
-                {STATUS_TABS.slice(1).map(([value, name]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => update({ status: value }, `Marked ${name.toLowerCase()}`)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-extrabold border ${quote.status === value ? STATUS_STYLE[value] : "bg-white text-slate-500 border-slate-200"}`}
-                  >
-                    {name}
-                  </button>
-                ))}
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-extrabold text-slate-900">Follow-up</p>
+                <StatusBadge status={quote.status} />
               </div>
+              {quote.status === "new" ? (
+                <button type="button" disabled={busy} onClick={() => update({ status: FOLLOWED_UP }, "Marked as followed up")} className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-extrabold flex items-center justify-center gap-2 disabled:opacity-60">
+                  <CheckCircle2 size={16} /> Mark follow-up done
+                </button>
+              ) : (
+                <button type="button" disabled={busy} onClick={() => update({ status: "new" }, "Moved back to New")} className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60">
+                  <RotateCcw size={15} /> Undo - move back to New
+                </button>
+              )}
               <textarea className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500/25" rows={3} placeholder="Note for your team (not shown to the customer)" value={note} onChange={(e) => setNote(e.target.value)} />
               <button type="button" disabled={busy} onClick={() => update({ adminNote: note }, "Note saved")} className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold disabled:opacity-60">
                 Save note
@@ -197,16 +199,11 @@ function Detail({ id, onClose, onChanged }) {
             </section>
 
             <div className="flex gap-2.5">
-              <a
-                href={`https://wa.me/91${String(quote.customer.phone).replace(/\D/g, "").slice(-10)}`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 py-3 rounded-xl bg-[#25D366] text-white text-sm font-extrabold flex items-center justify-center gap-2"
-              >
-                <MessageCircle size={16} /> WhatsApp customer
-              </a>
               <button type="button" disabled={busy} onClick={pdf} className="flex-1 py-3 rounded-xl bg-slate-900 text-white text-sm font-extrabold flex items-center justify-center gap-2 disabled:opacity-60">
                 <Download size={16} /> PDF
+              </button>
+              <button type="button" disabled={busy} onClick={() => onDelete(quote)} aria-label="Delete quotation" title="Delete" className="px-4 py-3 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-60">
+                <Trash2 size={16} />
               </button>
             </div>
           </div>
@@ -224,6 +221,24 @@ const FinanceRequests = () => {
   const [data, setData] = useState({ items: [], total: 0, totalPages: 1, newCount: 0 });
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState(null);
+  const [rowBusy, setRowBusy] = useState(null);
+
+  const removeQuote = async (q) => {
+    if (!window.confirm(`Delete quotation ${q.quoteId} of ${q.customer.name}? This cannot be undone.`)) return;
+    setRowBusy(q._id);
+    try {
+      await adminEmiApi.deleteEmiQuote(q._id);
+      showToast("Quotation deleted", "success");
+      if (openId === q._id) setOpenId(null);
+      // deleting the last row of a page should not leave us on an empty page
+      if (data.items.length === 1 && page > 1) setPage((p) => p - 1);
+      else await load();
+    } catch (err) {
+      showToast(err?.response?.data?.message || "Could not delete", "error");
+    } finally {
+      setRowBusy(null);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -289,7 +304,7 @@ const FinanceRequests = () => {
           <p className="py-14 text-center text-sm text-slate-500">No quotations yet.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[720px]">
+            <table className="w-full text-sm min-w-[800px]">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wider text-slate-400">
                   <th className="py-2 pr-3">Quotation</th>
@@ -298,6 +313,7 @@ const FinanceRequests = () => {
                   <th className="py-2 pr-3 text-right">Finance</th>
                   <th className="py-2 pr-3 text-right">EMI</th>
                   <th className="py-2 pr-3">Status</th>
+                  <th className="py-2 pr-1 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -321,6 +337,20 @@ const FinanceRequests = () => {
                       <p className="text-[11px] text-slate-500">× {q.result.months}</p>
                     </td>
                     <td className="py-3 pr-3"><StatusBadge status={q.status} /></td>
+                    <td className="py-3 pr-1" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          disabled={rowBusy === q._id}
+                          onClick={() => removeQuote(q)}
+                          title="Delete"
+                          aria-label="Delete quotation"
+                          className="p-2 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -337,7 +367,7 @@ const FinanceRequests = () => {
         )}
       </Card>
 
-      {openId && <Detail id={openId} onClose={() => setOpenId(null)} onChanged={load} />}
+      {openId && <Detail id={openId} onClose={() => setOpenId(null)} onChanged={load} onDelete={removeQuote} />}
     </div>
   );
 };

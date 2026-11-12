@@ -8,6 +8,7 @@ export const adminEmiApi = {
     getEmiQuote: (id, reveal = false) =>
         axiosInstance.get(`/emi/admin/quotes/${encodeURIComponent(id)}`, { params: reveal ? { reveal: 'true' } : {} }),
     updateEmiQuote: (id, data) => axiosInstance.patch(`/emi/admin/quotes/${encodeURIComponent(id)}`, data),
+    deleteEmiQuote: (id) => axiosInstance.delete(`/emi/admin/quotes/${encodeURIComponent(id)}`),
 };
 
 export default adminEmiApi;

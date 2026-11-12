@@ -411,6 +411,31 @@ const AADHAAR = "123412341234";
       expect((await request(app).get("/api/emi/admin/quotes/FQ-NOPE").set("Authorization", admin())).status).toBe(404);
     });
 
+    it("follow-up can be marked done and undone, and a quotation can be deleted", async () => {
+      const a = (await quote()).body.result.quote;
+      const b = (await quote()).body.result.quote;
+      const url = (id) => `/api/emi/admin/quotes/${id}`;
+
+      // marked followed-up -> leaves the "new" list and the new counter, still in "all"
+      expect((await request(app).patch(url(a.quoteId)).set("Authorization", admin()).send({ status: "contacted" })).status).toBe(200);
+      const onlyNew = await request(app).get("/api/emi/admin/quotes").query({ status: "new" }).set("Authorization", admin());
+      expect(onlyNew.body.result.items.map((i) => i.quoteId)).toEqual([b.quoteId]);
+      expect(onlyNew.body.result.newCount).toBe(1);
+      expect((await request(app).get("/api/emi/admin/quotes").set("Authorization", admin())).body.result.total).toBe(2);
+
+      // undo -> back to new
+      expect((await request(app).patch(url(a.quoteId)).set("Authorization", admin()).send({ status: "new" })).body.result.status).toBe("new");
+
+      // delete: needs admin, removes only that one, second delete is a 404
+      expect((await request(app).delete(url(a.quoteId))).status).toBe(401);
+      expect((await request(app).delete(url(a.quoteId)).set("Authorization", `Bearer ${tok("user")}`)).status).toBe(403);
+      expect(await FinanceQuote.countDocuments({})).toBe(2);
+      expect((await request(app).delete(url(a.quoteId)).set("Authorization", admin())).status).toBe(200);
+      expect(await FinanceQuote.countDocuments({})).toBe(1);
+      expect(await FinanceQuote.findOne({ quoteId: b.quoteId })).not.toBeNull();
+      expect((await request(app).delete(url(a.quoteId)).set("Authorization", admin())).status).toBe(404);
+    });
+
     it("a customer cannot read the admin list", async () => {
       expect((await request(app).get("/api/emi/admin/quotes").set("Authorization", `Bearer ${tok("user")}`)).status).toBe(403);
     });

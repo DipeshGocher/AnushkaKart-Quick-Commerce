@@ -111,6 +111,15 @@ export const getAdminQuote = async (req, res) => {
   }
 };
 
+export const deleteAdminQuote = async (req, res) => {
+  try {
+    const removed = await emi.deleteQuote(req.params.id);
+    return handleResponse(res, 200, "Quotation deleted", removed);
+  } catch (error) {
+    return handleResponse(res, getErrorStatus(error), error.message);
+  }
+};
+
 export const updateAdminQuote = async (req, res) => {
   try {
     const updated = await emi.updateQuote(req.params.id, {
