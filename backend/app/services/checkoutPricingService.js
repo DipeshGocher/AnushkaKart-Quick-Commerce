@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import Seller from "../models/seller.js";
-import Warehouse from "../models/warehouse.js";
 import Category from "../models/category.js";
 import { distanceMeters } from "../utils/geoUtils.js";
 import { getCachedRoute } from "./mapsRouteService.js";
@@ -35,7 +34,7 @@ function normalizeLocation(location = null) {
 export function groupHydratedItemsBySeller(hydratedItems = []) {
   const grouped = new Map();
   for (const item of hydratedItems) {
-    const sellerId = String(item?.sellerId || item?.warehouseId || "");
+    const sellerId = String(item?.sellerId || "");
     if (!sellerId) {
       const err = new Error("Unable to resolve seller for one or more checkout items");
       err.statusCode = 400;
@@ -61,18 +60,10 @@ async function computeDistanceKmForSeller({ sellerId, addressLocation, session =
 
   let query = Seller.findById(sellerId).select("location serviceRadius shopName").lean();
   if (session) query.session(session);
-  let seller = await query;
-  
+  const seller = await query;
+
   if (!seller) {
-    // Monthly kits resolve to a warehouse — must select serviceRadius (same as sellers)
-    // or lean() omits it and radius incorrectly defaults to 5km.
-    let whQuery = Warehouse.findById(sellerId).select("location serviceRadius name").lean();
-    if (session) whQuery.session(session);
-    seller = await whQuery;
-  }
-  
-  if (!seller) {
-    const err = new Error("Seller or Warehouse not found");
+    const err = new Error("Seller not found");
     err.statusCode = 404;
     throw err;
   }
@@ -497,13 +488,10 @@ export async function buildCheckoutPricingSnapshot({
         null
       );
 
-      const sellerId = String(item?.sellerId || item?.warehouseId || "");
+      const sellerId = String(item?.sellerId || "");
       let sellerPincode = "";
       if (sellerId && mongoose.Types.ObjectId.isValid(sellerId)) {
-        let sellerDoc = await Seller.findById(sellerId).select("pincode").lean();
-        if (!sellerDoc) {
-          sellerDoc = await Warehouse.findById(sellerId).select("pincode").lean();
-        }
+        const sellerDoc = await Seller.findById(sellerId).select("pincode").lean();
         sellerPincode = sellerDoc?.pincode ? String(sellerDoc.pincode).trim() : "";
       }
 
@@ -570,9 +558,7 @@ export async function buildCheckoutPricingSnapshot({
     const sellerRatio = totalSubtotal > 0 ? (sellerSubtotals.get(sellerId) || 0) / totalSubtotal : 1 / sellerIds.length;
     const sellerDiscount = round2(effectiveDiscount * sellerRatio);
 
-    const isWarehouse = !!sellerItems[0]?.warehouseId && !sellerItems[0]?.sellerId;
-    const actualSellerId = isWarehouse ? null : sellerId;
-    const actualWarehouseId = isWarehouse ? sellerId : null;
+    const actualSellerId = sellerId;
 
     let liveCourierFee = null;
     let liveRateMeta = null;
@@ -629,15 +615,13 @@ export async function buildCheckoutPricingSnapshot({
     sellerBreakdownEntries.push({
       sellerId,
       actualSellerId,
-      actualWarehouseId,
-      isWarehouse,
       items: sellerItems,
       fulfillmentType: sellerFulfillmentType,
       deliveryEstimate: sellerDeliveryEstimate,
       isLocal: !sellerHasShiprocket,
       liveRateMeta,
       deliveryData: {
-        warehouseLocation: distanceData.sellerLocation,
+        pickupLocation: distanceData.sellerLocation,
         customerLocation: normalizeLocation(address?.location),
         routeDistanceKm: distanceData.distanceKm,
         routeDistanceMeters: distanceData.route?.distanceMeters || 0,

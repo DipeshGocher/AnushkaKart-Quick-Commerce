@@ -76,6 +76,32 @@ describe("orderQueryService", () => {
     expect(query.createdAt.$lte.getMilliseconds()).toBe(999);
   });
 
+  test("admin lists hide unapproved UPI QR orders; only the upi-pending page shows them", () => {
+    const unapproved = {
+      paymentMode: "UPI_QR",
+      paymentStatus: { $in: ["AWAITING_VERIFICATION", "CREATED", "REJECTED"] },
+      status: { $ne: "cancelled" },
+    };
+    for (const statusParam of [undefined, "all", "pending", "confirmed", "processed", "delivered", "cancelled", "returned"]) {
+      const q = buildSellerOrdersQuery({ role: "admin", userId: "admin-1", statusParam });
+      expect(q.$nor).toEqual([unapproved]);
+    }
+
+    const pendingPage = buildSellerOrdersQuery({ role: "admin", userId: "admin-1", statusParam: "upi-pending" });
+    expect(pendingPage).toMatchObject(unapproved);
+    expect(pendingPage.$nor).toBeUndefined();
+
+    // underscore spelling used by some callers is the same page
+    const alt = buildSellerOrdersQuery({ role: "admin", userId: "admin-1", statusParam: "upi_pending" });
+    expect(alt.$nor).toBeUndefined();
+  });
+
+  test("seller lists are unchanged by the admin-only UPI filter", () => {
+    const q = buildSellerOrdersQuery({ role: "seller", userId: "seller-1", statusParam: "pending" });
+    expect(q.$nor).toBeUndefined();
+    expect(q.seller).toBe("seller-1");
+  });
+
   test("fetchAvailableOrdersForDelivery returns requiresLocation when rider has no coordinates", async () => {
     mockDeliveryFindById.mockResolvedValue({
       _id: "rider-1",

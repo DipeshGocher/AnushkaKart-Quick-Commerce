@@ -402,7 +402,7 @@ const WithdrawalRequests = () => {
             {/* Main Tabs & Search / Filter Controls */}
             <div className="space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    {/* Role Tabs: SELLERS & DELIVERY PARTNERS (Warehouse removed) */}
+                    {/* Role Tabs: SELLERS & DELIVERY PARTNERS */}
                     <div className="flex bg-slate-100 p-1.5 rounded-2xl w-fit">
                         <button
                             onClick={() => setActiveTab('sellers')}

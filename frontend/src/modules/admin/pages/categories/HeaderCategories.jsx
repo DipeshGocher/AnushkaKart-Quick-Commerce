@@ -152,6 +152,7 @@ const HeaderCategories = () => {
     headerIconColor: "#FFFFFF",
     trustBadges: [],
     deliveryMode: "both",
+    financeEnabled: false,
   });
 
   useEffect(() => {
@@ -407,6 +408,7 @@ const HeaderCategories = () => {
       headerIconColor: "#FFFFFF",
       trustBadges: [],
       deliveryMode: "both",
+      financeEnabled: false,
     });
     setIsAddModalOpen(true);
   };
@@ -436,6 +438,7 @@ const HeaderCategories = () => {
       headerIconColor: item.headerIconColor || "#FFFFFF",
       trustBadges: Array.isArray(item.trustBadges) ? item.trustBadges : [],
       deliveryMode: item.deliveryMode || "both",
+      financeEnabled: item.financeEnabled === true,
     });
     setIsAddModalOpen(true);
   };
@@ -1067,6 +1070,24 @@ const HeaderCategories = () => {
                         : "Pan-India items like Clothes/Gadgets: Local pincode par 15-min delivery boy, bahar Shiprocket se customer shipping fee ke sath."}
                     </p>
                   </div>
+                )}
+
+                {/* EMI / Finance */}
+                {!isAllCategory(editingItem) && (
+                  <label className="flex items-start gap-3 p-3.5 rounded-xl bg-blue-50/60 border border-blue-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-5 w-5"
+                      checked={formData.financeEnabled === true}
+                      onChange={(e) => setFormData({ ...formData, financeEnabled: e.target.checked })}
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold text-gray-800">Offer EMI / Finance on products in this category</span>
+                      <span className="block text-xs text-gray-500 mt-0.5">
+                        Customers see a &quot;Buy on EMI&quot; button on the product page (use for Mobile). Interest and file charges are set in Finance (EMI) → EMI Settings.
+                      </span>
+                    </span>
+                  </label>
                 )}
 
                 {/* Commission & Fees */}

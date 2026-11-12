@@ -26,11 +26,12 @@ import StockHistory from "../../models/stockHistory.js";
 import Setting from "../../models/setting.js";
 import User from "../../models/customer.js";
 import Seller from "../../models/seller.js";
-import Warehouse from "../../models/warehouse.js";
 import OrderOtp from "../../models/orderOtp.js";
 import Transaction from "../../models/transaction.js";
 import { orderMatchQueryFromRouteParam } from "../../utils/orderLookup.js";
 import { computeReturnWindowForOrder } from "../../utils/returnWindow.js";
+import { buildQcView } from "../../utils/returnQcPolicy.js";
+import { buildCustomerShiprocket } from "../../utils/customerShipmentView.js";
 import { emitNotificationEvent } from "../../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../../modules/notifications/notification.constants.js";
 import {
@@ -250,7 +251,9 @@ export class OrderReturnService {
       status: order.status,
       returnStatus: order.returnStatus,
       fulfillmentType: order.fulfillmentType || "LOCAL",
-      shiprocket: order.shiprocket || null,
+      shiprocket: isOwnerCustomer
+        ? buildCustomerShiprocket(order.shiprocket)
+        : order.shiprocket || null,
       items: (order.items || []).map((it) => {
         const itemObj = typeof it.toObject === "function" ? it.toObject() : { ...it };
         return {
@@ -282,6 +285,21 @@ export class OrderReturnService {
       returnQcStatus: order.returnQcStatus,
       returnQcAt: order.returnQcAt,
       returnQcNote: order.returnQcNote,
+      returnQcByRole: order.returnQcByRole,
+      returnQcAutoPassed: Boolean(order.returnQcAutoPassed),
+      returnQcEvidenceImages: order.returnQcEvidenceImages || [],
+      returnDispute: order.returnDispute
+        ? {
+            status: order.returnDispute.status || "none",
+            raisedAt: order.returnDispute.raisedAt,
+            reason: order.returnDispute.reason,
+            images: order.returnDispute.images || [],
+            resolvedAt: order.returnDispute.resolvedAt,
+            resolutionNote: order.returnDispute.resolutionNote,
+          }
+        : { status: "none" },
+      returnRefundLastError: isOwnerCustomer ? undefined : order.returnRefundLastError,
+      qc: buildQcView(order),
       returnPickupOtp: activeOtp,
     };
   }
@@ -304,11 +322,9 @@ export class OrderReturnService {
 
     const isOwnerSeller =
       role === "seller" && order.seller?.toString() === userId;
-    const isOwnerWarehouse =
-      role === "warehouse" && order.warehouseId?.toString() === userId;
     const isAdmin = role === "admin";
 
-    if (!isOwnerSeller && !isOwnerWarehouse && !isAdmin) {
+    if (!isOwnerSeller && !isAdmin) {
       throw err(
         "Access denied. You are not authorized to approve this return.",
         403,
@@ -364,17 +380,6 @@ export class OrderReturnService {
         sellerInfo = await Seller.findById(order.seller)
           .select("shopName address phone")
           .lean();
-      } else if (order.warehouseId) {
-        const wh = await Warehouse.findById(order.warehouseId)
-          .select("name address phone")
-          .lean();
-        if (wh) {
-          sellerInfo = {
-            shopName: wh.name || "Warehouse",
-            address: wh.address || "",
-            phone: wh.phone || "",
-          };
-        }
       }
     } catch {
       sellerInfo = null;
@@ -389,8 +394,7 @@ export class OrderReturnService {
       customerInfo = null;
     }
 
-    const isWarehouse = Boolean(order.warehouseId && !order.seller);
-    const dropName = sellerInfo?.shopName || (isWarehouse ? "Warehouse" : "Store");
+    const dropName = sellerInfo?.shopName || "Store";
     const dropAddress = sellerInfo?.address || "";
     const deliverySearchExpiresAt = new Date(
       Date.now() + parseInt(process.env.DELIVERY_TIMEOUT_MS || "300000", 10),
@@ -475,11 +479,9 @@ export class OrderReturnService {
 
     const isOwnerSeller =
       role === "seller" && order.seller?.toString() === userId;
-    const isOwnerWarehouse =
-      role === "warehouse" && order.warehouseId?.toString() === userId;
     const isAdmin = role === "admin";
 
-    if (!isOwnerSeller && !isOwnerWarehouse && !isAdmin) {
+    if (!isOwnerSeller && !isAdmin) {
       throw err(
         "Access denied. You are not authorized to reject this return.",
         403,
@@ -605,11 +607,10 @@ export class OrderReturnService {
             );
           }
 
-          // 2. Seller/Warehouse adjustment.
-          const isWarehouse = Boolean(order.warehouseId && !order.seller);
-          const entityId = order.seller || order.warehouseId;
-          const entityOwnerType = isWarehouse ? OWNER_TYPE.WAREHOUSE : OWNER_TYPE.SELLER;
-          const entityUserModel = isWarehouse ? "Warehouse" : "Seller";
+          // 2. Seller adjustment.
+          const entityId = order.seller;
+          const entityOwnerType = OWNER_TYPE.SELLER;
+          const entityUserModel = "Seller";
 
           if (entityId && (refundAmount > 0 || commission > 0)) {
             const isHeld =
@@ -661,7 +662,7 @@ export class OrderReturnService {
                     ledgerType: LEDGER_TRANSACTION_TYPE.REFUND,
                     ledgerReference: `REF-RET-${order.orderId}`,
                     ledgerDescription:
-                      `${isWarehouse ? "Warehouse" : "Seller"} wallet debited to recover refund + return commission`,
+                      "Seller wallet debited to recover refund + return commission",
                     orderId: order._id,
                     idempotencyKey: `RET-ADJ-DEBIT-${order._id}`,
                     correlationId,
@@ -748,7 +749,7 @@ export class OrderReturnService {
             );
           }
 
-          // 4. Automatically restock returned items to seller / warehouse inventory
+          // 4. Automatically restock returned items to seller inventory
           if (Array.isArray(order.returnItems) && order.returnItems.length > 0) {
             for (const retItem of order.returnItems) {
               const pId = retItem.product?._id || retItem.product;
@@ -778,7 +779,6 @@ export class OrderReturnService {
                     {
                       product: pId,
                       seller: order.seller || undefined,
-                      warehouseId: order.warehouseId || undefined,
                       type: "Restock",
                       quantity: qty,
                       note: `Return restock for Order #${order.orderId}`,

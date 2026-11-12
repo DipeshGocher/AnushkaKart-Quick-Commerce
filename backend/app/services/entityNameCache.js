@@ -1,6 +1,5 @@
 import Category from "../models/category.js";
 import Seller from "../models/seller.js";
-import Warehouse from "../models/warehouse.js";
 import { buildKey, getOrSet, getTTL, invalidate } from "./cacheService.js";
 
 /**
@@ -33,22 +32,6 @@ export async function resolveSellerName(id) {
     getTTL("categoryName"), // same 1-hour TTL
   );
   return seller?.shopName ?? null;
-}
-
-/**
- * Resolve a warehouse name by ID (cache-backed, 1-hour TTL).
- * @param {string|ObjectId} id
- * @returns {Promise<string|null>}
- */
-export async function resolveWarehouseName(id) {
-  if (!id) return null;
-  const key = buildKey("catalog", "warehouseName", String(id));
-  const warehouse = await getOrSet(
-    key,
-    () => Warehouse.findById(id).select("name").lean(),
-    getTTL("categoryName"), // same 1-hour TTL
-  );
-  return warehouse?.name ?? null;
 }
 
 /**
@@ -124,26 +107,4 @@ export async function resolveSellerMeta(id) {
     : null;
 }
 
-/**
- * Resolve warehouse metadata (name, pincode, city, state) by ID (cache-backed).
- * @param {string|ObjectId} id
- * @returns {Promise<Object|null>}
- */
-export async function resolveWarehouseMeta(id) {
-  if (!id) return null;
-  const key = buildKey("catalog", "warehouseMeta", String(id));
-  const warehouse = await getOrSet(
-    key,
-    () => Warehouse.findById(id).select("name pincode city state").lean(),
-    getTTL("categoryName"),
-  );
-  return warehouse
-    ? {
-        name: warehouse.name ?? null,
-        pincode: warehouse.pincode ?? null,
-        city: warehouse.city ?? null,
-        state: warehouse.state ?? null,
-      }
-    : null;
-}
 

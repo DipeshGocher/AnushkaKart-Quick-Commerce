@@ -99,6 +99,8 @@ export const customerApi = {
     axiosInstance.post("/orders", data, { timeout: 120000 }),
   verifyOnlineOrderPayment: (orderId, data) =>
     axiosInstance.post(`/orders/${orderId}/payment/verify-online`, data),
+  submitOrderUtr: (orderId, data) =>
+    axiosInstance.post(`/orders/${orderId}/payment/submit-utr`, data),
   markOrderDelivered: (orderId, data) =>
     axiosInstance.post(`/orders/${orderId}/delivered`, data || {}),
   markOrderCodCollected: (orderId, data) =>
@@ -127,11 +129,21 @@ export const customerApi = {
     axiosInstance.post(`/orders/${orderId}/returns`, data),
   getReturnDetails: (orderId) =>
     axiosInstance.get(`/orders/${encodeURIComponent(String(orderId ?? "").trim())}/returns`),
+  /** Customer disagrees with a failed quality check. data = { reason, images } */
+  raiseReturnDispute: (orderId, data) =>
+    axiosInstance.post(`/orders/returns/${encodeURIComponent(String(orderId ?? "").trim())}/dispute`, data),
 
   // Payments
   createPaymentOrder: (data) =>
     axiosInstance.post("/payments/create-order", data),
   verifyPaymentStatus: (id) => axiosInstance.get(`/payments/status/${id}`),
+
+  // EMI / finance quotation
+  getEmiHeaders: () => axiosInstance.get("/emi/enabled-headers"),
+  getEmiProductInfo: (productId, variant) =>
+    axiosInstance.get(`/emi/product/${encodeURIComponent(productId)}`, { params: { variant } }),
+  calculateEmi: (data) => axiosInstance.post("/emi/calculate", data),
+  createEmiQuote: (data) => axiosInstance.post("/emi/quotes", data),
 
   // Support & Reviews
   getProductReviews: (productId) =>

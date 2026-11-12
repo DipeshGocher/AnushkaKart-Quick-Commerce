@@ -23,6 +23,7 @@ import { adminDeliveryApi } from './deliveryApi';
 import { adminContentApi } from './contentApi';
 import { adminSOSApi } from './sosApi';
 import { adminShippingApi } from './shippingApi';
+import { adminEmiApi } from './emiApi';
 
 export {
     adminAuthApi,
@@ -36,6 +37,7 @@ export {
     adminContentApi,
     adminSOSApi,
     adminShippingApi,
+    adminEmiApi,
 };
 
 /**

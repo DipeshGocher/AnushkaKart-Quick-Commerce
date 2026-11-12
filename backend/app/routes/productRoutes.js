@@ -31,9 +31,9 @@ router.get("/", optionalVerifyToken, getProducts);
 router.get("/header-products", optionalVerifyToken, getHeaderProducts);
 
 // Seller protected routes
-router.get("/seller/me", verifyToken, allowRoles("seller", "warehouse"), requireApprovedSeller, getSellerProducts);
-router.get("/stock-history", verifyToken, allowRoles("seller", "warehouse"), requireApprovedSeller, getStockHistory);
-router.post("/adjust-stock", verifyToken, allowRoles("seller", "warehouse"), requireApprovedSeller, adjustStock);
+router.get("/seller/me", verifyToken, allowRoles("seller"), requireApprovedSeller, getSellerProducts);
+router.get("/stock-history", verifyToken, allowRoles("seller"), requireApprovedSeller, getStockHistory);
+router.post("/adjust-stock", verifyToken, allowRoles("seller"), requireApprovedSeller, adjustStock);
 router.get("/moderation", verifyToken, allowRoles("admin"), getModerationProducts);
 router.patch("/moderation/:id/approve", verifyToken, allowRoles("admin"), approveProduct);
 router.patch("/moderation/:id/reject", verifyToken, allowRoles("admin"), rejectProduct);
@@ -42,7 +42,7 @@ router.get("/:id", optionalVerifyToken, getProductById);
 router.post(
     "/",
     verifyToken,
-    allowRoles("seller", "admin", "warehouse"),
+    allowRoles("seller", "admin"),
     requireApprovedSeller,
     upload.any(),
     createProduct
@@ -51,7 +51,7 @@ router.post(
 router.put(
     "/:id",
     verifyToken,
-    allowRoles("seller", "admin", "warehouse"),
+    allowRoles("seller", "admin"),
     requireApprovedSeller,
     upload.any(),
     updateProduct
@@ -61,14 +61,14 @@ router.put(
 router.post(
     "/bulk-delete",
     verifyToken,
-    allowRoles("seller", "admin", "warehouse"),
+    allowRoles("seller", "admin"),
     requireApprovedSeller,
     bulkDeleteProducts
 );
 router.delete(
     "/bulk",
     verifyToken,
-    allowRoles("seller", "admin", "warehouse"),
+    allowRoles("seller", "admin"),
     requireApprovedSeller,
     bulkDeleteProducts
 );
@@ -76,7 +76,7 @@ router.delete(
 router.delete(
     "/:id",
     verifyToken,
-    allowRoles("seller", "admin", "warehouse"),
+    allowRoles("seller", "admin"),
     requireApprovedSeller,
     deleteProduct
 );

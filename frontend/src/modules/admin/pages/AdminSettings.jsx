@@ -21,7 +21,9 @@ import {
     AlertCircle,
     CheckCircle2,
     MessageCircle,
+    QrCode,
 } from 'lucide-react';
+import QRCode from 'react-qr-code';
 import { cn } from '@/lib/utils';
 import { useToast } from '@shared/components/ui/Toast';
 import { adminApi } from '../services/adminApi';
@@ -91,6 +93,10 @@ const AdminSettings = () => {
         metaKeywords: '',
         keywords: [],
         lowStockAlertsEnabled: true,
+        upiEnabled: true,
+        upiId: 'anushkaconnect@okaxis',
+        upiDisplayName: 'Anushka Connect',
+        supportWhatsappNumber: '8209224481',
         productApproval: {
             sellerCreateRequiresApproval: false,
             sellerEditRequiresApproval: false,
@@ -156,6 +162,13 @@ const AdminSettings = () => {
             return;
         }
 
+        const supportWhatsappNumber = (settings.supportWhatsappNumber || '').trim();
+        if (supportWhatsappNumber && supportWhatsappNumber.length !== 10) {
+            showToast('Support WhatsApp Number must be exactly 10 digits', 'error');
+            setActiveTab('upi');
+            return;
+        }
+
         const taxId = (settings.taxId || '').trim();
         if (taxId && taxId.length !== 15) {
             showToast('Tax ID / GSTIN must be exactly 15 alphanumeric characters', 'error');
@@ -200,6 +213,10 @@ const AdminSettings = () => {
                 playStoreLink: normalizeUrl(settings.playStoreLink),
                 appStoreLink: normalizeUrl(settings.appStoreLink),
                 keywords: Array.isArray(settings.keywords) ? settings.keywords : (settings.metaKeywords ? settings.metaKeywords.split(',').map(k => k.trim()).filter(Boolean) : []),
+                upiEnabled: settings.upiEnabled !== false,
+                upiId: (settings.upiId || '').trim(),
+                upiDisplayName: (settings.upiDisplayName || '').trim(),
+                supportWhatsappNumber: (settings.supportWhatsappNumber || '').trim(),
             };
             const res = await adminApi.updateSettings(payload);
             const updatedData = res.data?.result ?? res.data;
@@ -226,6 +243,7 @@ const AdminSettings = () => {
     const handleInputChange = (field, value) => {
         setSettings(prev => ({ ...prev, [field]: value }));
     };
+    const handleChange = handleInputChange;
 
     const handleProductApprovalToggle = (field) => {
         setSettings((prev) => ({
@@ -238,6 +256,7 @@ const AdminSettings = () => {
     };
     const tabs = [
         { id: 'general', label: 'General Configuration', icon: Settings },
+        { id: 'upi', label: 'UPI QR Payment (0% Fee)', icon: QrCode },
         { id: 'legal', label: 'Legal & Contact', icon: Building2 },
         { id: 'social', label: 'Social & Apps', icon: Share2 },
         { id: 'seo', label: 'SEO & Meta', icon: Search },
@@ -541,6 +560,150 @@ const AdminSettings = () => {
                                                 settings.lowStockAlertsEnabled ? "translate-x-7" : "translate-x-1"
                                             )}
                                         />
+                                    </button>
+                                </div>
+                            </div>
+                        </Card>
+                    )}
+
+                    {/* UPI QR Payment Settings */}
+                    {activeTab === 'upi' && (
+                        <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-xl overflow-hidden">
+                            <div className="p-6 border-b border-slate-50 bg-slate-50/30">
+                                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                                    <QrCode className="h-5 w-5 text-brand-600" />
+                                    Dynamic UPI QR Payment Configuration
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    0% Payment gateway fee. Exact order amount locked in QR code. 1-Click admin approval.
+                                </p>
+                            </div>
+                            <div className="p-6 space-y-6">
+                                {/* Toggle Enable / Disable */}
+                                <div className="flex items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50/50">
+                                    <div>
+                                        <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                                            Enable UPI QR Payments
+                                        </h4>
+                                        <p className="text-[11px] text-slate-500 mt-0.5">
+                                            Allow customers to pay directly via Dynamic UPI QR Code during checkout
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleInputChange('upiEnabled', !settings.upiEnabled)}
+                                        className={cn(
+                                            "relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-200 focus:outline-hidden cursor-pointer",
+                                            settings.upiEnabled !== false ? "bg-emerald-600" : "bg-slate-300"
+                                        )}
+                                    >
+                                        <span
+                                            className={cn(
+                                                "inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200",
+                                                settings.upiEnabled !== false ? "translate-x-8" : "translate-x-1"
+                                            )}
+                                        />
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                                    {/* Left: Input Form */}
+                                    <div className="lg:col-span-7 space-y-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                                                Merchant UPI ID (VPA) <span className="text-rose-500">*</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={settings.upiId || ''}
+                                                onChange={(e) => handleInputChange('upiId', e.target.value.trim())}
+                                                placeholder="e.g. anushkaconnect@okaxis or 9876543210@upi"
+                                                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all font-mono"
+                                            />
+                                            <p className="text-[11px] text-slate-400 mt-1">
+                                                This UPI ID will receive customer payments directly with 0% gateway commission.
+                                            </p>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                                                Display Name / Store Name
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={settings.upiDisplayName || ''}
+                                                onChange={(e) => handleInputChange('upiDisplayName', e.target.value)}
+                                                placeholder="e.g. Anushka Connect"
+                                                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all"
+                                            />
+                                            <p className="text-[11px] text-slate-400 mt-1">
+                                                Recipient name shown to customers inside Google Pay, PhonePe, Paytm.
+                                            </p>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                                                Support WhatsApp Number (10 Digits)
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={settings.supportWhatsappNumber || ''}
+                                                maxLength={10}
+                                                onChange={(e) => handleInputChange('supportWhatsappNumber', e.target.value.replace(/\D/g, ''))}
+                                                placeholder="e.g. 8209224481"
+                                                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all"
+                                            />
+                                            <p className="text-[11px] text-slate-400 mt-1">
+                                                Customers with payment issues or rejection can 1-click message this WhatsApp number for instant resolution.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Right: Live Preview Card */}
+                                    <div className="lg:col-span-5 bg-gradient-to-br from-blue-50/70 to-indigo-50/50 p-5 rounded-2xl border border-blue-100/80 text-center space-y-3">
+                                        <p className="text-[11px] font-black uppercase tracking-wider text-blue-800">
+                                            Customer Live QR Preview
+                                        </p>
+                                        <div className="bg-white p-3 rounded-2xl shadow-md inline-block border border-slate-100">
+                                            <QRCode
+                                                value={`upi://pay?pa=${settings.upiId || 'anushkaconnect@okaxis'}&pn=${encodeURIComponent(settings.upiDisplayName || 'Anushka Connect')}&am=549&cu=INR&tn=SampleOrder`}
+                                                size={140}
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-xs font-black text-slate-800">
+                                                {settings.upiDisplayName || 'Anushka Connect'}
+                                            </p>
+                                            <p className="text-[11px] font-mono text-blue-700 font-bold bg-white/80 py-1 px-2 rounded-lg border border-blue-100 inline-block">
+                                                {settings.upiId || 'anushkaconnect@okaxis'}
+                                            </p>
+                                        </div>
+                                        <div className="text-[10px] text-emerald-700 bg-emerald-50 font-bold py-1 px-3 rounded-full border border-emerald-200 inline-block">
+                                            🔒 Amount Locked: ₹549 (Sample)
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Bottom Save Button for Instant Convenience */}
+                                <div className="flex items-center justify-between pt-5 border-t border-slate-100 mt-6">
+                                    <p className="text-xs text-slate-500 font-medium">
+                                        Changes will take effect immediately across all customer checkout sessions.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={handleSave}
+                                        disabled={isSaving}
+                                        className={cn(
+                                            "flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md active:scale-95 cursor-pointer",
+                                            isSaving && "opacity-70 cursor-wait"
+                                        )}
+                                    >
+                                        {isSaving ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Save className="h-4 w-4" />
+                                        )}
+                                        {isSaving ? "Saving..." : "Save UPI Settings"}
                                     </button>
                                 </div>
                             </div>

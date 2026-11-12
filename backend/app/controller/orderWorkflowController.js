@@ -18,7 +18,7 @@ import {
   generateReturnDropOtp,
   validateReturnDropOtp,
 } from "../services/deliveryOtpService.js";
-import { emitToCustomer, emitToSeller, emitToWarehouse, emitToOrder } from "../services/orderSocketEmitter.js";
+import { emitToCustomer, emitToSeller, emitToOrder } from "../services/orderSocketEmitter.js";
 import { sendSmsIndiaHubOtp } from "../services/smsIndiaHubService.js";
 import { creditWallet } from "../services/finance/walletService.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
@@ -151,14 +151,13 @@ export const getOrderRoute = async (req, res) => {
 
     const order = await Order.findOne(orderKey)
       .populate("seller")
-      .populate("warehouseId")
       .lean();
 
     if (!order) {
       return handleResponse(res, 404, "Order not found");
     }
 
-    const pickupEntity = order.seller || order.warehouseId;
+    const pickupEntity = order.seller;
     const coords = pickupEntity?.location?.coordinates;
     const hasPickupLoc = Array.isArray(coords) && coords.length >= 2;
     const isReturn = Boolean(order.returnStatus && order.returnStatus !== "none");
@@ -369,7 +368,6 @@ export const verifyReturnPickupOtp = async (req, res) => {
     // POPULATE before response to ensure frontend consistency
     await order.populate([
       { path: "seller", select: "name shopName phone location" },
-      { path: "warehouseId", select: "name phone location" },
       { path: "address" },
       { path: "customer", select: "name phone" },
       { path: "returnDeliveryBoy", select: "name phone" }
@@ -427,7 +425,6 @@ export const requestReturnDropOtp = async (req, res) => {
     const orderKey = orderMatchQueryFromRouteParam(orderId);
     const order = await Order.findOne(orderKey)
       .populate("seller", "name phone")
-      .populate("warehouseId", "name phone")
       .lean();
     if (!order) return handleResponse(res, 404, "Order not found");
 
@@ -450,10 +447,9 @@ export const requestReturnDropOtp = async (req, res) => {
     await Order.updateOne({ _id: order._id }, { $set: { returnStatus: "return_drop_pending" } });
 
     const sellerId = order.seller?._id?.toString() || order.seller?.toString();
-    const warehouseId = order.warehouseId?._id?.toString() || order.warehouseId?.toString();
-    const targetPhone = order.seller?.phone || order.warehouseId?.phone;
+    const targetPhone = order.seller?.phone;
 
-    // ── Emit OTP to seller / warehouse via Socket/SMS ─────────────────────────────────────────
+    // ── Emit OTP to seller via Socket/SMS ─────────────────────────────────────────
     try {
       const dropPayload = {
         orderId,
@@ -469,19 +465,12 @@ export const requestReturnDropOtp = async (req, res) => {
         });
       }
 
-      if (warehouseId) {
-        emitToWarehouse(warehouseId, {
-          event: "return:drop:otp",
-          payload: dropPayload,
-        });
-      }
-
       emitToOrder(orderId, {
         event: "return:drop:otp",
         payload: dropPayload,
       });
 
-      // ── Send SMS to seller / warehouse (BACKGROUND) ──
+      // ── Send SMS to seller (BACKGROUND) ──
       setImmediate(async () => {
         try {
           if (targetPhone) {
@@ -550,7 +539,7 @@ export const verifyReturnDropOtp = async (req, res) => {
         userId: order.customer,
         sellerId: order.seller?._id || order.seller,
         deliveryId: order.returnDeliveryBoy || userId,
-        data: { message: "Product returned to seller. Admin QC pending." },
+        data: { message: "Product returned to seller. Quality check pending." },
       });
     } catch (notifErr) {
       console.warn("[verifyReturnDropOtp] Notification failed:", notifErr.message);
@@ -559,12 +548,11 @@ export const verifyReturnDropOtp = async (req, res) => {
     // POPULATE before response
     await order.populate([
       { path: "seller", select: "name shopName phone location" },
-      { path: "warehouseId", select: "name phone location" },
       { path: "customer", select: "name phone" },
       { path: "address" }
     ]);
 
-    return handleResponse(res, 200, "Return delivery complete! Admin will review the product.", order);
+    return handleResponse(res, 200, "Return delivery complete! The seller will now inspect the product.", order);
   } catch (e) {
     return handleResponse(res, getErrorStatus(e), e.message);
   }

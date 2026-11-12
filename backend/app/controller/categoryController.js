@@ -251,7 +251,7 @@ export const getCategories = async (req, res) => {
 export const createCategory = async (req, res) => {
   try {
     const categoryData = {};
-    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isKitCategory", "isFeatured", "sortOrder", "catalogType", "mappedAttributes", "trustBadges", "deliveryMode"];
+    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isKitCategory", "isFeatured", "sortOrder", "catalogType", "mappedAttributes", "trustBadges", "deliveryMode", "financeEnabled"];
     
     // Strict Whitelisting and Sanitization
     for (const key of allowedKeys) {
@@ -293,6 +293,9 @@ export const createCategory = async (req, res) => {
 
     if (categoryData.isFeatured !== undefined) {
       categoryData.isFeatured = categoryData.isFeatured === true || categoryData.isFeatured === "true" || categoryData.isFeatured === 1 || categoryData.isFeatured === "1";
+    }
+    if (categoryData.financeEnabled !== undefined) {
+      categoryData.financeEnabled = [true, "true", 1, "1"].includes(categoryData.financeEnabled);
     }
     
     // Handle Images
@@ -376,7 +379,7 @@ export const updateCategory = async (req, res) => {
     }
 
     const categoryData = {};
-    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isFeatured", "sortOrder", "catalogType", "mappedAttributes", "trustBadges", "deliveryMode"];
+    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "isFeatured", "sortOrder", "catalogType", "mappedAttributes", "trustBadges", "deliveryMode", "financeEnabled"];
     
     for (const key of allowedKeys) {
       if (Object.prototype.hasOwnProperty.call(req.body, key)) {
@@ -416,6 +419,9 @@ export const updateCategory = async (req, res) => {
 
     if (categoryData.isFeatured !== undefined) {
       categoryData.isFeatured = categoryData.isFeatured === true || categoryData.isFeatured === "true" || categoryData.isFeatured === 1 || categoryData.isFeatured === "1";
+    }
+    if (categoryData.financeEnabled !== undefined) {
+      categoryData.financeEnabled = [true, "true", 1, "1"].includes(categoryData.financeEnabled);
     }
 
     if (req.file) {

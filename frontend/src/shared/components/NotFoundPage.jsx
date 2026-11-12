@@ -23,7 +23,6 @@ const NotFoundPage = () => {
     const isAdminLoggedIn = Boolean(authData?.admin || (user?.role && ['admin', 'super_admin', 'sub_admin'].includes(user.role) && isAuthenticated));
     const isSellerLoggedIn = Boolean(authData?.seller || (user?.role === 'seller' && isAuthenticated));
     const isDeliveryLoggedIn = Boolean(authData?.delivery || (user?.role === 'delivery' && isAuthenticated));
-    const isWarehouseLoggedIn = Boolean(authData?.warehouse || (user?.role === 'warehouse' && isAuthenticated));
 
     // Dynamic destination & label according to portal context and login state
     const redirectConfig = useMemo(() => {
@@ -74,28 +73,13 @@ const NotFoundPage = () => {
             };
         }
 
-        if (path.startsWith('/warehouse')) {
-            if (isWarehouseLoggedIn) {
-                return {
-                    target: '/warehouse',
-                    label: 'Back to Warehouse Dashboard',
-                    icon: LayoutDashboard,
-                };
-            }
-            return {
-                target: '/admin/auth',
-                label: 'Go to Login',
-                icon: LogIn,
-            };
-        }
-
         // Default: Customer Storefront
         return {
             target: '/',
             label: 'Back to Home',
             icon: Home,
         };
-    }, [location.pathname, isAdminLoggedIn, isSellerLoggedIn, isDeliveryLoggedIn, isWarehouseLoggedIn]);
+    }, [location.pathname, isAdminLoggedIn, isSellerLoggedIn, isDeliveryLoggedIn]);
 
     const ActionIcon = redirectConfig.icon;
 

@@ -47,12 +47,13 @@ import { buildCheckoutPricingSnapshot } from "./checkoutPricingService.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
 import * as logger from "./logger.js";
+import { expiryAfterUtrSubmitted, expiryWaitingForUtr } from "../utils/upiApprovalPolicy.js";
 
 const IDEMPOTENCY_RECORD_TTL_MS = 24 * 60 * 60 * 1000;
 
 function normalizePaymentMode(raw) {
   const mode = String(raw || "COD").trim().toUpperCase();
-  return mode === "ONLINE" ? "ONLINE" : "COD";
+  return mode === "ONLINE" ? "ONLINE" : mode === "UPI_QR" ? "UPI_QR" : "COD";
 }
 
 function normalizeAddress(address = {}) {
@@ -93,23 +94,6 @@ function toPlain(doc) {
   return doc;
 }
 
-/**
- * Resolves the warehouseId for an order from the items' product records.
- * Uses the first item's product.warehouseId. Returns null if not found.
- */
-async function resolveWarehouseIdFromItems(items = []) {
-  if (!items || items.length === 0) return null;
-  const firstItem = items[0];
-  // items may have productId as ObjectId or string
-  const productId = firstItem.productId || firstItem.product;
-  if (!productId) return null;
-  try {
-    const product = await Product.findById(productId).select("warehouseId").lean();
-    return product?.warehouseId || null;
-  } catch {
-    return null;
-  }
-}
 
 function buildResultPayload({ checkoutGroup, orders }) {
   const plainGroup = toPlain(checkoutGroup);
@@ -240,7 +224,8 @@ async function consumeCartItems({
 }
 
 function buildCheckoutGroupStatus(paymentMode) {
-  return paymentMode === "ONLINE" ? "PAYMENT_PENDING" : "CREATED";
+  if (paymentMode === "ONLINE" || paymentMode === "UPI_QR") return "PAYMENT_PENDING";
+  return "CREATED";
 }
 
 /**
@@ -306,9 +291,9 @@ async function seedCanonicalCustomerWalletFromUser({ customerId, user, session }
 }
 
 function buildCheckoutGroupPaymentStatus(paymentMode) {
-  return paymentMode === "ONLINE"
-    ? ORDER_PAYMENT_STATUS.CREATED
-    : ORDER_PAYMENT_STATUS.PENDING_CASH_COLLECTION;
+  if (paymentMode === "ONLINE") return ORDER_PAYMENT_STATUS.CREATED;
+  if (paymentMode === "UPI_QR") return ORDER_PAYMENT_STATUS.AWAITING_VERIFICATION;
+  return ORDER_PAYMENT_STATUS.PENDING_CASH_COLLECTION;
 }
 
 export async function placeOrderAtomic({
@@ -321,6 +306,37 @@ export async function placeOrderAtomic({
     ...(payload || {}),
     paymentMode: normalizePaymentMode(payload?.paymentMode),
   };
+
+  // UPI QR orders can be placed together with the customer's payment reference (UTR).
+  // Checked up-front, before any lock / stock reservation, so a bad or reused UTR
+  // changes nothing.
+  const submittedUtr =
+    normalizedPayload.paymentMode === "UPI_QR"
+      ? String(normalizedPayload.utrNumber || "").trim()
+      : "";
+  if (submittedUtr) {
+    if (!/^\d{12}$/.test(submittedUtr)) {
+      const error = new Error("Please enter a valid 12-digit numeric UTR / Reference number");
+      error.statusCode = 400;
+      throw error;
+    }
+    const duplicateUtrOrder = await Order.findOne({
+      utrNumber: submittedUtr,
+      paymentStatus: {
+        $in: [ORDER_PAYMENT_STATUS.PAID, ORDER_PAYMENT_STATUS.AWAITING_VERIFICATION],
+      },
+    }).lean();
+    if (duplicateUtrOrder) {
+      const error = new Error(
+        `This UTR (${submittedUtr}) has already been submitted for another order. Please check your bank transaction details.`,
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+    normalizedPayload.utrNumber = submittedUtr;
+  } else {
+    delete normalizedPayload.utrNumber;
+  }
 
   if (idempotencyKey) {
     if (!validateIdempotencyKey(idempotencyKey)) {
@@ -546,7 +562,6 @@ export async function placeOrderAtomic({
         orderId,
         customer: customerId,
         seller: entry.actualSellerId || null,
-        warehouseId: entry.actualWarehouseId || await resolveWarehouseIdFromItems(entry.items),
         items: mapOrderItemsForPersistence(entry.items),
         kitAddons: entry.items.reduce((addons, item) => addons.concat(item.kitAddons || []), []),
         address: normalizedAddress,
@@ -554,13 +569,26 @@ export async function placeOrderAtomic({
         paymentStatus:
           paymentMode === "ONLINE"
             ? ORDER_PAYMENT_STATUS.CREATED
+            : paymentMode === "UPI_QR"
+            ? ORDER_PAYMENT_STATUS.AWAITING_VERIFICATION
             : ORDER_PAYMENT_STATUS.PENDING_CASH_COLLECTION,
         payment: {
-          method: paymentMode === "ONLINE" ? "online" : "cash",
+          method: paymentMode === "ONLINE" ? "online" : paymentMode === "UPI_QR" ? "upi_qr" : "cash",
           status: "pending",
+          ...(submittedUtr ? { transactionId: submittedUtr } : {}),
         },
+        ...(submittedUtr
+          ? { utrNumber: submittedUtr, utrSubmittedAt: new Date() }
+          : {}),
+        ...(paymentMode === "UPI_QR"
+          ? {
+              upiApprovalExpiresAt: submittedUtr
+                ? expiryAfterUtrSubmitted()
+                : expiryWaitingForUtr(),
+            }
+          : {}),
         delivery: {
-          warehouseLocation: entry.deliveryData?.warehouseLocation,
+          pickupLocation: entry.deliveryData?.pickupLocation,
           customerLocation: entry.deliveryData?.customerLocation,
           routeDistanceKm: entry.deliveryData?.routeDistanceKm,
           routeDistanceMeters: entry.deliveryData?.routeDistanceMeters,
@@ -630,8 +658,7 @@ export async function placeOrderAtomic({
     checkoutGroup.orderIds = orders.map((order) => order._id);
     checkoutGroup.publicOrderIds = orders.map((order) => order.orderId);
     checkoutGroup.sellerBreakdown = orders.map((order, index) => ({
-      seller: order.seller || order.warehouseId, // Keep this as 'seller' for backwards compatibility in checkoutGroup
-      isWarehouse: !!order.warehouseId,
+      seller: order.seller,
       order: order._id,
       publicOrderId: order.orderId,
       itemCount: order.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
@@ -698,8 +725,8 @@ export async function placeOrderAtomic({
     }
 
     const transactionRows = orders.map((order) => ({
-      user: order.seller || order.warehouseId,
-      userModel: order.seller ? "Seller" : "Warehouse",
+      user: order.seller,
+      userModel: "Seller",
       order: order._id,
       type: "Order Payment",
       amount: Number(order.paymentBreakdown?.grandTotal || order.pricing?.total || 0),
@@ -815,12 +842,11 @@ export async function placeOrderAtomic({
           customerId,
           userId: customerId,
         });
-        if (order.seller || order.warehouseId) {
+        if (order.seller) {
           emitNotificationEvent(NOTIFICATION_EVENTS.NEW_ORDER, {
             orderId: order.orderId,
             checkoutGroupId,
-            sellerId: order.seller || undefined,
-            warehouseId: order.warehouseId || undefined,
+            sellerId: order.seller,
             customerId,
           });
         }

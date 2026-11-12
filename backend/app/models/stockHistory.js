@@ -12,11 +12,6 @@ const stockHistorySchema = new mongoose.Schema(
             ref: "Seller",
             required: false,
         },
-        warehouseId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Warehouse",
-            required: false,
-        },
         type: {
             type: String,
             enum: ["Restock", "Sale", "Correction", "Reservation", "Release"],
@@ -39,7 +34,7 @@ const stockHistorySchema = new mongoose.Schema(
 );
 
 stockHistorySchema.index({ product: 1, seller: 1, createdAt: -1 });
-stockHistorySchema.index({ product: 1, warehouseId: 1, createdAt: -1 });
+stockHistorySchema.index({ product: 1, createdAt: -1 });
 stockHistorySchema.index({ order: 1 });
 stockHistorySchema.index({ type: 1 });
 

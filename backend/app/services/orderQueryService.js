@@ -1,4 +1,5 @@
 import Order from "../models/order.js";
+import { buildQcView } from "../utils/returnQcPolicy.js";
 import mongoose from "mongoose";
 import Delivery from "../models/delivery.js";
 import Seller from "../models/seller.js";
@@ -12,6 +13,7 @@ import {
 import { buildKey, getOrSet, getTTL } from "./cacheService.js";
 import { resolveWorkflowStatus } from "./orderWorkflowService.js";
 import logger from "./logger.js";
+import { sanitizeOrderForCustomer } from "../utils/customerShipmentView.js";
 
 function svcErr(message, statusCode) {
   const error = new Error(message);
@@ -25,6 +27,21 @@ function refToIdString(ref) {
   return String(ref);
 }
 
+/**
+ * UPI QR orders whose payment admin has not approved yet. They live ONLY on the
+ * "Pending UPI Approvals" page; everywhere else in the admin order lists they are hidden
+ * until approved. (Cancelled ones are excluded: an expired order is history, not a to-do.)
+ */
+export const UNAPPROVED_UPI_ORDER = Object.freeze({
+  paymentMode: "UPI_QR",
+  paymentStatus: { $in: ["AWAITING_VERIFICATION", "CREATED", "REJECTED"] },
+  status: { $ne: "cancelled" },
+});
+
+function isUpiPendingFilter(statusParam) {
+  return String(statusParam || "").toLowerCase().trim().replace(/_/g, "-") === "upi-pending";
+}
+
 function normalizeSellerStatusFilter(statusParam) {
   if (!statusParam || statusParam === "all") {
     return {};
@@ -32,6 +49,9 @@ function normalizeSellerStatusFilter(statusParam) {
 
   const normalized = String(statusParam).toLowerCase().trim().replace(/_/g, "-");
 
+  if (normalized === "upi-pending") {
+    return { ...UNAPPROVED_UPI_ORDER };
+  }
   if (normalized === "pending") {
     return { status: "pending" };
   }
@@ -100,11 +120,15 @@ export function buildSellerOrdersQuery({
   endDate,
 }) {
   const targetId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
-  const base = role === "admin" ? {} : role === "warehouse" ? { warehouseId: targetId } : { seller: targetId };
+  const base = role === "admin" ? {} : { seller: targetId };
   const withStatus = {
     ...base,
     ...normalizeSellerStatusFilter(statusParam),
   };
+  // Admin: unapproved UPI orders only show on the Pending UPI Approvals page.
+  if (role === "admin" && !isUpiPendingFilter(statusParam)) {
+    withStatus.$nor = [{ ...UNAPPROVED_UPI_ORDER }];
+  }
   return appendDateRange(withStatus, { startDate, endDate });
 }
 
@@ -127,8 +151,12 @@ export async function fetchSellerOrdersPage({
   });
 
   const targetId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
-  const baseScope = role === "admin" ? {} : role === "warehouse" ? { warehouseId: targetId } : { seller: targetId };
-  const summaryQuery = appendDateRange({ ...baseScope }, { startDate, endDate });
+  const baseScope = role === "admin" ? {} : { seller: targetId };
+  // Admin totals count approved orders only; unapproved UPI orders are reported as `upiPending`.
+  const summaryQuery = appendDateRange(
+    role === "admin" ? { ...baseScope, $nor: [{ ...UNAPPROVED_UPI_ORDER }] } : { ...baseScope },
+    { startDate, endDate },
+  );
 
   const sortMap = {
     newest: { createdAt: -1, _id: -1 },
@@ -138,7 +166,7 @@ export async function fetchSellerOrdersPage({
   };
   const sortQuery = sortMap[String(sort || "newest").toLowerCase()] || sortMap.newest;
 
-  const [orders, total, summaryRows] = await Promise.all([
+  const [orders, total, upiPending, summaryRows] = await Promise.all([
     Order.find(query)
       .sort(sortQuery)
       .skip(skip)
@@ -149,6 +177,9 @@ export async function fetchSellerOrdersPage({
       .populate("seller", "shopName name location address")
       .lean(),
     Order.countDocuments(query),
+    role === "admin"
+      ? Order.countDocuments(appendDateRange({ ...baseScope, ...UNAPPROVED_UPI_ORDER }, { startDate, endDate }))
+      : Promise.resolve(0),
     Order.aggregate([
       { $match: summaryQuery },
       {
@@ -175,6 +206,20 @@ export async function fetchSellerOrdersPage({
           },
           pending: {
             $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] },
+          },
+          upiPending: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$paymentMode", "UPI_QR"] },
+                    { $in: ["$paymentStatus", ["AWAITING_VERIFICATION", "CREATED"]] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
           },
           confirmed: {
             $sum: { $cond: [{ $eq: ["$status", "confirmed"] }, 1, 0] },
@@ -246,6 +291,7 @@ export async function fetchSellerOrdersPage({
     delivered: Number(rawSummary.delivered || 0),
     cancelled: Number(rawSummary.cancelled || 0),
     returned: Number(rawSummary.returned || 0),
+    upiPending: Number(upiPending || 0),
   };
   summary.activeOrders =
     summary.pending +
@@ -495,7 +541,7 @@ export async function getCustomerOrders(customerId, pagination) {
       const [orders, total] = await Promise.all([
         Order.find({ customer: customerId })
           .select(
-            "orderId checkoutGroupId customer seller items address payment pricing status workflowStatus workflowVersion returnStatus timeSlot createdAt paymentMode paymentStatus fulfillmentType expiresAt stockReservation cancelReason",
+            "orderId checkoutGroupId customer seller items address payment pricing status workflowStatus workflowVersion pickupReadyAt returnStatus timeSlot createdAt paymentMode paymentStatus fulfillmentType shiprocket expiresAt stockReservation cancelReason",
           )
           .sort({ createdAt: -1, _id: -1 })
           .skip(skip)
@@ -506,7 +552,9 @@ export async function getCustomerOrders(customerId, pagination) {
       ]);
 
       return {
-        items: orders,
+        // Same customer-safe shipment view as the detail API (the list needs the
+        // courier stage to show "Shipped" etc., but never labels/penalties).
+        items: orders.map((o) => sanitizeOrderForCustomer(o)),
         page,
         limit,
         total,
@@ -536,7 +584,6 @@ export async function getOrderWithAccess(orderId, userId, role) {
     .populate("deliveryBoy", "name phone")
     .populate("returnDeliveryBoy", "name phone")
     .populate("seller", "shopName name address phone location")
-    .populate("warehouseId", "name address phone location")
     .lean();
 
   if (!order) {
@@ -714,13 +761,17 @@ export async function getOrderWithAccess(orderId, userId, role) {
       }).sort({ lastGeneratedAt: -1 }).lean();
       
       if (returnOtp) {
-        order.returnPickupOtp = { 
-          code: returnOtp.code, 
+        order.returnPickupOtp = {
+          code: returnOtp.code,
           otp: returnOtp.code,
-          expiresAt: returnOtp.expiresAt 
+          expiresAt: returnOtp.expiresAt
         };
       }
     }
+
+    // Customers only get customer-safe shipment data (no label/manifest URLs,
+    // weight penalties, internal logs or seller pickup address for courier orders).
+    sanitizeOrderForCustomer(order);
   }
 
   return {
@@ -742,9 +793,7 @@ export async function getSellerReturns({
   const { page, limit, skip } = pagination;
 
   const query = {};
-  if (role === "warehouse") {
-    query.warehouseId = userId;
-  } else if (role !== "admin") {
+  if (role !== "admin") {
     query.seller = userId;
   }
   query.returnStatus = { $ne: "none" };
@@ -776,8 +825,10 @@ export async function getSellerReturns({
     Order.countDocuments(query),
   ]);
 
+  const now = new Date();
   return {
-    items: orders,
+    // `qc` = server-computed QC deadlines / dispute window so every panel shows the same times.
+    items: orders.map((o) => ({ ...o, qc: buildQcView(o, now) })),
     page,
     limit,
     total,

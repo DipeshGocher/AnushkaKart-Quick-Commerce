@@ -1,5 +1,4 @@
 import Seller from "../models/seller.js";
-import Warehouse from "../models/warehouse.js";
 import { calculateDistance } from "../utils/helper.js";
 import { buildKey, getOrSet, getTTL } from "./cacheService.js";
 
@@ -32,17 +31,11 @@ function buildNearbySellersKey(lat, lng) {
 
 export async function getNearbySellerIdsForCustomer(lat, lng) {
   const fetchFn = async () => {
-    const [sellers, warehouses] = await Promise.all([
-      Seller.find({ isActive: true })
-        .select("_id")
-        .lean(),
-      Warehouse.find({ isActive: true })
-        .select("_id")
-        .lean()
-    ]);
+    const sellers = await Seller.find({ isActive: true })
+      .select("_id")
+      .lean();
 
-    const allEntities = [...sellers, ...warehouses];
-    return allEntities.map((entity) => String(entity._id));
+    return sellers.map((entity) => String(entity._id));
   };
 
   return getOrSet(buildNearbySellersKey(lat, lng), fetchFn, getTTL("nearbySellers"));

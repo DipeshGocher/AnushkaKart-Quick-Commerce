@@ -327,7 +327,7 @@ export async function handleOnlineOrderFinance(
     session.startTransaction();
     const order = await findOrderForUpdate(orderOrId, session);
 
-    if (order.paymentMode !== "ONLINE") {
+    if (order.paymentMode !== "ONLINE" && order.paymentMode !== "UPI_QR") {
       order.paymentMode = "ONLINE";
     }
 
@@ -354,12 +354,15 @@ export async function handleOnlineOrderFinance(
         type: LEDGER_TRANSACTION_TYPE.ORDER_ONLINE_PAYMENT_CAPTURED,
         direction: LEDGER_DIRECTION.CREDIT,
         amount: grandTotal,
-        paymentMode: "ONLINE",
+        paymentMode: order.paymentMode || "ONLINE",
         metadata: {
           ...metadata,
           gatewayTransactionId: transactionId || undefined,
         },
-        description: "Online payment captured from customer",
+        description:
+          order.paymentMode === "UPI_QR"
+            ? "UPI payment approved and captured from customer"
+            : "Online payment captured from customer",
         reference: order.orderId,
         balanceBefore: credit.before,
         balanceAfter: credit.after,
@@ -374,7 +377,7 @@ export async function handleOnlineOrderFinance(
     order.paymentStatus = ORDER_PAYMENT_STATUS.PAID;
     order.payment = {
       ...(order.payment || {}),
-      method: "online",
+      method: order.paymentMode === "UPI_QR" ? "upi_qr" : "online",
       status: "completed",
       transactionId: transactionId || order.payment?.transactionId,
     };

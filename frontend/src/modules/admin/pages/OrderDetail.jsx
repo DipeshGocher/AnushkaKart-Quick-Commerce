@@ -18,6 +18,7 @@ import {
 } from '@/core/services/orderSocket';
 import { createSocketTokenReader } from '@core/utils/authStorage';
 import { STORAGE_KEYS } from '@core/utils/storage';
+import { getStatusOptions } from '@/shared/utils/orderStatus';
 import {
     ChevronLeft,
     Box,
@@ -37,7 +38,9 @@ import {
     Info,
     MapPin,
     RotateCcw,
-    Check
+    Check,
+    CheckCircle2,
+    QrCode,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@shared/components/ui/Toast';
@@ -189,14 +192,47 @@ const OrderDetail = () => {
         }
     };
 
-    const handleStatusUpdate = async (newStatus) => {
+    const handleStatusUpdate = async (newStatus, overrideReasonRequired = false) => {
         try {
-            await adminApi.updateOrderStatus(orderId, { status: newStatus });
+            const payload = { status: newStatus };
+            if (overrideReasonRequired) {
+                // Local deliveries are completed by the rider (customer OTP). Admin can force it, knowingly.
+                const reason = window.prompt('The rider normally completes this step with the customer OTP.\nWhy are you overriding it?');
+                if (!reason || !reason.trim()) return; // controlled <select> snaps back to the real status
+                payload.overrideReason = reason.trim();
+            }
+            await adminApi.updateOrderStatus(orderId, payload);
             showToast(`Order status updated to ${newStatus}`, "success");
             fetchDetail(); // Refresh data
         } catch (error) {
             console.error("Failed to update status:", error);
             showToast(error.response?.data?.message || error.message || "Failed to update status", "error");
+        }
+    };
+
+    const handleApproveUpi = async () => {
+        try {
+            const targetId = order._id || orderId;
+            await adminApi.approveUpiPayment(targetId, { utrNumber: order.utrNumber });
+            showToast(`Order #${order.orderId || orderId} UPI payment verified & approved!`, "success");
+            fetchDetail();
+        } catch (error) {
+            console.error("Failed to approve UPI payment:", error);
+            showToast(error.response?.data?.message || "Failed to approve payment", "error");
+        }
+    };
+
+    const handleRejectUpi = async () => {
+        const reason = window.prompt("Enter rejection reason (e.g. UTR not found in bank statement, amount mismatch):", "UTR not found in bank statement");
+        if (reason === null) return;
+        try {
+            const targetId = order._id || orderId;
+            await adminApi.rejectUpiPayment(targetId, { reason });
+            showToast(`Order #${order.orderId || orderId} payment rejected`, "info");
+            fetchDetail();
+        } catch (error) {
+            console.error("Failed to reject UPI payment:", error);
+            showToast(error.response?.data?.message || "Failed to reject payment", "error");
         }
     };
 
@@ -381,53 +417,30 @@ const OrderDetail = () => {
                                 </div>
                             ) : (
                                 <div className="relative inline-block w-44">
-                                <select
-                                    value={order.status}
-                                    disabled={order.status === 'delivered' || order.status === 'cancelled'}
-                                    onChange={(e) => handleStatusUpdate(e.target.value)}
-                                    className={cn(
-                                        "w-full text-[10px] pl-3 pr-8 py-1.5 rounded-xl font-black uppercase tracking-widest border appearance-none transition-all outline-none shadow-sm",
-                                        (order.status === 'delivered' || order.status === 'cancelled') ? "cursor-default opacity-80" : "cursor-pointer focus:ring-2 focus:ring-offset-1",
-                                        getStatusStyles(order.status)
-                                    )}
-                                >
-                                    {order.status === 'pending' && (
-                                        <>
-                                            <option value="pending">Pending</option>
-                                            <option value="confirmed">Confirm</option>
-                                            <option value="cancelled">Cancel Order</option>
-                                        </>
-                                    )}
-                                    {order.status === 'confirmed' && (
-                                        <>
-                                            <option value="confirmed">Confirmed</option>
-                                            <option value="packed">{order.fulfillmentType === 'SHIPROCKET' ? 'Mark Packed & Ready' : 'Mark Packed'}</option>
-                                            <option value="out_for_delivery">{order.fulfillmentType === 'SHIPROCKET' ? 'In Transit / Dispatched' : 'Out for Delivery'}</option>
-                                            <option value="cancelled">Cancel Order</option>
-                                        </>
-                                    )}
-                                    {order.status === 'packed' && (
-                                        <>
-                                            <option value="packed">{order.fulfillmentType === 'SHIPROCKET' ? 'Packed (Pickup Ready)' : 'Packed'}</option>
-                                            <option value="out_for_delivery">{order.fulfillmentType === 'SHIPROCKET' ? 'Handover Courier (In Transit)' : 'Out for Delivery'}</option>
-                                            <option value="delivered">{order.fulfillmentType === 'SHIPROCKET' ? 'Delivered by Courier' : 'Delivered'}</option>
-                                            <option value="cancelled">Cancel Order</option>
-                                        </>
-                                    )}
-                                    {order.status === 'out_for_delivery' && (
-                                        <>
-                                            <option value="out_for_delivery">{order.fulfillmentType === 'SHIPROCKET' ? 'In Transit / Out for Delivery' : 'Out for Delivery'}</option>
-                                            <option value="delivered">{order.fulfillmentType === 'SHIPROCKET' ? 'Delivered by Courier' : 'Delivered'}</option>
-                                            <option value="cancelled">Cancel Order</option>
-                                        </>
-                                    )}
-                                    {order.status === 'delivered' && (
-                                        <option value="delivered">Delivered</option>
-                                    )}
-                                    {order.status === 'cancelled' && (
-                                        <option value="cancelled">Cancelled</option>
-                                    )}
-                                </select>
+                                {(() => {
+                                    // Same dropdown rules as the orders list and seller panel (shared helper).
+                                    const options = getStatusOptions(order, 'admin');
+                                    const locked = options.length <= 1;
+                                    return (
+                                        <select
+                                            value={options[0].value}
+                                            disabled={locked}
+                                            onChange={(e) => {
+                                                const picked = options.find((o) => o.value === e.target.value);
+                                                handleStatusUpdate(e.target.value, picked?.overrideReasonRequired);
+                                            }}
+                                            className={cn(
+                                                "w-full text-[10px] pl-3 pr-8 py-1.5 rounded-xl font-black uppercase tracking-widest border appearance-none transition-all outline-none shadow-sm",
+                                                locked ? "cursor-default opacity-80" : "cursor-pointer focus:ring-2 focus:ring-offset-1",
+                                                getStatusStyles(options[0].value)
+                                            )}
+                                        >
+                                            {options.map((opt) => (
+                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                            ))}
+                                        </select>
+                                    );
+                                })()}
                                 <Info className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-60" />
                             </div>
                         )}
@@ -910,24 +923,92 @@ const OrderDetail = () => {
 
                     {/* Payment Vector */}
                     <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-2xl overflow-hidden text-left">
-                        <div className="p-6 bg-slate-900 text-white">
+                        <div className="p-6 bg-slate-900 text-white flex items-center justify-between">
                             <h4 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-white">
                                 <CreditCard className="h-4 w-4 text-brand-400" />
                                 Payment Vector
                             </h4>
+                            {order.paymentMode === 'UPI_QR' && (
+                                <Badge className="bg-blue-600 text-white text-[9px] font-bold border-none uppercase">
+                                    Direct UPI QR
+                                </Badge>
+                            )}
                         </div>
-                        <div className="p-4 space-y-6">
+                        <div className="p-4 space-y-4">
                             <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl">
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Protocol Summary</span>
-                                <Badge className={cn("border-none text-[8px] font-black uppercase", order.payment?.status === 'completed' ? 'bg-brand-100 text-brand-700' : 'bg-amber-100 text-amber-700')}>
-                                    {order.payment?.status || 'PENDING'}
+                                <Badge className={cn(
+                                    "border-none text-[8px] font-black uppercase",
+                                    (order.paymentStatus === 'PAID' || order.payment?.status === 'completed') ? 'bg-emerald-100 text-emerald-700' :
+                                    order.paymentStatus === 'REJECTED' ? 'bg-rose-100 text-rose-700' :
+                                    'bg-amber-100 text-amber-700'
+                                )}>
+                                    {order.paymentStatus || order.payment?.status || 'PENDING'}
                                 </Badge>
                             </div>
 
                             <div className="flex items-center justify-between px-2">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Gateway Method</span>
-                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-900">{order.payment?.method || 'CASH'}</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Payment Mode</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-900">
+                                    {order.paymentMode === 'UPI_QR' ? 'UPI QR Code' : order.payment?.method || 'CASH'}
+                                </span>
                             </div>
+
+                            {order.paymentMode === 'UPI_QR' && (
+                                <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-slate-500 uppercase">Customer UTR</span>
+                                        <span className="text-xs font-mono font-black text-blue-900">
+                                            {order.utrNumber || 'Not submitted yet'}
+                                        </span>
+                                    </div>
+                                    {order.utrSubmittedAt && (
+                                        <div className="flex items-center justify-between text-[10px] text-slate-400">
+                                            <span>Submitted At</span>
+                                            <span>{new Date(order.utrSubmittedAt).toLocaleString('en-IN')}</span>
+                                        </div>
+                                    )}
+                                    {order.paymentRejectedReason && (
+                                        <div className="text-[10px] text-rose-600 font-medium bg-rose-50 p-2 rounded-lg border border-rose-100">
+                                            Rejection Reason: {order.paymentRejectedReason}
+                                        </div>
+                                    )}
+
+                                    {/* Action Buttons for UPI Verification */}
+                                    {(order.paymentStatus === 'AWAITING_VERIFICATION' || order.paymentStatus === 'CREATED') && (
+                                        <div className="pt-2 flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={handleApproveUpi}
+                                                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 shadow-sm"
+                                            >
+                                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                                Approve Payment
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={handleRejectUpi}
+                                                className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border border-rose-200"
+                                            >
+                                                Reject
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {order.paymentStatus === 'REJECTED' && (
+                                        <div className="pt-2">
+                                            <button
+                                                type="button"
+                                                onClick={handleApproveUpi}
+                                                className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 shadow-sm"
+                                            >
+                                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                                Re-Approve & Mark as Paid
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </Card>
 
@@ -1139,7 +1220,7 @@ const OrderDetail = () => {
                                 </label>
                                 <textarea
                                     rows={2}
-                                    placeholder="e.g. Courier picked up package from warehouse"
+                                    placeholder="e.g. Courier picked up package from seller"
                                     value={manualStatusData.remarks}
                                     onChange={(e) => setManualStatusData({ ...manualStatusData, remarks: e.target.value })}
                                     className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"

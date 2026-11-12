@@ -25,9 +25,9 @@ const OrderProgressTracker = ({
   const courierSteps = [
     { id: "pending", label: "Order Placed", subLabel: "We have received your order" },
     { id: "confirmed", label: "Order Confirmed", subLabel: "Seller confirmed order" },
-    { id: "packed", label: "AWB Assigned", subLabel: shiprocket.awb ? `AWB: ${shiprocket.awb}` : "AWB generated & packed" },
+    { id: "packed", label: "Shipment Booked", subLabel: "Packed and handed to courier" },
     { id: "pickup_scheduled", label: "Pickup Scheduled", subLabel: "Courier pickup booked" },
-    { id: "in_transit", label: "In Transit", subLabel: "Moving across courier hubs" },
+    { id: "in_transit", label: "Shipped", subLabel: "On its way to your city" },
     { id: "out_for_delivery", label: "Out for Delivery", subLabel: "Out for doorstep delivery" },
     { id: "delivered", label: "Delivered", subLabel: "Order safely delivered" },
   ];
@@ -35,12 +35,12 @@ const OrderProgressTracker = ({
   const getCourierStageIndex = () => {
     if (status === "delivered" || srStatus === "DELIVERED") return 6;
     if (status === "out_for_delivery" || srStatus === "OUT_FOR_DELIVERY") return 5;
-    if (srStatus === "IN_TRANSIT") return 4;
+    if (["IN_TRANSIT", "PICKED_UP", "SHIPPED", "REACHED_AT_DESTINATION_HUB"].includes(srStatus)) return 4;
     if (
       srStatus === "PICKUP_SCHEDULED" ||
       srStatus === "PICKUP_QUEUED" ||
       shiprocket.pickupScheduledAt ||
-      shiprocket.history?.some((h) => String(h.status || "").toUpperCase() === "PICKUP_SCHEDULED")
+      shiprocket.history?.some((h) => String(h.code || h.status || "").toUpperCase() === "PICKUP_SCHEDULED")
     ) {
       return 3;
     }
@@ -127,44 +127,46 @@ const OrderProgressTracker = ({
 
       {/* ETA Display */}
       {status !== "delivered" && (
-        <div className="mt-8 pt-5 border-t border-slate-100">
-          <div className={`flex items-center justify-between rounded-2xl p-4 gap-4 ${isShiprocket ? "bg-blue-50/70 border border-blue-100" : "bg-emerald-50"}`}>
-            {status === "pending" && !isShiprocket ? (
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-                  <Clock size={20} className="text-emerald-700" />
+        <div className="mt-6 pt-5 border-t border-slate-100">
+          {status === "pending" && !isShiprocket ? (
+            <div className="flex items-center gap-3">
+              <Clock size={18} className="text-slate-400 shrink-0" />
+              <p className="text-sm font-medium text-slate-600">Waiting for the seller to confirm</p>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
+                  {isShiprocket ? <Truck size={17} /> : <Clock size={17} />}
                 </div>
-                <p className="text-base font-black text-emerald-900">Waiting for Confirm...</p>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium text-slate-500">
+                    {isShiprocket ? "Expected delivery" : "Arriving by"}
+                  </p>
+                  <p className="text-base font-bold text-slate-900 leading-tight">{estimatedArrivalText}</p>
+                </div>
               </div>
-            ) : (
-              <>
-                <div className="flex items-center gap-3">
-                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${isShiprocket ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"}`}>
-                    {isShiprocket ? <Truck size={20} className="text-blue-700" /> : <Clock size={20} className="text-emerald-700" />}
-                  </div>
-                  <div>
-                    <p className={`text-xs font-bold uppercase tracking-wider ${isShiprocket ? "text-blue-800" : "text-emerald-800"}`}>
-                      {isShiprocket ? "Estimated Delivery" : "Estimated Time"}
-                    </p>
-                    <p className={`text-lg font-black ${isShiprocket ? "text-slate-900" : "text-emerald-900"}`}>{estimatedArrivalText}</p>
-                  </div>
+
+              {/* Courier orders: show the courier only once one is really assigned. */}
+              {(!isShiprocket || shiprocket.courierName) && (
+                <div className="text-right shrink-0">
+                  {isShiprocket ? (
+                    <>
+                      <p className="text-[11px] font-medium text-slate-500">Delivery partner</p>
+                      <p className="text-sm font-semibold text-slate-800 leading-tight">{shiprocket.courierName}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-base font-bold text-[#1e7145] leading-tight">{arrivingInText}</p>
+                      {totalDistanceText && totalDistanceText !== "—" && (
+                        <p className="text-[11px] font-medium text-slate-500">{totalDistanceText} away</p>
+                      )}
+                    </>
+                  )}
                 </div>
-                <div className="text-right flex flex-col items-end gap-1">
-                  <div>
-                    <p className={`text-xs font-semibold ${isShiprocket ? "text-blue-700" : "text-emerald-700"}`}>
-                      {isShiprocket ? "Courier Partner" : "Arriving in"}
-                    </p>
-                    <p className={`${isShiprocket ? "text-sm font-black text-slate-800" : "text-2xl font-black text-emerald-900"}`}>
-                      {isShiprocket ? (shiprocket.courierName || "Blue Dart Express") : arrivingInText}
-                    </p>
-                  </div>
-                  <div className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold ${isShiprocket ? "bg-white text-blue-800 ring-1 ring-blue-200" : "bg-white/80 text-emerald-800 ring-1 ring-emerald-200"}`}>
-                    {isShiprocket ? "Pan-India Surface Courier" : `Total distance: ${totalDistanceText}`}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

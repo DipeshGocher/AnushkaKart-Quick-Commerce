@@ -182,7 +182,7 @@ export function evaluateProductDelivery(product, customerPincode) {
 
   // Determine seller origin pincode
   const sellerPincode = String(
-    product?.sellerId?.pincode || product?.warehouseId?.pincode || ""
+    product?.sellerId?.pincode || ""
   ).trim();
   const isSellerLocal = Boolean(sellerPincode && isPincodeLocalSync(sellerPincode));
 
@@ -362,11 +362,14 @@ export function resolveItemDeliveryInfo(item, {
   defaultFulfillment = "LOCAL",
   baseDate = new Date(),
 } = {}) {
-  // Determine effective fulfillment type
+  // Determine effective fulfillment type.
+  // The server's decision for the CURRENT address always wins. The item's own
+  // `fulfillmentType` is only a guess stamped when it was added to the cart / bought
+  // now (possibly for a different location), so it is a fallback, never the boss.
   const fulfillmentType =
-    item?.fulfillmentType ||
     itemDecision?.fulfillmentType ||
     previewItem?.itemFulfillmentType ||
+    item?.fulfillmentType ||
     (destinationPincode ? evaluateProductDelivery(item, destinationPincode)?.fulfillmentType : null) ||
     defaultFulfillment;
 

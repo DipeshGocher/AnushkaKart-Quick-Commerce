@@ -182,7 +182,7 @@ const Home = () => {
     }
 
     const cleanHeader = String(headerSlug || '').toLowerCase();
-    const reservedModuleKeywords = ['admin', 'seller', 'delivery', 'warehouse', 'unauthorized', 'login', 'signup', 'orders', 'cart', 'checkout', 'profile', 'settings', 'wishlist'];
+    const reservedModuleKeywords = ['admin', 'seller', 'delivery', 'unauthorized', 'login', 'signup', 'orders', 'cart', 'checkout', 'profile', 'settings', 'wishlist'];
     if (reservedModuleKeywords.includes(cleanHeader)) {
       setIsCategoryNotFound(true);
       return;

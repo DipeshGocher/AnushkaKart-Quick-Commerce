@@ -103,7 +103,12 @@ describe("updateOrderStatus delivered finance ordering", () => {
 
     const req = {
       params: { orderId: "ORD1" },
-      body: { status: "delivered", deliveryBoyId: "rider-1" },
+      // Admin completing a local (rider-owned) delivery must now state why.
+      body: {
+        status: "delivered",
+        deliveryBoyId: "rider-1",
+        overrideReason: "Rider app down; delivery confirmed with customer by phone",
+      },
       user: { id: "admin-1", role: "admin" },
     };
     const res = {};
@@ -118,5 +123,31 @@ describe("updateOrderStatus delivered finance ordering", () => {
 
     expect(mockApplyDeliveredSettlement).toHaveBeenCalledWith(orderDoc, "ORD1");
     expect(callOrder).toEqual(["save", "settlement"]);
+  });
+
+  it("refuses an admin delivering a local order without an override reason (rider OTP flow owns it)", async () => {
+    const orderDoc = {
+      _id: "mongo-2",
+      orderId: "ORD2",
+      status: "out_for_delivery",
+      orderStatus: "out_for_delivery",
+      workflowVersion: 1,
+      seller: "seller-1",
+      save: jest.fn(),
+    };
+    mockOrderFindOne.mockResolvedValue(orderDoc);
+
+    const result = await updateOrderStatus(
+      {
+        params: { orderId: "ORD2" },
+        body: { status: "delivered" },
+        user: { id: "admin-1", role: "admin" },
+      },
+      {},
+    );
+
+    expect(result.status).toBe(400);
+    expect(orderDoc.save).not.toHaveBeenCalled();
+    expect(mockApplyDeliveredSettlement).not.toHaveBeenCalled();
   });
 });

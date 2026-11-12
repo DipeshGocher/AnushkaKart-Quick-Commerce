@@ -39,6 +39,10 @@ export const DEFAULT_SETTINGS = {
   handlingFeeStrategy: "highest_category_fee",
   codEnabled: true,
   onlineEnabled: true,
+  upiEnabled: true,
+  upiId: "anushkaconnect@okaxis",
+  upiDisplayName: "Anushka Connect",
+  supportWhatsappNumber: "8209224481",
   lowStockAlertsEnabled: true,
   productApproval: {
     sellerCreateRequiresApproval: false,

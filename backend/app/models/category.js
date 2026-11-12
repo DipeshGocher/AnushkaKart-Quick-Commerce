@@ -54,6 +54,11 @@ const categorySchema = new mongoose.Schema(
       enum: ["quick_only", "both"],
       default: "both",
     },
+    // Header categories only (e.g. Mobile): show the EMI / finance calculator on their products.
+    financeEnabled: {
+      type: Boolean,
+      default: false,
+    },
     isKitCategory: {
       type: Boolean,
       default: false,

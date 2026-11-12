@@ -72,16 +72,6 @@ export async function getSellerWithdrawalsData({ page, limit, skip, status }) {
   };
 }
 
-export async function getWarehouseWithdrawalsData({ page = 1, limit = 25 }) {
-  return {
-    items: [],
-    page,
-    limit,
-    total: 0,
-    totalPages: 1,
-  };
-}
-
 export async function getSellerTransactionsData({ page, limit, skip, status, type, search }) {
   const query = { userModel: "Seller" };
 

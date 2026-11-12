@@ -39,18 +39,9 @@ function filterByHaversine(candidates, lat, lng, maxDistanceM) {
 export async function getDeliveryPartnerIdsWithinSellerRadius(sellerId) {
   if (!sellerId) return [];
 
-  let entity = await Seller.findById(sellerId)
+  const entity = await Seller.findById(sellerId)
     .select("location pincode address")
     .lean();
-
-  if (!entity) {
-    try {
-      const Warehouse = (await import("../models/warehouse.js")).default;
-      entity = await Warehouse.findById(sellerId)
-        .select("location pincode address")
-        .lean();
-    } catch (_wErr) {}
-  }
 
   if (!entity?.location?.coordinates?.length) return [];
 

@@ -290,7 +290,7 @@ function eventDefinition(eventType) {
         recipientIds: (payload) => normalizeIdList(payload.sellerId),
         title: () => "Product Returned to Store",
         body: (payload) =>
-          `Product for order #${payload.orderId || ""} has been returned. Admin QC is pending.`,
+          `Product for order #${payload.orderId || ""} has been returned. Please complete the quality check within 48 hours, otherwise the customer is refunded automatically.`,
       };
     case NOTIFICATION_EVENTS.RETURN_QC_PASSED:
       return {
@@ -308,11 +308,126 @@ function eventDefinition(eventType) {
         role: NOTIFICATION_ROLES.CUSTOMER,
         recipientIds: (payload) =>
           normalizeIdList(payload.customerId || payload.userId),
-        title: () => "QC Failed — No Refund",
+        title: () => "Quality check failed",
         body: (payload) =>
-          `Quality check failed for order #${payload.orderId || ""}. No refund will be issued.${
-            payload.data?.note ? " Note: " + payload.data.note : ""
-          }`,
+          `Quality check failed for order #${payload.orderId || ""}.${
+            payload.data?.note ? " Reason: " + truncateText(payload.data.note, 120) + "." : ""
+          } If you disagree, you can raise a dispute within ${
+            payload.data?.disputeWindowHours || 48
+          } hours from the order page.`,
+      };
+    case NOTIFICATION_EVENTS.RETURN_QC_REMINDER:
+      return {
+        role: NOTIFICATION_ROLES.SELLER,
+        recipientIds: (payload) => normalizeIdList(payload.sellerId),
+        title: () => "Quality check pending ⏰",
+        body: (payload) =>
+          `Please complete the quality check for returned order #${payload.orderId || ""}. ${
+            payload.data?.hoursToDue
+              ? `Due in ${payload.data.hoursToDue}h.`
+              : "It is due now."
+          } If it is not done in time, the customer is refunded automatically.`,
+      };
+    case NOTIFICATION_EVENTS.RETURN_QC_ESCALATED:
+      return {
+        multi: true,
+        definitions: [
+          {
+            role: NOTIFICATION_ROLES.ADMIN,
+            recipientIds: (payload) => normalizeIdList(payload.adminIds),
+            title: () => "Return QC overdue",
+            body: (payload) =>
+              `Seller has not completed QC for order #${payload.orderId || ""}. It will be auto-approved (customer refunded) in ${
+                payload.data?.hoursToAutoPass ?? 24
+              }h unless someone acts.`,
+          },
+          {
+            role: NOTIFICATION_ROLES.SELLER,
+            recipientIds: (payload) => normalizeIdList(payload.sellerId),
+            title: () => "QC overdue — action needed",
+            body: (payload) =>
+              `QC for order #${payload.orderId || ""} is overdue. It will be auto-approved in ${
+                payload.data?.hoursToAutoPass ?? 24
+              }h and the customer refunded.`,
+          },
+        ],
+      };
+    case NOTIFICATION_EVENTS.RETURN_QC_AUTO_PASSED:
+      return {
+        multi: true,
+        definitions: [
+          {
+            role: NOTIFICATION_ROLES.CUSTOMER,
+            recipientIds: (payload) => normalizeIdList(payload.customerId || payload.userId),
+            title: () => "Return approved 💸",
+            body: (payload) =>
+              `Your return for order #${payload.orderId || ""} was approved and your refund is on its way.`,
+          },
+          {
+            role: NOTIFICATION_ROLES.SELLER,
+            recipientIds: (payload) => normalizeIdList(payload.sellerId),
+            title: () => "Return auto-approved",
+            body: (payload) =>
+              `QC for order #${payload.orderId || ""} was not completed in time, so the return was auto-approved and the customer refunded.`,
+          },
+        ],
+      };
+    case NOTIFICATION_EVENTS.RETURN_DISPUTE_RAISED:
+      return {
+        multi: true,
+        definitions: [
+          {
+            role: NOTIFICATION_ROLES.ADMIN,
+            recipientIds: (payload) => normalizeIdList(payload.adminIds),
+            title: () => "Return dispute raised",
+            body: (payload) =>
+              `Customer disputed the failed QC on order #${payload.orderId || ""}: ${truncateText(
+                payload.data?.reason,
+                100,
+              )}`,
+          },
+          {
+            role: NOTIFICATION_ROLES.SELLER,
+            recipientIds: (payload) => normalizeIdList(payload.sellerId),
+            title: () => "Customer disputed your QC",
+            body: (payload) =>
+              `The customer disputed the failed QC on order #${payload.orderId || ""}. Admin will review. Your payout stays on hold until then.`,
+          },
+        ],
+      };
+    case NOTIFICATION_EVENTS.RETURN_DISPUTE_RESOLVED:
+      return {
+        multi: true,
+        definitions: [
+          {
+            role: NOTIFICATION_ROLES.CUSTOMER,
+            recipientIds: (payload) => normalizeIdList(payload.customerId || payload.userId),
+            title: () => "Dispute reviewed",
+            body: (payload) =>
+              payload.data?.decision === "customer"
+                ? `Your dispute for order #${payload.orderId || ""} was accepted. Your refund is being processed.`
+                : `Your dispute for order #${payload.orderId || ""} was reviewed and the quality check result stands.${
+                    payload.data?.note ? " Note: " + truncateText(payload.data.note, 120) : ""
+                  }`,
+          },
+          {
+            role: NOTIFICATION_ROLES.SELLER,
+            recipientIds: (payload) => normalizeIdList(payload.sellerId),
+            title: () => "Dispute decided",
+            body: (payload) =>
+              payload.data?.decision === "customer"
+                ? `Admin ruled for the customer on order #${payload.orderId || ""}. The return was approved and refunded.`
+                : `Admin ruled in your favour on order #${payload.orderId || ""}. Your payout is released.`,
+          },
+        ],
+      };
+    case NOTIFICATION_EVENTS.RETURN_REFUND_FAILED:
+      return {
+        role: NOTIFICATION_ROLES.ADMIN,
+        recipientIds: (payload) => normalizeIdList(payload.adminIds),
+        title: () => "Return refund failing",
+        body: (payload) =>
+          `The refund for returned order #${payload.orderId || ""} keeps failing after repeated retries. Manual action needed.`,
       };
     case NOTIFICATION_EVENTS.SUPPORT_TICKET_MESSAGE:
       return {

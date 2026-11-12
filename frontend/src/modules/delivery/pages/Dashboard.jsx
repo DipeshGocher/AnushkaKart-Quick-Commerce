@@ -43,7 +43,6 @@ const Dashboard = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeTab, setActiveTab] = useState("delivery"); // 'delivery' or 'return'
   const [availableOrders, setAvailableOrders] = useState([]);
-  const [checkinStatus, setCheckinStatus] = useState(null);
   const [pendingOffer, setPendingOffer] = useState(null);
   const [earnings, setEarnings] = useState({
     today: 0,
@@ -107,34 +106,17 @@ const Dashboard = () => {
     }
   };
 
-  // Fetch warehouse check-in status
-  const fetchCheckinStatus = async () => {
-    try {
-      const res = await deliveryApi.getCheckinStatus();
-      setCheckinStatus(res.data?.data);
-    } catch { /* non-fatal */ }
-  };
-
   useEffect(() => {
     fetchStats();
     fetchNotifications();
-    fetchCheckinStatus();
     if (isOnline) fetchAvailableOrders();
   }, [isOnline, activeTab]);
 
-  // Listen for queue order offers from socket
+  // Listen for new delivery / return-pickup offers from the socket
   useEffect(() => {
     const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_DELIVERY);
     const socket = getOrderSocket(getToken);
     if (!socket) return;
-    const handleOffer = (offer) => {
-      toast.info(`📦 New order offered! You have 5 minutes to respond`);
-      setPendingOffer(offer);
-    };
-    const handleExpired = () => {
-      setPendingOffer(null);
-      toast.warning("Order offer expired — moving to next rider");
-    };
     const handleBroadcast = (payload) => {
       if (payload.type === "RETURN_PICKUP") {
         toast.info(`📦 New Return Pickup available!`);
@@ -153,12 +135,8 @@ const Dashboard = () => {
       }
     };
     
-    socket.on("queue:order_offered", handleOffer);
-    socket.on("queue:order_offer_expired", handleExpired);
     socket.on("delivery:broadcast", handleBroadcast);
     return () => {
-      socket.off("queue:order_offered", handleOffer);
-      socket.off("queue:order_offer_expired", handleExpired);
       socket.off("delivery:broadcast", handleBroadcast);
     };
   }, []);
@@ -168,26 +146,15 @@ const Dashboard = () => {
       await handleAcceptReturn(orderId);
       setPendingOffer(null);
     } else if (pendingOffer?.countdown) {
-      if (pendingOffer.warehouseId) {
-        // Queue assignment response
-        const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_DELIVERY);
-        const socket = getOrderSocket(getToken);
-        socket?.emit("queue:offer_response", { orderId, accepted: true });
-        setPendingOffer(null);
-        toast.success("Order accepted! Preparing for pickup...");
-        navigate(`/delivery/order-details/${orderId}`);
-      } else {
-        // Broadcast fallback accept
-        try {
-          const res = await deliveryApi.acceptOrder(orderId);
-          if (res?.data?.success) {
-            toast.success("Order accepted! Preparing for pickup...");
-            setPendingOffer(null);
-            navigate(`/delivery/order-details/${orderId}`);
-          }
-        } catch (err) {
-          toast.error(err.response?.data?.message || "Failed to accept order");
+      try {
+        const res = await deliveryApi.acceptOrder(orderId);
+        if (res?.data?.success) {
+          toast.success("Order accepted! Preparing for pickup...");
+          setPendingOffer(null);
+          navigate(`/delivery/order-details/${orderId}`);
         }
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Failed to accept order");
       }
     }
   };
@@ -197,11 +164,6 @@ const Dashboard = () => {
       setPendingOffer(null);
       if (reason !== "timeout") toast.info("Return skipped.");
     } else {
-      if (pendingOffer?.orderId) {
-        const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_DELIVERY);
-        const socket = getOrderSocket(getToken);
-        socket?.emit("queue:offer_response", { orderId: pendingOffer.orderId, accepted: false });
-      }
       setPendingOffer(null);
       if (reason !== "timeout") toast.info("Order declined.");
     }
@@ -239,7 +201,7 @@ const Dashboard = () => {
 
   return (
     <div className="bg-[#f1f4f8] min-h-screen pb-24 font-sans">
-      {/* Queue Order Offer Modal */}
+      {/* Order Offer Modal */}
       {pendingOffer && (
         <OrderOfferModal
           offer={pendingOffer}

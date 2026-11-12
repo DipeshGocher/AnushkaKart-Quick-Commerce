@@ -63,12 +63,6 @@ const kitAddonItemSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-
-    warehouseId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Warehouse",
-      default: null,
-    },
   },
   { timestamps: true }
 );

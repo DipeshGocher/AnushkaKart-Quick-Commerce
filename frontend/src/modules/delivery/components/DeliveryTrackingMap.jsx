@@ -60,7 +60,7 @@ function distanceMeters(from, to) {
 
 function destinationForPhase(order, phase) {
   const isReturn = order?.returnStatus && order.returnStatus !== "none";
-  const pickupCoords = order?.seller?.location?.coordinates || order?.warehouseId?.location?.coordinates;
+  const pickupCoords = order?.seller?.location?.coordinates;
   if (phase === "pickup") {
     if (isReturn) {
       const loc = order?.address?.location;

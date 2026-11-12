@@ -23,7 +23,6 @@ const ROLE_STORAGE_KEYS = {
     seller: STORAGE_KEYS.AUTH_SELLER,
     admin: STORAGE_KEYS.AUTH_ADMIN,
     delivery: STORAGE_KEYS.AUTH_DELIVERY,
-    warehouse: STORAGE_KEYS.AUTH_WAREHOUSE,
 };
 
 const LEGACY_TOKEN_KEY = STORAGE_KEYS.AUTH_LEGACY;
@@ -36,7 +35,6 @@ export const AuthProvider = ({ children }) => {
         seller: getSafeToken('seller'),
         admin: getSafeToken('admin'),
         delivery: getSafeToken('delivery'),
-        warehouse: getSafeToken('warehouse'),
     });
 
     // Subscribe to the activeRoleStore so this context re-renders whenever the
@@ -61,7 +59,6 @@ export const AuthProvider = ({ children }) => {
                 seller: getSafeToken('seller'),
                 admin: getSafeToken('admin'),
                 delivery: getSafeToken('delivery'),
-                warehouse: getSafeToken('warehouse'),
             });
         };
 
@@ -166,7 +163,6 @@ export const AuthProvider = ({ children }) => {
                             path === '/admin/auth' ||
                             path === '/seller/auth' ||
                             path === '/delivery/auth' ||
-                            path === '/warehouse/auth' ||
                             path === '/login' ||
                             path === '/signup';
 
@@ -177,7 +173,6 @@ export const AuthProvider = ({ children }) => {
                             if (path.startsWith('/admin')) rawRemove(STORAGE_KEYS.AUTH_ADMIN);
                             if (path.startsWith('/seller')) rawRemove(STORAGE_KEYS.AUTH_SELLER);
                             if (path.startsWith('/delivery')) rawRemove(STORAGE_KEYS.AUTH_DELIVERY);
-                            if (path.startsWith('/warehouse')) rawRemove(STORAGE_KEYS.AUTH_WAREHOUSE);
                             rawRemove(LEGACY_TOKEN_KEY);
                             setAuthData((prev) => ({
                                 ...prev,
@@ -185,7 +180,6 @@ export const AuthProvider = ({ children }) => {
                                 ...(path.startsWith('/admin') ? { admin: null } : {}),
                                 ...(path.startsWith('/seller') ? { seller: null } : {}),
                                 ...(path.startsWith('/delivery') ? { delivery: null } : {}),
-                                ...(path.startsWith('/warehouse') ? { warehouse: null } : {}),
                             }));
                             setUser(null);
                         } else {
@@ -253,10 +247,6 @@ export const AuthProvider = ({ children }) => {
             rawRemove(STORAGE_KEYS.AUTH_SELLER);
             clearByPrefix('seller_', { storage: 'session' });
             clearByPrefix('seller_', { storage: 'local' });
-        } else if (path.startsWith('/warehouse')) {
-            rawRemove(STORAGE_KEYS.AUTH_WAREHOUSE);
-            clearByPrefix('warehouse_', { storage: 'session' });
-            clearByPrefix('warehouse_', { storage: 'local' });
         } else if (path.startsWith('/delivery')) {
             rawRemove(STORAGE_KEYS.AUTH_DELIVERY);
             clearByPrefix('delivery_', { storage: 'session' });
@@ -279,7 +269,6 @@ export const AuthProvider = ({ children }) => {
             ...(path.startsWith('/admin') ? { admin: null } : {}),
             ...(path.startsWith('/seller') ? { seller: null } : {}),
             ...(path.startsWith('/delivery') ? { delivery: null } : {}),
-            ...(path.startsWith('/warehouse') ? { warehouse: null } : {}),
         }));
 
         setUser(null);
@@ -293,7 +282,6 @@ export const AuthProvider = ({ children }) => {
         const isAlreadyOnAuth =
             path === '/admin/auth' ||
             path === '/seller/auth' ||
-            path === '/warehouse/auth' ||
             path === '/delivery/auth' ||
             path === '/login';
 
@@ -305,8 +293,6 @@ export const AuthProvider = ({ children }) => {
             window.location.href = '/admin/auth';
         } else if (path.startsWith('/seller')) {
             window.location.href = '/seller/auth';
-        } else if (path.startsWith('/warehouse')) {
-            window.location.href = '/warehouse/auth';
         } else if (path.startsWith('/delivery')) {
             window.location.href = '/delivery/auth';
         } else {

@@ -11,12 +11,18 @@ import {
   Plus,
   HelpCircle,
   Smile,
-  ShieldCheck,
   CheckCircle2,
   Loader2,
   AlertTriangle,
   MessageCircle,
+  QrCode,
+  Copy,
+  Check,
+  Download,
+  X,
 } from "lucide-react";
+import QRCode from "react-qr-code";
+import { downloadQrAsPng } from "@shared/utils/qrDownload";
 import { customerApi } from "../services/customerApi";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "@core/context/AuthContext";
@@ -50,6 +56,9 @@ const PaymentPage = () => {
   const { clearCartSection, removeFromCart, cart } = useCart();
 
   const appName = settings?.storeName || settings?.brandName || "Anushka Connect";
+  const upiId = settings?.upiId || "anushkaconnect@okaxis";
+  const upiDisplayName = settings?.upiDisplayName || appName || "Anushka Connect";
+  const upiEnabled = settings?.upiEnabled !== false;
 
   // Retrieve checkout state from route state or sessionStorage backup
   const checkoutData = useMemo(() => {
@@ -70,11 +79,18 @@ const PaymentPage = () => {
     return null;
   }, [location.state]);
 
-  const [openAccordion, setOpenAccordion] = useState("online"); // 'online' | 'cod' | null
+  // "Pay Online" is always the section that opens first.
+  const [openAccordion, setOpenAccordion] = useState("online"); // 'upi_qr' | 'online' | 'cod' | 'emi'
   const [isPriceDropdownOpen, setIsPriceDropdownOpen] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [orderId, setOrderId] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [upiModalData, setUpiModalData] = useState(null);
+  const [utrInput, setUtrInput] = useState("");
+  const [isSubmittingUtr, setIsSubmittingUtr] = useState(false);
+  const qrWrapRef = useRef(null);
+  const [isDownloadingQr, setIsDownloadingQr] = useState(false);
+  const [isCopiedUpi, setIsCopiedUpi] = useState(false);
   const postOrderNavigateRef = useRef(null);
 
   useEffect(() => {
@@ -198,7 +214,72 @@ const PaymentPage = () => {
     }
   };
 
-  const handlePlaceOrder = async (mode) => {
+    const handleCopyUpi = () => {
+      if (!upiId) return;
+      navigator.clipboard.writeText(upiId);
+      setIsCopiedUpi(true);
+      showToast("UPI ID copied to clipboard!", "success");
+      setTimeout(() => setIsCopiedUpi(false), 2500);
+    };
+
+    // UPI QR: the order is created (and stock reserved) first, then the QR is shown.
+    // Admin has 48h to verify the UTR; otherwise the order is cancelled and stock released
+    // by a backend job (no automatic refund).
+    const handleOpenUpiQr = () => {
+      setUtrInput("");
+      handlePlaceOrder("upi_qr");
+    };
+
+    const handleCloseUpiQr = () => {
+      if (isSubmittingUtr || !upiModalData) return;
+      // The order already exists: continue to it so the UTR can still be sent from there.
+      navigate(upiModalData.postExitRoute || `/orders/${upiModalData.orderId}`);
+    };
+
+    const handleSubmitUtr = async (e) => {
+      if (e) e.preventDefault();
+      const cleanUtr = String(utrInput || "").trim();
+      if (!/^\d{12}$/.test(cleanUtr)) {
+        showToast("Please enter a valid 12-digit numeric UTR number.", "error");
+        return;
+      }
+      if (!upiModalData?.orderId || isSubmittingUtr) return;
+
+      setIsSubmittingUtr(true);
+      try {
+        const res = await customerApi.submitOrderUtr(upiModalData.orderId, { utrNumber: cleanUtr });
+        if (res.data?.success) {
+          showToast("Payment submitted! Your order is awaiting verification.", "success");
+          setShowSuccess(true);
+          setTimeout(() => {
+            navigate(upiModalData.postExitRoute || `/orders/${upiModalData.orderId}`);
+          }, 1800);
+        } else {
+          showToast(res.data?.message || "Could not submit UTR. Please try again.", "error");
+        }
+      } catch (err) {
+        showToast(err.response?.data?.message || "Failed to submit UTR. Please try again.", "error");
+      } finally {
+        setIsSubmittingUtr(false);
+      }
+    };
+
+    const handleDownloadQr = async () => {
+      const svgEl = qrWrapRef.current?.querySelector("svg");
+      if (!svgEl || isDownloadingQr) return;
+      setIsDownloadingQr(true);
+      try {
+        const outcome = await downloadQrAsPng(svgEl, "payment-qr-" + upiModalData.amount + ".png");
+        if (outcome === "downloaded") showToast("QR saved. Open it from your gallery in any UPI app.", "success");
+      } catch (error) {
+        // A cancelled share sheet is not an error worth shouting about.
+        if (error?.name !== "AbortError") showToast("Could not save the QR. Please take a screenshot instead.", "error");
+      } finally {
+        setIsDownloadingQr(false);
+      }
+    };
+
+    const handlePlaceOrder = async (mode) => {
     if (isPlacingOrder) return;
 
     if (!orderAddress || !orderAddress.address) {
@@ -213,7 +294,7 @@ const PaymentPage = () => {
       const taxAmount = pricingPreview?.taxTotal || 0;
       const orderData = {
         address: orderAddress,
-        paymentMode: mode === "online" ? "ONLINE" : "COD",
+        paymentMode: mode === "online" ? "ONLINE" : mode === "upi_qr" ? "UPI_QR" : "COD",
         discountTotal,
         taxTotal: taxAmount,
         tipAmount: 0,
@@ -250,6 +331,21 @@ const PaymentPage = () => {
           setIsPlacingOrder(false);
           showToast("Order created. Checking your orders...", "warning");
           navigate("/orders");
+          return;
+        }
+
+        // UPI QR: order exists and stock is reserved; now show the QR + UTR form.
+        if (mode === "upi_qr") {
+          setIsPlacingOrder(false);
+          if (directBuyItem) {
+            removeFromCart(directBuyItem.id || directBuyItem._id, directBuyItem.variantSku);
+          } else {
+            clearCartSection("grocery");
+          }
+          sessionStorage.removeItem("pending_checkout_data");
+          sessionStorage.removeItem("direct_buy_item");
+          setOrderId(mainOrderId);
+          setUpiModalData({ orderId: mainOrderId, amount: finalAmountToPay, postExitRoute });
           return;
         }
 
@@ -497,6 +593,55 @@ const PaymentPage = () => {
 
         {/* Payment Options Accordion */}
         <div className="space-y-3">
+          {/* Option: UPI QR Code (Option A) */}
+          {upiEnabled && (
+            <div className="bg-white rounded-2xl border-2 border-emerald-500/30 shadow-xs overflow-hidden transition-all">
+              <button
+                type="button"
+                onClick={() => setOpenAccordion(openAccordion === "upi_qr" ? null : "upi_qr")}
+                className="w-full p-4 flex items-start gap-3.5 text-left cursor-pointer hover:bg-emerald-50/20 transition-colors"
+              >
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-700 shrink-0 mt-0.5 border border-emerald-200">
+                  <QrCode size={22} className="stroke-[2.2]" />
+                </div>
+                <div className="flex-1 min-w-0 pr-1 self-center">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-[14.5px] font-black text-slate-900 leading-snug">
+                      Pay With QR
+                    </h3>
+                    {openAccordion === "upi_qr" ? (
+                      <ChevronUp size={18} className="text-slate-500 shrink-0 ml-1 stroke-[2.2]" />
+                    ) : (
+                      <ChevronDown size={18} className="text-slate-500 shrink-0 ml-1 stroke-[2.2]" />
+                    )}
+                  </div>
+                </div>
+              </button>
+
+              {openAccordion === "upi_qr" && (
+                <div className="px-4 pb-4 pt-3 border-t border-slate-100 animate-in fade-in-50 duration-200">
+                  <button
+                    type="button"
+                    onClick={handleOpenUpiQr}
+                    disabled={isPlacingOrder}
+                    className="w-full bg-[#FFC200] hover:bg-[#F5B800] active:scale-[0.98] text-slate-900 font-extrabold text-[15px] py-3.5 px-6 rounded-xl shadow-md shadow-amber-200/60 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                  >
+                    {isPlacingOrder ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin text-slate-900" />
+                        <span>Please wait...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Pay ₹{finalAmountToPay}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Option 1: Credit / Debit / ATM Card / UPI (Pay Online) */}
           <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
             <button
@@ -545,7 +690,7 @@ const PaymentPage = () => {
                       <span>Initiating Payment...</span>
                     </>
                   ) : (
-                    <span>Pay Online ₹{finalAmountToPay}</span>
+                    <span>Pay ₹{finalAmountToPay}</span>
                   )}
                 </button>
               </div>
@@ -658,6 +803,110 @@ const PaymentPage = () => {
           </div>
         </div>
       </main>
+
+      {/* Dynamic UPI QR Payment Modal */}
+      {upiModalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto relative animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <QrCode size={20} className="text-emerald-600" />
+                  Pay With QR
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseUpiQr}
+                disabled={isSubmittingUtr}
+                className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors cursor-pointer disabled:opacity-40"
+                title="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Amount locked badge */}
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 flex items-center justify-between text-emerald-900">
+              <span className="text-xs font-bold uppercase tracking-wider">Locked Amount</span>
+              <span className="text-xl font-black text-emerald-700">₹{upiModalData.amount}</span>
+            </div>
+
+            {/* Dynamic QR Code Card */}
+            <div className="text-center bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+              <div className="relative inline-block">
+                <div ref={qrWrapRef} className="bg-white p-3.5 rounded-2xl shadow-sm inline-block border border-slate-200">
+                  <QRCode
+                    value={`upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiDisplayName)}&am=${upiModalData.amount}&cu=INR&tn=${encodeURIComponent("Order_" + upiModalData.orderId)}`}
+                    size={175}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadQr}
+                  disabled={isDownloadingQr}
+                  className="absolute -top-2 -right-2 h-9 w-9 rounded-full bg-white border border-slate-200 shadow-md flex items-center justify-center text-slate-700 hover:bg-slate-50 active:scale-95 transition cursor-pointer disabled:opacity-60"
+                  title="Save QR to gallery"
+                  aria-label="Save QR to gallery"
+                >
+                  {isDownloadingQr ? <Loader2 size={16} className="animate-spin" /> : <Download size={17} />}
+                </button>
+              </div>
+
+              {/* UPI ID copy */}
+              <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono">
+                <span className="text-slate-600 truncate">{upiId}</span>
+                <button
+                  type="button"
+                  onClick={handleCopyUpi}
+                  className="flex items-center gap-1 text-[11px] font-sans font-bold text-blue-600 hover:text-blue-700 shrink-0 ml-2 cursor-pointer"
+                >
+                  {isCopiedUpi ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                  <span>{isCopiedUpi ? "Copied" : "Copy"}</span>
+                </button>
+              </div>
+
+            </div>
+
+            {/* UTR Submission Form */}
+            <form onSubmit={handleSubmitUtr} className="space-y-3 pt-1">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
+                  Enter 12-Digit UTR / UPI Ref No. <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  maxLength={12}
+                  value={utrInput}
+                  onChange={(e) => setUtrInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder="e.g. 402938491029"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-300 font-mono text-base font-bold tracking-widest text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all text-center placeholder:tracking-normal placeholder:font-sans placeholder:text-sm"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmittingUtr || utrInput.length !== 12}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-extrabold text-[15px] py-3.5 px-6 rounded-xl shadow-md shadow-emerald-200 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmittingUtr ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin text-white" />
+                    <span>Submitting...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={18} />
+                    <span>Submit Payment</span>
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

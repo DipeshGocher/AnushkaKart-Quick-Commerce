@@ -24,13 +24,6 @@ const orderSchema = new mongoose.Schema(
       ref: "Seller",
     },
 
-    /** Warehouse fulfilling this order — derived from product.warehouseId at placement */
-    warehouseId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Warehouse",
-      default: null,
-      index: true,
-    },
     items: [
       {
         product: {
@@ -116,7 +109,7 @@ const orderSchema = new mongoose.Schema(
     payment: {
       method: {
         type: String,
-        enum: ["cash", "online", "wallet"],
+        enum: ["cash", "online", "wallet", "upi_qr"],
         default: "cash",
       },
       status: {
@@ -125,6 +118,30 @@ const orderSchema = new mongoose.Schema(
         default: "pending",
       },
       transactionId: String,
+    },
+    utrNumber: {
+      type: String,
+      default: null,
+      trim: true,
+      index: true,
+    },
+    utrSubmittedAt: {
+      type: Date,
+      default: null,
+    },
+    // UPI QR only: when this order is auto-cancelled if admin has not verified the payment
+    // (or the customer has not sent a UTR). Null/absent = never auto-cancelled (older orders).
+    upiApprovalExpiresAt: {
+      type: Date,
+      default: null,
+    },
+    // When admin verified the UPI payment. The generic stale-order cleanup counts from here, not createdAt.
+    upiApprovedAt: { type: Date, default: null },
+    // Set when the system cancelled the order because the UPI payment was not verified in time.
+    upiExpiryCancelledAt: { type: Date, default: null },
+    paymentRejectedReason: {
+      type: String,
+      default: null,
     },
     /**
      * @deprecated Phase 4 (P4-7). Use the canonical `paymentBreakdown`
@@ -249,7 +266,7 @@ const orderSchema = new mongoose.Schema(
     
     // --- NEW Delivery Info (Source of truth for route distance & earnings) ---
     delivery: {
-      warehouseLocation: {
+      pickupLocation: {
         lat: Number,
         lng: Number
       },
@@ -647,6 +664,37 @@ const orderSchema = new mongoose.Schema(
     returnQcNote: {
       type: String,
     },
+    // Who made the QC decision: "seller" | "admin" | "system" (auto-pass).
+    returnQcByRole: {
+      type: String,
+      enum: ["seller", "admin", "system"],
+    },
+    // Proof photos the seller must attach when failing a QC.
+    returnQcEvidenceImages: [{ type: String }],
+    returnQcAutoPassed: { type: Boolean, default: false },
+    // Deadline tracking for the QC SLA job:
+    // 0 = nothing sent, 1 = 24h reminder, 2 = 40h reminder, 3 = escalated to admin (48h).
+    returnQcReminderStage: { type: Number, default: 0 },
+    // Customer dispute against a failed QC (one per return).
+    returnDispute: {
+      status: {
+        type: String,
+        enum: ["none", "open", "overturned", "upheld"],
+        default: "none",
+      },
+      raisedAt: Date,
+      reason: String,
+      images: [{ type: String }],
+      resolvedAt: Date,
+      resolvedBy: { type: mongoose.Schema.Types.ObjectId },
+      resolutionNote: String,
+    },
+    // Seller payout is held until the dispute window closes after a failed QC.
+    returnQcPayoutReleasedAt: { type: Date },
+    returnQcPayoutAttempts: { type: Number, default: 0 },
+    // Customer refund retries (when the refund transaction fails after QC passed).
+    returnRefundAttempts: { type: Number, default: 0 },
+    returnRefundLastError: { type: String },
     returnPickupImages: [{ type: String }],
     returnPickupCondition: {
       type: String,
@@ -704,7 +752,6 @@ orderSchema.index(
 );
 orderSchema.index({ customer: 1, createdAt: -1, _id: -1 });
 orderSchema.index({ seller: 1, createdAt: -1, _id: -1 });
-orderSchema.index({ warehouseId: 1, status: 1, createdAt: -1 });
 
 // ─── Additional performance-critical indexes ──────────────────────────────
 
@@ -724,24 +771,54 @@ orderSchema.index({ "settlementStatus.overall": 1, createdAt: -1 });
 orderSchema.index({ returnStatus: 1, returnRequestedAt: -1 });
 orderSchema.index({ customer: 1, returnStatus: 1, createdAt: -1 });
 
+// UPI QR auto-cancel sweep
+orderSchema.index(
+  { upiApprovalExpiresAt: 1 },
+  { partialFilterExpression: { upiApprovalExpiresAt: { $type: "date" } } },
+);
+
 // Seller dashboard with status filter
 orderSchema.index({ seller: 1, status: 1, createdAt: -1 });
+
+// Core lifecycle states that `orderStatus` mirrors. "returned" is deliberately
+// excluded: delivered orders keep orderStatus "delivered" (review eligibility,
+// settlement) while `status` can become "returned".
+const MIRRORED_CORE_STATUSES = new Set([
+  "pending",
+  "confirmed",
+  "packed",
+  "out_for_delivery",
+  "delivered",
+  "cancelled",
+]);
 
 orderSchema.pre('save', function(next) {
   if (!this.orderStatus) {
     this.orderStatus = this.status || "pending";
+  }
+  // A document save that changes `status` but forgets `orderStatus` would drift
+  // (update-queries are already mirrored by the findOneAndUpdate hook below).
+  if (
+    !this.isNew &&
+    this.isModified("status") &&
+    !this.isModified("orderStatus") &&
+    MIRRORED_CORE_STATUSES.has(this.status)
+  ) {
+    this.orderStatus = this.status;
   }
   if (!this.status && this.orderStatus) {
     this.status = this.orderStatus;
   }
   if (!this.paymentMode) {
     const method = String(this.payment?.method || "").toLowerCase();
-    this.paymentMode = method === "online" ? "ONLINE" : "COD";
+    this.paymentMode = method === "online" ? "ONLINE" : method === "upi_qr" ? "UPI_QR" : "COD";
   }
   if (!this.paymentStatus) {
     const paymentStatusLegacy = String(this.payment?.status || "").toLowerCase();
     if (this.paymentMode === "ONLINE") {
       this.paymentStatus = paymentStatusLegacy === "completed" ? "PAID" : "CREATED";
+    } else if (this.paymentMode === "UPI_QR") {
+      this.paymentStatus = paymentStatusLegacy === "completed" ? "PAID" : "AWAITING_VERIFICATION";
     } else {
       this.paymentStatus = paymentStatusLegacy === "completed" ? "CASH_COLLECTED" : "PENDING_CASH_COLLECTION";
     }
@@ -790,6 +867,8 @@ const PAYMENT_STATUS_TO_LEGACY = {
   COD_RECONCILED: "completed",
   REFUNDED: "refunded",
   FAILED: "failed",
+  REJECTED: "failed",
+  AWAITING_VERIFICATION: "pending",
 };
 
 function deriveLegacyPaymentStatus(canonical) {
@@ -818,7 +897,7 @@ function mirrorCanonicalToLegacy(update) {
   // values are "cash" / "online" / "wallet"; we never derive "wallet"
   // automatically (it is set explicitly by the wallet-payment flow).
   if (set.paymentMode && set["payment.method"] == null) {
-    set["payment.method"] = set.paymentMode === "ONLINE" ? "online" : "cash";
+    set["payment.method"] = set.paymentMode === "ONLINE" ? "online" : set.paymentMode === "UPI_QR" ? "upi_qr" : "cash";
   }
 
   // deliveryBoy ↔ deliveryPartner mirror (Phase 4 P4-9 prep).

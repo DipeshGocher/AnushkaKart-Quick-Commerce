@@ -19,6 +19,13 @@ import { Loader2, X } from "lucide-react";
 import { onReturnDropOtp } from "@core/services/orderSocket";
 import { createSocketTokenReader } from "@core/utils/authStorage";
 import { STORAGE_KEYS } from "@core/utils/storage";
+import ProofImagePicker from "@shared/components/ProofImagePicker";
+import {
+    QC_NOTE_MIN_LENGTH,
+    getQcCountdown,
+    getDisputeInfo,
+    getQcDeciderLabel,
+} from "@shared/utils/returnQc";
 
 const Returns = () => {
     const { showToast } = useToast();
@@ -32,6 +39,7 @@ const Returns = () => {
     const [submittingReject, setSubmittingReject] = useState(false);
     const [isQcFailModalOpen, setIsQcFailModalOpen] = useState(false);
     const [qcFailNote, setQcFailNote] = useState("");
+    const [qcFailImages, setQcFailImages] = useState([]);
     const [submittingQcFail, setSubmittingQcFail] = useState(false);
     const [simulatingCourier, setSimulatingCourier] = useState(false);
     const [assigningPickup, setAssigningPickup] = useState(false);
@@ -231,16 +239,26 @@ const Returns = () => {
     };
 
     const handleQcFail = async () => {
-        if (!qcFailNote.trim() || !selectedReturn) return;
+        if (!selectedReturn) return;
+        if (qcFailNote.trim().length < QC_NOTE_MIN_LENGTH) {
+            showToast("Please explain why QC failed (at least " + QC_NOTE_MIN_LENGTH + " characters).", "error");
+            return;
+        }
+        if (qcFailImages.length === 0) {
+            showToast("Please attach at least 1 photo as proof.", "error");
+            return;
+        }
         try {
             setSubmittingQcFail(true);
             await sellerApi.updateReturnQcStatus(selectedReturn.orderId, {
                 qcStatus: "qc_failed",
                 note: qcFailNote.trim(),
+                evidenceImages: qcFailImages,
             });
-            showToast("QC marked as failed", "success");
+            showToast("QC marked as failed. The customer can dispute this for 48 hours.", "success");
             setIsQcFailModalOpen(false);
             setQcFailNote("");
+            setQcFailImages([]);
             setIsDetailsOpen(false);
             await fetchReturns();
         } catch (error) {
@@ -432,6 +450,19 @@ const Returns = () => {
                                                             <span className="text-[10px] font-bold text-brand-700">Rider: {ret.returnDeliveryBoy.name}</span>
                                                         </div>
                                                     )}
+                                                    {(() => {
+                                                        const chip = getQcCountdown(ret) || getDisputeInfo(ret);
+                                                        if (!chip) return null;
+                                                        const tone = chip.tone === "danger" ? "bg-rose-50 text-rose-700 border-rose-100"
+                                                            : chip.tone === "warning" ? "bg-amber-50 text-amber-700 border-amber-100"
+                                                            : chip.tone === "success" ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                                                            : "bg-slate-50 text-slate-600 border-slate-100";
+                                                        return (
+                                                            <div className={"mt-2 w-fit rounded-lg border px-2 py-1 text-[10px] font-bold " + tone}>
+                                                                {chip.label}
+                                                            </div>
+                                                        );
+                                                    })()}
                                                     {/* Proper Data: QC Note for passed/failed */}
                                                     {(ret.returnStatus === "qc_passed" || ret.returnStatus === "qc_failed") && ret.returnQcNote && (
                                                         <div className="mt-2 flex items-start gap-1.5 px-2 py-1 bg-slate-50 rounded-lg border border-slate-100 w-fit max-w-[200px]">
@@ -687,11 +718,61 @@ const Returns = () => {
                                                 </p>
                                             </div>
                                         )}
+                                        {Array.isArray(selectedReturn.returnQcEvidenceImages) && selectedReturn.returnQcEvidenceImages.length > 0 && (
+                                            <div className="flex flex-wrap gap-2">
+                                                {selectedReturn.returnQcEvidenceImages.map((url, i) => (
+                                                    <a key={url + i} href={url} target="_blank" rel="noreferrer">
+                                                        <img src={url} alt={"QC proof " + (i + 1)} className="h-14 w-14 rounded-lg object-cover border border-black/10" />
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {getQcDeciderLabel(selectedReturn) && (
+                                            <p className="text-[10px] font-bold text-slate-500">{getQcDeciderLabel(selectedReturn)}</p>
+                                        )}
                                         {selectedReturn.returnQcAt && (
                                             <p className="text-[10px] font-medium text-slate-500">
                                                 Reviewed on: {new Date(selectedReturn.returnQcAt).toLocaleString()}
                                             </p>
                                         )}
+                                        {getDisputeInfo(selectedReturn) && (
+                                            <p className="text-[11px] font-bold text-slate-700">{getDisputeInfo(selectedReturn).label}</p>
+                                        )}
+                                        {selectedReturn.returnStatus === "qc_failed" && (
+                                            <p className="text-[10px] font-medium text-slate-500">
+                                                Your payout stays on hold until the dispute window closes (or admin decides a dispute).
+                                            </p>
+                                        )}
+                                        {selectedReturn.returnDispute?.status && selectedReturn.returnDispute.status !== "none" && (
+                                            <div className="bg-white/70 p-3 rounded-xl border border-black/5 space-y-1">
+                                                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Customer dispute</p>
+                                                {selectedReturn.returnDispute.reason && (
+                                                    <p className="text-sm text-slate-800 italic">&quot;{selectedReturn.returnDispute.reason}&quot;</p>
+                                                )}
+                                                {selectedReturn.returnDispute.resolutionNote && (
+                                                    <p className="text-xs text-slate-600">Admin: {selectedReturn.returnDispute.resolutionNote}</p>
+                                                )}
+                                            </div>
+                                        )}
+                                        {selectedReturn.returnStatus === "qc_passed" && (
+                                            <div className="space-y-2">
+                                                <p className="text-[11px] font-bold text-amber-700">
+                                                    Refund is still being processed. It is retried automatically.
+                                                </p>
+                                                <Button
+                                                    className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+                                                    onClick={() => handleQcPass(selectedReturn.orderId)}
+                                                >
+                                                    Retry refund now
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                {getQcCountdown(selectedReturn) && (
+                                    <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                                        <p className="text-sm font-black text-amber-800">{getQcCountdown(selectedReturn).label}</p>
+                                        <p className="text-xs font-medium text-amber-700 mt-1">{getQcCountdown(selectedReturn).detail}</p>
                                     </div>
                                 )}
 
@@ -957,7 +1038,7 @@ const Returns = () => {
                             className="w-full max-w-md relative z-10 bg-white rounded-3xl shadow-2xl p-6 space-y-4"
                         >
                             <h3 className="text-xl font-black text-rose-600">QC Failed</h3>
-                            <p className="text-sm text-slate-600 font-medium">Please enter a reason or description of why this returned item failed physical inspection.</p>
+                            <p className="text-sm text-slate-600 font-medium">Explain why this returned item failed inspection and attach photo proof. The customer will see this and can dispute it within 48 hours.</p>
 
                             <div className="space-y-2">
                                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">QC Failure Note</label>
@@ -968,7 +1049,16 @@ const Returns = () => {
                                     value={qcFailNote}
                                     onChange={(e) => setQcFailNote(e.target.value)}
                                 />
+                                <p className="text-[11px] text-slate-500">
+                                    {qcFailNote.trim().length}/{QC_NOTE_MIN_LENGTH} characters minimum
+                                </p>
                             </div>
+                            <ProofImagePicker
+                                images={qcFailImages}
+                                onChange={setQcFailImages}
+                                onError={(m) => showToast(m, "error")}
+                                label="Proof photos (required)"
+                            />
 
                             <div className="flex gap-2 pt-2">
                                 <Button
@@ -983,7 +1073,7 @@ const Returns = () => {
                                     className="flex-1 font-bold bg-rose-600 hover:bg-rose-700 text-white"
                                     onClick={handleQcFail}
                                     isLoading={submittingQcFail}
-                                    disabled={!qcFailNote.trim() || submittingQcFail}
+                                    disabled={qcFailNote.trim().length < QC_NOTE_MIN_LENGTH || qcFailImages.length === 0 || submittingQcFail}
                                 >
                                     Submit QC Fail
                                 </Button>

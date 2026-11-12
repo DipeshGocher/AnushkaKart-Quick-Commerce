@@ -25,7 +25,6 @@ export const ROLES = Object.freeze({
     SELLER: 'seller',
     DELIVERY: 'delivery',
     CUSTOMER: 'customer',
-    WAREHOUSE: 'warehouse',
 });
 
 let _activeRole = null;
@@ -37,13 +36,12 @@ function inferRoleFromUrl() {
     if (path.startsWith('/seller')) return ROLES.SELLER;
     if (path.startsWith('/admin')) return ROLES.ADMIN;
     if (path.startsWith('/delivery')) return ROLES.DELIVERY;
-    if (path.startsWith('/warehouse')) return ROLES.WAREHOUSE;
     return ROLES.CUSTOMER;
 }
 
 /**
  * Returns the current role. If the URL clearly belongs to an explicit portal
- * (/admin, /seller, /delivery, /warehouse), that URL role always takes precedence
+ * (/admin, /seller, /delivery), that URL role always takes precedence
  * over any stale role left in memory by an earlier page in the same tab.
  */
 export function getActiveRole() {

@@ -19,6 +19,9 @@ import { Loader2 } from 'lucide-react';
 import ParticleBurst from './ParticleBurst';
 import ProductCard from './ProductCard';
 import { setStatusBarColor } from '@/core/utils/statusBar';
+import { Calculator } from 'lucide-react';
+import FinanceCalculatorModal from '../finance/FinanceCalculatorModal';
+import { loadEmiHeaders, isFinanceHeader } from '../../services/emiHeaders';
 
 const extendedProductMemoryCache = new Map();
 const reviewsMemoryCache = new Map();
@@ -176,6 +179,8 @@ const ProductDetailSheet = () => {
 
     const [isExpanded, setIsExpanded] = useState(true);
     const [selectedVariant, setSelectedVariant] = useState(null);
+    const [emiHeaders, setEmiHeaders] = useState(null);
+    const [showFinance, setShowFinance] = useState(false);
     const [activeImageIndex, setActiveImageIndex] = useState(0);
     const activeImageIndexRef = useRef(0);
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -614,6 +619,14 @@ const ProductDetailSheet = () => {
     }, [selectedVariant, activeProduct, selectedProduct, resolvedSellingPrice]);
 
     const effectivePrice = resolvedSellingPrice;
+
+    // EMI / finance: only products in header categories the admin switched on (e.g. Mobile).
+    useEffect(() => {
+        let alive = true;
+        loadEmiHeaders().then((h) => alive && setEmiHeaders(h));
+        return () => { alive = false; };
+    }, []);
+    const showFinanceButton = isFinanceHeader(emiHeaders, activeProduct || selectedProduct);
 
     const activeProductId = String(activeProduct?._id || activeProduct?.id || selectedProduct?._id || selectedProduct?.id || "");
     const activeVariantKey = String(selectedVariant?.sku || selectedVariant?.name || variantKey || "").trim();
@@ -1115,6 +1128,26 @@ const ProductDetailSheet = () => {
 
     const renderDeliveryFulfillmentCard = () => {
         return null;
+    };
+
+    const renderFinanceCard = () => {
+        if (!showFinanceButton) return null;
+        return (
+            <button
+                type="button"
+                onClick={() => setShowFinance(true)}
+                className="w-full my-3 flex items-center gap-3 rounded-2xl border border-blue-200/70 bg-blue-50/60 px-4 py-3.5 text-left active:scale-[0.99] transition"
+            >
+                <span className="h-10 w-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0">
+                    <Calculator size={20} />
+                </span>
+                <span className="flex-1 min-w-0">
+                    <span className="block text-[14px] font-extrabold text-slate-900 leading-tight">Buy on EMI</span>
+                    <span className="block text-[12px] text-slate-500 mt-0.5">Check your monthly EMI and send a quotation</span>
+                </span>
+                <ChevronRight size={18} className="text-blue-600 shrink-0" />
+            </button>
+        );
     };
 
     const renderMoreDetailsCard = () => {
@@ -1739,7 +1772,8 @@ const ProductDetailSheet = () => {
                                     <div className="border-t border-slate-100 my-4" />
 
                                     {/* 1. 7-Day Return, Cash on Delivery, 1 Year Warranty */}
-                                    {renderTrustBadges()}
+                                    {renderFinanceCard()}
+{renderTrustBadges()}
 
                                     {/* 2. More Details Card */}
                                     {renderMoreDetailsCard()}
@@ -2077,7 +2111,8 @@ const ProductDetailSheet = () => {
                                 <div className="border-t border-slate-100 my-3" />
 
                                 {/* 1. 7-Day Return, Cash on Delivery, 1 Year Warranty */}
-                                {renderTrustBadges()}
+                                {renderFinanceCard()}
+{renderTrustBadges()}
 
                                 {/* 2. More Details Card */}
                                 {renderMoreDetailsCard()}
@@ -2261,6 +2296,13 @@ const ProductDetailSheet = () => {
                     </AnimatePresence>
 
                     {/* Review Photo Preview Modal */}
+                    {showFinance && showFinanceButton && (
+                        <FinanceCalculatorModal
+                            productId={activeProductId}
+                            variantKey={activeVariantKey}
+                            onClose={() => setShowFinance(false)}
+                        />
+                    )}
                     {previewReviewImage && (
                         <div
                             className="fixed inset-0 z-[750] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"

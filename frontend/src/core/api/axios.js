@@ -9,7 +9,6 @@ const ROLE_STORAGE_KEYS = [
     STORAGE_KEYS.AUTH_ADMIN,
     STORAGE_KEYS.AUTH_DELIVERY,
     STORAGE_KEYS.AUTH_CUSTOMER,
-    STORAGE_KEYS.AUTH_WAREHOUSE,
 ];
 
 const ROLE_TO_STORAGE_KEY = {
@@ -17,7 +16,6 @@ const ROLE_TO_STORAGE_KEY = {
     [ROLES.ADMIN]: STORAGE_KEYS.AUTH_ADMIN,
     [ROLES.DELIVERY]: STORAGE_KEYS.AUTH_DELIVERY,
     [ROLES.CUSTOMER]: STORAGE_KEYS.AUTH_CUSTOMER,
-    [ROLES.WAREHOUSE]: STORAGE_KEYS.AUTH_WAREHOUSE,
 };
 
 // URL-prefix → storage-key map used as a *fallback* for the few call sites
@@ -28,7 +26,6 @@ function tokenForRequestUrl(url) {
     if (url.startsWith('/seller') || url.includes('/seller/')) return getStoredAuthToken(STORAGE_KEYS.AUTH_SELLER);
     if (url.startsWith('/admin') || url.includes('/admin/')) return getStoredAuthToken(STORAGE_KEYS.AUTH_ADMIN);
     if (url.startsWith('/delivery') || url.includes('/delivery/')) return getStoredAuthToken(STORAGE_KEYS.AUTH_DELIVERY);
-    if (url.startsWith('/warehouse') || url.includes('/warehouse/')) return getStoredAuthToken(STORAGE_KEYS.AUTH_WAREHOUSE);
     if (
         url.startsWith('/customer') ||
         url.startsWith('/cart') ||
@@ -76,8 +73,7 @@ axiosInstance.interceptors.request.use(
             !token &&
             activeRole !== ROLES.ADMIN &&
             activeRole !== ROLES.SELLER &&
-            activeRole !== ROLES.DELIVERY &&
-            activeRole !== ROLES.WAREHOUSE
+            activeRole !== ROLES.DELIVERY
         ) {
             token = getStoredAuthToken(STORAGE_KEYS.AUTH_CUSTOMER);
         }

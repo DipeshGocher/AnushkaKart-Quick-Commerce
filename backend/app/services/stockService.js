@@ -82,8 +82,7 @@ export async function reserveStockForItems({
       [
         {
           product: item.productId,
-          seller: item.warehouseId ? undefined : sellerId,
-          warehouseId: item.warehouseId ? item.warehouseId : undefined,
+          seller: sellerId,
           type: stockType,
           quantity: -item.quantity,
           note: `Order #${orderId} ${stockType.toLowerCase()}${variantSku ? ` [variant: ${variantSku}]` : ""}`,
@@ -162,7 +161,6 @@ export async function releaseReservedStockForOrder(order, { session = null, reas
         {
           product: item.product,
           seller: order.seller ? order.seller : undefined,
-          warehouseId: order.warehouseId ? order.warehouseId : undefined,
           type: "Release",
           quantity: item.quantity,
           note: `Order #${order.orderId} ${reason}${variantSku ? ` [variant: ${variantSku}]` : ""}`,

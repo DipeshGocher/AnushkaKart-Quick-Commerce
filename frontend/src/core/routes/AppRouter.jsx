@@ -80,8 +80,7 @@ const CustomerLayoutWrapper = () => {
         if (
             path.startsWith('/admin') ||
             path.startsWith('/seller') ||
-            path.startsWith('/delivery') ||
-            path.startsWith('/warehouse')
+            path.startsWith('/delivery')
         ) {
             return;
         }
@@ -119,7 +118,7 @@ const RESERVED_CUSTOMER_SLUGS = new Set([
 const HierarchicalProductRoute = () => {
     const { headerSlug } = useParams();
     const cleanHeader = String(headerSlug || '').toLowerCase();
-    if (cleanHeader && (RESERVED_CUSTOMER_SLUGS.has(cleanHeader) || ['admin', 'seller', 'delivery', 'warehouse'].includes(cleanHeader))) {
+    if (cleanHeader && (RESERVED_CUSTOMER_SLUGS.has(cleanHeader) || ['admin', 'seller', 'delivery'].includes(cleanHeader))) {
         return <NotFoundPage />;
     }
     return <ProductDetailPage />;
@@ -296,10 +295,6 @@ const AppRouter = () => {
                 },
                 {
                     path: 'delivery/*',
-                    element: <NotFoundPage />,
-                },
-                {
-                    path: 'warehouse/*',
                     element: <NotFoundPage />,
                 },
                 {

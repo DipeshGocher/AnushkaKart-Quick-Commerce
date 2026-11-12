@@ -26,14 +26,6 @@ import { getRiderWalletSummaryController } from "../controller/adminFinanceContr
 
 import { verifyToken, allowRoles, requireActiveDelivery } from "../middleware/authMiddleware.js";
 import multer from "multer";
-import {
-  getWarehouseQueueHandler,
-  warehouseCheckin,
-  warehouseCheckinByLocation,
-  warehouseCheckout,
-  getCheckinStatus,
-  getCheckinHistory,
-} from "../controller/warehouseCheckinController.js";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -72,14 +64,6 @@ router.post("/location", verifyToken, allowRoles("delivery"), updateDeliveryLoca
 // SOS & Emergency Contacts
 router.post("/sos/trigger", verifyToken, allowRoles("delivery"), triggerSOS);
 router.put("/emergency-contacts", verifyToken, allowRoles("delivery"), updateEmergencyContacts);
-
-// Warehouse Check-in / Queue
-router.get("/warehouse/queue", verifyToken, allowRoles("delivery"), getWarehouseQueueHandler);
-router.post("/warehouse/checkin", verifyToken, allowRoles("delivery"), warehouseCheckin);
-router.post("/warehouse/checkin/location", verifyToken, allowRoles("delivery"), warehouseCheckinByLocation);
-router.post("/warehouse/checkout", verifyToken, allowRoles("delivery"), warehouseCheckout);
-router.get("/warehouse/checkin-status", verifyToken, allowRoles("delivery"), getCheckinStatus);
-router.get("/warehouse/checkin-history", verifyToken, allowRoles("delivery"), getCheckinHistory);
 
 // NOTE: Delivery-completion OTP generation/validation lives on the
 // canonical workflow routes:

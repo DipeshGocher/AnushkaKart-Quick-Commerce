@@ -296,11 +296,6 @@ export function clearOnLogout({
         clearByPrefix('seller_', { storage: 'local' });
     }
 
-    if (normalizedRole === 'warehouse' || !normalizedRole) {
-        clearByPrefix('warehouse_', { storage: 'session' });
-        clearByPrefix('warehouse_', { storage: 'local' });
-    }
-
     if (normalizedRole === 'delivery' || clearLastLocation || !normalizedRole) {
         rawRemove(STORAGE_KEYS.DELIVERY_LAST_LOCATION, { storage: 'local' });
         rawRemove(STORAGE_KEYS.DELIVERY_HANDLED_INCOMING, { storage: 'session' });

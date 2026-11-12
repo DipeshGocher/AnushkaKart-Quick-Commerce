@@ -13,7 +13,7 @@ import {
 import { getErrorStatus } from "../utils/httpError.js";
 
 const CART_POPULATE_FIELDS =
-  "name slug price salePrice mainImage stock status headerId categoryId subcategoryId sellerId warehouseId variants conditionType catalogType refurbishedDetails isFeatured brand weight unit isMonthlyKit";
+  "name slug price salePrice mainImage stock status headerId categoryId subcategoryId sellerId variants conditionType catalogType refurbishedDetails isFeatured brand weight unit isMonthlyKit";
 
 const CUSTOMER_VISIBLE_PRODUCT_MATCH = {
   status: "active",
@@ -32,7 +32,7 @@ async function getCustomerVisibleProductById(productId) {
     _id: productId,
     ...CUSTOMER_VISIBLE_PRODUCT_MATCH,
   })
-    .select("_id sellerId warehouseId conditionType catalogType stock variants")
+    .select("_id sellerId conditionType catalogType stock variants")
     .lean();
 }
 
@@ -126,14 +126,12 @@ export const addToCart = async (req, res) => {
     if (customerPincode) {
       try {
         const fullProduct = await Product.findById(productId)
-          .select("deliveryMode headerId categoryId sellerId warehouseId")
+          .select("deliveryMode headerId categoryId sellerId")
           .populate("sellerId", "pincode")
-          .populate("warehouseId", "pincode")
           .populate("headerId", "deliveryMode catalogType")
           .lean();
         if (fullProduct) {
-          const sellerPincode =
-            fullProduct.sellerId?.pincode || fullProduct.warehouseId?.pincode || "";
+          const sellerPincode = fullProduct.sellerId?.pincode || "";
           const deliveryMode = await resolveProductDeliveryMode(
             fullProduct,
             fullProduct.headerId,

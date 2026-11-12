@@ -3,7 +3,6 @@ import Order from "../models/order.js";
 import DeliveryAssignment from "../models/deliveryAssignment.js";
 import OrderOtp from "../models/orderOtp.js";
 import Seller from "../models/seller.js";
-import Warehouse from "../models/warehouse.js";
 import Delivery from "../models/delivery.js";
 import {
   clearOrderTracking,
@@ -33,7 +32,6 @@ import {
 import {
   emitOrderStatusUpdate,
   emitToSeller,
-  emitToWarehouse,
   emitDeliveryBroadcastForSeller,
   emitReturnBroadcastForCustomer,
   emitToCustomer,
@@ -47,8 +45,6 @@ import { invalidateSellerStatsCache } from "./seller/sellerStatsService.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
 import logger from "./logger.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
-// NOTE: warehouseQueueAssignmentService is dynamically imported inside sellerAcceptAtomic
-// to avoid circular dependency (warehouseQueueAssignmentService -> orderWorkflowService -> warehouseQueueAssignmentService)
 
 const DELIVERY_SEARCH_MAX_ATTEMPTS = () =>
   parseInt(process.env.DELIVERY_SEARCH_MAX_ATTEMPTS || "3", 10);
@@ -115,13 +111,6 @@ export async function afterPlaceOrderV2(orderDoc) {
 
   if (orderDoc.seller) {
     emitToSeller(orderDoc.seller?.toString(), {
-      event: "order:new",
-      payload,
-    });
-  }
-
-  if (orderDoc.warehouseId) {
-    emitToWarehouse(orderDoc.warehouseId?.toString(), {
       event: "order:new",
       payload,
     });
@@ -249,39 +238,11 @@ export async function sellerAcceptAtomic(sellerId, orderId) {
     updated.customer?._id || updated.customer,
   );
 
-  // ── Warehouse queue assignment (FIFO) ────────────────────────────────
-  // If the order has a warehouseId, attempt queue-based FIFO assignment first.
-  // If the queue is empty or has no eligible riders, fall back to broadcast.
-  const warehouseId = updated.warehouseId;
-  let usedQueueAssignment = false;
-  if (warehouseId) {
-    try {
-      const { offerToNextInQueue } = await import("./warehouseQueueAssignmentService.js");
-      const queueResult = await offerToNextInQueue(updated.orderId, String(warehouseId), []);
-      if (queueResult.offered) {
-        usedQueueAssignment = true;
-        logger.info("[sellerAccept] Assigned via warehouse queue", {
-          orderId: updated.orderId,
-          riderId: queueResult.riderId,
-          warehouseId,
-        });
-      }
-    } catch (queueErr) {
-      logger.warn("[sellerAccept] Queue assignment failed, falling back to broadcast", {
-        orderId: updated.orderId,
-        error: queueErr.message,
-      });
-    }
-  }
-
-  // Fall back to existing radius-based broadcast if queue wasn't used
-  if (!usedQueueAssignment) {
-    await emitDeliveryBroadcastForSeller(
-      updated.seller,
-      deliveryBroadcastPayloadFromOrder(updated),
-    );
-  }
-  // ───────────────────────────────────────────────────────────────────
+  // Offer the order to nearby riders (radius-based broadcast).
+  await emitDeliveryBroadcastForSeller(
+    updated.seller,
+    deliveryBroadcastPayloadFromOrder(updated),
+  );
 
   emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_CONFIRMED, {
     orderId: updated.orderId,
@@ -411,7 +372,7 @@ export async function deliveryAcceptAtomic(deliveryId, orderId, idempotencyKey) 
   const now = new Date();
 
   // Strict radius check: Ensure delivery partner is within the store's configured local radius
-  const orderPreCheck = await Order.findOne({ orderId }).select("orderId seller warehouseId fulfillmentType").lean();
+  const orderPreCheck = await Order.findOne({ orderId }).select("orderId seller fulfillmentType").lean();
   if (orderPreCheck && orderPreCheck.fulfillmentType !== "SHIPROCKET") {
     const riderDoc = await Delivery.findById(deliveryOid).select("location").lean();
     const riderCoords = riderDoc?.location?.coordinates;
@@ -424,10 +385,6 @@ export async function deliveryAcceptAtomic(deliveryId, orderId, idempotencyKey) 
           const sDoc = await Seller.findById(orderPreCheck.seller).select("location pincode address").lean();
           storeCoords = sDoc?.location?.coordinates;
           storePincode = sDoc?.pincode || sDoc?.address?.pincode || "";
-        } else if (orderPreCheck.warehouseId) {
-          const wDoc = await Warehouse.findById(orderPreCheck.warehouseId).select("location pincode address").lean();
-          storeCoords = wDoc?.location?.coordinates;
-          storePincode = wDoc?.pincode || wDoc?.address?.pincode || "";
         }
 
         if (Array.isArray(storeCoords) && storeCoords.length >= 2) {
@@ -511,6 +468,18 @@ export async function deliveryAcceptAtomic(deliveryId, orderId, idempotencyKey) 
     throw err;
   }
 
+  // The seller may have marked the order packed before any rider was found
+  // ("packed" is a flag: pickupReadyAt). The assignment above reset the legacy
+  // status to "confirmed"; keep showing "packed" to seller/admin/customer.
+  if (updated.pickupReadyAt && updated.status !== "packed") {
+    await Order.updateOne(
+      { _id: updated._id },
+      { $set: { status: "packed", orderStatus: "packed" } },
+    );
+    updated.status = "packed";
+    updated.orderStatus = "packed";
+  }
+
   await removeDeliveryTimeoutJob(orderId, updated.deliverySearchMeta?.attempt || 1);
 
   const lastBroadcast = await DeliveryAssignment.findOne({
@@ -552,6 +521,8 @@ export async function deliveryAcceptAtomic(deliveryId, orderId, idempotencyKey) 
     updated.orderId,
     {
       workflowStatus: WORKFLOW_STATUS.DELIVERY_ASSIGNED,
+      status: updated.status,
+      pickupReadyAt: updated.pickupReadyAt,
       deliveryBoyId: deliveryOid.toString(),
     },
     updated.customer,
@@ -971,14 +942,10 @@ export async function markArrivedAtStoreAtomic(deliveryId, orderId, lat, lng) {
     throw err;
   }
 
-  // Support both seller orders and warehouse orders
   let coords;
   if (order.seller) {
     const seller = await Seller.findById(order.seller).select("location").lean();
     coords = seller?.location?.coordinates;
-  } else if (order.warehouseId) {
-    const warehouse = await Warehouse.findById(order.warehouseId).select("location").lean();
-    coords = warehouse?.location?.coordinates;
   }
   if (!Array.isArray(coords) || coords.length < 2) {
     const err = new Error("Pickup location not configured");
@@ -1068,14 +1035,10 @@ export async function confirmPickupAtomic(deliveryId, orderId, lat, lng) {
     throw err;
   }
 
-  // Support both seller orders and warehouse orders
   let coords;
   if (order.seller) {
     const seller = await Seller.findById(order.seller).select("location").lean();
     coords = seller?.location?.coordinates;
-  } else if (order.warehouseId) {
-    const warehouse = await Warehouse.findById(order.warehouseId).select("location").lean();
-    coords = warehouse?.location?.coordinates;
   }
   if (!Array.isArray(coords) || coords.length < 2) {
     const err = new Error("Pickup location not configured");
@@ -1632,14 +1595,6 @@ export async function verifyHandoffOtpAndDeliver(deliveryId, orderId, code) {
     { workflowStatus: WORKFLOW_STATUS.DELIVERED },
     updated.customer,
   );
-
-  // Release the rider from their current order checkin slot so they can receive new warehouse orders
-  try {
-    const { releaseRiderFromOrder } = await import("./warehouseCheckinService.js");
-    await releaseRiderFromOrder(deliveryId);
-  } catch (err) {
-    logger.error("Failed to release rider from queue", { orderId, deliveryId, error: err.message });
-  }
 
   // Frontend-compat: customers + observers listen for "delivery:otp:validated"
   // to flip their UI to "Delivered". Emit to both the customer room and the

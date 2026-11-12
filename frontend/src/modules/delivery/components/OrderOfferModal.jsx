@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 
 /**
- * OrderOfferModal — full-screen overlay shown when a queue-based order is offered to the rider.
+ * OrderOfferModal — full-screen overlay shown when an order is offered to the rider.
  * Shows a 5-minute countdown ring and Accept / Reject buttons.
  */
 const OrderOfferModal = ({ offer, onAccept, onReject }) => {
@@ -54,7 +54,7 @@ const OrderOfferModal = ({ offer, onAccept, onReject }) => {
         {/* Header */}
         <div style={styles.header}>
           <div style={styles.headerBadge}>🛒 New Order</div>
-          <p style={styles.headerSub}>Queue Assignment — You&apos;re Next!</p>
+          <p style={styles.headerSub}>New Delivery Request</p>
         </div>
 
         {/* Countdown Ring */}
@@ -87,7 +87,7 @@ const OrderOfferModal = ({ offer, onAccept, onReject }) => {
         <div style={styles.orderCard}>
           <div style={styles.orderRow}>
             <div style={styles.orderLabel}>📦 Pickup</div>
-            <div style={styles.orderVal}>{offer.preview?.pickup || "Warehouse"}</div>
+            <div style={styles.orderVal}>{offer.preview?.pickup || "Store"}</div>
           </div>
           <div style={styles.divider} />
           <div style={styles.orderRow}>

@@ -16,7 +16,7 @@ const trimmedString = Joi.string().trim();
 
 export const placeOrderSchema = Joi.object({
   addressId: trimmedString.min(1).required(),
-  paymentMode: trimmedString.valid("ONLINE", "COD", "WALLET").required(),
+  paymentMode: trimmedString.valid("ONLINE", "COD", "WALLET", "UPI_QR").required(),
   notes: trimmedString.max(500).allow("", null).optional(),
   couponCode: trimmedString.max(40).optional(),
   cartId: trimmedString.optional(),

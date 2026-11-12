@@ -10,6 +10,7 @@ import {
 } from "./deliveryNearbyService.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
+import { buildCustomerShiprocket } from "../utils/customerShipmentView.js";
 
 let _getIo = null;
 
@@ -41,14 +42,6 @@ function normalizeDeliveryId(deliveryId) {
   return String(deliveryId);
 }
 
-function normalizeWarehouseId(warehouseId) {
-  if (warehouseId == null) return null;
-  if (typeof warehouseId === "object" && warehouseId._id) {
-    return warehouseId._id.toString();
-  }
-  return String(warehouseId);
-}
-
 /**
  * Emit workflow status to the order room (clients that joined `join_order`)
  * and optionally to the customer’s personal room so the app updates even before
@@ -62,6 +55,12 @@ export function emitOrderStatusUpdate(orderId, payload, customerId) {
     ...payload,
     at: new Date().toISOString(),
   };
+  // This event reaches customers (order + customer rooms), so never leak the
+  // raw shipment sub-document (labels, manifests, penalties, internal logs).
+  // Admin/seller screens refetch the full order on every event.
+  if (body.shiprocket) {
+    body.shiprocket = buildCustomerShiprocket(body.shiprocket);
+  }
   s.to(`order:${orderId}`).emit("order:status:update", body);
   const cid =
     customerId != null &&
@@ -80,15 +79,6 @@ export function emitToSeller(sellerId, { event, payload }) {
   const s = getIo();
   if (s) {
     s.to(`seller:${sid}`).emit(event, payload);
-  }
-}
-
-export function emitToWarehouse(warehouseId, { event, payload }) {
-  const wid = normalizeWarehouseId(warehouseId);
-  if (!wid) return;
-  const s = getIo();
-  if (s) {
-    s.to(`warehouse:${wid}`).emit(event, payload);
   }
 }
 

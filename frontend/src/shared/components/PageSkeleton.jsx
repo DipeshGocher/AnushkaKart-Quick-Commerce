@@ -123,9 +123,9 @@ const Panel = ({ kind = 'dashboard' }) => (
 
 const PageSkeleton = ({ variant, className = '' }) => {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
-  const isPanel = /^\/(admin|seller|warehouse|delivery)(\/|$)/.test(pathname);
+  const isPanel = /^\/(admin|seller|delivery)(\/|$)/.test(pathname);
   const kind = variant || (isPanel
-    ? /\/(add|edit|settings|profile)(\/|$)/.test(pathname) ? 'form' : /\/(products|orders|categories|customers|sellers|warehouses|returns|transactions|history)(\/|$)/.test(pathname) ? 'table' : 'dashboard'
+    ? /\/(add|edit|settings|profile)(\/|$)/.test(pathname) ? 'form' : /\/(products|orders|categories|customers|sellers|returns|transactions|history)(\/|$)/.test(pathname) ? 'table' : 'dashboard'
     : pathname === '/' ? 'home'
     : /^\/(product|kit)\//.test(pathname) || /^\/orders\//.test(pathname) ? 'detail'
     : pathname.startsWith('/checkout') || pathname.startsWith('/cart') || pathname.startsWith('/orders') || pathname.startsWith('/transactions') ? 'rows'

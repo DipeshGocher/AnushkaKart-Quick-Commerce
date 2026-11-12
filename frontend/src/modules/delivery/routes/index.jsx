@@ -24,7 +24,6 @@ const SafetyPrivacy = React.lazy(() => import("../pages/profile/SafetyPrivacy"))
 const HelpSupport = React.lazy(() => import("../pages/profile/HelpSupport"));
 const Withdrawals = React.lazy(() => import("../pages/profile/Withdrawals"));
 const Notifications = React.lazy(() => import("../pages/Notifications"));
-const WarehouseCheckin = React.lazy(() => import("../pages/WarehouseCheckin"));
 
 export const deliveryRoutes = [
   { index: true, element: <Navigate to="dashboard" replace /> },
@@ -47,7 +46,6 @@ export const deliveryRoutes = [
   { path: "profile/withdrawals", element: <Withdrawals /> },
   { path: "profile/cod-cash", element: <CodCash /> },
   { path: "notifications", element: <Notifications /> },
-  { path: "warehouse-checkin", element: <WarehouseCheckin /> },
   { path: "*", element: <NotFoundPage /> },
 ];
 

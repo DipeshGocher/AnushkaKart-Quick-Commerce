@@ -53,7 +53,7 @@ export const checkoutPreviewSchema = Joi.object({
   // client-side math. Backward-compatible — clients that don't send it
   // get the pre-wallet `grandTotal` exactly as before.
   walletAmount: Joi.number().min(0).default(0),
-  paymentMode: Joi.string().valid("ONLINE", "COD").default("COD"),
+  paymentMode: Joi.string().valid("ONLINE", "COD", "UPI_QR").default("COD"),
   timeSlot: Joi.string().allow("", null),
   couponId: Joi.string().allow("", null).optional(),
   // Audit Phase 5 (C-2 + H-7): accept the coupon CODE as an alternative
@@ -67,8 +67,13 @@ export const checkoutPreviewSchema = Joi.object({
 
 export const createFinanceOrderSchema = checkoutPreviewSchema.keys({
   items: Joi.array().items(orderItemSchema).min(1).optional(),
-  paymentMode: Joi.string().valid("ONLINE", "COD").required(),
+  paymentMode: Joi.string().valid("ONLINE", "COD", "UPI_QR").required(),
   walletAmount: Joi.number().min(0).default(0),
+  // UPI QR: the customer pays first and the order is only created together with
+  // the 12-digit UTR / reference number from the payment receipt.
+  utrNumber: Joi.string().trim().pattern(/^\d{12}$/).messages({
+    "string.pattern.base": "Please enter a valid 12-digit numeric UTR / Reference number",
+  }).optional(),
 });
 
 export const verifyOnlinePaymentSchema = Joi.object({
@@ -107,7 +112,7 @@ export const financeLedgerQuerySchema = Joi.object({
   actorId: Joi.string().optional(),
   orderId: Joi.string().optional(),
   payoutId: Joi.string().optional(),
-  paymentMode: Joi.string().valid("ONLINE", "COD").optional(),
+  paymentMode: Joi.string().valid("ONLINE", "COD", "UPI_QR").optional(),
   fromDate: Joi.date().optional(),
   toDate: Joi.date().optional(),
 });

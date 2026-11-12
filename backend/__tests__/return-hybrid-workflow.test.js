@@ -9,7 +9,6 @@ const mockStockHistoryCreate = jest.fn();
 const mockSettingFindOne = jest.fn();
 const mockUserFindById = jest.fn();
 const mockSellerFindById = jest.fn();
-const mockWarehouseFindById = jest.fn();
 const mockOrderOtpFindOne = jest.fn();
 const mockTransactionCreate = jest.fn();
 const mockCreateShiprocketReversePickup = jest.fn();
@@ -75,12 +74,6 @@ jest.unstable_mockModule("../app/models/customer.js", () => ({
 jest.unstable_mockModule("../app/models/seller.js", () => ({
   default: {
     findById: mockSellerFindById,
-  },
-}));
-
-jest.unstable_mockModule("../app/models/warehouse.js", () => ({
-  default: {
-    findById: mockWarehouseFindById,
   },
 }));
 

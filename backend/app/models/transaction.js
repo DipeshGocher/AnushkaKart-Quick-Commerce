@@ -28,7 +28,7 @@ const transactionSchema = new mongoose.Schema(
         userModel: {
             type: String,
             required: true,
-            enum: ["Seller", "Delivery", "Admin", "User", "Warehouse"],
+            enum: ["Seller", "Delivery", "Admin", "User"],
         },
         order: {
             type: mongoose.Schema.Types.ObjectId,

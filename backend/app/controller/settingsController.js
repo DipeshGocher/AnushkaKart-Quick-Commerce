@@ -63,6 +63,10 @@ const ALLOWED_KEYS = [
   "handlingFeeStrategy",
   "codEnabled",
   "onlineEnabled",
+  "upiEnabled",
+  "upiId",
+  "upiDisplayName",
+  "supportWhatsappNumber",
   "lowStockAlertsEnabled",
   "productApproval",
   "categoriesBanner",
@@ -175,6 +179,12 @@ const updateSettingsSchema = Joi.object({
   ),
   codEnabled: Joi.boolean(),
   onlineEnabled: Joi.boolean(),
+  upiEnabled: Joi.boolean(),
+  upiId: Joi.string().allow("").max(200),
+  upiDisplayName: Joi.string().allow("").max(200),
+  supportWhatsappNumber: Joi.string().allow("").pattern(/^[0-9]{10}$/).messages({
+    "string.pattern.base": "Support WhatsApp Number must be a valid 10-digit number",
+  }),
   lowStockAlertsEnabled: Joi.boolean(),
   productApproval: Joi.object({
     _id: Joi.any(),
@@ -232,7 +242,7 @@ export const getPublicSettings = async (req, res) => {
       async () => {
         const existing = await Setting.findOne(filter)
           .select(
-            "appName supportEmail supportPhone whatsappNumber currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor address facebook twitter instagram linkedin youtube playStoreLink appStoreLink footerMessage footerEmoji footerDescription footerQuickLinksTitle footerQuickLinks footerCategoriesTitle footerCategoriesLinks footerContactTitle footerCopyright footerPrivacyUrl footerTermsUrl footerBgColor footerEnabled returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval categoriesBanner deliveryBadgeText deliveryBadgeImage deliveryBadgeBg deliveryBadgeEnabled bestSellingTitle bestSellingCategoryIds categoryTopDeals createdAt",
+            "appName supportEmail supportPhone whatsappNumber currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor address facebook twitter instagram linkedin youtube playStoreLink appStoreLink footerMessage footerEmoji footerDescription footerQuickLinksTitle footerQuickLinks footerCategoriesTitle footerCategoriesLinks footerContactTitle footerCopyright footerPrivacyUrl footerTermsUrl footerBgColor footerEnabled returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled upiEnabled upiId upiDisplayName supportWhatsappNumber lowStockAlertsEnabled productApproval categoriesBanner deliveryBadgeText deliveryBadgeImage deliveryBadgeBg deliveryBadgeEnabled bestSellingTitle bestSellingCategoryIds categoryTopDeals createdAt",
           )
           .lean();
         return existing || null;
@@ -288,6 +298,11 @@ export const updateSettings = async (req, res) => {
     if (typeof payload.whatsappNumber === "string" && payload.whatsappNumber.trim()) {
       const cleanDigits = payload.whatsappNumber.replace(/\D/g, "");
       payload.whatsappNumber = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
+    }
+
+    if (typeof payload.supportWhatsappNumber === "string" && payload.supportWhatsappNumber.trim()) {
+      const cleanDigits = payload.supportWhatsappNumber.replace(/\D/g, "");
+      payload.supportWhatsappNumber = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
     }
 
     const { error, value } = updateSettingsSchema.validate(payload, {

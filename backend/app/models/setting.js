@@ -283,6 +283,25 @@ const settingSchema = new mongoose.Schema(
             type: Boolean,
             default: true,
         },
+        upiEnabled: {
+            type: Boolean,
+            default: true,
+        },
+        upiId: {
+            type: String,
+            default: "anushkaconnect@okaxis",
+            trim: true,
+        },
+        upiDisplayName: {
+            type: String,
+            default: "Anushka Connect",
+            trim: true,
+        },
+        supportWhatsappNumber: {
+            type: String,
+            default: "8209224481",
+            trim: true,
+        },
         lowStockAlertsEnabled: {
             type: Boolean,
             default: true,

@@ -30,6 +30,8 @@ import {
 import { registerScheduledJob, startScheduledJobs } from "./app/services/distributedScheduler.js";
 import { getOrderAutoCancelJobHandler, getOrderAutoCancelJobInterval } from "./app/jobs/orderAutoCancelJob.js";
 import { getReturnWindowReleaseJobHandler, getReturnWindowReleaseJobInterval } from "./app/jobs/returnWindowReleaseJob.js";
+import { getReturnQcJobHandler, getReturnQcJobInterval } from "./app/jobs/returnQcJob.js";
+import { getUpiExpiryJobHandler, getUpiExpiryJobInterval } from "./app/jobs/upiApprovalExpiryJob.js";
 import {
   getPayoutBatchJobHandler,
   getPayoutBatchJobInterval,
@@ -356,6 +358,20 @@ async function startScheduler() {
     getReturnWindowReleaseJobInterval(),
     getReturnWindowReleaseJobHandler()
   );
+
+  // UPI QR: auto-cancel + release stock + refund when payment is not verified in time
+  registerScheduledJob(
+    'upiApprovalExpiryJob',
+    getUpiExpiryJobInterval(),
+    getUpiExpiryJobHandler()
+  );
+
+  // Return QC SLA: reminders -> admin escalation -> auto-pass, dispute-window payout release, refund retry
+  registerScheduledJob(
+    'returnQcJob',
+    getReturnQcJobInterval(),
+    getReturnQcJobHandler()
+  );
   
   // Register payout batch job (if enabled)
   if (isPayoutBatchJobEnabled()) {
@@ -392,7 +408,7 @@ async function startScheduler() {
   await startScheduledJobs();
   registerSchedulerStopper(stopScheduledJobs);
 
-  const scheduledJobs = ['orderAutoCancelJob', 'returnWindowReleaseJob'];
+  const scheduledJobs = ['orderAutoCancelJob', 'returnWindowReleaseJob', 'returnQcJob', 'upiApprovalExpiryJob'];
   if (isPayoutBatchJobEnabled()) scheduledJobs.push('payoutBatchJob');
   if (isWalletLedgerVerifierEnabled()) scheduledJobs.push('walletLedgerVerifierJob');
   if (isFirebaseTrackingCleanupJobEnabled()) scheduledJobs.push('firebaseTrackingCleanupJob');

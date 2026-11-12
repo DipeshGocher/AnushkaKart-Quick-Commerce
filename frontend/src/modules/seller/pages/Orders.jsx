@@ -31,7 +31,7 @@ import { BlurFade } from '@/components/ui/blur-fade';
 import ShimmerButton from '@/components/ui/shimmer-button';
 import { sellerApi } from '../services/sellerApi';
 import { useToast } from '@shared/components/ui/Toast';
-import { getLegacyStatusFromOrder } from '@/shared/utils/orderStatus';
+import { getLegacyStatusFromOrder, getStageLabel, getStatusOptions } from '@/shared/utils/orderStatus';
 import { Loader2, Package, Truck, Clock, Printer, ExternalLink, Copy, Check } from 'lucide-react';
 import Pagination from '@shared/components/ui/Pagination';
 import { DatePicker } from "@/components/ui/date-picker";
@@ -644,9 +644,9 @@ const Orders = () => {
                                                 </div>
                                                 <div className="flex flex-col items-end gap-2 shrink-0">
                                                     <Badge variant={getStatusColor(order.status)} className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md shadow-sm">
-                                                        {order.status === 'out_for_delivery' ? 'Out for Delivery' : order.status}
+                                                        {getStageLabel(order.rawOrder || order)}
                                                     </Badge>
-                                                    {!['delivered', 'cancelled', 'out_for_delivery'].includes(order.status) && (
+                                                    {getStatusOptions(order.rawOrder || order, 'seller').length > 1 && (
                                                         <select
                                                             value={order.status}
                                                             onChange={(e) => handleStatusUpdate(order.id, e.target.value)}
@@ -658,26 +658,9 @@ const Orders = () => {
                                                                         order.status === 'packed' ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-700"
                                                             )}
                                                         >
-                                                            {order.status === 'pending' && (
-                                                                <>
-                                                                    <option value="pending">Pending</option>
-                                                                    <option value="confirmed">Confirm</option>
-                                                                    <option value="cancelled">Cancel</option>
-                                                                </>
-                                                            )}
-                                                            {order.status === 'confirmed' && (
-                                                                <>
-                                                                    <option value="confirmed">Confirmed</option>
-                                                                    <option value="packed">{order.fulfillmentType === 'SHIPROCKET' ? 'Mark Packed & Ready' : 'Packed'}</option>
-                                                                    <option value="cancelled">Cancel</option>
-                                                                </>
-                                                            )}
-                                                            {order.status === 'packed' && (
-                                                                <>
-                                                                    <option value="packed">{order.fulfillmentType === 'SHIPROCKET' ? 'Packed (Pickup Ready)' : 'Packed'}</option>
-                                                                    <option value="cancelled">Cancel</option>
-                                                                </>
-                                                            )}
+                                                            {getStatusOptions(order.rawOrder || order, 'seller').map((opt) => (
+                                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                            ))}
                                                         </select>
                                                     )}
                                                     <button
@@ -752,12 +735,12 @@ const Orders = () => {
                                                         </div>
                                                     </td>
                                                     <td className="px-4 lg:px-6 py-3 lg:py-4">
-                                                        {['delivered', 'cancelled', 'out_for_delivery'].includes(order.status) ? (
+                                                        {getStatusOptions(order.rawOrder || order, 'seller').length <= 1 ? (
                                                             <Badge
                                                                 variant={getStatusColor(order.status)}
                                                                 className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm"
                                                             >
-                                                                {order.status === 'out_for_delivery' ? 'Out for Delivery' : order.status}
+                                                                {getStageLabel(order.rawOrder || order)}
                                                             </Badge>
                                                         ) : (
                                                             <div className="relative inline-block w-36">
@@ -772,29 +755,9 @@ const Orders = () => {
                                                                                     "bg-slate-100 text-slate-700 focus:ring-slate-200"
                                                                     )}
                                                                 >
-                                                                    {order.status === 'pending' && (
-                                                                        <>
-                                                                            <option value="pending">Pending</option>
-                                                                            <option value="confirmed">Confirm</option>
-                                                                            <option value="cancelled">Cancel Order</option>
-                                                                        </>
-                                                                    )}
-                                                                    {order.status === 'confirmed' && (
-                                                                        <>
-                                                                            <option value="confirmed">Confirmed</option>
-                                                                            <option value="packed">{order.fulfillmentType === 'SHIPROCKET' ? 'Mark Packed & Ready' : 'Mark Packed'}</option>
-                                                                            <option value="cancelled">Cancel Order</option>
-                                                                        </>
-                                                                    )}
-                                                                    {order.status === 'packed' && (
-                                                                        <>
-                                                                            <option value="packed">{order.fulfillmentType === 'SHIPROCKET' ? 'Packed (Pickup Ready)' : 'Packed'}</option>
-                                                                            <option value="cancelled">Cancel Order</option>
-                                                                        </>
-                                                                    )}
-                                                                    {!['pending', 'confirmed', 'packed'].includes(order.status) && (
-                                                                        <option value={order.status}>{order.status}</option>
-                                                                    )}
+                                                                    {getStatusOptions(order.rawOrder || order, 'seller').map((opt) => (
+                                                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                                    ))}
                                                                 </select>
                                                                 <HiOutlineChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-60 text-slate-600" />
                                                             </div>
@@ -1129,7 +1092,7 @@ const Orders = () => {
                                                 </div>
 
                                                 {/* Action Controls */}
-                                                {selectedOrder.status !== "cancelled" && (
+                                                {!["cancelled", "delivered"].includes(selectedOrder.status) && (
                                                     <div className="pt-1 flex flex-wrap items-center gap-2">
                                                         {!selectedOrder.shiprocket?.awb ? (
                                                             <button

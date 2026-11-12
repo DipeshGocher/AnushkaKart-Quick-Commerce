@@ -11,6 +11,10 @@ export const adminOrdersApi = {
         axiosInstance.get(`/orders/details/${orderId}`),
     updateOrderStatus: (orderId, data) =>
         axiosInstance.put(`/orders/status/${orderId}`, data),
+    approveUpiPayment: (orderId, data) =>
+        axiosInstance.post(`/orders/${orderId}/payment/approve-upi`, data || {}),
+    rejectUpiPayment: (orderId, data) =>
+        axiosInstance.post(`/orders/${orderId}/payment/reject-upi`, data || {}),
 
     getReturns: (params) =>
         axiosInstance.get('/orders/seller-returns', { params }),
@@ -24,6 +28,9 @@ export const adminOrdersApi = {
         axiosInstance.put(`/orders/returns/${orderId}/assign-delivery`, data),
     updateReturnQc: (orderId, data) =>
         axiosInstance.put(`/orders/returns/${orderId}/qc`, data),
+    /** Rule on a customer's dispute of a failed QC. data = { decision: "customer" | "seller", note } */
+    resolveReturnDispute: (orderId, data) =>
+        axiosInstance.put(`/orders/returns/${orderId}/dispute/resolve`, data),
 
     /** Fetch the driving-route polyline for a live order (same endpoint used by customer & delivery apps). */
     getOrderRoute: (orderId, params) =>

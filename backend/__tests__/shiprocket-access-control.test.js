@@ -98,8 +98,7 @@ describe("Shiprocket Access Control & RBAC (Admin vs Seller)", () => {
         select: jest.fn().mockReturnValue({
           lean: jest.fn().mockResolvedValue({
             orderId: "ORD-SELLER-01",
-            seller: sellerId,
-            warehouseId: null,
+            seller: sellerId,
           }),
         }),
       });
@@ -129,8 +128,7 @@ describe("Shiprocket Access Control & RBAC (Admin vs Seller)", () => {
         select: jest.fn().mockReturnValue({
           lean: jest.fn().mockResolvedValue({
             orderId: "ORD-OTHER-01",
-            seller: otherSellerId,
-            warehouseId: null,
+            seller: otherSellerId,
           }),
         }),
       });
@@ -154,8 +152,7 @@ describe("Shiprocket Access Control & RBAC (Admin vs Seller)", () => {
         select: jest.fn().mockReturnValue({
           lean: jest.fn().mockResolvedValue({
             orderId: "ORD-SELLER-POP-01",
-            seller: { _id: sellerId, shopName: "My Shop" },
-            warehouseId: null,
+            seller: { _id: sellerId, shopName: "My Shop" },
           }),
         }),
       });
@@ -172,34 +169,24 @@ describe("Shiprocket Access Control & RBAC (Admin vs Seller)", () => {
       expect(mockProcessShiprocketOrder).toHaveBeenCalledWith("ORD-SELLER-POP-01");
     });
 
-    it("allows Warehouse manager to process order assigned to their warehouseId", async () => {
-      const warehouseId = "64b7f1a2c3d4e5f6a7b8c9d9";
+    it("refuses a leftover token of the removed warehouse role", async () => {
+      // The warehouse role no longer exists; an old token must not manage any shipment.
       const req = {
-        params: { orderId: "ORD-WH-01" },
-        user: { id: warehouseId, role: "warehouse" },
+        params: { orderId: "ORD-OLD-WH-01" },
+        user: { id: "64b7f1a2c3d4e5f6a7b8c9d9", role: "warehouse" },
       };
       const res = createMockRes();
 
       mockOrderFindOne.mockReturnValue({
         select: jest.fn().mockReturnValue({
-          lean: jest.fn().mockResolvedValue({
-            orderId: "ORD-WH-01",
-            seller: null,
-            warehouseId: warehouseId,
-          }),
+          lean: jest.fn().mockResolvedValue({ orderId: "ORD-OLD-WH-01", seller: null }),
         }),
-      });
-
-      mockProcessShiprocketOrder.mockResolvedValue({
-        success: true,
-        message: "Shiprocket shipment processed",
-        shipment: { awb: "SR88888888IN" },
       });
 
       await processShiprocket(req, res);
 
-      expect(res.statusCode).toBe(200);
-      expect(mockProcessShiprocketOrder).toHaveBeenCalledWith("ORD-WH-01");
+      expect(res.statusCode).toBe(403);
+      expect(mockProcessShiprocketOrder).not.toHaveBeenCalled();
     });
   });
 
@@ -216,8 +203,7 @@ describe("Shiprocket Access Control & RBAC (Admin vs Seller)", () => {
         select: jest.fn().mockReturnValue({
           lean: jest.fn().mockResolvedValue({
             orderId: "ORD-SELLER-02",
-            seller: sellerId,
-            warehouseId: null,
+            seller: sellerId,
           }),
         }),
       });
@@ -246,8 +232,7 @@ describe("Shiprocket Access Control & RBAC (Admin vs Seller)", () => {
         select: jest.fn().mockReturnValue({
           lean: jest.fn().mockResolvedValue({
             orderId: "ORD-OTHER-02",
-            seller: otherSellerId,
-            warehouseId: null,
+            seller: otherSellerId,
           }),
         }),
       });
@@ -272,8 +257,7 @@ describe("Shiprocket Access Control & RBAC (Admin vs Seller)", () => {
         select: jest.fn().mockReturnValue({
           lean: jest.fn().mockResolvedValue({
             orderId: "ORD-SELLER-03",
-            seller: sellerId,
-            warehouseId: null,
+            seller: sellerId,
           }),
         }),
       });
@@ -302,8 +286,7 @@ describe("Shiprocket Access Control & RBAC (Admin vs Seller)", () => {
         select: jest.fn().mockReturnValue({
           lean: jest.fn().mockResolvedValue({
             orderId: "ORD-OTHER-03",
-            seller: otherSellerId,
-            warehouseId: null,
+            seller: otherSellerId,
           }),
         }),
       });

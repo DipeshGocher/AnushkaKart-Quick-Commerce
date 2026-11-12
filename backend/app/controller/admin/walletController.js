@@ -5,7 +5,6 @@ import {
   getDeliveryWithdrawalsData,
   getSellerTransactionsData,
   getSellerWithdrawalsData,
-  getWarehouseWithdrawalsData,
   updateWithdrawalStatusById,
 } from "../../services/admin/walletAdminService.js";
 import { getErrorStatus } from "../../utils/httpError.js";
@@ -42,20 +41,6 @@ export const getSellerWithdrawals = async (req, res) => {
       status: req.query.status,
     });
     return handleResponse(res, 200, "Seller withdrawals fetched", data);
-  } catch (error) {
-    return handleResponse(res, getErrorStatus(error), error.message);
-  }
-};
-
-export const getWarehouseWithdrawals = async (req, res) => {
-  try {
-    const { page, limit, skip } = getPagination(req, {
-      defaultLimit: 25,
-      maxLimit: 200,
-    });
-
-    const data = await getWarehouseWithdrawalsData({ page, limit, skip });
-    return handleResponse(res, 200, "Warehouse withdrawals fetched", data);
   } catch (error) {
     return handleResponse(res, getErrorStatus(error), error.message);
   }

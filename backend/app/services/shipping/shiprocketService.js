@@ -2,7 +2,6 @@ import Order from "../../models/order.js";
 import Customer from "../../models/customer.js";
 import Product from "../../models/product.js";
 import Seller from "../../models/seller.js";
-import Warehouse from "../../models/warehouse.js";
 import mongoose from "mongoose";
 import axios from "axios";
 import crypto from "node:crypto";
@@ -13,6 +12,16 @@ import { compensateOrderCancellation } from "../orderCompensation.js";
 import { emitNotificationEvent } from "../../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../../modules/notifications/notification.constants.js";
 import { invalidate, buildKey } from "../cacheService.js";
+import {
+  normalizeShipmentStatus,
+  outOfOrderReason,
+  isInTransitStatus,
+  isPickupScheduledStatus,
+  isCancelledStatus,
+  isRtoStatus,
+  isRtoDeliveredStatus,
+  assertShipmentCancellable,
+} from "./shipmentStatus.js";
 
 const SHIPROCKET_BASE_URL = "https://apiv2.shiprocket.in/v1/external";
 
@@ -586,7 +595,7 @@ export async function requestShiprocketPickup(orderParam) {
     order.shiprocket.pickupScheduledAt = new Date();
     order.shiprocket.history.push({
       status: "PICKUP_SCHEDULED",
-      location: order.address?.city || "Warehouse",
+      location: order.address?.city || "Seller Hub",
       timestamp: new Date(),
       remarks: "Courier pickup scheduled (Simulated local mode).",
       source: "manual",
@@ -652,6 +661,84 @@ export async function requestShiprocketPickup(orderParam) {
 }
 
 /**
+ * Cancel the courier shipment for an order a seller/admin is cancelling.
+ *
+ * - Refuses (409) once the courier holds the parcel: cancelling then would refund
+ *   the customer while the parcel is still being delivered.
+ * - If a shipment/AWB was booked it is cancelled on Shiprocket first, so the
+ *   courier never turns up for an order we refunded. If that call fails we throw
+ *   and the caller must NOT cancel the order.
+ * - Orders with no shipment yet need nothing here.
+ */
+export async function cancelShiprocketShipmentForOrder(order) {
+  assertShipmentCancellable(order);
+
+  const sr = order?.shiprocket;
+  if (!sr?.shipmentId && !sr?.shiprocketOrderId) {
+    return { cancelled: false, reason: "NO_SHIPMENT" };
+  }
+  if (normalizeShipmentStatus(sr.currentStatus) === "CANCELLED") {
+    return { cancelled: false, reason: "ALREADY_CANCELLED" };
+  }
+
+  let mode = "SIMULATED";
+  if (isShiprocketConfigured()) {
+    mode = "LIVE";
+    try {
+      const token = await getShiprocketAuthToken();
+      const headers = { Authorization: `Bearer ${token}` };
+      if (sr.awb) {
+        await axios.post(
+          `${SHIPROCKET_BASE_URL}/orders/cancel/shipment/awbs`,
+          { awbs: [String(sr.awb)] },
+          { headers, timeout: 15000 },
+        );
+      }
+      if (sr.shiprocketOrderId) {
+        const id = Number(sr.shiprocketOrderId);
+        try {
+          await axios.post(
+            `${SHIPROCKET_BASE_URL}/orders/cancel`,
+            { ids: [Number.isFinite(id) ? id : sr.shiprocketOrderId] },
+            { headers, timeout: 15000 },
+          );
+        } catch (orderCancelErr) {
+          // Shipment (AWB) is already cancelled; the Shiprocket-side order record
+          // failing to close is not a reason to keep the customer's order alive.
+          if (!sr.awb) throw orderCancelErr;
+          console.warn("[Shiprocket] order close after AWB cancel failed:", orderCancelErr.response?.data || orderCancelErr.message);
+        }
+      }
+    } catch (error) {
+      const detail = error.response?.data?.message || error.message;
+      const err = new Error(
+        `Could not cancel the courier shipment on Shiprocket (${typeof detail === "object" ? JSON.stringify(detail) : detail}). Please retry, or cancel it from the Shiprocket panel first.`,
+      );
+      err.statusCode = 502;
+      throw err;
+    }
+  } else if (process.env.NODE_ENV === "production") {
+    const err = new Error("Shiprocket API credentials are not configured; the courier shipment cannot be cancelled");
+    err.statusCode = 503;
+    throw err;
+  }
+
+  sr.currentStatus = "CANCELLED";
+  sr.lastEventAt = new Date();
+  if (!Array.isArray(sr.history)) sr.history = [];
+  sr.history.push({
+    status: "CANCELLED",
+    location: "",
+    timestamp: new Date(),
+    remarks: "Shipment cancelled before courier pickup",
+    source: mode === "LIVE" ? "api" : "system",
+  });
+  await order.save();
+
+  return { cancelled: true, mode };
+}
+
+/**
  * Super Admin: Get printable shipping label URL
  */
 export async function getShiprocketLabel(orderParam) {
@@ -703,7 +790,7 @@ export async function getShiprocketLabel(orderParam) {
 /**
  * Creates a reverse courier pickup via Shiprocket for returned items.
  * Origin = Customer delivery address
- * Destination = Seller / Warehouse shop address
+ * Destination = Seller shop address
  */
 export async function createShiprocketReversePickup(orderParam) {
   let order = typeof orderParam === "object" ? orderParam : await Order.findOne({ orderId: orderParam });
@@ -722,22 +809,18 @@ export async function createShiprocketReversePickup(orderParam) {
     throw err;
   }
 
-  // Populate seller and warehouse details if needed
+  // Populate seller details if needed
   let seller = null;
   if (order.seller) {
     seller = await Seller.findById(order.seller).lean();
   }
-  let warehouse = null;
-  if (order.warehouseId) {
-    warehouse = await Warehouse.findById(order.warehouseId).lean();
-  }
 
-  const destinationName = seller?.shopName || warehouse?.name || "Anushka Connect Central Store";
-  const destinationPhone = seller?.phone || warehouse?.phone || order.address?.phone || "9999999999";
-  const destinationAddress = seller?.address || warehouse?.address || "Jhansi Store Hub";
-  const destinationCity = seller?.city || warehouse?.city || "Jhansi";
-  const destinationState = seller?.state || warehouse?.state || "Uttar Pradesh";
-  const destinationPincode = seller?.pincode || warehouse?.pincode || "284001";
+  const destinationName = seller?.shopName || "Anushka Connect Central Store";
+  const destinationPhone = seller?.phone || order.address?.phone || "9999999999";
+  const destinationAddress = seller?.address || "Jhansi Store Hub";
+  const destinationCity = seller?.city || "Jhansi";
+  const destinationState = seller?.state || "Uttar Pradesh";
+  const destinationPincode = seller?.pincode || "284001";
 
   if (!isShiprocketConfigured()) {
     if (process.env.NODE_ENV === "production") {
@@ -1096,6 +1179,19 @@ export async function updateShiprocketManualStatus(orderId, { status, remarks = 
     order.shiprocket = { history: [] };
   }
 
+  // Same forward-only rule as the webhook: a manual update must not re-run
+  // settlement/refunds on a finished order or move the shipment backwards.
+  const staleReason = outOfOrderReason(order, normalizeShipmentStatus(upperStatus));
+  if (staleReason) {
+    const err = new Error(
+      staleReason === "duplicate"
+        ? `Shipment is already ${upperStatus}`
+        : `Cannot set ${upperStatus}: ${staleReason}`,
+    );
+    err.statusCode = 409;
+    throw err;
+  }
+
   order.shiprocket.currentStatus = upperStatus;
   order.shiprocket.lastEventAt = new Date();
 
@@ -1182,7 +1278,7 @@ export async function updateShiprocketManualStatus(orderId, { status, remarks = 
       sellerMessage: `Order #${order.orderId} was marked as ${upperStatus}.`,
     });
   } else if (upperStatus === "OUT_FOR_DELIVERY") {
-    emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_OUT_FOR_DELIVERY, {
+    emitNotificationEvent(NOTIFICATION_EVENTS.OUT_FOR_DELIVERY, {
       orderId: order.orderId,
       customerId: order.customer?._id || order.customer,
       userId: order.customer?._id || order.customer,
@@ -1224,7 +1320,9 @@ export async function processShiprocketWebhook(payload = {}, headers = {}) {
   // { awb: "123", current_status: "DELIVERED", order_id: "ORD-xxx", current_timestamp: "...", ... }
   const awb = payload.awb || payload.awb_code;
   const orderId = payload.order_id;
-  const statusRaw = String(payload.current_status || payload.shipment_status || "").toUpperCase().trim();
+  // Normalised once ("IN TRANSIT" -> "IN_TRANSIT", "CANCELED" -> "CANCELLED") so
+  // every comparison below, the stored status and all UIs agree on one spelling.
+  const statusRaw = normalizeShipmentStatus(payload.current_status || payload.shipment_status);
   const location = payload.location || payload.destination || "";
   const remarks = payload.status_remarks || payload.scans?.[0]?.activity || `Webhook event: ${statusRaw}`;
 
@@ -1291,24 +1389,13 @@ export async function processShiprocketWebhook(payload = {}, headers = {}) {
   if (awb && order.shiprocket?.awb && String(awb) !== String(order.shiprocket.awb)) {
     return { success: false, message: "AWB does not match this order" };
   }
-  if (["DELIVERED", "CANCELLED"].includes(statusRaw) && order.shiprocket?.currentStatus === statusRaw) {
-    return { success: true, duplicate: true, message: "Shipment status already processed" };
-  }
 
   if (!order.shiprocket) order.shiprocket = { history: [] };
-
-  order.shiprocket.currentStatus = statusRaw;
-  order.shiprocket.lastEventAt = new Date();
-  if (awb && !order.shiprocket.awb) order.shiprocket.awb = awb;
-  if (payload.courier_name && !order.shiprocket.courierName) {
-    order.shiprocket.courierName = payload.courier_name;
-  }
-  if (payload.etd) {
-    order.shiprocket.etd = payload.etd;
-  }
+  if (!Array.isArray(order.shiprocket.history)) order.shiprocket.history = [];
 
   const discrepancyAmt = Number(payload.weight_discrepancy_amount || payload.discrepancy_amount || 0);
-  if (discrepancyAmt > 0) {
+  const recordDiscrepancy = () => {
+    if (!(discrepancyAmt > 0)) return false;
     order.shiprocket.weightDiscrepancyAmount = discrepancyAmt;
     order.shiprocket.weightDiscrepancyReason = payload.discrepancy_reason || "Weight discrepancy reported by courier partner";
     if (payload.charged_weight) order.shiprocket.chargedWeightKg = Number(payload.charged_weight);
@@ -1320,7 +1407,52 @@ export async function processShiprocketWebhook(payload = {}, headers = {}) {
       remarks: `Weight discrepancy of ₹${discrepancyAmt} logged (deducted from seller payout). Reason: ${order.shiprocket.weightDiscrepancyReason}`,
       source: "webhook",
     });
+    return true;
+  };
+
+  // Forward-only guard: late / duplicate / out-of-order courier events must never
+  // move a finished or further-along order backwards (e.g. DELIVERED -> packed).
+  const ignoreReason = outOfOrderReason(order, statusRaw);
+  if (ignoreReason) {
+    // A weight penalty can arrive on a stale event; it is still real money.
+    if (ignoreReason !== "duplicate" && recordDiscrepancy()) {
+      await order.save();
+    }
+    return {
+      success: true,
+      duplicate: ignoreReason === "duplicate",
+      ignored: ignoreReason !== "duplicate",
+      message: ignoreReason === "duplicate"
+        ? "Shipment status already processed"
+        : `Shipment event ignored (${ignoreReason})`,
+    };
   }
+
+  // Courier picked the parcel up / it is moving: customer should see "shipped".
+  const inTransit = isInTransitStatus(statusRaw);
+
+  order.shiprocket.currentStatus = statusRaw;
+  order.shiprocket.lastEventAt = new Date();
+  // AWB can be assigned later than shipment creation: link it (and its
+  // tracking URL) as soon as the webhook reports it.
+  if (awb && !order.shiprocket.awb) {
+    order.shiprocket.awb = awb;
+    if (!order.shiprocket.trackingUrl) {
+      order.shiprocket.trackingUrl = `https://shiprocket.co/tracking/${awb}`;
+    }
+  }
+  // Replace the placeholder name we store before a real courier is known.
+  if (
+    payload.courier_name &&
+    (!order.shiprocket.courierName || order.shiprocket.courierName === "Shiprocket Courier Partner")
+  ) {
+    order.shiprocket.courierName = payload.courier_name;
+  }
+  if (payload.etd) {
+    order.shiprocket.etd = payload.etd;
+  }
+
+  recordDiscrepancy();
 
   if (statusRaw === "DELIVERED") {
     order.status = "delivered";
@@ -1330,20 +1462,29 @@ export async function processShiprocketWebhook(payload = {}, headers = {}) {
     }
     order.deliveredAt = new Date();
     order.shiprocket.deliveredAt = new Date();
-  } else if (statusRaw.includes("OUT FOR DELIVERY") || statusRaw === "OUT_FOR_DELIVERY") {
+  } else if (statusRaw === "OUT_FOR_DELIVERY") {
     order.status = "out_for_delivery";
     order.orderStatus = "out_for_delivery";
+    order.outForDeliveryAt = order.outForDeliveryAt || new Date();
     if (order.workflowVersion >= 2) {
       order.workflowStatus = WORKFLOW_STATUS.OUT_FOR_DELIVERY;
     }
-  } else if (statusRaw.includes("IN TRANSIT") || statusRaw === "IN_TRANSIT" || statusRaw.includes("SHIPPED")) {
+  } else if (inTransit) {
     order.status = "packed";
     order.orderStatus = "packed";
     if (order.workflowVersion >= 2) {
       order.workflowStatus = WORKFLOW_STATUS.PICKUP_READY;
     }
     if (!order.shiprocket.shippedAt) order.shiprocket.shippedAt = new Date();
-  } else if (statusRaw.includes("CANCELLED") || statusRaw === "CANCELLED") {
+  } else if (isPickupScheduledStatus(statusRaw)) {
+    // Pickup booked (possibly directly in the Shiprocket panel): seller side is done.
+    order.status = "packed";
+    order.orderStatus = "packed";
+    if (order.workflowVersion >= 2) {
+      order.workflowStatus = WORKFLOW_STATUS.PICKUP_READY;
+    }
+    if (!order.shiprocket.pickupScheduledAt) order.shiprocket.pickupScheduledAt = new Date();
+  } else if (isCancelledStatus(statusRaw)) {
     order.status = "cancelled";
     order.orderStatus = "cancelled";
     if (order.workflowVersion >= 2) {
@@ -1373,14 +1514,8 @@ export async function processShiprocketWebhook(payload = {}, headers = {}) {
       userId: order.customer?._id || order.customer,
       sellerId: order.seller?._id || order.seller,
     });
-  } else if (
-    statusRaw.includes("CANCELLED") ||
-    statusRaw === "CANCELLED" ||
-    statusRaw.includes("RTO DELIVERED") ||
-    statusRaw === "RTO_DELIVERED" ||
-    statusRaw.includes("RTO ACKNOWLEDGED")
-  ) {
-    const isRto = statusRaw.includes("RTO");
+  } else if (isCancelledStatus(statusRaw) || isRtoDeliveredStatus(statusRaw)) {
+    const isRto = isRtoStatus(statusRaw);
     order.status = "cancelled";
     order.orderStatus = "cancelled";
     if (order.workflowVersion >= 2) {
@@ -1407,14 +1542,14 @@ export async function processShiprocketWebhook(payload = {}, headers = {}) {
       customerMessage: isRto ? "Your order was returned to seller." : "Your order shipment was cancelled.",
       sellerMessage: `Order #${order.orderId} shipment was marked ${statusRaw}.`,
     });
-  } else if (statusRaw.includes("OUT FOR DELIVERY") || statusRaw === "OUT_FOR_DELIVERY") {
-    emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_OUT_FOR_DELIVERY, {
+  } else if (statusRaw === "OUT_FOR_DELIVERY") {
+    emitNotificationEvent(NOTIFICATION_EVENTS.OUT_FOR_DELIVERY, {
       orderId: order.orderId,
       customerId: order.customer?._id || order.customer,
       userId: order.customer?._id || order.customer,
       sellerId: order.seller?._id || order.seller,
     });
-  } else if (statusRaw.includes("IN TRANSIT") || statusRaw === "IN_TRANSIT" || statusRaw.includes("SHIPPED")) {
+  } else if (inTransit) {
     emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_PACKED, {
       orderId: order.orderId,
       customerId: order.customer?._id || order.customer,

@@ -220,14 +220,19 @@ const autoCancelExpiredOrders = async () => {
     const localOutForDeliveryCutoff12h = new Date(nowMs - 12 * 60 * 60 * 1000);
     const generalCutoff48h = new Date(nowMs - 48 * 60 * 60 * 1000);
 
+    // UPI QR orders: the clock starts when admin verified the payment, not when the order was
+    // placed (it may have waited up to 48h for verification). Orders still waiting for
+    // verification are handled by upiApprovalExpiryJob and must be left alone here.
+    const staleBase = { $toDate: { $ifNull: ["$upiApprovedAt", "$createdAt"] } };
     const staleOrders = await Order.find({
       status: { $nin: ["delivered", "cancelled"] },
       workflowStatus: { $nin: [WORKFLOW_STATUS.DELIVERED, WORKFLOW_STATUS.CANCELLED] },
+      $nor: [{ upiApprovalExpiresAt: { $type: "date" } }],
       $or: [
         // Local orders: unfulfilled > 24 hours
         {
           fulfillmentType: { $ne: "SHIPROCKET" },
-          $expr: { $lte: [{ $toDate: "$createdAt" }, localCutoff24h] },
+          $expr: { $lte: [staleBase, localCutoff24h] },
         },
         // Local orders: out for delivery > 12 hours
         {
@@ -242,7 +247,7 @@ const autoCancelExpiredOrders = async () => {
         },
         // Shiprocket & general orders: unfulfilled > 48 hours
         {
-          $expr: { $lte: [{ $toDate: "$createdAt" }, generalCutoff48h] },
+          $expr: { $lte: [staleBase, generalCutoff48h] },
         },
       ],
     });

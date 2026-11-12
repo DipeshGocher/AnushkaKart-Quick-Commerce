@@ -65,9 +65,8 @@ export const checkPincodeServiceability = async (req, res) => {
     if (productId) {
       try {
         const product = await Product.findById(productId)
-          .select("deliveryMode headerId categoryId sellerId warehouseId")
+          .select("deliveryMode headerId categoryId sellerId")
           .populate("sellerId", "pincode")
-          .populate("warehouseId", "pincode")
           .populate("headerId", "deliveryMode catalogType")
           .lean();
 
@@ -76,7 +75,7 @@ export const checkPincodeServiceability = async (req, res) => {
             deliveryMode = await resolveProductDeliveryMode(product, product.headerId);
           }
           if (!sellerPincode) {
-            sellerPincode = product.sellerId?.pincode || product.warehouseId?.pincode || "";
+            sellerPincode = product.sellerId?.pincode || "";
           }
         }
       } catch (prodErr) {
@@ -132,9 +131,8 @@ export const validateCartDelivery = async (req, res) => {
         if (item.productId && (!sellerPincode || !deliveryMode)) {
           try {
             const product = await Product.findById(item.productId)
-              .select("name deliveryMode headerId categoryId sellerId warehouseId")
+              .select("name deliveryMode headerId categoryId sellerId")
               .populate("sellerId", "pincode")
-              .populate("warehouseId", "pincode")
               .populate("headerId", "deliveryMode catalogType")
               .lean();
 
@@ -143,7 +141,7 @@ export const validateCartDelivery = async (req, res) => {
                 deliveryMode = await resolveProductDeliveryMode(product, product.headerId);
               }
               if (!sellerPincode) {
-                sellerPincode = product.sellerId?.pincode || product.warehouseId?.pincode || "";
+                sellerPincode = product.sellerId?.pincode || "";
               }
             }
           } catch (e) {}
@@ -247,7 +245,7 @@ export const togglePincode = async (req, res) => {
 /**
  * Helper to verify order fulfillment permission:
  * - Admin has master access across all orders
- * - Seller and Warehouse can strictly only manage courier shipments for their own assigned orders
+ * - Seller can strictly only manage courier shipments for their own orders
  */
 async function verifyOrderShipmentAccess(orderId, user) {
   if (!user) {
@@ -258,9 +256,9 @@ async function verifyOrderShipmentAccess(orderId, user) {
   if (user.role === "admin") {
     return;
   }
-  let order = await Order.findOne({ orderId }).select("seller warehouseId").lean();
+  let order = await Order.findOne({ orderId }).select("seller").lean();
   if (!order && mongoose.Types.ObjectId.isValid(orderId)) {
-    order = await Order.findById(orderId).select("seller warehouseId").lean();
+    order = await Order.findById(orderId).select("seller").lean();
   }
   if (!order) {
     const err = new Error("Order not found");
@@ -268,9 +266,8 @@ async function verifyOrderShipmentAccess(orderId, user) {
     throw err;
   }
   const sellerId = (order.seller?._id || order.seller)?.toString?.() || "";
-  const warehouseId = (order.warehouseId?._id || order.warehouseId)?.toString?.() || "";
   const userId = (user.id || user._id)?.toString?.() || "";
-  if (sellerId !== userId && warehouseId !== userId) {
+  if (!sellerId || sellerId !== userId) {
     const err = new Error("Unauthorized: You can only manage courier shipments for your own orders");
     err.statusCode = 403;
     throw err;

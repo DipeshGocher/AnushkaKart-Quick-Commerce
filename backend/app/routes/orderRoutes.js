@@ -15,6 +15,8 @@ import {
   approveReturnRequest,
   rejectReturnRequest,
   updateReturnQcStatus,
+  raiseReturnDispute,
+  resolveReturnDispute,
   assignReturnDelivery,
   acceptReturnPickup,
   rejectReturnPickup,
@@ -28,6 +30,9 @@ import {
   previewCheckoutFinance,
   reconcileCodCashSubmission,
   verifyOnlineOrderPayment,
+  submitOrderUtr,
+  approveUpiPayment,
+  rejectUpiPayment,
 } from "../controller/orderFinanceController.js";
 import {
   confirmPickup,
@@ -69,6 +74,24 @@ router.post(
   verifyOnlineOrderPayment,
 );
 router.post(
+  "/:id/payment/submit-utr",
+  verifyToken,
+  allowRoles("customer", "user", "admin"),
+  submitOrderUtr,
+);
+router.post(
+  "/:id/payment/approve-upi",
+  verifyToken,
+  allowRoles("admin"),
+  approveUpiPayment,
+);
+router.post(
+  "/:id/payment/reject-upi",
+  verifyToken,
+  allowRoles("admin"),
+  rejectUpiPayment,
+);
+router.post(
   "/:id/cod/mark-collected",
   verifyToken,
   allowRoles("delivery", "admin"),
@@ -77,7 +100,7 @@ router.post(
 router.post(
   "/:id/delivered",
   verifyToken,
-  allowRoles("delivery", "admin", "seller", "warehouse"),
+  allowRoles("delivery", "admin", "seller"),
   requireApprovedSeller,
   markOrderDeliveredAndSettle,
 );
@@ -105,49 +128,63 @@ router.get("/:orderId/returns", verifyToken, getReturnDetails);
 router.get(
   "/seller-orders",
   verifyToken,
-  allowRoles("admin", "seller", "warehouse"),
+  allowRoles("admin", "seller"),
   requireApprovedSeller,
   getSellerOrders,
 );
 router.put(
   "/status/:orderId",
   verifyToken,
-  allowRoles("admin", "seller", "warehouse"),
+  allowRoles("admin", "seller"),
   requireApprovedSeller,
   updateOrderStatus,
 );
 router.get(
   "/seller-returns",
   verifyToken,
-  allowRoles("admin", "seller", "warehouse"),
+  allowRoles("admin", "seller"),
   requireApprovedSeller,
   getSellerReturns,
 );
 router.put(
   "/returns/:orderId/approve",
   verifyToken,
-  allowRoles("admin", "seller", "warehouse"),
+  allowRoles("admin", "seller"),
   requireApprovedSeller,
   approveReturnRequest,
 );
 router.put(
   "/returns/:orderId/reject",
   verifyToken,
-  allowRoles("admin", "seller", "warehouse"),
+  allowRoles("admin", "seller"),
   requireApprovedSeller,
   rejectReturnRequest,
 );
 router.put(
   "/returns/:orderId/qc",
   verifyToken,
-  allowRoles("admin", "seller", "warehouse"),
+  allowRoles("admin", "seller"),
   requireApprovedSeller,
   updateReturnQcStatus,
+);
+// Customer disagrees with a failed QC (within the dispute window)
+router.post(
+  "/returns/:orderId/dispute",
+  verifyToken,
+  allowRoles("customer", "user"),
+  raiseReturnDispute,
+);
+// Admin rules on the dispute: decision = "customer" | "seller"
+router.put(
+  "/returns/:orderId/dispute/resolve",
+  verifyToken,
+  allowRoles("admin"),
+  resolveReturnDispute,
 );
 router.put(
   "/returns/:orderId/assign-delivery",
   verifyToken,
-  allowRoles("admin", "seller", "warehouse"),
+  allowRoles("admin", "seller"),
   requireApprovedSeller,
   assignReturnDelivery,
 );
@@ -262,7 +299,7 @@ router.post(
 router.get(
   "/workflow/:orderId/route",
   verifyToken,
-  allowRoles("customer", "user", "delivery", "seller", "admin", "warehouse"),
+  allowRoles("customer", "user", "delivery", "seller", "admin"),
   requireApprovedSeller,
   getOrderRoute,
 );

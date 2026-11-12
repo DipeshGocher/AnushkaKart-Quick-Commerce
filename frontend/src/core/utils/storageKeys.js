@@ -19,7 +19,6 @@ export const STORAGE_KEYS = Object.freeze({
     AUTH_SELLER: 'auth_seller',
     AUTH_ADMIN: 'auth_admin',
     AUTH_DELIVERY: 'auth_delivery',
-    AUTH_WAREHOUSE: 'auth_warehouse',
     AUTH_LEGACY: 'token',
 
     // ── Guest-mode state (overridden by backend once authenticated) ──────────

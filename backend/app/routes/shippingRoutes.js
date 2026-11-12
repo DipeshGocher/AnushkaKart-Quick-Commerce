@@ -42,16 +42,16 @@ router.put("/pincodes/:id", verifyToken, allowRoles("admin"), updatePincode);
 router.delete("/pincodes/:id", verifyToken, allowRoles("admin"), deletePincode);
 router.patch("/pincodes/:id/toggle", verifyToken, allowRoles("admin"), togglePincode);
 
-/* Shiprocket Fulfillment operations (Admin & Seller / Warehouse) */
-router.post("/shiprocket/process/:orderId", verifyToken, allowRoles("admin", "seller", "warehouse"), processShiprocket);
-router.post("/shiprocket/pickup/:orderId", verifyToken, allowRoles("admin", "seller", "warehouse"), scheduleShiprocketPickup);
-router.get("/shiprocket/label/:orderId", verifyToken, allowRoles("admin", "seller", "warehouse"), fetchShiprocketLabel);
+/* Shiprocket Fulfillment operations (Admin & Seller) */
+router.post("/shiprocket/process/:orderId", verifyToken, allowRoles("admin", "seller"), processShiprocket);
+router.post("/shiprocket/pickup/:orderId", verifyToken, allowRoles("admin", "seller"), scheduleShiprocketPickup);
+router.get("/shiprocket/label/:orderId", verifyToken, allowRoles("admin", "seller"), fetchShiprocketLabel);
 router.post("/shiprocket/manual-status/:orderId", verifyToken, allowRoles("admin"), updateShiprocketStatusManual);
 router.post("/shiprocket/discrepancy/:orderId", verifyToken, allowRoles("admin"), recordDiscrepancy);
 
-/* Shiprocket Reverse Courier Operations (Admin & Seller / Warehouse) */
-router.post("/shiprocket/reverse/pickup/:orderId", verifyToken, allowRoles("admin", "seller", "warehouse"), scheduleShiprocketReversePickupHandler);
-router.post("/shiprocket/reverse/manual-status/:orderId", verifyToken, allowRoles("admin", "seller", "warehouse"), updateShiprocketReverseStatusManual);
-router.get("/shiprocket/reverse/label/:orderId", verifyToken, allowRoles("admin", "seller", "warehouse"), fetchShiprocketReverseLabel);
+/* Shiprocket Reverse Courier Operations (Admin & Seller) */
+router.post("/shiprocket/reverse/pickup/:orderId", verifyToken, allowRoles("admin", "seller"), scheduleShiprocketReversePickupHandler);
+router.post("/shiprocket/reverse/manual-status/:orderId", verifyToken, allowRoles("admin", "seller"), updateShiprocketReverseStatusManual);
+router.get("/shiprocket/reverse/label/:orderId", verifyToken, allowRoles("admin", "seller"), fetchShiprocketReverseLabel);
 
 export default router;

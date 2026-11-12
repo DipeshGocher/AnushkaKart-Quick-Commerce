@@ -26,6 +26,7 @@ import { useToast } from '@shared/components/ui/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     getLegacyStatusFromOrder,
+    getStatusOptions,
     adminRouteMatchesOrder,
 } from '@/shared/utils/orderStatus';
 import { onOrderStatusUpdate } from '@/core/services/orderSocket';
@@ -72,7 +73,14 @@ const getStatusStyles = (status) => {
     }
 };
 
-const AdminOrderTableRow = React.memo(function AdminOrderTableRow({ order, status, onNavigate, onStatusUpdate }) {
+const AdminOrderTableRow = React.memo(function AdminOrderTableRow({
+    order,
+    status,
+    onNavigate,
+    onStatusUpdate,
+    onApproveUpi,
+    onRejectUpi,
+}) {
     const hasReturn = Boolean(order.returnStatus && order.returnStatus !== 'none');
     const returnInfo = hasReturn ? getReturnDisplayInfo(order.returnStatus) : null;
 
@@ -138,69 +146,90 @@ const AdminOrderTableRow = React.memo(function AdminOrderTableRow({ order, statu
                         </div>
                     ) : (
                         <>
-                            <select
-                                value={order.status}
-                                disabled={order.status === 'delivered' || order.status === 'cancelled'}
-                                onChange={(e) => onStatusUpdate(order._id, e.target.value)}
-                                className={cn(
-                                    "w-full text-[10px] pl-3 pr-8 py-2 rounded-xl font-black uppercase tracking-wider border appearance-none transition-all outline-none shadow-sm",
-                                    (order.status === 'delivered' || order.status === 'cancelled') ? "cursor-default opacity-80" : "cursor-pointer focus:ring-2 focus:ring-offset-1",
-                                    getStatusStyles(order.status)
-                                )}
-                            >
-                                {order.status === 'pending' && (
-                                    <>
-                                        <option value="pending">Pending</option>
-                                        <option value="confirmed">Confirm</option>
-                                        <option value="cancelled">Cancel Order</option>
-                                    </>
-                                )}
-                                {order.status === 'confirmed' && (
-                                    <>
-                                        <option value="confirmed">Confirmed</option>
-                                        <option value="packed">{order.fulfillmentType === 'SHIPROCKET' ? 'Mark Packed & Ready' : 'Mark Packed'}</option>
-                                        <option value="out_for_delivery">{order.fulfillmentType === 'SHIPROCKET' ? 'In Transit / Dispatched' : 'Out for Delivery'}</option>
-                                        <option value="cancelled">Cancel Order</option>
-                                    </>
-                                )}
-                                {order.status === 'packed' && (
-                                    <>
-                                        <option value="packed">{order.fulfillmentType === 'SHIPROCKET' ? 'Packed (Pickup Ready)' : 'Packed'}</option>
-                                        <option value="out_for_delivery">{order.fulfillmentType === 'SHIPROCKET' ? 'Handover Courier (In Transit)' : 'Out for Delivery'}</option>
-                                        <option value="delivered">{order.fulfillmentType === 'SHIPROCKET' ? 'Delivered by Courier' : 'Delivered'}</option>
-                                        <option value="cancelled">Cancel Order</option>
-                                    </>
-                                )}
-                                {order.status === 'out_for_delivery' && (
-                                    <>
-                                        <option value="out_for_delivery">{order.fulfillmentType === 'SHIPROCKET' ? 'In Transit / Out for Delivery' : 'Out for Delivery'}</option>
-                                        <option value="delivered">{order.fulfillmentType === 'SHIPROCKET' ? 'Delivered by Courier' : 'Mark Delivered'}</option>
-                                        <option value="cancelled">Cancel Order</option>
-                                    </>
-                                )}
-                                {order.status === 'delivered' && (
-                                    <option value="delivered">Delivered</option>
-                                )}
-                                {order.status === 'cancelled' && (
-                                    <option value="cancelled">Cancelled</option>
-                                )}
-                                {order.status === 'returned' && (
-                                    <option value="returned">Returned</option>
-                                )}
-                            </select>
+                            {(() => {
+                                // Same dropdown rules as seller/admin detail (shared helper), so panels never disagree.
+                                const options = order.status === 'returned'
+                                    ? [{ value: 'returned', label: 'Returned' }]
+                                    : getStatusOptions(order, 'admin');
+                                const locked = options.length <= 1;
+                                return (
+                                    <select
+                                        value={order.status}
+                                        disabled={locked}
+                                        onChange={(e) => {
+                                            const picked = options.find((o) => o.value === e.target.value);
+                                            onStatusUpdate(order._id, e.target.value, picked?.overrideReasonRequired);
+                                        }}
+                                        className={cn(
+                                            "w-full text-[10px] pl-3 pr-8 py-2 rounded-xl font-black uppercase tracking-wider border appearance-none transition-all outline-none shadow-sm",
+                                            locked ? "cursor-default opacity-80" : "cursor-pointer focus:ring-2 focus:ring-offset-1",
+                                            getStatusStyles(order.status)
+                                        )}
+                                    >
+                                        {options.map((opt) => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                        ))}
+                                    </select>
+                                );
+                            })()}
                             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-50" />
                         </>
                     )}
                 </div>
             </td>
             <td className="px-4 py-5 text-right font-black text-slate-900 text-sm">
-                <div className="flex flex-col items-end">
+                <div className="flex flex-col items-end gap-1">
                     <span>₹{order.amount.toLocaleString()}</span>
-                    <span className="text-[10px] font-bold text-slate-400 mt-0.5">{order.payment}</span>
+                    <span className="text-[10px] font-bold text-slate-400">{order.payment}</span>
+                    {order.paymentMode === 'UPI_QR' && (
+                        order.utrNumber ? (
+                            <span className="font-mono bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold border border-blue-200" title={`Submitted: ${order.utrSubmittedAt || ''}`}>
+                                UTR: {order.utrNumber}
+                            </span>
+                        ) : (
+                            <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded text-[10px] font-medium border border-amber-200">
+                                Awaiting UTR
+                            </span>
+                        )
+                    )}
+                    {order.paymentStatus === 'REJECTED' && (
+                        <span className="bg-rose-50 text-rose-700 px-2 py-0.5 rounded text-[9px] font-bold border border-rose-200">
+                            Payment Rejected
+                        </span>
+                    )}
                 </div>
             </td>
             <td className="px-4 py-5 text-right" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-end gap-2">
+                    {status === 'upi-pending' && order.paymentMode === 'UPI_QR' && (order.paymentStatus === 'AWAITING_VERIFICATION' || order.paymentStatus === 'CREATED') && (
+                        <>
+                            <button
+                                onClick={() => onApproveUpi(order._id, order.id, order.amount, order.utrNumber)}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100"
+                                title="Approve UPI Payment & Confirm Order"
+                            >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                APPROVE
+                            </button>
+                            <button
+                                onClick={() => onRejectUpi(order._id, order.id)}
+                                className="flex items-center gap-1 px-2.5 py-2 bg-rose-50 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-rose-100 transition-all border border-rose-200"
+                                title="Reject Payment"
+                            >
+                                REJECT
+                            </button>
+                        </>
+                    )}
+                    {status === 'upi-pending' && order.paymentMode === 'UPI_QR' && order.paymentStatus === 'REJECTED' && (
+                        <button
+                            onClick={() => onApproveUpi(order._id, order.id, order.amount, order.utrNumber)}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-blue-700 transition-all shadow-sm"
+                            title="Re-Approve & Mark as Paid"
+                        >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            RE-APPROVE
+                        </button>
+                    )}
                     {status === 'processed' && order.status === 'confirmed' && (
                         <button
                             onClick={() => onStatusUpdate(order._id, 'packed')}
@@ -250,6 +279,7 @@ const OrdersList = () => {
         cancelled: 0,
         returned: 0,
         activeOrders: 0,
+        upiPending: 0,
     });
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
@@ -314,9 +344,15 @@ const OrdersList = () => {
                     status: (o.status === 'returned' || (o.returnStatus && o.returnStatus !== 'none' && ['returned', 'refund_completed', 'qc_passed'].includes(o.returnStatus))) ? 'returned' : getLegacyStatusFromOrder(o),
                     workflowStatus: o.workflowStatus,
                     workflowVersion: o.workflowVersion,
+                    pickupReadyAt: o.pickupReadyAt,
                     returnStatus: o.returnStatus,
+                    paymentMode: o.paymentMode,
+                    paymentStatus: o.paymentStatus,
+                    utrNumber: o.utrNumber,
+                    utrSubmittedAt: o.utrSubmittedAt ? new Date(o.utrSubmittedAt).toLocaleString('en-IN') : null,
+                    paymentRejectedReason: o.paymentRejectedReason,
                     date: new Date(o.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-                    payment: o.payment?.method === 'cod' ? 'COD' : 'Digital',
+                    payment: o.paymentMode === 'UPI_QR' ? 'UPI QR' : o.payment?.method === 'cod' ? 'COD' : 'Digital',
                     fulfillmentType: o.fulfillmentType || 'LOCAL',
                     shiprocket: o.shiprocket || null,
                     escalated: Boolean(o.deliverySearchMeta?.escalated),
@@ -333,6 +369,7 @@ const OrdersList = () => {
                     cancelled: Number(payload.summary?.cancelled || 0),
                     returned: Number(payload.summary?.returned || 0),
                     activeOrders: Number(payload.summary?.activeOrders || 0),
+                    upiPending: Number(payload.summary?.upiPending || 0),
                 });
                 if (typeof payload.total === 'number') {
                     setTotal(payload.total);
@@ -358,9 +395,16 @@ const OrdersList = () => {
         navigate(`/admin/orders/view/${orderId}`);
     }, [navigate]);
 
-    const handleStatusUpdate = useCallback(async (orderId, newStatus) => {
+    const handleStatusUpdate = useCallback(async (orderId, newStatus, overrideReasonRequired = false) => {
         try {
-            await adminApi.updateOrderStatus(orderId, { status: newStatus });
+            const payload = { status: newStatus };
+            if (overrideReasonRequired) {
+                // Local deliveries are completed by the rider (customer OTP). Admin can force it, knowingly.
+                const reason = window.prompt('The rider normally completes this step with the customer OTP.\nWhy are you overriding it?');
+                if (!reason || !reason.trim()) return; // controlled <select> snaps back to the real status
+                payload.overrideReason = reason.trim();
+            }
+            await adminApi.updateOrderStatus(orderId, payload);
             showToast(`Order status updated to ${newStatus}`, "success");
             fetchOrders(); // Refresh table
         } catch (error) {
@@ -368,6 +412,30 @@ const OrdersList = () => {
             showToast(error.response?.data?.message || error.message || "Failed to update status", "error");
         }
     }, [fetchOrders, showToast]);
+
+    const handleApproveUpi = useCallback(async (orderMongoId, publicOrderId, amount, utr) => {
+        try {
+            await adminApi.approveUpiPayment(orderMongoId || publicOrderId, { utrNumber: utr });
+            showToast(`Order #${publicOrderId} payment approved and confirmed! (₹${amount})`, "success");
+            fetchOrders(page);
+        } catch (error) {
+            console.error("Failed to approve UPI payment:", error);
+            showToast(error.response?.data?.message || "Failed to approve payment", "error");
+        }
+    }, [fetchOrders, page, showToast]);
+
+    const handleRejectUpi = useCallback(async (orderMongoId, publicOrderId) => {
+        const reason = window.prompt("Enter rejection reason (e.g. UTR not found in bank statement, amount mismatch):", "UTR not found in bank statement");
+        if (reason === null) return;
+        try {
+            await adminApi.rejectUpiPayment(orderMongoId || publicOrderId, { reason });
+            showToast(`Order #${publicOrderId} payment marked as rejected`, "info");
+            fetchOrders(page);
+        } catch (error) {
+            console.error("Failed to reject UPI payment:", error);
+            showToast(error.response?.data?.message || "Failed to reject payment", "error");
+        }
+    }, [fetchOrders, page, showToast]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -450,7 +518,11 @@ const OrdersList = () => {
         showToast('Order ledger exported successfully', 'success');
     };
 
-    const pageTitle = status === 'all' ? 'All Orders' : status.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    const pageTitle = status === 'all'
+        ? 'All Orders'
+        : status === 'upi-pending'
+        ? 'Pending UPI Approvals'
+        : status.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
     return (
         <div className="ds-section-spacing animate-in fade-in slide-in-from-bottom-4 duration-700 pb-12">
@@ -608,6 +680,8 @@ const OrdersList = () => {
                                         status={status}
                                         onNavigate={handleNavigate}
                                         onStatusUpdate={handleStatusUpdate}
+                                        onApproveUpi={handleApproveUpi}
+                                        onRejectUpi={handleRejectUpi}
                                     />
                                 ))
                             ) : (

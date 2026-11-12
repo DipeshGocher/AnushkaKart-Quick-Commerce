@@ -231,8 +231,6 @@ const Topbar = ({ onMenuClick }) => {
                             navigate('/admin/profile');
                         } else if (location.pathname.startsWith('/seller')) {
                             navigate('/seller/profile');
-                        } else if (location.pathname.startsWith('/warehouse')) {
-                            navigate('/warehouse/profile');
                         } else if (location.pathname.startsWith('/delivery')) {
                             navigate('/delivery/profile');
                         } else {

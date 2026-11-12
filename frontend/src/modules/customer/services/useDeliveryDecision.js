@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { customerApi } from "./customerApi";
 
-// The server reads each product's actual seller/warehouse pincode and the
+// The server reads each product's actual seller pincode and the
 // current admin pincode list. Never infer a courier from incomplete cart data.
 export function useDeliveryDecision(items, pincode) {
   const productKey = useMemo(() =>

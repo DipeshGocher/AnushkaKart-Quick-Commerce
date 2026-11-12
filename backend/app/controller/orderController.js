@@ -6,7 +6,6 @@ import StockHistory from "../models/stockHistory.js";
 import Seller from "../models/seller.js";
 import Delivery from "../models/delivery.js";
 import User from "../models/customer.js";
-import Payout from "../models/payout.js";
 import OrderOtp from "../models/orderOtp.js";
 import handleResponse from "../utils/helper.js";
 import getPagination from "../utils/pagination.js";
@@ -53,20 +52,32 @@ import {
 } from "../services/orderSocketEmitter.js";
 import * as walletService from "../services/finance/walletService.js";
 import { OWNER_TYPE } from "../constants/finance.js";
-import { processPayout } from "../services/finance/payoutService.js";
 import { buildKey, invalidate } from "../services/cacheService.js";
 import { invalidateSellerStatsCache } from "../services/seller/sellerStatsService.js";
 import { computeReturnWindowForOrder } from "../utils/returnWindow.js";
 import logger from "../services/logger.js";
 import { validateBody as validateWithJoi } from "../middleware/validate.js";
 import OrderReturnService from "../services/order/orderReturnService.js";
+import ReturnQcService from "../services/order/returnQcService.js";
 import { getErrorStatus } from "../utils/httpError.js";
+import {
+  processShiprocketOrder,
+  cancelShiprocketShipmentForOrder,
+} from "../services/shipping/shiprocketService.js";
+
+/** Workflow states where no rider has picked the parcel up yet. */
+const PRE_PICKUP_WORKFLOW_STATES = [
+  WORKFLOW_STATUS.SELLER_ACCEPTED,
+  WORKFLOW_STATUS.DELIVERY_SEARCH,
+  WORKFLOW_STATUS.DELIVERY_ASSIGNED,
+];
 
 function normalizePaymentMode(value) {
   const raw = String(value || "").trim().toUpperCase();
   if (!raw) return null;
   if (raw === "ONLINE") return "ONLINE";
   if (raw === "COD" || raw === "CASH") return "COD";
+  if (raw === "UPI_QR" || raw === "UPI" || raw === "UPI-QR") return "UPI_QR";
   return null;
 }
 
@@ -81,6 +92,9 @@ function inferPaymentMode(payment = {}) {
     .filter(Boolean)
     .map((value) => String(value).trim().toLowerCase());
 
+  if (candidates.some((value) => value.includes("upi_qr") || value.includes("upi-qr"))) {
+    return "UPI_QR";
+  }
   if (
     candidates.some(
       (value) =>
@@ -422,7 +436,10 @@ export const getReturnDetails = async (req, res) => {
 export const updateOrderStatus = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { status, deliveryBoyId } = req.body;
+    const { status: statusInput, deliveryBoyId } = req.body;
+    // Lower-cased once so "Packed" / "packed" behave identically and only valid
+    // enum values are ever written to the order.
+    const status = statusInput ? String(statusInput).toLowerCase() : statusInput;
     const { id: userId, role } = req.user;
 
     const orderKey = orderMatchQueryFromRouteParam(orderId);
@@ -496,6 +513,77 @@ export const updateOrderStatus = async (req, res) => {
       }
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // FULFILLMENT-SPECIFIC GUARDS (courier vs local rider)
+    // ─────────────────────────────────────────────────────────────
+    if (newStatus && newStatus !== currentStatus) {
+      const isCourierOrder = order.fulfillmentType === "SHIPROCKET";
+      const callerOwnsOrder =
+        role === "admin" ||
+        (role === "seller" && order.seller?.toString() === userId);
+
+      if (isCourierOrder) {
+        // The courier moves these; setting them by hand would desync Shiprocket
+        // tracking and trigger delivery settlement for a parcel not yet delivered.
+        if (["out_for_delivery", "delivered"].includes(newStatus)) {
+          return handleResponse(
+            res,
+            400,
+            "Courier orders move to Out for delivery / Delivered automatically from Shiprocket tracking. If tracking is stuck, use 'Manual Status Update' on the order.",
+          );
+        }
+        if (newStatus === "cancelled" || newStatus === "packed") {
+          if (!callerOwnsOrder) {
+            return handleResponse(
+              res,
+              403,
+              "Access denied. You are not authorized to update this order.",
+            );
+          }
+        }
+        if (newStatus === "cancelled") {
+          // Blocks cancellation once the courier has the parcel, and cancels a
+          // booked-but-not-picked-up shipment on Shiprocket before we refund.
+          try {
+            await cancelShiprocketShipmentForOrder(order);
+          } catch (e) {
+            return handleResponse(res, getErrorStatus(e), e.message);
+          }
+        }
+        if (newStatus === "packed" && !order.shiprocket?.shipmentId) {
+          // "Packed" for a courier order means the shipment exists: book it now so
+          // seller/admin/customer never see "packed" with nothing to hand over.
+          try {
+            await processShiprocketOrder(order);
+          } catch (e) {
+            return handleResponse(res, getErrorStatus(e), e.message);
+          }
+        }
+      } else if (
+        role === "admin" &&
+        ["out_for_delivery", "delivered"].includes(newStatus)
+      ) {
+        // Local deliveries are completed by the rider (pickup + customer OTP).
+        // Admin can still force it, but only knowingly and with an audit reason.
+        const overrideReason = String(req.body?.overrideReason || "").trim();
+        if (!overrideReason) {
+          return handleResponse(
+            res,
+            400,
+            "Local deliveries are completed by the rider with the customer OTP. To override as admin, provide an override reason.",
+          );
+        }
+        logger.warn("Admin overrode rider-owned order status", {
+          scope: "updateOrderStatus",
+          orderId: canonicalOrderId,
+          from: currentStatus,
+          to: newStatus,
+          adminId: userId,
+          overrideReason,
+        });
+      }
+    }
+
     if (order.workflowVersion >= 2 && role === "seller") {
       if (status === "confirmed") {
         try {
@@ -515,29 +603,14 @@ export const updateOrderStatus = async (req, res) => {
       }
     }
 
-    if (order.workflowVersion >= 2 && role === "warehouse") {
-      if (status === "confirmed") {
-        try {
-          const { warehouseAcceptAtomic } = await import("../services/warehouseQueueAssignmentService.js");
-          const updated = await warehouseAcceptAtomic(userId, canonicalOrderId);
-          return handleResponse(res, 200, "Order accepted by warehouse", updated);
-        } catch (e) {
-          return handleResponse(res, getErrorStatus(e), e.message);
-        }
-      }
-      // Warehouse reject is not fully defined yet, can add if needed.
-    }
-
     // --- Data Isolation Check ---
     const isOwnerSeller =
       role === "seller" && order.seller?.toString() === userId;
-    const isOwnerWarehouse = 
-      role === "warehouse" && order.warehouseId?.toString() === userId;
     const isAssignedDeliveryBoy =
       role === "delivery" && order.deliveryBoy?.toString() === userId;
     const isAdmin = role === "admin";
 
-    if (!isOwnerSeller && !isOwnerWarehouse && !isAssignedDeliveryBoy && !isAdmin) {
+    if (!isOwnerSeller && !isAssignedDeliveryBoy && !isAdmin) {
       return handleResponse(
         res,
         403,
@@ -552,8 +625,18 @@ export const updateOrderStatus = async (req, res) => {
       order.orderStatus = status;
       if (order.workflowVersion >= 2) {
         if (status === "packed") {
-          order.workflowStatus = WORKFLOW_STATUS.PICKUP_READY;
           order.pickupReadyAt = order.pickupReadyAt || new Date();
+          // For local orders "packed" is a flag the seller sets (pickupReadyAt), NOT
+          // a delivery-workflow step. Moving the workflow to PICKUP_READY here used to
+          // pull the order out of rider search (no rider yet) or skip the rider's
+          // arrive-at-store step. The rider flow owns DELIVERY_* -> PICKUP_READY.
+          const packedIsOnlyAFlag =
+            order.fulfillmentType !== "SHIPROCKET" &&
+            Boolean(order.workflowStatus) &&
+            PRE_PICKUP_WORKFLOW_STATES.includes(order.workflowStatus);
+          if (!packedIsOnlyAFlag) {
+            order.workflowStatus = WORKFLOW_STATUS.PICKUP_READY;
+          }
         } else if (status === "out_for_delivery") {
           order.workflowStatus = WORKFLOW_STATUS.OUT_FOR_DELIVERY;
           order.outForDeliveryAt = order.outForDeliveryAt || new Date();
@@ -564,17 +647,8 @@ export const updateOrderStatus = async (req, res) => {
           order.workflowStatus = WORKFLOW_STATUS.CANCELLED;
         }
       }
-      if (order.fulfillmentType === "SHIPROCKET" && order.shiprocket) {
-        if (status === "packed") {
-          if (!order.shiprocket.currentStatus || order.shiprocket.currentStatus === "NEW") {
-            order.shiprocket.currentStatus = "AWB_ASSIGNED";
-          }
-        } else if (status === "out_for_delivery") {
-          order.shiprocket.currentStatus = "OUT_FOR_DELIVERY";
-        } else if (status === "delivered") {
-          order.shiprocket.currentStatus = "DELIVERED";
-        }
-      }
+      // Courier orders: shipment state (AWB, pickup, transit, delivery) is owned by
+      // Shiprocket tracking. Never fabricate `shiprocket.currentStatus` here.
     }
     if (deliveryBoyId) {
       order.deliveryBoy = deliveryBoyId;
@@ -768,6 +842,9 @@ export const updateOrderStatus = async (req, res) => {
       {
         workflowStatus: order.workflowStatus,
         status: order.status,
+        // "Packed" is a flag for local orders; clients need it to show Packed
+        // while the delivery workflow is still searching/assigned.
+        pickupReadyAt: order.pickupReadyAt,
         deliveryBoy: order.deliveryBoy,
         shiprocket: order.shiprocket,
         escalated: Boolean(order.deliverySearchMeta?.escalated),
@@ -815,99 +892,88 @@ export const rejectReturnRequest = async (req, res) => {
 };
 
 /* ===============================
-   QC CHECK (Admin)
+   QC CHECK (Seller / Admin)
+   All rules live in returnQcService: validation first, atomic state
+   change, refund retry, evidence + dispute window for failed QC.
 ================================ */
 export const updateReturnQcStatus = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { qcStatus, note } = req.body || {};
+    const { qcStatus, note, evidenceImages } = req.body || {};
     const { id: userId, role } = req.user;
 
     if (!["qc_passed", "qc_failed"].includes(qcStatus)) {
       return handleResponse(res, 400, "Invalid qcStatus value.");
     }
-
-    const orderKey = orderMatchQueryFromRouteParam(orderId);
-    if (!orderKey) {
-      return handleResponse(res, 404, "Order not found");
-    }
-
-    const order = await Order.findOne(orderKey);
-    if (!order) {
-      return handleResponse(res, 404, "Order not found");
-    }
-
-    const isOwnerSeller =
-      role === "seller" && (order.seller?._id || order.seller)?.toString() === userId;
-    const isOwnerWarehouse =
-      role === "warehouse" && (order.warehouseId?._id || order.warehouseId)?.toString() === userId;
-    const isAdmin = role === "admin";
-
-    if (!isAdmin && !isOwnerSeller && !isOwnerWarehouse) {
+    if (role !== "admin" && role !== "seller") {
       return handleResponse(
         res,
         403,
-        "Access denied. Only admin or assigned seller/warehouse can perform QC.",
+        "Access denied. Only admin or the assigned seller can perform QC.",
       );
     }
 
-    if (order.returnStatus !== "returned") {
-      return handleResponse(
-        res,
-        400,
-        "QC can only be completed after the item is returned.",
-      );
-    }
-
-    order.returnStatus = qcStatus;
-    order.returnQcStatus = qcStatus === "qc_passed" ? "passed" : "failed";
-    order.returnQcAt = new Date();
-    order.returnQcBy = userId;
-    order.returnQcNote = note ? String(note).trim().slice(0, 500) : undefined;
-
-    await order.save();
+    const { order, retried } = await ReturnQcService.completeQc({
+      orderId,
+      actor: { id: userId, role },
+      qcStatus,
+      note,
+      evidenceImages,
+      completeRefund: completeReturnAndRefund,
+    });
 
     if (qcStatus === "qc_passed") {
-      const updated = await completeReturnAndRefund(order);
-      return handleResponse(res, 200, "QC passed and refund processed", updated);
-    }
-
-    // QC failed: allow seller payout release if on hold
-    // Fraud guard — prevent double release
-    if (order.sellerPayoutReleasedAt) {
-      return handleResponse(res, 409, "Seller payout already released for this order.");
-    }
-    const autoRelease =
-      String(process.env.AUTO_RELEASE_SELLER_PAYOUT || "true").toLowerCase() === "true";
-    if (autoRelease) {
-      const payout = await Payout.findOne({
-        payoutType: "SELLER",
-        relatedOrderIds: order._id,
-        status: { $in: ["PENDING", "PROCESSING"] },
-      }).select("_id").lean();
-      if (payout?._id) {
-        try {
-          await processPayout(payout._id);
-        } catch (error) {
-          logger.warn("Auto-release payout failed", {
-            scope: "ReturnQC",
-            error: error.message,
-          });
-        }
-      }
-    } else {
-      await Order.updateOne(
-        { _id: order._id },
-        {
-          $set: {
-            "settlementStatus.sellerPayout": "PENDING",
-            "financeFlags.sellerPayoutHeld": false,
-          },
-        },
+      return handleResponse(
+        res,
+        200,
+        retried ? "Refund retried and processed" : "QC passed and refund processed",
+        order,
       );
     }
-
     return handleResponse(res, 200, "QC failed recorded", order);
+  } catch (error) {
+    return handleResponse(res, getErrorStatus(error), error.message);
+  }
+};
+
+/* ===============================
+   RETURN DISPUTE (Customer raises, Admin decides)
+================================ */
+export const raiseReturnDispute = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { reason, images } = req.body || {};
+    const order = await ReturnQcService.raiseDispute({
+      customerId: req.user.id,
+      orderId,
+      reason,
+      images,
+    });
+    return handleResponse(res, 200, "Dispute submitted. Our team will review it.", order);
+  } catch (error) {
+    return handleResponse(res, getErrorStatus(error), error.message);
+  }
+};
+
+export const resolveReturnDispute = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { decision, note } = req.body || {};
+    const { order } = await ReturnQcService.resolveDispute({
+      adminId: req.user.id,
+      orderId,
+      decision,
+      note,
+      completeRefund: completeReturnAndRefund,
+    });
+    return handleResponse(
+      res,
+      200,
+      decision === "customer"
+        ? "Dispute resolved in the customer's favour. Refund processed."
+        : "Dispute resolved in the seller's favour.",
+      order,
+    );
   } catch (error) {
     return handleResponse(res, getErrorStatus(error), error.message);
   }
@@ -933,10 +999,9 @@ export const assignReturnDelivery = async (req, res) => {
     }
 
     const isOwnerSeller = role === "seller" && order.seller?.toString() === userId;
-    const isOwnerWarehouse = role === "warehouse" && order.warehouseId?.toString() === userId;
     const isAdmin = role === "admin";
 
-    if (!isOwnerSeller && !isOwnerWarehouse && !isAdmin) {
+    if (!isOwnerSeller && !isAdmin) {
       return handleResponse(
         res,
         403,

@@ -80,11 +80,6 @@ export const deliveryApi = {
   updateEmergencyContacts: (data) =>
     axiosInstance.put("/delivery/emergency-contacts", data),
 
-  // Warehouse Queue Check-in
-  warehouseCheckin: (data) => axiosInstance.post("/delivery/warehouse/checkin", data),
-  warehouseCheckout: () => axiosInstance.post("/delivery/warehouse/checkout"),
-  getCheckinStatus: () => axiosInstance.get("/delivery/warehouse/checkin-status"),
-
   // Support & Tickets
   createTicket: (data) => axiosInstance.post("/tickets/create", data),
   getMyTickets: () => axiosInstance.get("/tickets/my-tickets"),

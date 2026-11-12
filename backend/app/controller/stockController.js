@@ -18,7 +18,7 @@ export const adjustStock = async (req, res) => {
         const userId = req.user.id;
         const role = String(req.user?.role || "").toLowerCase();
 
-        const baseQuery = role === "warehouse" ? { _id: productId, warehouseId: userId } : { _id: productId, sellerId: userId };
+        const baseQuery = { _id: productId, sellerId: userId };
         const product = await Product.findOne(baseQuery);
         if (!product) {
             return handleResponse(res, 404, "Product not found or unauthorized");
@@ -45,7 +45,7 @@ export const adjustStock = async (req, res) => {
         // 2. Create History Entry
         const historyEntry = new StockHistory({
             product: productId,
-            ...(role === "warehouse" ? { warehouseId: userId } : { seller: userId }),
+            seller: userId,
             type: isAddition ? 'Restock' : 'Correction',
             quantity: isAddition ? qtyChange : -qtyChange,
             note: note || `Manual ${isAddition ? 'Restock' : 'Remove'} adjustment`
@@ -86,7 +86,7 @@ export const getStockHistory = async (req, res) => {
         const userId = req.user.id;
         const role = req.user.role;
 
-        const query = role === "warehouse" ? { warehouseId: userId } : { seller: userId };
+        const query = { seller: userId };
 
         const history = await StockHistory.find(query)
             .sort({ createdAt: -1 })

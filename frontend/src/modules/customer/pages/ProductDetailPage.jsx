@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import NotFoundPage from '@/shared/components/NotFoundPage';
 
-const RESERVED_MODULE_SLUGS = new Set(['admin', 'seller', 'delivery', 'warehouse', 'unauthorized', 'marketplace', 'login', 'signup']);
+const RESERVED_MODULE_SLUGS = new Set(['admin', 'seller', 'delivery', 'unauthorized', 'marketplace', 'login', 'signup']);
 
 /**
  * ProductDetailPage

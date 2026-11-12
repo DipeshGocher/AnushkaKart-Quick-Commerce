@@ -99,10 +99,8 @@ import logger from "../services/logger.js";
 import {
   resolveCategoryName,
   resolveSellerName,
-  resolveWarehouseName,
   resolveCategoryMeta,
   resolveSellerMeta,
-  resolveWarehouseMeta,
 } from "../services/entityNameCache.js";
 import {
   PRODUCT_APPROVAL_STATUS,
@@ -670,17 +668,9 @@ export const getProducts = async (req, res) => {
         query.$and = query.$and || [];
         query.$and.push({ $or: query.$or });
         delete query.$or;
-        query.$and.push({
-          $or: [
-            { sellerId: { $in: mixedSellerIds } },
-            { warehouseId: { $in: mixedSellerIds } }
-          ]
-        });
+        query.$and.push({ sellerId: { $in: mixedSellerIds } });
       } else {
-        query.$or = [
-          { sellerId: { $in: mixedSellerIds } },
-          { warehouseId: { $in: mixedSellerIds } }
-        ];
+        query.sellerId = { $in: mixedSellerIds };
       }
     }
 
@@ -755,7 +745,7 @@ export const getProducts = async (req, res) => {
       const [rawProducts, total, activeCount, lowStockCount, outOfStockCount] = await Promise.all([
         Product.find(finalQuery)
           .select(
-            "name slug description sku price salePrice stock brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights conditionType refurbishedDetails createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
+            "name slug description sku price salePrice stock brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights conditionType refurbishedDetails createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
           )
           // No .populate() — names resolved via cache-backed entityNameCache
           .sort(sortQuery)
@@ -800,31 +790,25 @@ export const getProducts = async (req, res) => {
       // Collect unique category IDs (headerId, categoryId, subcategoryId) and seller IDs
       const categoryIdSet = new Set();
       const sellerIdSet = new Set();
-      const warehouseIdSet = new Set();
       for (const p of rawProducts) {
         if (p.headerId) categoryIdSet.add(String(p.headerId));
         if (p.categoryId) categoryIdSet.add(String(p.categoryId));
         if (p.subcategoryId) categoryIdSet.add(String(p.subcategoryId));
         if (p.sellerId) sellerIdSet.add(String(p.sellerId));
-        if (p.warehouseId) warehouseIdSet.add(String(p.warehouseId));
       }
 
       // Resolve metadata in parallel via cache-backed service
-      const [categoryEntries, sellerEntries, warehouseEntries] = await Promise.all([
+      const [categoryEntries, sellerEntries] = await Promise.all([
         Promise.all(
           [...categoryIdSet].map(async (id) => [id, await resolveCategoryMeta(id)]),
         ),
         Promise.all(
           [...sellerIdSet].map(async (id) => [id, await resolveSellerMeta(id)]),
         ),
-        Promise.all(
-          [...warehouseIdSet].map(async (id) => [id, await resolveWarehouseMeta(id)]),
-        ),
       ]);
 
       const catMap = Object.fromEntries(categoryEntries);
       const sellerMap = Object.fromEntries(sellerEntries);
-      const warehouseMap = Object.fromEntries(warehouseEntries);
 
       // Enrich products to match the shape previously returned by .populate()
       const products = rawProducts.map((p) => {
@@ -832,7 +816,6 @@ export const getProducts = async (req, res) => {
         const cMeta = p.categoryId ? catMap[String(p.categoryId)] : null;
         const sMeta = p.subcategoryId ? catMap[String(p.subcategoryId)] : null;
         const selMeta = p.sellerId ? sellerMap[String(p.sellerId)] : null;
-        const whMeta = p.warehouseId ? warehouseMap[String(p.warehouseId)] : null;
 
         return {
           ...p,
@@ -871,15 +854,6 @@ export const getProducts = async (req, res) => {
                 pincode: selMeta?.pincode ?? null,
                 city: selMeta?.city ?? null,
                 state: selMeta?.state ?? null,
-              }
-            : null,
-          warehouseId: p.warehouseId
-            ? {
-                _id: p.warehouseId,
-                name: whMeta?.name ?? null,
-                pincode: whMeta?.pincode ?? null,
-                city: whMeta?.city ?? null,
-                state: whMeta?.state ?? null,
               }
             : null,
         };
@@ -937,9 +911,7 @@ export const getSellerProducts = async (req, res) => {
     });
 
     const role = String(req.user?.role || "").toLowerCase();
-    const baseSellerQuery = role === "warehouse"
-      ? { warehouseId: sellerId, isDeleted: { $ne: true } }
-      : { sellerId, isDeleted: { $ne: true } };
+    const baseSellerQuery = { sellerId, isDeleted: { $ne: true } };
     const andConditions = [{ ...baseSellerQuery }];
 
     if (stockStatus === "in") {
@@ -1077,13 +1049,12 @@ export const getSellerProducts = async (req, res) => {
     ] = await Promise.all([
       Product.find(query)
         .select(
-          "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights conditionType refurbishedDetails createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
+          "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights conditionType refurbishedDetails createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
         )
         .populate("headerId", "name slug trustBadges")
         .populate("categoryId", "name slug trustBadges")
         .populate("subcategoryId", "name slug trustBadges")
-        .populate("sellerId", "shopName")
-        .populate("warehouseId", "name")
+        .populate("sellerId", "shopName")
         .sort(sortQuery)
         .skip(skip)
         .limit(limit)
@@ -1192,8 +1163,6 @@ export const createProduct = async (req, res) => {
       if (!productData.sellerId) {
         return handleResponse(res, 400, "sellerId is required for admin-created products");
       }
-    } else if (role === "warehouse") {
-      productData.warehouseId = req.user.id;
     } else {
       productData.sellerId = req.user.id;
     }
@@ -1398,9 +1367,6 @@ export const createProduct = async (req, res) => {
     if (productData.sellerId && mongoose.Types.ObjectId.isValid(String(productData.sellerId))) {
       productData.sellerId = new mongoose.Types.ObjectId(String(productData.sellerId));
     }
-    if (productData.warehouseId && mongoose.Types.ObjectId.isValid(String(productData.warehouseId))) {
-      productData.warehouseId = new mongoose.Types.ObjectId(String(productData.warehouseId));
-    }
 
     // Auto-generate product SKU if missing
     if (!productData.sku || String(productData.sku).trim() === "") {
@@ -1493,7 +1459,7 @@ export const updateProduct = async (req, res) => {
     }
 
     // Admin bypasses sellerId check
-    const query = role === "admin" ? { _id: id } : role === "warehouse" ? { _id: id, warehouseId: sellerId } : { _id: id, sellerId };
+    const query = role === "admin" ? { _id: id } : { _id: id, sellerId };
     const product = await Product.findOne(query);
 
     if (!product) {
@@ -1815,11 +1781,9 @@ export const deleteProduct = async (req, res) => {
       return handleResponse(res, 400, "Valid product ID is required");
     }
 
-    const query = role === "admin" 
-      ? { _id: id } 
-      : role === "warehouse" 
-        ? { _id: id, warehouseId: sellerId } 
-        : { _id: id, sellerId };
+    const query = role === "admin"
+      ? { _id: id }
+      : { _id: id, sellerId };
 
     const product = await Product.findOne(query);
 
@@ -1893,9 +1857,7 @@ export const bulkDeleteProducts = async (req, res) => {
 
     const query = role === "admin"
       ? { _id: { $in: validIds } }
-      : role === "warehouse"
-        ? { _id: { $in: validIds }, warehouseId: sellerId }
-        : { _id: { $in: validIds }, sellerId };
+      : { _id: { $in: validIds }, sellerId };
 
     const matchingProducts = await Product.find(query).select("_id name").lean();
     if (!matchingProducts.length) {
@@ -1987,13 +1949,12 @@ export const getProductById = async (req, res) => {
         const query = isObjectId ? { _id: id } : { slug: id };
         return Product.findOne(query)
           .select(
-            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId isMonthlyKit status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights specifications dynamicAttributes trustBadges createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
+            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId isMonthlyKit status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights specifications dynamicAttributes trustBadges createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
           )
           .populate("headerId", "name slug trustBadges deliveryMode catalogType")
           .populate("categoryId", "name slug trustBadges deliveryMode catalogType")
           .populate("subcategoryId", "name slug trustBadges deliveryMode catalogType")
-          .populate("sellerId", "shopName slug pincode address city state")
-          .populate("warehouseId", "name pincode address city state")
+          .populate("sellerId", "shopName slug pincode address city state")
           .lean();
       },
       getTTL("product"),
@@ -2016,21 +1977,12 @@ export const getProductById = async (req, res) => {
         : product?.sellerId
           ? String(product.sellerId)
           : null;
-      let warehouseIdForProduct = product?.warehouseId?._id
-        ? String(product.warehouseId._id)
-        : product?.warehouseId
-          ? String(product.warehouseId)
-          : null;
 
-      if (
-        (!sellerIdForProduct || sellerIdForProduct === "null") &&
-        (!warehouseIdForProduct || warehouseIdForProduct === "null")
-      ) {
+      if (!sellerIdForProduct || sellerIdForProduct === "null") {
         const rawProduct = await Product.findOne(isObjectId ? { _id: id } : { slug: id })
-          .select("sellerId warehouseId")
+          .select("sellerId")
           .lean();
         if (rawProduct?.sellerId) sellerIdForProduct = String(rawProduct.sellerId);
-        if (rawProduct?.warehouseId) warehouseIdForProduct = String(rawProduct.warehouseId);
       }
 
       // Hybrid Commerce: Products are available Pan-India via courier or locally via quick commerce pincodes.
@@ -2238,13 +2190,12 @@ export const getModerationProducts = async (req, res) => {
     ] = await Promise.all([
       Product.find(moderatedQuery)
         .select(
-          "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId warehouseId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
+          "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
         )
         .populate("headerId", "name")
         .populate("categoryId", "name")
         .populate("subcategoryId", "name")
-        .populate("sellerId", "shopName name")
-        .populate("warehouseId", "name")
+        .populate("sellerId", "shopName name")
         .populate("approvalReviewedBy", "name email")
         .sort(sortQuery)
         .skip(skip)
@@ -2317,8 +2268,7 @@ export const approveProduct = async (req, res) => {
       .populate("headerId", "name")
       .populate("categoryId", "name")
       .populate("subcategoryId", "name")
-      .populate("sellerId", "shopName name")
-      .populate("warehouseId", "name")
+      .populate("sellerId", "shopName name")
       .populate("approvalReviewedBy", "name email");
 
     if (!updated) {
@@ -2357,8 +2307,7 @@ export const rejectProduct = async (req, res) => {
       .populate("headerId", "name")
       .populate("categoryId", "name")
       .populate("subcategoryId", "name")
-      .populate("sellerId", "shopName name")
-      .populate("warehouseId", "name")
+      .populate("sellerId", "shopName name")
       .populate("approvalReviewedBy", "name email");
 
     if (!updated) {
@@ -2495,7 +2444,7 @@ export const getHeaderProducts = async (req, res) => {
               }
 
               let items = await Product.find(prodQuery)
-                .select("_id name slug price salePrice stock mainImage variants rating ratingsCount weight unit brand isFeatured isTopDeal deliveryMode headerId categoryId subcategoryId sellerId warehouseId")
+                .select("_id name slug price salePrice stock mainImage variants rating ratingsCount weight unit brand isFeatured isTopDeal deliveryMode headerId categoryId subcategoryId sellerId")
                 .sort({ isFeatured: -1, createdAt: -1 })
                 .limit(limit)
                 .lean();
@@ -2503,7 +2452,7 @@ export const getHeaderProducts = async (req, res) => {
               if ((!items || items.length === 0) && sellerFilter) {
                 delete prodQuery.$and;
                 items = await Product.find(prodQuery)
-                  .select("_id name slug price salePrice stock mainImage variants rating ratingsCount weight unit brand isFeatured isTopDeal deliveryMode headerId categoryId subcategoryId sellerId warehouseId")
+                  .select("_id name slug price salePrice stock mainImage variants rating ratingsCount weight unit brand isFeatured isTopDeal deliveryMode headerId categoryId subcategoryId sellerId")
                   .sort({ isFeatured: -1, createdAt: -1 })
                   .limit(limit)
                   .lean();

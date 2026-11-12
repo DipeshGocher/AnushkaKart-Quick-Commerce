@@ -18,10 +18,9 @@ export async function applyDeliveredSettlement(order, orderIdString) {
     });
   }
 
-  // Legacy transaction compatibility for existing seller/warehouse/rider dashboards.
-  // Settle whichever user model holds the order-payment transaction (Seller or Warehouse).
+  // Legacy transaction compatibility for existing seller/rider dashboards.
   await Transaction.updateMany(
-    { reference: orderIdString, userModel: { $in: ["Seller", "Warehouse"] } },
+    { reference: orderIdString, userModel: "Seller" },
     { status: "Settled" },
   );
 

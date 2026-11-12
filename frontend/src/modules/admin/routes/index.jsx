@@ -28,6 +28,7 @@ import {
   Image as ImageIcon,
   Palette,
   Store,
+  Calculator,
 } from "lucide-react";
 
 import lazyWithRetry from "@/core/utils/lazyWithRetry";
@@ -104,6 +105,8 @@ const EmployeeManagement = React.lazy(() => import("../pages/EmployeeManagement"
 const EmployeeDetail = React.lazy(() => import("../pages/EmployeeDetail"));
 const LegalPageEditor = React.lazy(() => import("../pages/LegalPageEditor"));
 const DeliveryPincodes = React.lazy(() => import("../pages/DeliveryPincodes"));
+const FinanceSettings = React.lazy(() => import("../pages/FinanceSettings"));
+const FinanceRequests = React.lazy(() => import("../pages/FinanceRequests"));
 
 const navItems = [
   // ── CORE MANAGEMENT ──
@@ -132,6 +135,7 @@ const navItems = [
     color: "fuchsia",
     children: [
       { label: "All Orders", path: "/admin/orders/all" },
+      { label: "Pending UPI Approvals", path: "/admin/orders/upi-pending" },
       { label: "New Orders", path: "/admin/orders/pending" },
       { label: "Being Prepared", path: "/admin/orders/processed" },
       { label: "On the Way", path: "/admin/orders/out-for-delivery" },
@@ -178,6 +182,15 @@ const navItems = [
       { label: "Waiting for Review", path: "/admin/delivery-boys/pending" },
       { label: "SOS Alerts", path: "/admin/sos-alerts" },
       { label: "Delivery Pincodes", path: "/admin/delivery-pincodes" },
+    ],
+  },
+  {
+    label: "Finance (EMI)",
+    icon: Calculator,
+    color: "blue",
+    children: [
+      { label: "EMI Settings", path: "/admin/emi/settings" },
+      { label: "Quotation Requests", path: "/admin/emi/requests" },
     ],
   },
   { label: "Customers", path: "/admin/customers", icon: Users, color: "sky" },
@@ -276,9 +289,6 @@ export const adminRoutes = [
   { path: "products", element: <ProductManagement /> },
   { path: "sellers/active", element: <ActiveSellers /> },
   { path: "sellers/active/:id", element: <SellerDetail /> },
-  { path: "warehouses/active", element: <Navigate to="/admin" replace /> },
-  { path: "warehouses/pending", element: <Navigate to="/admin" replace /> },
-  { path: "warehouse-queues", element: <Navigate to="/admin" replace /> },
   { path: "support-tickets", element: <SupportTickets /> },
   { path: "moderation", element: <ReviewModeration /> },
   { path: "monthly-baskets/*", element: <Navigate to="/admin/products" replace /> },
@@ -314,6 +324,9 @@ export const adminRoutes = [
   { path: "settings", element: <AdminSettings /> },
   { path: "delivery-pincodes", element: <DeliveryPincodes /> },
   { path: "legal-pages", element: <LegalPageEditor /> },
+  { path: "emi", element: <Navigate to="/admin/emi/settings" replace /> },
+  { path: "emi/settings", element: <FinanceSettings /> },
+  { path: "emi/requests", element: <FinanceRequests /> },
   { path: "*", element: <NotFoundPage /> },
 ];
 

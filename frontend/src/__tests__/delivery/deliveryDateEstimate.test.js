@@ -97,6 +97,30 @@ describe("Option 1: Dynamic Business Days Delivery Fallback Tests", () => {
       expect(result.fullText).toBe("Delivery by Thu, 29 Oct");
     });
 
+    test("server decision beats a stale fulfillmentType stamped on the item (Buy Now at another location)", () => {
+      const staleItem = { _id: "p1", name: "JBL Speaker", fulfillmentType: "SHIPROCKET" };
+
+      const viaDecision = resolveItemDeliveryInfo(staleItem, {
+        itemDecision: { fulfillmentType: "LOCAL_RIDERS", deliveryEstimate: "20-35 mins" },
+      });
+      expect(viaDecision.isQuick).toBe(true);
+      expect(viaDecision.badgeText).toBe("Quick Commerce");
+      expect(viaDecision.fullText).toBe("Delivery in 20-35 mins");
+
+      const viaPreview = resolveItemDeliveryInfo(staleItem, {
+        previewItem: { itemFulfillmentType: "LOCAL_RIDERS", itemDeliveryEstimate: "20-35 mins" },
+      });
+      expect(viaPreview.isQuick).toBe(true);
+
+      // and the other direction: stale LOCAL must not hide a real courier decision
+      const staleLocal = { _id: "p2", name: "Shoes", fulfillmentType: "LOCAL" };
+      const courier = resolveItemDeliveryInfo(staleLocal, {
+        itemDecision: { fulfillmentType: "SHIPROCKET" },
+      });
+      expect(courier.isQuick).toBe(false);
+      expect(courier.badgeText).toBe("Standard Courier");
+    });
+
     test("prioritizes live Shiprocket ETD over fallback date when live ETD is provided", () => {
       const courierItem = {
         _id: "prod_courier_2",

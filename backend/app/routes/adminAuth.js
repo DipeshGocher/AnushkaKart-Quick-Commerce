@@ -19,13 +19,8 @@ import {
     getPendingSellers,
     approveSellerApplication,
     rejectSellerApplication,
-    getPendingWarehouses,
-    getActiveWarehouses,
-    approveWarehouseApplication,
-    rejectWarehouseApplication,
     getSellerWithdrawals,
     getDeliveryWithdrawals,
-    getWarehouseWithdrawals,
     updateWithdrawalStatus,
     getSellerTransactions,
     getDeliveryCashBalances,
@@ -57,12 +52,6 @@ import {
     acknowledgeSOSAlert,
     resolveSOSAlert,
 } from "../controller/sosController.js";
-import {
-    getAllWarehouseQueuesHandler,
-    getQueueSnapshotHandler,
-    getQueueStatsHandler,
-} from "../controller/warehouseCheckinController.js";
-
 import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
 import {
     adminBootstrapRateLimiter,
@@ -190,34 +179,6 @@ router.delete(
     rejectSellerApplication
 );
 
-// =======================
-// WAREHOUSE MANAGEMENT
-// =======================
-router.get(
-    "/warehouses/active",
-    verifyToken,
-    allowRoles("admin"),
-    getActiveWarehouses
-);
-router.get(
-    "/warehouses/pending",
-    verifyToken,
-    allowRoles("admin"),
-    getPendingWarehouses
-);
-router.patch(
-    "/warehouses/approve/:id",
-    verifyToken,
-    allowRoles("admin"),
-    approveWarehouseApplication
-);
-router.delete(
-    "/warehouses/reject/:id",
-    verifyToken,
-    allowRoles("admin"),
-    rejectWarehouseApplication
-);
-
 router.get(
     "/delivery-partners",
     verifyToken,
@@ -265,7 +226,6 @@ router.get("/cash-history", verifyToken, allowRoles("admin"), getCashSettlementH
 // Seller Withdrawal Management
 router.get("/seller-withdrawals", verifyToken, allowRoles("admin"), getSellerWithdrawals);
 router.get("/delivery-withdrawals", verifyToken, allowRoles("admin"), getDeliveryWithdrawals);
-router.get("/warehouse-withdrawals", verifyToken, allowRoles("admin"), getWarehouseWithdrawals);
 router.get("/seller-transactions", verifyToken, allowRoles("admin"), getSellerTransactions);
 router.put("/withdrawals/:id", verifyToken, allowRoles("admin"), updateWithdrawalStatus);
 
@@ -288,11 +248,6 @@ router.get(
         });
     }
 );
-
-// Warehouse Queue Monitoring (Admin)
-router.get("/warehouse-queue/all", verifyToken, allowRoles("admin"), getAllWarehouseQueuesHandler);
-router.get("/warehouse-queue/:warehouseId", verifyToken, allowRoles("admin"), getQueueSnapshotHandler);
-router.get("/warehouse-queue/:warehouseId/stats", verifyToken, allowRoles("admin"), getQueueStatsHandler);
 
 export default router;
 

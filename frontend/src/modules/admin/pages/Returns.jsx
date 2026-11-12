@@ -16,6 +16,13 @@ import { MagicCard } from "@/components/ui/magic-card";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Loader2, X } from "lucide-react";
+import ProofImagePicker from "@shared/components/ProofImagePicker";
+import {
+  QC_NOTE_MIN_LENGTH,
+  getQcCountdown,
+  getDisputeInfo,
+  getQcDeciderLabel,
+} from "@shared/utils/returnQc";
 
 const Returns = () => {
   const { showToast } = useToast();
@@ -27,6 +34,7 @@ const Returns = () => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [actionModal, setActionModal] = useState({ open: false, mode: null });
   const [actionNote, setActionNote] = useState("");
+  const [actionImages, setActionImages] = useState([]);
   const [submittingAction, setSubmittingAction] = useState(false);
   const [assigningPickup, setAssigningPickup] = useState(false);
 
@@ -38,6 +46,7 @@ const Returns = () => {
     "Pickup Assigned",
     "In Transit",
     "Quality Check",
+    "Disputes",
     "Completed",
   ];
 
@@ -135,6 +144,9 @@ const Returns = () => {
       if (activeTab === "Quality Check") {
         return label === activeQcTab;
       }
+      if (activeTab === "Disputes") {
+        return r.returnDispute?.status === "open";
+      }
       return label === activeTab;
     });
   }, [returns, activeTab, activeQcTab]);
@@ -212,17 +224,63 @@ const Returns = () => {
     }
   };
 
+  const closeActionModal = () => {
+    setActionModal({ open: false, mode: null });
+    setActionNote("");
+    setActionImages([]);
+  };
+
+  const handleResolveDispute = async (decision) => {
+    if (!selectedReturn) return;
+    if (actionNote.trim().length < 5) {
+      showToast("Please add a short note explaining your decision.", "error");
+      return;
+    }
+    try {
+      setSubmittingAction(true);
+      await adminApi.resolveReturnDispute(selectedReturn.orderId, {
+        decision,
+        note: actionNote.trim(),
+      });
+      showToast(
+        decision === "customer"
+          ? "Dispute accepted. Customer refund processed."
+          : "Dispute rejected. Seller payout released.",
+        "success",
+      );
+      closeActionModal();
+      setIsDetailsOpen(false);
+      await fetchReturns();
+    } catch (error) {
+      console.error("Failed to resolve dispute", error);
+      showToast(error.response?.data?.message || "Failed to resolve dispute", "error");
+      await fetchReturns();
+    } finally {
+      setSubmittingAction(false);
+    }
+  };
+
   const handleQcFail = async () => {
-    if (!actionNote.trim() || !selectedReturn) return;
+    if (!selectedReturn) return;
+    if (actionNote.trim().length < QC_NOTE_MIN_LENGTH) {
+      showToast("Please explain why QC failed (at least " + QC_NOTE_MIN_LENGTH + " characters).", "error");
+      return;
+    }
+    if (actionImages.length === 0) {
+      showToast("Please attach at least 1 photo as proof.", "error");
+      return;
+    }
     try {
       setSubmittingAction(true);
       await adminApi.updateReturnQc(selectedReturn.orderId, {
         qcStatus: "qc_failed",
-        note: actionNote,
+        note: actionNote.trim(),
+        evidenceImages: actionImages,
       });
-      showToast("QC failed recorded", "success");
+      showToast("QC failed recorded. The customer can dispute this for 48 hours.", "success");
       setActionModal({ open: false, mode: null });
       setActionNote("");
+      setActionImages([]);
       setIsDetailsOpen(false);
       await fetchReturns();
     } catch (error) {
@@ -411,6 +469,19 @@ const Returns = () => {
                               <span className="text-[10px] font-bold text-brand-700">Rider: {ret.returnDeliveryBoy.name}</span>
                             </div>
                           )}
+                          {(() => {
+                            const chip = getQcCountdown(ret) || getDisputeInfo(ret);
+                            if (!chip) return null;
+                            const tone = chip.tone === "danger" ? "bg-rose-50 text-rose-700 border-rose-100"
+                              : chip.tone === "warning" ? "bg-amber-50 text-amber-700 border-amber-100"
+                              : chip.tone === "success" ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                              : "bg-slate-50 text-slate-600 border-slate-100";
+                            return (
+                              <div className={"mt-2 w-fit rounded-lg border px-2 py-1 text-[10px] font-bold " + tone}>
+                                {chip.label}
+                              </div>
+                            );
+                          })()}
                           {/* Proper Data: QC Note for passed/failed */}
                           {(ret.returnStatus === "qc_passed" || ret.returnStatus === "qc_failed") && ret.returnQcNote && (
                             <div className="mt-2 flex items-start gap-1.5 px-2 py-1 bg-slate-50 rounded-lg border border-slate-100 w-fit max-w-[200px]">
@@ -631,10 +702,67 @@ const Returns = () => {
                         </p>
                       </div>
                     )}
+                    {Array.isArray(selectedReturn.returnQcEvidenceImages) && selectedReturn.returnQcEvidenceImages.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {selectedReturn.returnQcEvidenceImages.map((url, i) => (
+                          <a key={url + i} href={url} target="_blank" rel="noreferrer">
+                            <img src={url} alt={"QC proof " + (i + 1)} className="h-14 w-14 rounded-lg object-cover border border-black/10" />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                    {getQcDeciderLabel(selectedReturn) && (
+                      <p className="text-[10px] font-bold text-slate-500">{getQcDeciderLabel(selectedReturn)}</p>
+                    )}
                     {selectedReturn.returnQcAt && (
                       <p className="text-[10px] font-medium text-slate-500">
                         Reviewed on: {new Date(selectedReturn.returnQcAt).toLocaleString()}
                       </p>
+                    )}
+                    {selectedReturn.returnStatus === "qc_passed" && (
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-bold text-amber-700">
+                          Refund is still pending
+                          {selectedReturn.returnRefundLastError ? ": " + selectedReturn.returnRefundLastError : "."} It is retried automatically.
+                        </p>
+                        <Button
+                          className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700"
+                          onClick={() => handleQcPass(selectedReturn.orderId)}
+                        >
+                          Retry refund now
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {getQcCountdown(selectedReturn) && (
+                  <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                    <p className="text-sm font-black text-amber-800">{getQcCountdown(selectedReturn).label}</p>
+                    <p className="text-xs font-medium text-amber-700 mt-1">{getQcCountdown(selectedReturn).detail}</p>
+                  </div>
+                )}
+
+                {/* Customer dispute against a failed QC */}
+                {selectedReturn.returnDispute?.status && selectedReturn.returnDispute.status !== "none" && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">
+                      Customer dispute - {getDisputeInfo(selectedReturn)?.label}
+                    </p>
+                    {selectedReturn.returnDispute.reason && (
+                      <p className="text-sm text-slate-800 italic">&quot;{selectedReturn.returnDispute.reason}&quot;</p>
+                    )}
+                    {selectedReturn.returnDispute.images?.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {selectedReturn.returnDispute.images.map((url, i) => (
+                          <a key={url + i} href={url} target="_blank" rel="noreferrer">
+                            <img src={url} alt={"Dispute proof " + (i + 1)} className="h-14 w-14 rounded-lg object-cover border border-black/10" />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                    {selectedReturn.returnDispute.resolutionNote && (
+                      <p className="text-xs text-slate-600">Decision note: {selectedReturn.returnDispute.resolutionNote}</p>
                     )}
                   </div>
                 )}
@@ -776,6 +904,24 @@ const Returns = () => {
                     </Button>
                   )}
 
+                  {selectedReturn.returnStatus === "qc_failed" && selectedReturn.returnDispute?.status === "open" && (
+                    <>
+                      <Button
+                        variant="outline"
+                        className="text-xs font-bold border-slate-300 text-slate-700 hover:bg-slate-100"
+                        onClick={() => setActionModal({ open: true, mode: "dispute_seller" })}
+                      >
+                        Seller is right
+                      </Button>
+                      <Button
+                        className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700"
+                        onClick={() => setActionModal({ open: true, mode: "dispute_customer" })}
+                      >
+                        Customer is right (refund)
+                      </Button>
+                    </>
+                  )}
+
                   {selectedReturn.returnStatus === "returned" && (
                     <>
                       <Button
@@ -808,7 +954,7 @@ const Returns = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-              onClick={() => !submittingAction && setActionModal({ open: false, mode: null })}
+              onClick={() => !submittingAction && closeActionModal()}
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -817,12 +963,22 @@ const Returns = () => {
               className="w-full max-w-md relative z-10 bg-white rounded-3xl shadow-2xl p-6 space-y-4"
             >
               <h3 className="text-xl font-black text-slate-900">
-                {actionModal.mode === "qc_fail" ? "QC Failed" : "Reject Return"}
+                {actionModal.mode === "qc_fail"
+                  ? "QC Failed"
+                  : actionModal.mode === "dispute_customer"
+                    ? "Accept dispute - refund customer"
+                    : actionModal.mode === "dispute_seller"
+                      ? "Reject dispute - seller is right"
+                      : "Reject Return"}
               </h3>
               <p className="text-sm text-slate-600 font-medium">
                 {actionModal.mode === "qc_fail"
-                  ? "Add a note for QC failure. This will be visible to the customer."
-                  : "Please provide a reason for rejecting this return request."}
+                  ? "Explain the failure and attach photo proof. The customer sees this and can dispute it for 48 hours."
+                  : actionModal.mode === "dispute_customer"
+                    ? "The customer is refunded and the amount is recovered from the seller. Add a note for both of them."
+                    : actionModal.mode === "dispute_seller"
+                      ? "The failed QC stands and the seller's payout is released. Add a note for the customer."
+                      : "Please provide a reason for rejecting this return request."}
               </p>
 
               <div className="space-y-2">
@@ -836,22 +992,48 @@ const Returns = () => {
                   value={actionNote}
                   onChange={(e) => setActionNote(e.target.value)}
                 />
+                {actionModal.mode === "qc_fail" && (
+                  <p className="text-[11px] text-slate-500">
+                    {actionNote.trim().length}/{QC_NOTE_MIN_LENGTH} characters minimum
+                  </p>
+                )}
               </div>
+              {actionModal.mode === "qc_fail" && (
+                <ProofImagePicker
+                  images={actionImages}
+                  onChange={setActionImages}
+                  onError={(m) => showToast(m, "error")}
+                  label="Proof photos (required)"
+                />
+              )}
 
               <div className="flex gap-2 pt-2">
                 <Button
                   variant="outline"
                   className="flex-1 font-bold"
-                  onClick={() => setActionModal({ open: false, mode: null })}
+                  onClick={closeActionModal}
                   disabled={submittingAction}
                 >
                   Cancel
                 </Button>
                 <Button
                   className="flex-1 font-bold bg-rose-600 hover:bg-rose-700"
-                  onClick={actionModal.mode === "qc_fail" ? handleQcFail : handleReject}
+                  onClick={
+                    actionModal.mode === "qc_fail"
+                      ? handleQcFail
+                      : actionModal.mode === "dispute_customer"
+                        ? () => handleResolveDispute("customer")
+                        : actionModal.mode === "dispute_seller"
+                          ? () => handleResolveDispute("seller")
+                          : handleReject
+                  }
                   isLoading={submittingAction}
-                  disabled={!actionNote.trim() || submittingAction}
+                  disabled={
+                    submittingAction ||
+                    (actionModal.mode === "qc_fail"
+                      ? actionNote.trim().length < QC_NOTE_MIN_LENGTH || actionImages.length === 0
+                      : !actionNote.trim())
+                  }
                 >
                   Submit
                 </Button>

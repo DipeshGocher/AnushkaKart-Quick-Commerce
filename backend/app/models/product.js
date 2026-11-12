@@ -137,12 +137,7 @@ const productSchema = new mongoose.Schema(
         sellerId: {
             type: mongoose.Schema?.Types?.ObjectId || String,
             ref: "Seller",
-            required: function () { return !this.warehouseId; }
-        },
-        warehouseId: {
-            type: mongoose.Schema?.Types?.ObjectId || String,
-            ref: "Warehouse",
-            default: null,
+            required: true,
         },
         isMonthlyKit: {
             type: Boolean,
@@ -307,9 +302,6 @@ productSchema.index({ status: 1, approvalStatus: 1, isBestseller: 1 });
 productSchema.index({ sellerId: 1, status: 1, approvalStatus: 1, createdAt: -1 });
 productSchema.index({ sellerId: 1, createdAt: -1, _id: -1 });
 
-// Warehouse fulfillment queries
-productSchema.index({ warehouseId: 1, status: 1, approvalStatus: 1 });
-
 // Admin approval queue
 productSchema.index({ approvalStatus: 1, lastSubmittedByRole: 1, approvalRequestedAt: -1 });
 
@@ -317,7 +309,6 @@ productSchema.index({ approvalStatus: 1, lastSubmittedByRole: 1, approvalRequest
 productSchema.index({ name: "text", tags: "text", brand: "text" });
 
 // Sparse indexes to only index products where the field exists
-productSchema.index({ warehouseId: 1, status: 1 }, { sparse: true });
 productSchema.index({ subcategoryId: 1, status: 1 }, { sparse: true });
 
 export default mongoose.model("Product", productSchema);

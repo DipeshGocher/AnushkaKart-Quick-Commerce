@@ -7,6 +7,9 @@ import LiveTrackingMap from "../components/order/LiveTrackingMap";
 import DeliveryOtpDisplay from "../components/DeliveryOtpDisplay";
 import OrderProgressTracker from "../components/order/OrderProgressTracker";
 import ReturnProgressTracker from "../components/order/ReturnProgressTracker";
+import ProofImagePicker from "@shared/components/ProofImagePicker";
+import { downloadQrAsPng } from "@shared/utils/qrDownload";
+import { DISPUTE_REASON_MIN_LENGTH, getDisputeInfo } from "@shared/utils/returnQc";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
 import {
   ChevronLeft,
@@ -29,7 +32,15 @@ import {
   X,
   Star,
   AlertCircle,
+  QrCode,
+  Copy,
+  Check,
+  MessageCircle,
+  Banknote,
 } from "lucide-react";
+import QRCode from "react-qr-code";
+import { cn } from "@/lib/utils";
+import { useSettings } from "@core/context/SettingsContext";
 import ReviewSubmissionModal from "../components/shared/ReviewSubmissionModal";
 import { customerApi } from "../services/customerApi";
 import { getCourierDeliveryDateText } from "../services/deliveryService";
@@ -49,8 +60,26 @@ import {
   onReturnDropOtp,
 } from "@/core/services/orderSocket";
 import { getLegacyStatusFromOrder } from "@/shared/utils/orderStatus";
+import { getPaymentDisplay as getPaymentInfo } from "@/shared/utils/paymentDisplay";
 import { createSocketTokenReader } from "@core/utils/authStorage";
 import { STORAGE_KEYS } from "@core/utils/storage";
+
+// Look for each payment kind / status tone (data only; logic lives in paymentDisplay.js)
+const PAYMENT_KIND_STYLE = {
+  upi: { icon: QrCode, iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
+  cod: { icon: Banknote, iconBg: "bg-amber-50", iconColor: "text-amber-600" },
+  online: { icon: CreditCard, iconBg: "bg-blue-50", iconColor: "text-blue-600" },
+};
+const PAYMENT_TONE_STYLE = {
+  success: { badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200", dotClass: "bg-emerald-500" },
+  warning: { badgeClass: "bg-amber-50 text-amber-700 border-amber-200", dotClass: "bg-amber-500" },
+  danger: { badgeClass: "bg-rose-50 text-rose-700 border-rose-200", dotClass: "bg-rose-500" },
+  info: { badgeClass: "bg-sky-50 text-sky-700 border-sky-200", dotClass: "bg-sky-500" },
+};
+const getPaymentDisplay = (order) => {
+  const info = getPaymentInfo(order);
+  return { ...info, ...PAYMENT_KIND_STYLE[info.kind], ...PAYMENT_TONE_STYLE[info.tone] };
+};
 
 const coordsToLatLng = (coords) => {
   if (!Array.isArray(coords) || coords.length < 2) return null;
@@ -165,6 +194,10 @@ const OrderDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [returnDetails, setReturnDetails] = useState(null);
   const [showReturnModal, setShowReturnModal] = useState(false);
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [disputeReason, setDisputeReason] = useState("");
+  const [disputeImages, setDisputeImages] = useState([]);
+  const [submittingDispute, setSubmittingDispute] = useState(false);
   const [requestingReturn, setRequestingReturn] = useState(false);
   const [selectedReturnItems, setSelectedReturnItems] = useState({});
   const [returnReason, setReturnReason] = useState("");
@@ -177,6 +210,97 @@ const OrderDetailPage = () => {
   const [reviewedProductIds, setReviewedProductIds] = useState([]);
   const [liveLocation, setLiveLocation] = useState(null);
   const [trail, setTrail] = useState([]);
+  const { settings } = useSettings();
+  const [isUtrModalOpen, setIsUtrModalOpen] = useState(false);
+  const [utrModalInput, setUtrModalInput] = useState("");
+  const [isSubmittingUtr, setIsSubmittingUtr] = useState(false);
+  const [isCopiedUpi, setIsCopiedUpi] = useState(false);
+
+  const upiId = settings?.upiId || "anushkaconnect@okaxis";
+  const upiDisplayName = settings?.upiDisplayName || "Anushka Connect";
+  const supportWhatsapp = settings?.supportWhatsappNumber || settings?.whatsappNumber || "8209224481";
+
+  const orderQrWrapRef = useRef(null);
+  const [isDownloadingQr, setIsDownloadingQr] = useState(false);
+  const handleDownloadQr = async () => {
+    const svgEl = orderQrWrapRef.current?.querySelector("svg");
+    if (!svgEl || isDownloadingQr) return;
+    setIsDownloadingQr(true);
+    try {
+      const outcome = await downloadQrAsPng(svgEl, "payment-qr-" + (order?.pricing?.total ?? "") + ".png");
+      if (outcome === "downloaded") toast.success("QR saved. Open it from your gallery in any UPI app.");
+    } catch (error) {
+      if (error?.name !== "AbortError") toast.error("Could not save the QR. Please take a screenshot instead.");
+    } finally {
+      setIsDownloadingQr(false);
+    }
+  };
+
+  const handleCopyUpi = () => {
+    navigator.clipboard.writeText(upiId);
+    setIsCopiedUpi(true);
+    toast.success("UPI ID copied to clipboard");
+    setTimeout(() => setIsCopiedUpi(false), 2500);
+  };
+
+  const [isCopiedOrderId, setIsCopiedOrderId] = useState(false);
+  const handleCopyOrderId = async (value) => {
+    if (!value) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        // Fallback for non-secure contexts / older WebViews
+        const ta = document.createElement("textarea");
+        ta.value = value;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      setIsCopiedOrderId(true);
+      toast.success("Order ID copied");
+      setTimeout(() => setIsCopiedOrderId(false), 2500);
+    } catch {
+      toast.error("Could not copy. Please copy it manually.");
+    }
+  };
+
+  const handleUtrSubmit = async (e) => {
+    if (e) e.preventDefault();
+    const cleanUtr = String(utrModalInput || "").trim();
+    if (!/^\d{12}$/.test(cleanUtr)) {
+      toast.error("Please enter a valid 12-digit numeric UTR");
+      return;
+    }
+    setIsSubmittingUtr(true);
+    try {
+      const targetId = order?.orderId || orderId;
+      const res = await customerApi.submitOrderUtr(targetId, { utrNumber: cleanUtr });
+      if (res.data?.success) {
+        toast.success("UTR submitted successfully! Awaiting admin verification.");
+        setIsUtrModalOpen(false);
+        setUtrModalInput("");
+        customerApi.getOrderDetails(orderId).then((r) => {
+          if (r.data?.result) setOrder(r.data.result);
+        });
+      } else {
+        toast.error(res.data?.message || "Failed to submit UTR");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to submit UTR");
+    } finally {
+      setIsSubmittingUtr(false);
+    }
+  };
+
+  const cleanWhatsappDigits = String(supportWhatsapp).replace(/\D/g, "");
+  const whatsappPhone = cleanWhatsappDigits.length === 10 ? `91${cleanWhatsappDigits}` : cleanWhatsappDigits;
+  const whatsappSupportUrl = `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(
+    `Hi Admin, my payment for Order #${order?.orderId} of ₹${order?.pricing?.total} was rejected. UTR: ${order?.utrNumber || 'N/A'}. Please help verify.`
+  )}`;
   const [routePolyline, setRoutePolyline] = useState(null);
   const [handoffOtp, setHandoffOtp] = useState(null);
   const [clockTick, setClockTick] = useState(Date.now());
@@ -347,6 +471,9 @@ const OrderDetailPage = () => {
             ...prev,
             ...(ws && { workflowStatus: ws }),
             ...(payload?.status && { status: payload.status }),
+            // "Packed" is a flag on local orders; without it the page would show
+            // "Confirmed" while the delivery workflow is still searching/assigned.
+            ...(payload?.pickupReadyAt && { pickupReadyAt: payload.pickupReadyAt }),
             // Keep legacy status in sync for components that read order.status
             ...(ws === "DELIVERED" && { status: "delivered" }),
             ...(ws === "DELIVERY_SEARCH" && { status: "confirmed" }),
@@ -590,8 +717,7 @@ const OrderDetailPage = () => {
   }, [isAwaitingOnlinePayment, order]);
   const sellerLocation =
     coordsToLatLng(order?.seller?.location?.coordinates) ||
-    coordsToLatLng(order?.warehouseId?.location?.coordinates) ||
-    order?.delivery?.warehouseLocation ||
+    order?.delivery?.pickupLocation ||
     null;
   const routePhase = getTrackingRoutePhase(order);
   const routeMatchesPhase =
@@ -847,6 +973,36 @@ const OrderDetailPage = () => {
     }
   };
 
+  const handleDisputeSubmit = async () => {
+    if (!order) return;
+    if (disputeReason.trim().length < DISPUTE_REASON_MIN_LENGTH) {
+      toast.error("Please tell us why you disagree (at least " + DISPUTE_REASON_MIN_LENGTH + " characters).");
+      return;
+    }
+    try {
+      setSubmittingDispute(true);
+      await customerApi.raiseReturnDispute(resolveOrderLookupId(order), {
+        reason: disputeReason.trim(),
+        images: disputeImages,
+      });
+      toast.success("Dispute submitted. Our team will review it.");
+      setShowDisputeModal(false);
+      setDisputeReason("");
+      setDisputeImages([]);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Could not submit your dispute.");
+    } finally {
+      // Always re-read: the window may have closed or someone may have decided meanwhile.
+      try {
+        const retRes = await customerApi.getReturnDetails(resolveOrderLookupId(order));
+        setReturnDetails(retRes.data.result);
+      } catch {
+        /* keep the old view */
+      }
+      setSubmittingDispute(false);
+    }
+  };
+
   const handleImageSelect = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
@@ -1076,6 +1232,28 @@ const OrderDetailPage = () => {
           />
         )}
 
+        {/* Order ID - separate field under the status, with copy (customer uses it to track the order) */}
+        <div className="bg-white rounded-3xl px-5 py-4 shadow-sm border border-slate-100 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Order ID</p>
+            <p className="font-mono font-black text-slate-900 text-sm mt-1 break-all select-all">{order.orderId}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleCopyOrderId(order.orderId)}
+            aria-label="Copy order ID"
+            className={cn(
+              "shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition",
+              isCopiedOrderId
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                : "bg-blue-50 hover:bg-blue-100 text-blue-700",
+            )}
+          >
+            {isCopiedOrderId ? <Check size={14} /> : <Copy size={14} />}
+            <span>{isCopiedOrderId ? "Copied" : "Copy"}</span>
+          </button>
+        </div>
+
         {/* Live Tracking Map removed per user request */}
 
         {/* Proximity-based Delivery OTP Display - Only for Local Quick Commerce orders when payment is complete */}
@@ -1087,8 +1265,8 @@ const OrderDetailPage = () => {
           />
         )}
 
-        {/* Shiprocket Courier Tracking Card - Pan-India Courier Orders when payment is complete */}
-        {!isAwaitingOnlinePayment && order.fulfillmentType === "SHIPROCKET" && (
+        {/* Courier shipment card - only once a courier/AWB is really assigned (nothing to show before that) */}
+        {!isAwaitingOnlinePayment && order.fulfillmentType === "SHIPROCKET" && order.shiprocket?.awb && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1101,66 +1279,40 @@ const OrderDetailPage = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 leading-tight">
-                    Pan-India Courier Shipment
+                    Shipment Details
                   </h3>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    {order.shiprocket?.courierName || "Shiprocket Express Logistics"}
-                  </p>
-                </div>
-              </div>
-              <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${
-                order.shiprocket?.currentStatus === "DELIVERED"
-                  ? "bg-emerald-100 text-emerald-800"
-                  : order.shiprocket?.currentStatus === "OUT_FOR_DELIVERY"
-                  ? "bg-purple-100 text-purple-800"
-                  : order.shiprocket?.currentStatus === "IN_TRANSIT"
-                  ? "bg-blue-100 text-blue-800"
-                  : "bg-amber-100 text-amber-800"
-              }`}>
-                {order.shiprocket?.currentStatus || "PROCESSING"}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">AWB Tracking No.</span>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <span className="font-mono font-black text-slate-900 text-sm truncate">
-                    {order.shiprocket?.awb || "Assigning soon"}
-                  </span>
-                  {order.shiprocket?.awb && (
-                    <button
-                      onClick={() => {
-                        navigator.clipboard?.writeText(order.shiprocket.awb);
-                        toast.success("AWB Number copied!");
-                      }}
-                      className="text-[10px] text-blue-600 font-bold hover:underline shrink-0"
-                    >
-                      Copy
-                    </button>
+                  {order.shiprocket?.courierName && (
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      {order.shiprocket.courierName}
+                    </p>
                   )}
                 </div>
               </div>
-
-              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Est. Delivery</span>
-                <span className="font-bold text-slate-800 text-xs mt-1 block">
-                  {order.shiprocket?.etd || (order.deliveryEstimate && !order.deliveryEstimate.toLowerCase().includes("day") ? order.deliveryEstimate : getCourierDeliveryDateText(order?.createdAt || new Date(), 4))}
+              {order.shiprocket?.statusLabel && (
+                <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${
+                  order.shiprocket.currentStatus === "DELIVERED"
+                    ? "bg-emerald-100 text-emerald-800"
+                    : order.shiprocket.currentStatus === "OUT_FOR_DELIVERY"
+                    ? "bg-purple-100 text-purple-800"
+                    : order.shiprocket.currentStatus === "IN_TRANSIT"
+                    ? "bg-blue-100 text-blue-800"
+                    : "bg-amber-100 text-amber-800"
+                }`}>
+                  {order.shiprocket.statusLabel}
                 </span>
-              </div>
+              )}
             </div>
 
-            {order.shiprocket?.awb && (
-              <a
-                href={order.shiprocket?.trackingUrl || `https://shiprocket.co/tracking/${order.shiprocket.awb}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5"
-              >
-                <span>Track on Courier Portal</span>
-                <ArrowRight size={13} />
-              </a>
-            )}
+            {/* The tracking number stays behind this button - customers don't need to read or copy it. */}
+            <a
+              href={order.shiprocket.trackingUrl || `https://shiprocket.co/tracking/${order.shiprocket.awb}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+            >
+              <span>Track Package</span>
+              <ArrowRight size={13} />
+            </a>
 
             {/* Event history timeline */}
             {Array.isArray(order.shiprocket?.history) && order.shiprocket.history.length > 0 && (
@@ -1174,7 +1326,6 @@ const OrderDetailPage = () => {
                       <div>
                         <span className="font-bold text-slate-800">{ev.status}</span>
                         {ev.location && <span className="text-slate-500"> • {ev.location}</span>}
-                        {ev.remarks && <p className="text-[11px] text-slate-500 mt-0.5">{ev.remarks}</p>}
                       </div>
                       <span className="text-[10px] text-slate-400 shrink-0">
                         {new Date(ev.timestamp).toLocaleDateString([], { month: "short", day: "numeric" })}
@@ -1225,7 +1376,8 @@ const OrderDetailPage = () => {
           </motion.div>
         )}
 
-        {/* Pickup Location Card - Redesigned */}
+        {/* Pickup Location Card - local orders only (courier orders ship from the seller's private address) */}
+        {order.fulfillmentType !== "SHIPROCKET" && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1240,9 +1392,9 @@ const OrderDetailPage = () => {
               <div className="flex items-center gap-2 mb-1">
                 <p className="text-xs font-bold text-primary uppercase tracking-wider">Pickup Location</p>
               </div>
-              <h4 className="font-bold text-slate-900 text-base mb-1">{order.seller?.shopName || order.warehouseId?.name || "Store Location"}</h4>
+              <h4 className="font-bold text-slate-900 text-base mb-1">{order.seller?.shopName || "Store Location"}</h4>
               <p className="text-sm text-slate-500 leading-relaxed">
-                {order.seller?.address || order.warehouseId?.address || "Address not available"}
+                {order.seller?.address || "Address not available"}
               </p>
             </div>
             <button
@@ -1253,6 +1405,7 @@ const OrderDetailPage = () => {
             </button>
           </div>
         </motion.div>
+        )}
 
         {/* Delivery Address Card - Redesigned */}
         <motion.div
@@ -1434,24 +1587,141 @@ const OrderDetailPage = () => {
             </div>
           </div>
 
-          {/* Payment Method */}
-          <div className="mt-4 bg-slate-50 rounded-2xl p-3.5 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 bg-white rounded-xl flex items-center justify-center shadow-sm">
-                <CreditCard size={18} className="text-slate-700" />
+          {/* Payment: one clean row - how the customer pays + a plain-language status */}
+          {(() => {
+            const pay = getPaymentDisplay(order);
+            const PayIcon = pay.icon;
+            return (
+          <div className="mt-4 bg-slate-50 rounded-2xl p-3.5 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm", pay.iconBg)}>
+                  <PayIcon size={19} className={pay.iconColor} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Paid via</p>
+                  <p className="text-sm font-extrabold text-slate-900 leading-tight">{pay.methodLabel}</p>
+                  {pay.showUtr && order.utrNumber && (
+                    <p className="text-[10px] font-mono text-slate-400 mt-0.5 truncate">UTR {order.utrNumber}</p>
+                  )}
+                </div>
               </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                  Payment
-                </p>
-                <p className="text-sm font-bold text-slate-900">
-                  {order.payment.method === "cash"
-                    ? "Cash on Delivery"
-                    : order.payment.method}
-                </p>
-              </div>
+
+              {/* Status Badge */}
+              <span className={cn(
+                "shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border",
+                pay.badgeClass
+              )}>
+                <span className={cn("h-1.5 w-1.5 rounded-full", pay.dotClass)} />
+                {pay.statusLabel}
+              </span>
             </div>
+
+            {/* UPI QR Specific State Information */}
+            {order.paymentMode === 'UPI_QR' && (
+              <div className="pt-2 border-t border-slate-200/60 space-y-2.5">
+                {/* Case 1: Verification In Progress */}
+                {(order.paymentStatus === 'AWAITING_VERIFICATION' || order.paymentStatus === 'CREATED') && order.utrNumber && (
+                  <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200/80 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-bold text-amber-900">Verifying your payment</span>
+                      <span className="shrink-0 text-[11px] font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-amber-200">
+                        UTR {order.utrNumber}
+                      </span>
+                    </div>
+                    {order.upiApprovalExpiresAt && (
+                      <p className="text-[11px] text-amber-800 leading-snug">
+                        Order cancels if not verified by{" "}
+                        <span className="font-bold">
+                          {new Date(order.upiApprovalExpiresAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                        .
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUtrModalInput(order.utrNumber || "");
+                        setIsUtrModalOpen(true);
+                      }}
+                      className="text-xs font-bold text-amber-900 hover:text-amber-950 underline cursor-pointer"
+                    >
+                      Need to update UTR?
+                    </button>
+                  </div>
+                )}
+
+                {/* Case 2: Awaiting UTR Submission */}
+                {(order.paymentStatus === 'AWAITING_VERIFICATION' || order.paymentStatus === 'CREATED') && !order.utrNumber && (
+                  <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-200/80 space-y-2">
+                    <p className="text-[11px] text-blue-900 font-medium">
+                      Please scan the UPI QR code or pay via your UPI app, then submit the 12-digit UTR to confirm your order.
+                      {order.upiApprovalExpiresAt && (
+                        <> Your order is held until <span className="font-bold">{order.upiApprovalExpiresAt ? new Date(order.upiApprovalExpiresAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}</span>; after that it is cancelled.</>
+                      )}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUtrModalInput("");
+                        setIsUtrModalOpen(true);
+                      }}
+                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                    >
+                      <QrCode size={16} />
+                      Pay via UPI QR / Submit UTR
+                    </button>
+                  </div>
+                )}
+
+                {/* Case 3: Rejected Payment (Safety Net) */}
+                {order.paymentStatus === 'REJECTED' && (
+                  <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 space-y-2.5">
+                    <div className="flex items-center gap-1.5 text-rose-700 font-black text-xs uppercase tracking-wider">
+                      <AlertCircle size={15} />
+                      <span>Payment Verification Failed</span>
+                    </div>
+                    {order.paymentRejectedReason && (
+                      <p className="text-xs text-rose-600">
+                        <b>Reason:</b> {order.paymentRejectedReason}
+                      </p>
+                    )}
+                    {order.utrNumber && (
+                      <p className="text-[11px] font-mono text-slate-600">
+                        Submitted UTR: <b>{order.utrNumber}</b>
+                      </p>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                      <a
+                        href={whatsappSupportUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 no-underline transition-all shadow-sm"
+                      >
+                        <MessageCircle size={15} />
+                        Chat on WhatsApp
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUtrModalInput(order.utrNumber || "");
+                          setIsUtrModalOpen(true);
+                        }}
+                        className="py-2.5 px-3 bg-white border border-rose-300 text-rose-700 hover:bg-rose-50 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                      >
+                        Re-enter UTR
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Paid: nothing extra to show - the green "Paid" badge above says it all */}
+              </div>
+            )}
           </div>
+            );
+          })()}
         </motion.div>
 
         {/* Action Buttons - Redesigned */}
@@ -1591,7 +1861,7 @@ const OrderDetailPage = () => {
                         <p>Reverse AWB: <span className="font-mono font-bold text-slate-900">{order?.shiprocket?.reverseAwb || returnDetails?.shiprocket?.reverseAwb}</span></p>
                       )}
                       <p className="text-[11px] text-slate-500">
-                        The seller has received your returned package. Once the item is inspected, your refund will be processed immediately.
+                        The seller has received your returned package and will inspect it within {returnDetails?.qc?.policy?.dueHours || 48} hours. Your refund is processed right after. If the seller does not inspect it in time, your refund is approved automatically.
                       </p>
                     </div>
                   </div>
@@ -1605,8 +1875,14 @@ const OrderDetailPage = () => {
                         <CheckCircle size={16} className="text-teal-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-teal-900">Quality Check Passed</p>
-                        <p className="text-xs text-teal-700">The returned item passed quality check. Initiating refund to your account...</p>
+                        <p className="text-sm font-bold text-teal-900">
+                          {returnDetails.returnQcAutoPassed ? "Return Approved" : "Quality Check Passed"}
+                        </p>
+                        <p className="text-xs text-teal-700">
+                          {returnDetails.returnQcAutoPassed
+                            ? "Your return was approved automatically. Your refund is being processed..."
+                            : "The returned item passed quality check. Your refund is being processed..."}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1623,6 +1899,60 @@ const OrderDetailPage = () => {
                         <p className="text-xs text-rose-700">{returnDetails.returnQcNote || "Item did not match acceptable return conditions."}</p>
                       </div>
                     </div>
+                    {Array.isArray(returnDetails.returnQcEvidenceImages) && returnDetails.returnQcEvidenceImages.length > 0 && (
+                      <div className="mt-3 ml-11">
+                        <p className="text-[11px] font-bold text-rose-800 mb-1">Seller&apos;s photos</p>
+                        <div className="flex flex-wrap gap-2">
+                          {returnDetails.returnQcEvidenceImages.map((url, i) => (
+                            <a key={url + i} href={url} target="_blank" rel="noreferrer">
+                              <img src={url} alt={"Inspection photo " + (i + 1)} className="h-14 w-14 rounded-lg object-cover border border-rose-200" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {(() => {
+                      const dispute = getDisputeInfo(returnDetails);
+                      if (!dispute) return null;
+                      const endsAt = returnDetails?.qc?.disputeWindowEndsAt
+                        ? new Date(returnDetails.qc.disputeWindowEndsAt)
+                        : null;
+                      return (
+                        <div className="mt-3 ml-11 space-y-2">
+                          {dispute.status === "window" && (
+                            <>
+                              <p className="text-xs text-rose-800">
+                                Think this is wrong? You can raise a dispute until{" "}
+                                <span className="font-bold">
+                                  {endsAt ? endsAt.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "the deadline"}
+                                </span>
+                                .
+                              </p>
+                              <button
+                                onClick={() => setShowDisputeModal(true)}
+                                className="px-4 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 active:scale-95 transition"
+                              >
+                                Raise a dispute
+                              </button>
+                            </>
+                          )}
+                          {dispute.status === "open" && (
+                            <p className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                              Your dispute is with our team. We will update you here.
+                            </p>
+                          )}
+                          {dispute.status === "upheld" && (
+                            <p className="text-xs text-slate-700 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
+                              We reviewed your dispute and the quality check result stands.
+                              {returnDetails.returnDispute?.resolutionNote ? " " + returnDetails.returnDispute.resolutionNote : ""}
+                            </p>
+                          )}
+                          {dispute.status === "closed" && (
+                            <p className="text-[11px] text-slate-500">The time to dispute this result is over.</p>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
@@ -1666,6 +1996,60 @@ const OrderDetailPage = () => {
         order={order}
       />
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
+
+      {/* Dispute a failed quality check */}
+      {showDisputeModal && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => !submittingDispute && setShowDisputeModal(false)}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="relative z-10 w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 space-y-4"
+          >
+            <h3 className="text-lg font-black text-slate-900">Raise a dispute</h3>
+            <p className="text-xs text-slate-500">
+              Tell us why the quality check result is wrong. Our team will review your message and photos. You can raise a dispute only once.
+            </p>
+            <textarea
+              className="w-full rounded-2xl border border-slate-200 p-3 text-sm outline-none focus:ring-2 focus:ring-slate-900/10"
+              rows={4}
+              placeholder="e.g. The item was in perfect condition when I handed it over..."
+              value={disputeReason}
+              onChange={(e) => setDisputeReason(e.target.value)}
+            />
+            <p className="text-[11px] text-slate-500">
+              {disputeReason.trim().length}/{DISPUTE_REASON_MIN_LENGTH} characters minimum
+            </p>
+            <ProofImagePicker
+              images={disputeImages}
+              onChange={setDisputeImages}
+              onError={(m) => toast.error(m)}
+              label="Photos (optional)"
+            />
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setShowDisputeModal(false)}
+                disabled={submittingDispute}
+                className="flex-1 py-3 rounded-2xl border border-slate-200 text-sm font-bold text-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDisputeSubmit}
+                disabled={submittingDispute || disputeReason.trim().length < DISPUTE_REASON_MIN_LENGTH}
+                className="flex-1 py-3 rounded-2xl bg-slate-900 text-white text-sm font-bold disabled:opacity-50"
+              >
+                {submittingDispute ? "Submitting..." : "Submit dispute"}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Return Request Modal */}
       {showReturnModal && (
@@ -1844,6 +2228,116 @@ const OrderDetailPage = () => {
         product={reviewModalProduct}
         onReviewSubmitted={(pid) => setReviewedProductIds((prev) => [...prev, pid])}
       />
+
+      {/* UPI QR & UTR Modal for Customer */}
+      <AnimatePresence>
+        {isUtrModalOpen && order && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto relative text-left"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <QrCode size={20} className="text-emerald-600" />
+                    Pay With QR
+                  </h3>
+                  <p className="text-[11px] font-bold text-slate-400 mt-0.5">
+                    Order #{order.orderId}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsUtrModalOpen(false)}
+                  className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Locked Amount */}
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 flex items-center justify-between text-emerald-900">
+                <span className="text-xs font-bold uppercase tracking-wider">Exact Amount</span>
+                <span className="text-xl font-black text-emerald-700">₹{order.pricing?.total}</span>
+              </div>
+
+              {/* Dynamic QR Code */}
+              <div className="text-center bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                <div className="relative inline-block">
+                  <div ref={orderQrWrapRef} className="bg-white p-3.5 rounded-2xl shadow-sm inline-block border border-slate-200">
+                    <QRCode
+                      value={`upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiDisplayName)}&am=${order.pricing?.total}&cu=INR&tn=${encodeURIComponent(`Order_${order.orderId}`)}`}
+                      size={170}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDownloadQr}
+                    disabled={isDownloadingQr}
+                    className="absolute -top-2 -right-2 h-9 w-9 rounded-full bg-white border border-slate-200 shadow-md flex items-center justify-center text-slate-700 hover:bg-slate-50 active:scale-95 transition cursor-pointer disabled:opacity-60"
+                    title="Save QR to gallery"
+                    aria-label="Save QR to gallery"
+                  >
+                    {isDownloadingQr ? <Loader2 size={16} className="animate-spin" /> : <Download size={17} />}
+                  </button>
+                </div>
+
+                {/* UPI ID copy */}
+                <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono">
+                  <span className="text-slate-600 truncate">{upiId}</span>
+                  <button
+                    type="button"
+                    onClick={handleCopyUpi}
+                    className="flex items-center gap-1 text-[11px] font-sans font-bold text-blue-600 hover:text-blue-700 shrink-0 ml-2 cursor-pointer"
+                  >
+                    {isCopiedUpi ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                    <span>{isCopiedUpi ? "Copied" : "Copy"}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Form */}
+              <form onSubmit={handleUtrSubmit} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
+                    12-Digit UTR / Reference No. <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={12}
+                    value={utrModalInput}
+                    onChange={(e) => setUtrModalInput(e.target.value.replace(/\D/g, ''))}
+                    placeholder="e.g. 402938491029"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-300 font-mono text-base font-bold tracking-widest text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all text-center"
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingUtr || utrModalInput.length !== 12}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-extrabold text-[15px] py-3.5 px-6 rounded-xl shadow-md shadow-emerald-200 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingUtr ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin text-white" />
+                      <span>Submitting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle size={18} />
+                      <span>Submit Payment Proof</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
