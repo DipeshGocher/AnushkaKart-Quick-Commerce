@@ -22,6 +22,11 @@ import { setStatusBarColor } from '@/core/utils/statusBar';
 import { Calculator } from 'lucide-react';
 import FinanceCalculatorModal from '../finance/FinanceCalculatorModal';
 import { loadEmiHeaders, isFinanceHeader } from '../../services/emiHeaders';
+import VariantOptionPicker from './VariantOptionPicker';
+import { isMatrixProduct, defaultVariant } from '@shared/utils/variantMatrix';
+
+// Size/Color products start on a combination that is in stock; others keep the first variant.
+const pickDefaultVariant = (p) => (isMatrixProduct(p) ? defaultVariant(p) : (p?.variants || [])[0] || null);
 
 const extendedProductMemoryCache = new Map();
 const reviewsMemoryCache = new Map();
@@ -224,6 +229,7 @@ const ProductDetailSheet = () => {
     const [expandedSections, setExpandedSections] = useState(['specification']); // Start with description open
     const [showHeartPopup, setShowHeartPopup] = useState(false);
     const [isDescriptionOpen, setIsDescriptionOpen] = useState(true);
+    const [isMoreDetailsOpen, setIsMoreDetailsOpen] = useState(false); // closed by default
     const [similarProducts, setSimilarProducts] = useState([]);
     const [similarLoading, setSimilarLoading] = useState(false);
     
@@ -307,10 +313,11 @@ const ProductDetailSheet = () => {
         setNewReview({ rating: 5, comment: '' });
         setLocalHasReviewed(false);
         setIsDescriptionOpen(true);
+        setIsMoreDetailsOpen(false);
 
         const initialVariants = selectedProduct?.variants || [];
         if (Array.isArray(initialVariants) && initialVariants.length > 0) {
-            setSelectedVariant(initialVariants[0]);
+            setSelectedVariant(pickDefaultVariant(selectedProduct));
         } else {
             setSelectedVariant(null);
         }
@@ -334,12 +341,12 @@ const ProductDetailSheet = () => {
                 setExtendedProduct(cachedProd);
                 if (Array.isArray(cachedProd?.variants) && cachedProd.variants.length > 0) {
                     setSelectedVariant(prev => {
-                        if (!prev) return cachedProd.variants[0];
+                        if (!prev) return pickDefaultVariant(cachedProd);
                         const match = cachedProd.variants.find(v => 
                             (v.sku && prev.sku && String(v.sku).trim().toLowerCase() === String(prev.sku).trim().toLowerCase()) ||
                             (v.name && prev.name && String(v.name).trim().toLowerCase() === String(prev.name).trim().toLowerCase())
                         );
-                        return match || cachedProd.variants[0];
+                        return match || pickDefaultVariant(cachedProd);
                     });
                 }
             } else {
@@ -403,12 +410,12 @@ const ProductDetailSheet = () => {
                 setExtendedProduct(fullProd);
                 if (Array.isArray(fullProd.variants) && fullProd.variants.length > 0) {
                     setSelectedVariant(prev => {
-                        if (!prev) return fullProd.variants[0];
+                        if (!prev) return pickDefaultVariant(fullProd);
                         const match = fullProd.variants.find(v => 
                             (v.sku && prev.sku && String(v.sku).trim().toLowerCase() === String(prev.sku).trim().toLowerCase()) ||
                             (v.name && prev.name && String(v.name).trim().toLowerCase() === String(prev.name).trim().toLowerCase())
                         );
-                        return match || fullProd.variants[0];
+                        return match || pickDefaultVariant(fullProd);
                     });
                 }
             }
@@ -544,6 +551,7 @@ const ProductDetailSheet = () => {
         return [];
     }, [activeProduct, selectedProduct]);
 
+    const isMatrix = isMatrixProduct(activeProduct || selectedProduct);
     const variantKey = String(selectedVariant?.sku || selectedVariant?.name || "").trim();
     const currentStock = useMemo(() => {
         const prod = activeProduct || selectedProduct;
@@ -619,6 +627,11 @@ const ProductDetailSheet = () => {
     }, [selectedVariant, activeProduct, selectedProduct, resolvedSellingPrice]);
 
     const effectivePrice = resolvedSellingPrice;
+    // ONE price for the whole page: what the customer pays is the sale price (if set), the list price
+    // is only the struck-through "was" price. The price row, the badges and "Buy now at" all use these.
+    const hasDiscount = effectivePrice > 0 && resolvedOriginalPrice > effectivePrice;
+    const discountPercent = hasDiscount ? Math.round(((resolvedOriginalPrice - effectivePrice) / resolvedOriginalPrice) * 100) : 0;
+    const formatInr = (n) => Number(n || 0).toLocaleString('en-IN');
 
     // EMI / finance: only products in header categories the admin switched on (e.g. Mobile).
     useEffect(() => {
@@ -962,8 +975,6 @@ const ProductDetailSheet = () => {
         return pairs;
     }, [specificationsList]);
 
-    const displayPrice = selectedVariant?.salePrice || selectedVariant?.price || selectedProduct?.salePrice || selectedProduct?.price || 0;
-
 
 
     const getTrustBadgeIcon = (iconName) => {
@@ -1153,9 +1164,22 @@ const ProductDetailSheet = () => {
     const renderMoreDetailsCard = () => {
         if (!specificationsList || specificationsList.length === 0) return null;
         return (
-            <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs my-3">
-                <h3 className="text-base font-bold text-slate-900 mb-2.5">More Details</h3>
-                <ul className="space-y-2">
+            <div className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden my-3" data-testid="more-details-card">
+                <button
+                    type="button"
+                    data-testid="more-details-toggle"
+                    onClick={() => setIsMoreDetailsOpen(!isMoreDetailsOpen)}
+                    className="w-full flex items-center justify-between p-4 bg-white text-left transition-colors hover:bg-slate-50/50"
+                >
+                    <span className="text-base font-bold text-slate-900">More Details</span>
+                    {isMoreDetailsOpen ? (
+                        <ChevronUp size={20} className="text-slate-600 shrink-0" />
+                    ) : (
+                        <ChevronDown size={20} className="text-slate-600 shrink-0" />
+                    )}
+                </button>
+                {isMoreDetailsOpen && (
+                <ul className="space-y-2 p-4 pt-3 border-t border-slate-100">
                     {specificationsList.map((item, idx) => (
                         <li key={idx} className="flex items-start gap-2.5 text-[13px] text-slate-800 leading-snug">
                             <span className="text-slate-400 font-bold select-none text-sm leading-4">•</span>
@@ -1166,6 +1190,7 @@ const ProductDetailSheet = () => {
                         </li>
                     ))}
                 </ul>
+                )}
             </div>
         );
     };
@@ -1374,14 +1399,14 @@ const ProductDetailSheet = () => {
                                     </motion.button>
 
                                     {/* Discount Badge (center) */}
-                                    {(selectedProduct.originalPrice > selectedProduct.price) && (
+                                    {hasDiscount && (
                                         <motion.div
                                             initial={{ scale: 0, rotate: -10 }}
                                             animate={{ scale: 1, rotate: 0 }}
                                             transition={{ type: 'spring', delay: 0.2 }}
                                             className="bg-gradient-to-r from-primary to-[var(--brand-400)] text-white text-[10px] font-[800] px-3 py-1.5 rounded-xl uppercase tracking-wider shadow-md shadow-brand-200/40"
                                         >
-                                            {Math.round(((selectedProduct.originalPrice - selectedProduct.price) / selectedProduct.originalPrice) * 100)}% OFF
+                                            {discountPercent}% OFF
                                         </motion.div>
                                     )}
 
@@ -1547,7 +1572,7 @@ const ProductDetailSheet = () => {
                                 <div className="flex-1 px-7 py-6 lg:px-8 lg:py-7 space-y-3">
 
                                     {/* Top badges row */}
-                                    {selectedProduct.originalPrice > selectedProduct.price && (
+                                    {hasDiscount && (
                                         <div className="flex items-center gap-2 flex-wrap mb-1">
                                             <motion.div
                                                 initial={{ opacity: 0, x: -10 }}
@@ -1555,7 +1580,7 @@ const ProductDetailSheet = () => {
                                                 transition={{ delay: 0.15 }}
                                                 className="text-[10px] font-[700] text-primary bg-brand-50 px-3 py-1.5 rounded-lg border border-brand-200/50 uppercase tracking-wider"
                                             >
-                                                💰 Save ₹{selectedProduct.originalPrice - selectedProduct.price}
+                                                💰 Save ₹{formatInr(resolvedOriginalPrice - effectivePrice)}
                                             </motion.div>
                                         </div>
                                     )}
@@ -1612,15 +1637,15 @@ const ProductDetailSheet = () => {
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex items-baseline gap-2">
                                                     <span className="text-[28px] lg:text-[32px] font-[800] text-primary tracking-tight leading-none">
-                                                        ₹{displayPrice}
+                                                        ₹{formatInr(effectivePrice)}
                                                     </span>
-                                                    {selectedProduct.originalPrice > selectedProduct.price && (
-                                                        <span className="text-[14px] text-gray-400 line-through font-[600]">₹{selectedProduct.originalPrice}</span>
+                                                    {hasDiscount && (
+                                                        <span className="text-[14px] text-gray-400 line-through font-[600]">₹{formatInr(resolvedOriginalPrice)}</span>
                                                     )}
                                                 </div>
-                                                {selectedProduct.originalPrice > selectedProduct.price && (
+                                                {hasDiscount && (
                                                     <span className="inline-flex w-fit items-center text-[10px] font-[800] text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-md uppercase tracking-wide">
-                                                        {Math.round(((selectedProduct.originalPrice - selectedProduct.price) / selectedProduct.originalPrice) * 100)}% off
+                                                        {discountPercent}% off
                                                     </span>
                                                 )}
                                                 {isLowStock && (
@@ -1730,8 +1755,13 @@ const ProductDetailSheet = () => {
                                         </motion.div>
                                     )}
 
+                                    {/* Variants: Size / Color style options */}
+                                    {isMatrix && (
+                                        <VariantOptionPicker product={activeProduct || selectedProduct} selectedVariant={selectedVariant} onSelect={handleVariantSelect} />
+                                    )}
+
                                     {/* Variants */}
-                                    {activeVariants && activeVariants.filter(v => v.name).length > 0 && (
+                                    {!isMatrix && activeVariants && activeVariants.filter(v => v.name).length > 0 && (
                                         <motion.div
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 1 }}
@@ -1775,11 +1805,11 @@ const ProductDetailSheet = () => {
                                     {renderFinanceCard()}
 {renderTrustBadges()}
 
-                                    {/* 2. More Details Card */}
-                                    {renderMoreDetailsCard()}
-
-                                    {/* 3. Product Description / Details Card (Default Open) */}
+                                    {/* 2. Product Description (open by default) */}
                                     {renderDescriptionCard()}
+
+                                    {/* 3. More Details (closed by default) */}
+                                    {renderMoreDetailsCard()}
 
                                     {/* Ratings and Reviews Card */}
                                     {renderReviewsCard()}
@@ -1981,7 +2011,6 @@ const ProductDetailSheet = () => {
                             {/* Thumbnail Row (Mobile) */}
                             {allImages.length > 1 && (
                                 <div className="px-5 pt-4 pb-1">
-                                    <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">{allImages.length} Product Images</h4>
                                     <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
                                         {allImages.map((img, i) => (
                                             <button
@@ -1997,9 +2026,9 @@ const ProductDetailSheet = () => {
                                                     "w-[65px] h-[65px] flex-shrink-0 rounded-2xl overflow-hidden transition-all duration-300 border-2",
                                                     i === activeImageIndex
                                                         ? (isRefurbishedProduct
-                                                            ? "border-blue-600 shadow-md shadow-blue-100 ring-2 ring-blue-100 bg-white scale-95"
-                                                            : "border-[#2875E8] shadow-md shadow-orange-100 ring-2 ring-orange-100 bg-white scale-95")
-                                                        : "border-slate-200 bg-slate-50 hover:border-slate-300"
+                                                            ? "border-[#374151] border-[3px] bg-white"
+                                                            : "border-[#374151] border-[3px] bg-white")
+                                                        : "border-[#4b5563] bg-white"
                                                 )}
                                             >
                                                 <img src={applyCloudinaryTransform(img, IMAGE_PRESETS.ICON)} alt="" loading="lazy" decoding="async" className="w-full h-full object-contain p-1.5 mix-blend-multiply" />
@@ -2033,13 +2062,12 @@ const ProductDetailSheet = () => {
                                 {/* Price Row */}
                                 <div className="flex items-baseline gap-2.5 pt-0.5">
                                     <span className="text-2xl font-black text-[#0F172A] tracking-tight">
-                                        ₹{selectedVariant?.salePrice || selectedVariant?.price || selectedProduct.price}
+                                        ₹{formatInr(effectivePrice)}
                                     </span>
-                                    {((selectedVariant?.salePrice && selectedVariant.salePrice < selectedVariant.price) ||
-                                        (!selectedVariant && selectedProduct.originalPrice > selectedProduct.price)) && (
+                                    {hasDiscount && (
                                             <>
                                                 <span className="text-sm font-bold text-slate-400 line-through">
-                                                    ₹{selectedVariant?.price || selectedProduct.originalPrice}
+                                                    ₹{formatInr(resolvedOriginalPrice)}
                                                 </span>
                                                 <span className={cn(
                                                     "text-xs font-black px-2 py-0.5 rounded-lg uppercase tracking-wide border",
@@ -2047,9 +2075,7 @@ const ProductDetailSheet = () => {
                                                         ? "bg-blue-50 text-blue-600 border-blue-200"
                                                         : "bg-[#EFF6FF] text-[#2875E8] border-orange-200/80"
                                                 )}>
-                                                    {selectedVariant
-                                                        ? Math.round(((selectedVariant.price - selectedVariant.salePrice) / selectedVariant.price) * 100)
-                                                        : Math.round(((selectedProduct.originalPrice - selectedProduct.price) / selectedProduct.originalPrice) * 100)}% OFF
+                                                    {discountPercent}% OFF
                                                 </span>
                                             </>
                                         )}
@@ -2067,8 +2093,13 @@ const ProductDetailSheet = () => {
                                     </div>
                                 )}
 
+                                {/* Size / Color style options (Mobile) */}
+                                {isMatrix && (
+                                    <VariantOptionPicker compact product={activeProduct || selectedProduct} selectedVariant={selectedVariant} onSelect={handleVariantSelect} />
+                                )}
+
                                 {/* Variants Selection (Mobile) */}
-                                {activeVariants && activeVariants.filter(v => v.name).length > 0 && (
+                                {!isMatrix && activeVariants && activeVariants.filter(v => v.name).length > 0 && (
                                     <div className="pt-1 mb-1">
                                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Select Variant</h4>
                                         <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -2114,11 +2145,11 @@ const ProductDetailSheet = () => {
                                 {renderFinanceCard()}
 {renderTrustBadges()}
 
-                                {/* 2. More Details Card */}
-                                {renderMoreDetailsCard()}
-
-                                {/* 3. Product Description / Details Card (Default Open) */}
+                                {/* 2. Product Description (open by default) */}
                                 {renderDescriptionCard()}
+
+                                {/* 3. More Details (closed by default) */}
+                                {renderMoreDetailsCard()}
 
                                 {/* Ratings and Reviews Card */}
                                 {renderReviewsCard()}

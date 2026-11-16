@@ -31,9 +31,22 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { sellerApi } from "../services/sellerApi";
 import { toast } from "sonner";
 import Pagination from "@shared/components/ui/Pagination";
+import VariantMatrixEditor from "@shared/components/VariantMatrixEditor";
+import ParcelSizeFields from "@shared/components/ParcelSizeFields";
+import BulkUploadModal from "../components/BulkUploadModal";
+import { draftReasonLabel } from "@shared/utils/bulkReport";
+import { validateParcel } from "@shared/utils/parcel";
+import { matrixSubmitParts, optionsStateFromProduct } from "@shared/utils/variantMatrix";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
 
-const SellerStatusBadge = React.memo(function SellerStatusBadge({ status, stock }) {
+const SellerStatusBadge = React.memo(function SellerStatusBadge({ status, stock, draftReasons }) {
+  if (Array.isArray(draftReasons) && draftReasons.length > 0) {
+    return (
+      <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800" data-testid="draft-badge" title="Hidden from customers until complete">
+        Draft: {draftReasons.map(draftReasonLabel).join(", ")}
+      </span>
+    );
+  }
   if (stock === 0) return <Badge variant="rose" className="text-[10px] px-2 py-0.5">Out of Stock</Badge>;
   if (status === "active") return <Badge variant="success" className="text-[10px] px-2 py-0.5">Active</Badge>;
   return <Badge variant="gray" className="text-[10px] px-2 py-0.5">Inactive</Badge>;
@@ -126,7 +139,7 @@ const SellerProductTableRow = React.memo(function SellerProductTableRow({ p, onE
       </td>
       <td className="px-6 py-4 text-center">
         <div className="flex flex-col items-center justify-center">
-          <SellerStatusBadge status={p.status} stock={p.stock} />
+          <SellerStatusBadge status={p.status} stock={p.stock} draftReasons={p.draftReasons} />
         </div>
       </td>
       <td className="px-6 py-4 text-right">
@@ -194,6 +207,8 @@ const ProductManagement = () => {
   const [viewingVariants, setViewingVariants] = useState(null);
   const [isVariantsViewModalOpen, setIsVariantsViewModalOpen] = useState(false);
   const [variantImageFiles, setVariantImageFiles] = useState({});
+  const [groupFiles, setGroupFiles] = useState({}); // new photos per colour (Size/Color options)
+  const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [modalTab, setModalTab] = useState("general");
 
@@ -362,15 +377,17 @@ const ProductManagement = () => {
     isTopDeal: false,
     tags: "",
     weight: "",
-    length: 10,
-    breadth: 10,
-    height: 10,
+    length: "",
+    breadth: "",
+    height: "",
     brand: "",
     shelfLife: "",
     countryOfOrigin: "",
     fssaiLicense: "",
     mainImage: null,
     galleryImages: [],
+    useOptions: false,
+    variantOptions: [],
     variants: [
       { id: Date.now(), name: "", price: "", salePrice: "", stock: "", sku: "" },
     ],
@@ -429,13 +446,24 @@ const ProductManagement = () => {
         return;
       }
 
+      const parcelError = validateParcel(formData);
+      if (parcelError) {
+        toast.error(parcelError);
+        setModalTab("general");
+        return;
+      }
+      const vm = matrixSubmitParts(formData, groupFiles);
+      if (vm.error) {
+        toast.error(vm.error);
+        return;
+      }
       const firstVariant = formData.variants[0] || {};
-      if (!firstVariant.price || !firstVariant.stock) {
+      if (!formData.useOptions && (!firstVariant.price || !firstVariant.stock)) {
         toast.error("Main variant must have price and stock");
         return;
       }
 
-      const invalidVariant = formData.variants?.find((v) => v.salePrice && Number(v.salePrice) > Number(v.price));
+      const invalidVariant = formData.useOptions ? null : formData.variants?.find((v) => v.salePrice && Number(v.salePrice) > Number(v.price));
       if (invalidVariant) {
         toast.error(`Sale Price cannot be greater than Price for variant: ${invalidVariant.name || 'Main Variant'}`);
         return;
@@ -459,14 +487,15 @@ const ProductManagement = () => {
       data.append("isTopDeal", String(formData.isTopDeal));
       data.append("brand", formData.brand);
       data.append("weight", formData.weight);
-      data.append("length", formData.length || 10);
-      data.append("breadth", formData.breadth || 10);
-      data.append("height", formData.height || 10);
+      data.append("length", formData.length);
+      data.append("breadth", formData.breadth);
+      data.append("height", formData.height);
       data.append("tags", formData.tags);
       data.append("shelfLife", formData.shelfLife);
       data.append("countryOfOrigin", formData.countryOfOrigin);
       data.append("fssaiLicense", formData.fssaiLicense);
-      data.append("variants", JSON.stringify(formData.variants));
+      data.append("variants", JSON.stringify(vm.variants));
+      data.append("variantOptions", vm.optionsJson);
       // Highlights
       const cleanedHighlights = (formData.highlights || [])
         .filter((h) => h && ((typeof h.label === "string" && h.label.trim().length > 0) || (typeof h.icon === "string" && h.icon.trim().length > 0)))
@@ -508,7 +537,8 @@ const ProductManagement = () => {
       }
 
       // Append variant image files
-      Object.keys(variantImageFiles).forEach((vIndex) => {
+      vm.files.forEach(({ field, file }) => data.append(field, file));
+      Object.keys(formData.useOptions ? {} : variantImageFiles).forEach((vIndex) => {
         const filesArray = variantImageFiles[vIndex];
         if (Array.isArray(filesArray)) {
            filesArray.forEach((file, imgIndex) => {
@@ -675,9 +705,9 @@ const ProductManagement = () => {
         isTopDeal: Boolean(freshItem.isTopDeal),
         tags: Array.isArray(freshItem.tags) ? freshItem.tags.join(", ") : freshItem.tags || "",
         weight: freshItem.weight || "",
-        length: freshItem.length || 10,
-        breadth: freshItem.breadth || 10,
-        height: freshItem.height || 10,
+        length: freshItem.length || "",
+        breadth: freshItem.breadth || "",
+        height: freshItem.height || "",
         brand: freshItem.brand || "",
         shelfLife: freshItem.shelfLife || "",
         countryOfOrigin: freshItem.countryOfOrigin || "",
@@ -689,7 +719,8 @@ const ProductManagement = () => {
         galleryFiles: [],
         highlights: freshHighlights,
         specifications: freshSpecs,
-        variants: (freshItem.variants && freshItem.variants.length > 0) ? freshItem.variants.map(v => ({ ...v, id: v._id || Date.now() })) : [
+        ...optionsStateFromProduct(freshItem),
+        variants: (freshItem.variants && freshItem.variants.length > 0) ? freshItem.variants.map((v, vi) => ({ ...v, id: v._id || `${Date.now()}-${vi}` })) : [
           {
             id: Date.now(),
             name: "",
@@ -718,6 +749,9 @@ const ProductManagement = () => {
         isTopDeal: false,
         tags: "",
         weight: "",
+        length: "",
+        breadth: "",
+        height: "",
         brand: "",
         mainImage: null,
         mainImageFile: null,
@@ -726,6 +760,8 @@ const ProductManagement = () => {
         galleryFiles: [],
         highlights: [0, 1, 2, 3].map(() => ({ icon: "", label: "" })),
         specifications: [],
+        useOptions: false,
+        variantOptions: [],
         variants: [
           {
             id: Date.now(),
@@ -740,6 +776,7 @@ const ProductManagement = () => {
       setEditingItem(null);
     }
     setVariantImageFiles({});
+    setGroupFiles({});
     setModalTab("general");
     setIsProductModalOpen(true);
   };
@@ -747,11 +784,13 @@ const ProductManagement = () => {
   const closeProductModal = () => {
     setIsProductModalOpen(false);
     setVariantImageFiles({});
+    setGroupFiles({});
     setEditingItem(null);
   };
 
   return (
     <div className="space-y-6 pb-16">
+      <BulkUploadModal isOpen={isBulkOpen} onClose={() => setIsBulkOpen(false)} onSaved={() => fetchProducts(1)} />
 
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
@@ -768,6 +807,13 @@ const ProductManagement = () => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            data-testid="bulk-upload-btn"
+            onClick={() => setIsBulkOpen(true)}
+            className="flex items-center gap-2 border border-slate-300 bg-white text-slate-800 px-4 py-2 rounded-xl hover:bg-slate-50 transition-colors">
+            Bulk Upload (Excel)
+          </button>
           <button
             onClick={() => navigate("/seller/products/add")}
             className="flex items-center gap-2 bg-black text-primary-foreground px-4 py-2 rounded-xl hover:bg-slate-800 transition-colors">
@@ -1238,6 +1284,11 @@ const ProductManagement = () => {
                   onWheel={handleModalScrollWheel}>
                   {modalTab === "general" && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+                      {editingItem?.draftReasons?.length > 0 && (
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-800" data-testid="draft-note">
+                          This product is a draft and is hidden from customers. Add {editingItem.draftReasons.map((r) => (r === "photo" ? "a product photo" : "the parcel weight and box size")).join(" and ")}, then set the status to Active.
+                        </div>
+                      )}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-1.5 flex flex-col">
                           <label className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">
@@ -1376,74 +1427,7 @@ const ProductManagement = () => {
                         </div>
                       </div>
 
-                      {/* Parcel Weight & Box Dimensions (Shiprocket Courier) */}
-                      <div className="bg-slate-50/90 p-5 rounded-2xl border border-slate-200/90 space-y-4">
-                        <div>
-                          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                            <HiOutlineScale className="h-4 w-4 text-primary" />
-                            Parcel Weight & Box Dimensions (पार्सल का वजन और साइज़)
-                          </h4>
-                          <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                            💡 सही वजन और बॉक्स का साइज़ भरें ताकि Shiprocket कूरियर डिलीवरी चार्ज सही रहे और कोई पेनल्टी न लगे।
-                          </p>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                          <div className="space-y-1.5 flex flex-col">
-                            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                              Product Weight (वजन)
-                            </label>
-                            <input
-                              value={formData.weight}
-                              onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                              className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/20"
-                              placeholder="e.g. 500g or 1.5 kg"
-                            />
-                          </div>
-
-                          <div className="space-y-1.5 flex flex-col">
-                            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                              Length (लंबाई - cm)
-                            </label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={formData.length}
-                              onChange={(e) => setFormData({ ...formData, length: Math.max(1, Number(e.target.value) || 10) })}
-                              className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/20"
-                              placeholder="10"
-                            />
-                          </div>
-
-                          <div className="space-y-1.5 flex flex-col">
-                            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                              Width / Breadth (चौड़ाई - cm)
-                            </label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={formData.breadth}
-                              onChange={(e) => setFormData({ ...formData, breadth: Math.max(1, Number(e.target.value) || 10) })}
-                              className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/20"
-                              placeholder="10"
-                            />
-                          </div>
-
-                          <div className="space-y-1.5 flex flex-col">
-                            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                              Height (ऊंचाई - cm)
-                            </label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={formData.height}
-                              onChange={(e) => setFormData({ ...formData, height: Math.max(1, Number(e.target.value) || 10) })}
-                              className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/20"
-                              placeholder="10"
-                            />
-                          </div>
-                        </div>
-                      </div>
+                      <ParcelSizeFields formData={formData} setFormData={setFormData} />
                     </div>
                   )}
 
@@ -1691,10 +1675,34 @@ const ProductManagement = () => {
                   )}
 
 
-                  {modalTab === "variants" && (
+                  {modalTab === "variants" && formData.useOptions && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+                      <VariantMatrixEditor
+                        key={editingItem?._id || editingItem?.id || "new"}
+                        axes={formData.variantOptions}
+                        variants={formData.variants}
+                        groupFiles={groupFiles}
+                        setGroupFiles={setGroupFiles}
+                        onChange={({ variantOptions, variants }) => setFormData((prev) => ({ ...prev, variantOptions, variants }))}
+                        onSwitchToSimple={() => setFormData((prev) => ({ ...prev, useOptions: false, variantOptions: [] }))}
+                      />
+                    </div>
+                  )}
+
+                  {modalTab === "variants" && !formData.useOptions && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-bold">Product Variants</h4>
+                        <div>
+                          <h4 className="text-sm font-bold">Product Variants</h4>
+                          <button
+                            type="button"
+                            data-testid="use-options-btn"
+                            onClick={() => setFormData((prev) => ({ ...prev, useOptions: true, variantOptions: [] }))}
+                            className="mt-1 text-[11px] font-bold text-primary underline"
+                          >
+                            Product has Size / Color options? Use options instead
+                          </button>
+                        </div>
                         <button
                           type="button"
                           onClick={() =>

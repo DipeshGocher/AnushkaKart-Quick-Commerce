@@ -5,6 +5,8 @@ import Order from "../models/order.js";
 import Review from "../models/review.js";
 import HeroConfig from "../models/heroConfig.js";
 import { handleResponse } from "../utils/helper.js";
+import { buildVariantMatrix, normalizeOptions, mergeUploadedImages } from "../utils/variantMatrix.js";
+import { computeDraftReasons, publishBlockedMessage } from "../utils/draftCheck.js";
 import https from "https";
 
 // Helper function to translate input search terms to English dynamically
@@ -165,6 +167,32 @@ function makeProductSku(name, index = 1) {
   return `${prefix}-${String(index).padStart(3, "0")}`;
 }
 
+/** True when the request sends Size/Color style options (variantOptions with at least one option). */
+function hasMatrixInput(productData) {
+  const parsed = parseJsonIfString(productData.variantOptions);
+  return Array.isArray(parsed) && parsed.length > 0;
+}
+
+/**
+ * Validates Size/Color style options + combinations and fixes price/stock for the listing.
+ * Does nothing when the request has no variantOptions field. Throws VariantMatrixError (400).
+ */
+function applyVariantMatrix(productData, newlyUploadedIdx) {
+  if (productData.variantOptions === undefined) return;
+  const rawOptions = parseJsonIfString(productData.variantOptions);
+  const axes = normalizeOptions(rawOptions);
+  if (axes.length === 0) {
+    productData.variantOptions = [];
+    return;
+  }
+  const built = buildVariantMatrix(axes, productData.variants, newlyUploadedIdx);
+  productData.variantOptions = built.variantOptions;
+  productData.variants = built.variants;
+  productData.price = built.summary.price;
+  productData.salePrice = built.summary.salePrice;
+  productData.stock = built.summary.stock;
+}
+
 function parseJsonIfString(value) {
   if (typeof value !== "string") return value;
   const trimmed = value.trim();
@@ -261,7 +289,7 @@ function buildSellerPendingModerationUpdate() {
   };
 }
 
-function buildSellerApprovedModerationUpdate() {
+export function buildSellerApprovedModerationUpdate() {
   return {
     approvalStatus: PRODUCT_APPROVAL_STATUS.APPROVED,
     approvalRequestedAt: null,
@@ -745,7 +773,7 @@ export const getProducts = async (req, res) => {
       const [rawProducts, total, activeCount, lowStockCount, outOfStockCount] = await Promise.all([
         Product.find(finalQuery)
           .select(
-            "name slug description sku price salePrice stock brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights conditionType refurbishedDetails createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
+            "name slug description sku price salePrice stock brand weight length breadth height shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants variantOptions draftReasons highlights conditionType refurbishedDetails createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
           )
           // No .populate() — names resolved via cache-backed entityNameCache
           .sort(sortQuery)
@@ -1049,7 +1077,7 @@ export const getSellerProducts = async (req, res) => {
     ] = await Promise.all([
       Product.find(query)
         .select(
-          "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights conditionType refurbishedDetails createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
+          "name slug description sku price salePrice stock lowStockAlert brand weight length breadth height shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants variantOptions draftReasons highlights conditionType refurbishedDetails createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
         )
         .populate("headerId", "name slug trustBadges")
         .populate("categoryId", "name slug trustBadges")
@@ -1238,8 +1266,11 @@ export const createProduct = async (req, res) => {
     }
 
     if (Array.isArray(productData.variants)) {
+      const matrixMode = hasMatrixInput(productData);
       productData.variants = productData.variants.map((v, idx) => {
-        if (variantImagesMap[idx] && variantImagesMap[idx].length > 0) {
+        if (matrixMode && variantImagesMap[idx] && variantImagesMap[idx].length > 0) {
+          v.images = mergeUploadedImages(v, variantImagesMap[idx]);
+        } else if (variantImagesMap[idx] && variantImagesMap[idx].length > 0) {
           v.images = variantImagesMap[idx];
         } else if (typeof v.image === "string" && v.image && (!v.images || v.images.length === 0)) {
           v.images = [v.image];
@@ -1400,6 +1431,12 @@ export const createProduct = async (req, res) => {
             : makeProductSku(productData.name, idx + 1),
       }));
     }
+    try {
+      applyVariantMatrix(productData, new Set(Object.keys(variantImagesMap).map(Number)));
+    } catch (matrixErr) {
+      if (matrixErr.name === "VariantMatrixError") return handleResponse(res, 400, matrixErr.message);
+      throw matrixErr;
+    }
 
     let moderationUpdate = {};
     let successMessage = "Product created successfully";
@@ -1537,9 +1574,12 @@ export const updateProduct = async (req, res) => {
     }
 
     if (Array.isArray(productData.variants)) {
+      const matrixMode = hasMatrixInput(productData);
       productData.variants = productData.variants.map((v, idx) => {
         // If new images were uploaded for this variant, update them
-        if (variantImagesMap[idx] && variantImagesMap[idx].length > 0) {
+        if (matrixMode && variantImagesMap[idx] && variantImagesMap[idx].length > 0) {
+          v.images = mergeUploadedImages(v, variantImagesMap[idx]);
+        } else if (variantImagesMap[idx] && variantImagesMap[idx].length > 0) {
           v.images = variantImagesMap[idx];
         } else if (typeof v.image === "string" && v.image && (!v.images || v.images.length === 0)) {
           v.images = [v.image];
@@ -1710,6 +1750,12 @@ export const updateProduct = async (req, res) => {
             : makeProductSku(skuBaseName, idx + 1),
       }));
     }
+    try {
+      applyVariantMatrix(productData, new Set(Object.keys(variantImagesMap).map(Number)));
+    } catch (matrixErr) {
+      if (matrixErr.name === "VariantMatrixError") return handleResponse(res, 400, matrixErr.message);
+      throw matrixErr;
+    }
 
     let moderationUpdate = {};
     let successMessage = "Product updated successfully";
@@ -1720,6 +1766,25 @@ export const updateProduct = async (req, res) => {
       moderationUpdate = buildSellerApprovedModerationUpdate();
     }
     Object.assign(productData, moderationUpdate);
+
+    // A draft made by bulk upload stays hidden until it has a photo and a parcel size.
+    if (Array.isArray(product.draftReasons) && product.draftReasons.length > 0) {
+      const after = {
+        mainImage: productData.mainImage ?? product.mainImage,
+        galleryImages: productData.galleryImages ?? product.galleryImages,
+        variants: productData.variants ?? product.variants,
+        weight: productData.weight ?? product.weight,
+        length: productData.length ?? product.length,
+        breadth: productData.breadth ?? product.breadth,
+        height: productData.height ?? product.height,
+      };
+      const remaining = computeDraftReasons(after);
+      const wantsActive = String(productData.status ?? product.status) === "active";
+      if (wantsActive && remaining.length > 0) {
+        return handleResponse(res, 400, publishBlockedMessage(remaining));
+      }
+      productData.draftReasons = remaining;
+    }
 
     const updatedProduct = await Product.findByIdAndUpdate(
       id,
@@ -1949,7 +2014,7 @@ export const getProductById = async (req, res) => {
         const query = isObjectId ? { _id: id } : { slug: id };
         return Product.findOne(query)
           .select(
-            "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId isMonthlyKit status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights specifications dynamicAttributes trustBadges createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
+            "name slug description sku price salePrice stock lowStockAlert brand weight length breadth height shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId isMonthlyKit status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants variantOptions draftReasons highlights specifications dynamicAttributes trustBadges createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
           )
           .populate("headerId", "name slug trustBadges deliveryMode catalogType")
           .populate("categoryId", "name slug trustBadges deliveryMode catalogType")
@@ -2190,7 +2255,7 @@ export const getModerationProducts = async (req, res) => {
     ] = await Promise.all([
       Product.find(moderatedQuery)
         .select(
-          "name slug description sku price salePrice stock lowStockAlert brand weight shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants highlights createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
+          "name slug description sku price salePrice stock lowStockAlert brand weight length breadth height shelfLife countryOfOrigin fssaiLicense mainImage galleryImages headerId categoryId subcategoryId sellerId status approvalStatus approvalRequestedAt approvalReviewedAt approvalReviewedBy approvalNote lastSubmittedByRole isFeatured isTopDeal variants variantOptions draftReasons highlights createdAt deliveryMode isReturnable returnWindowDays returnPolicyNote",
         )
         .populate("headerId", "name")
         .populate("categoryId", "name")
@@ -2444,7 +2509,7 @@ export const getHeaderProducts = async (req, res) => {
               }
 
               let items = await Product.find(prodQuery)
-                .select("_id name slug price salePrice stock mainImage variants rating ratingsCount weight unit brand isFeatured isTopDeal deliveryMode headerId categoryId subcategoryId sellerId")
+                .select("_id name slug price salePrice stock mainImage variants variantOptions rating ratingsCount weight unit brand isFeatured isTopDeal deliveryMode headerId categoryId subcategoryId sellerId")
                 .sort({ isFeatured: -1, createdAt: -1 })
                 .limit(limit)
                 .lean();
@@ -2452,7 +2517,7 @@ export const getHeaderProducts = async (req, res) => {
               if ((!items || items.length === 0) && sellerFilter) {
                 delete prodQuery.$and;
                 items = await Product.find(prodQuery)
-                  .select("_id name slug price salePrice stock mainImage variants rating ratingsCount weight unit brand isFeatured isTopDeal deliveryMode headerId categoryId subcategoryId sellerId")
+                  .select("_id name slug price salePrice stock mainImage variants variantOptions rating ratingsCount weight unit brand isFeatured isTopDeal deliveryMode headerId categoryId subcategoryId sellerId")
                   .sort({ isFeatured: -1, createdAt: -1 })
                   .limit(limit)
                   .lean();

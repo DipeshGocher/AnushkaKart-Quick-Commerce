@@ -29,6 +29,8 @@ import Pagination from '@shared/components/ui/Pagination';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import VariantMatrixEditor from '@shared/components/VariantMatrixEditor';
+import { matrixSubmitParts, optionsStateFromProduct } from '@shared/utils/variantMatrix';
 
 const StatusBadge = React.memo(function StatusBadge({ status, stock, lowStockAlert }) {
     if (stock === 0) return <Badge variant="error" className="text-[10px] px-1.5 py-0">Out of Stock</Badge>;
@@ -227,6 +229,8 @@ const ProductManagement = () => {
         mainImage: null,
         galleryImages: [],
         dynamicAttributes: [],
+        useOptions: false,
+        variantOptions: [],
         variants: [
             { id: Date.now(), name: 'Default', price: '', salePrice: '', stock: '', sku: '' }
         ]
@@ -235,6 +239,7 @@ const ProductManagement = () => {
     const [viewingVariants, setViewingVariants] = useState(null);
     const [isVariantsViewModalOpen, setIsVariantsViewModalOpen] = useState(false);
     const [variantImageFiles, setVariantImageFiles] = useState({});
+    const [groupFiles, setGroupFiles] = useState({}); // new photos per colour (Size/Color options)
     const [categoryAttributes, setCategoryAttributes] = useState([]);
     const [isLoadingAttributes, setIsLoadingAttributes] = useState(false);
 
@@ -362,12 +367,16 @@ const ProductManagement = () => {
             return toast.error('Please select a Sub-Category');
         }
 
+        const vm = matrixSubmitParts(formData, groupFiles);
+        if (vm.error) {
+            return toast.error(vm.error);
+        }
         const firstVariant = (formData.variants && formData.variants.length > 0) ? formData.variants[0] : null;
-        if (!firstVariant || !firstVariant.price || !firstVariant.stock) {
+        if (!formData.useOptions && (!firstVariant || !firstVariant.price || !firstVariant.stock)) {
             return toast.error("Main variant must have price and stock");
         }
 
-        const invalidVariant = formData.variants?.find((v) => v.salePrice && Number(v.salePrice) > Number(v.price));
+        const invalidVariant = formData.useOptions ? null : formData.variants?.find((v) => v.salePrice && Number(v.salePrice) > Number(v.price));
         if (invalidVariant) {
             return toast.error(`Sale Price cannot be greater than Price for variant: ${invalidVariant.name || 'Main Variant'}`);
         }
@@ -402,7 +411,8 @@ const ProductManagement = () => {
             data.append('isReturnable', String(formData.isReturnable ?? true));
             data.append('returnWindowDays', String(Number(formData.returnWindowDays) || 7));
             data.append('returnPolicyNote', formData.returnPolicyNote || '');
-            data.append('variants', JSON.stringify(formData.variants));
+            data.append('variants', JSON.stringify(vm.variants));
+            data.append('variantOptions', vm.optionsJson);
             // Highlights
             const cleanedHighlights = (formData.highlights || [])
                 .filter((h) => h && ((typeof h.label === "string" && h.label.trim().length > 0) || (typeof h.icon === "string" && h.icon.trim().length > 0)))
@@ -456,7 +466,8 @@ const ProductManagement = () => {
             }
 
             // Append variant image files
-            Object.keys(variantImageFiles).forEach((vIndex) => {
+            vm.files.forEach(({ field, file }) => data.append(field, file));
+            Object.keys(formData.useOptions ? {} : variantImageFiles).forEach((vIndex) => {
                 const filesArray = variantImageFiles[vIndex];
                 if (Array.isArray(filesArray)) {
                     filesArray.forEach((file, imgIndex) => {
@@ -573,7 +584,8 @@ const ProductManagement = () => {
                 highlights: freshHighlights,
                 specifications: Array.isArray(item.specifications) ? item.specifications.map(s => ({ key: s?.key || '', value: s?.value || '' })) : [],
                 dynamicAttributes: Array.isArray(item.dynamicAttributes) ? item.dynamicAttributes.map(a => ({ attributeId: a.attributeId?._id || a.attributeId || null, name: a.name || '', value: a.value || '' })) : [],
-                variants: (item.variants && item.variants.length > 0) ? item.variants.map(v => ({ ...v, id: v._id || Date.now() })) : [
+                ...optionsStateFromProduct(item),
+                variants: (item.variants && item.variants.length > 0) ? item.variants.map((v, vi) => ({ ...v, id: v._id || `${Date.now()}-${vi}` })) : [
                     {
                         id: Date.now(),
                         name: 'Default',
@@ -597,6 +609,8 @@ const ProductManagement = () => {
                 highlights: [0, 1, 2, 3].map(() => ({ icon: "", label: "" })),
                 specifications: [],
                 dynamicAttributes: [],
+                useOptions: false,
+                variantOptions: [],
                 variants: [
                     { id: Date.now(), name: 'Default', price: '', salePrice: '', stock: '', sku: '' }
                 ]
@@ -604,6 +618,7 @@ const ProductManagement = () => {
             setEditingItem(null);
         }
         setVariantImageFiles({});
+        setGroupFiles({});
         setModalTab('general');
         setIsProductModalOpen(true);
     };
@@ -1167,10 +1182,34 @@ const ProductManagement = () => {
                                         </div>
                                     )}
 
-                                    {modalTab === 'variants' && (
+                                    {modalTab === 'variants' && formData.useOptions && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+                                            <VariantMatrixEditor
+                                                key={editingItem?._id || 'new'}
+                                                axes={formData.variantOptions}
+                                                variants={formData.variants}
+                                                groupFiles={groupFiles}
+                                                setGroupFiles={setGroupFiles}
+                                                onChange={({ variantOptions, variants }) => setFormData((prev) => ({ ...prev, variantOptions, variants }))}
+                                                onSwitchToSimple={() => setFormData((prev) => ({ ...prev, useOptions: false, variantOptions: [] }))}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {modalTab === 'variants' && !formData.useOptions && (
                                         <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
                                             <div className="flex items-center justify-between">
-                                                <h4 className="text-sm font-bold text-slate-900">Product Variants</h4>
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-slate-900">Product Variants</h4>
+                                                    <button
+                                                        type="button"
+                                                        data-testid="use-options-btn"
+                                                        onClick={() => setFormData((prev) => ({ ...prev, useOptions: true, variantOptions: [] }))}
+                                                        className="mt-1 text-[11px] font-bold text-primary underline"
+                                                    >
+                                                        Product has Size / Color options? Use options instead
+                                                    </button>
+                                                </div>
                                                 <button
                                                     type="button"
                                                     onClick={() => setFormData({ ...formData, variants: [...formData.variants, { id: Date.now(), name: '', price: '', salePrice: '', stock: '', sku: '' }] })}

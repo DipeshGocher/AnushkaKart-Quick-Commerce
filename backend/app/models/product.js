@@ -52,17 +52,14 @@ const productSchema = new mongoose.Schema(
         },
         length: {
             type: Number,
-            default: 10,
             min: 0.1,
         },
         breadth: {
             type: Number,
-            default: 10,
             min: 0.1,
         },
         height: {
             type: Number,
-            default: 10,
             min: 0.1,
         },
         shelfLife: {
@@ -204,9 +201,22 @@ const productSchema = new mongoose.Schema(
             name: { type: String, trim: true },
             quantity: { type: String, trim: true }
         }],
+        // Option axes like Size / Color (see utils/variantMatrix.js). Empty = classic flat variants.
+        // Set by bulk upload: why the product is still a draft ("photo", "parcel"). Empty = complete.
+        draftReasons: [{ type: String, enum: ["photo", "parcel"] }],
+        variantOptions: [
+            {
+                _id: false,
+                name: { type: String, trim: true },
+                values: [{ type: String, trim: true }],
+                hasImages: { type: Boolean, default: false },
+            }
+        ],
         variants: [
             {
                 name: String,
+                // Which value of each option this variant is, e.g. { Size: "L", Color: "Red" }
+                options: { type: mongoose.Schema.Types.Mixed, default: undefined },
                 price: Number,
                 salePrice: Number,
                 stock: Number,

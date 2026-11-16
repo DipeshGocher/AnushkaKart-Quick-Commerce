@@ -22,6 +22,15 @@ jest.unstable_mockModule("../app/controller/productController.js", () => ({
   getModerationProducts: jest.fn((req, res) => res.status(200).json({})),
   approveProduct: jest.fn((req, res) => res.status(200).json({})),
   rejectProduct: jest.fn((req, res) => res.status(200).json({})),
+  bulkDeleteProducts: jest.fn((req, res) => res.status(200).json({})),
+}));
+
+const mockBulkTemplate = jest.fn((req, res) => res.status(200).json({ route: "bulk-template" }));
+const mockBulkPreview = jest.fn((req, res) => res.status(200).json({ route: "bulk-preview" }));
+jest.unstable_mockModule("../app/controller/bulkProductController.js", () => ({
+  downloadTemplate: mockBulkTemplate,
+  previewBulk: mockBulkPreview,
+  commitBulk: jest.fn((req, res) => res.status(200).json({ route: "bulk-commit" })),
 }));
 
 jest.unstable_mockModule("../app/controller/stockController.js", () => ({
@@ -44,6 +53,16 @@ const productRoutes = (await import("../app/routes/productRoutes.js")).default;
 describe("product routes ordering", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  test("bulk upload routes are reachable and not shadowed by /:id", async () => {
+    const app = express();
+    app.use("/products", productRoutes);
+    const t = await request(app).get("/products/bulk/template");
+    expect(t.body.route).toBe("bulk-template");
+    const p = await request(app).post("/products/bulk/preview").attach("file", Buffer.from("PK"), "x.xlsx");
+    expect(p.body.route).toBe("bulk-preview");
+    expect(mockGetProductById).not.toHaveBeenCalled();
   });
 
   test("GET /seller/me is not shadowed by dynamic /:id route", async () => {

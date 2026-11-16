@@ -21,6 +21,10 @@ import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { sellerApi } from "../services/sellerApi";
+import VariantMatrixEditor from "@shared/components/VariantMatrixEditor";
+import ParcelSizeFields from "@shared/components/ParcelSizeFields";
+import { validateParcel } from "@shared/utils/parcel";
+import { matrixSubmitParts } from "@shared/utils/variantMatrix";
 
 export const PRESET_HIGHLIGHT_ICONS = [
   // Organic & Food
@@ -85,6 +89,7 @@ const AddProduct = () => {
   const [modalTab, setModalTab] = useState("general");
   const [isSaving, setIsSaving] = useState(false);
   const [variantImageFiles, setVariantImageFiles] = useState({});
+  const [groupFiles, setGroupFiles] = useState({}); // new photos per colour (Size/Color options)
   // Separate state for actual File objects (used in FormData submission)
   const [mainImageFile, setMainImageFile] = useState(null);
   const [galleryFiles, setGalleryFiles] = useState([]);
@@ -121,9 +126,9 @@ const AddProduct = () => {
     deliveryMode: "inherit",
     tags: "",
     weight: "",
-    length: 10,
-    breadth: 10,
-    height: 10,
+    length: "",
+    breadth: "",
+    height: "",
     brand: "",
     shelfLife: "",
     countryOfOrigin: "",
@@ -141,6 +146,8 @@ const AddProduct = () => {
     ],
     specifications: [],
     conditionType: "new",
+    useOptions: false,
+    variantOptions: [],
     variants: [
       {
         id: Date.now(),
@@ -235,14 +242,25 @@ const AddProduct = () => {
       return;
     }
 
+    const parcelError = validateParcel(formData);
+    if (parcelError) {
+      toast.error(parcelError);
+      setModalTab("general");
+      return;
+    }
+    const vm = matrixSubmitParts(formData, groupFiles);
+    if (vm.error) {
+      toast.error(vm.error);
+      return;
+    }
     const firstVariant = formData.variants[0] || {};
-    if (!firstVariant.price || !firstVariant.stock) {
+    if (!formData.useOptions && (!firstVariant.price || !firstVariant.stock)) {
       toast.error("Main variant must have price and stock");
       return;
     }
 
     // Validate variants price vs salePrice
-    const invalidVariant = formData.variants.find((v) => v.salePrice && Number(v.salePrice) > Number(v.price));
+    const invalidVariant = formData.useOptions ? null : formData.variants.find((v) => v.salePrice && Number(v.salePrice) > Number(v.price));
     if (invalidVariant) {
       toast.error(`Sale Price cannot be greater than Price for variant: ${invalidVariant.name || 'Main Variant'}`);
       return;
@@ -258,9 +276,9 @@ const AddProduct = () => {
       data.append("description", formData.description);
       data.append("tags", formData.tags);
       data.append("weight", formData.weight);
-      data.append("length", formData.length || 10);
-      data.append("breadth", formData.breadth || 10);
-      data.append("height", formData.height || 10);
+      data.append("length", formData.length);
+      data.append("breadth", formData.breadth);
+      data.append("height", formData.height);
       data.append("brand", formData.brand);
       data.append("shelfLife", formData.shelfLife);
       data.append("countryOfOrigin", formData.countryOfOrigin);
@@ -307,10 +325,12 @@ const AddProduct = () => {
       }
 
       // Variants
-      data.append("variants", JSON.stringify(formData.variants));
+      data.append("variants", JSON.stringify(vm.variants));
+      data.append("variantOptions", vm.optionsJson);
 
       // Append variant image files
-      Object.keys(variantImageFiles).forEach((vIndex) => {
+      vm.files.forEach(({ field, file }) => data.append(field, file));
+      Object.keys(formData.useOptions ? {} : variantImageFiles).forEach((vIndex) => {
         const filesArray = variantImageFiles[vIndex];
         if (Array.isArray(filesArray)) {
            filesArray.forEach((file, imgIndex) => {
@@ -563,74 +583,7 @@ const AddProduct = () => {
                 </div>
               </div>
 
-              {/* Parcel Weight & Box Dimensions (Shiprocket Courier) */}
-              <div className="bg-slate-50/90 p-5 rounded-2xl border border-slate-200/90 space-y-4">
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                    <HiOutlineScale className="h-4 w-4 text-primary" />
-                    Parcel Weight & Box Dimensions (पार्सल का वजन और साइज़)
-                  </h4>
-                  <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                    💡 सही वजन और बॉक्स का साइज़ भरें ताकि Shiprocket कूरियर डिलीवरी चार्ज सही रहे और कोई पेनल्टी न लगे।
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="space-y-1.5 flex flex-col">
-                    <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                      Product Weight (वजन)
-                    </label>
-                    <input
-                      value={formData.weight}
-                      onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/20"
-                      placeholder="e.g. 500g or 1.5 kg"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 flex flex-col">
-                    <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                      Length (लंबाई - cm)
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formData.length}
-                      onChange={(e) => setFormData({ ...formData, length: Math.max(1, Number(e.target.value) || 10) })}
-                      className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/20"
-                      placeholder="10"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 flex flex-col">
-                    <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                      Width / Breadth (चौड़ाई - cm)
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formData.breadth}
-                      onChange={(e) => setFormData({ ...formData, breadth: Math.max(1, Number(e.target.value) || 10) })}
-                      className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/20"
-                      placeholder="10"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 flex flex-col">
-                    <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                      Height (ऊंचाई - cm)
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formData.height}
-                      onChange={(e) => setFormData({ ...formData, height: Math.max(1, Number(e.target.value) || 10) })}
-                      className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/20"
-                      placeholder="10"
-                    />
-                  </div>
-                </div>
-              </div>
+              <ParcelSizeFields formData={formData} setFormData={setFormData} />
 
               {/* Return Policy & Non-Returnable Flag */}
               <div className="bg-slate-50/90 p-5 rounded-2xl border border-slate-200/90 space-y-4">
@@ -849,7 +802,20 @@ const AddProduct = () => {
             </div>
           )}
 
-          {modalTab === "variants" && (
+          {modalTab === "variants" && formData.useOptions && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+              <VariantMatrixEditor
+                axes={formData.variantOptions}
+                variants={formData.variants}
+                groupFiles={groupFiles}
+                setGroupFiles={setGroupFiles}
+                onChange={({ variantOptions, variants }) => setFormData((prev) => ({ ...prev, variantOptions, variants }))}
+                onSwitchToSimple={() => setFormData((prev) => ({ ...prev, useOptions: false, variantOptions: [] }))}
+              />
+            </div>
+          )}
+
+          {modalTab === "variants" && !formData.useOptions && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
               <div className="flex items-center justify-between">
                 <div>
@@ -859,6 +825,14 @@ const AddProduct = () => {
                   <p className="text-xs text-slate-600 font-medium">
                     Add different sizes, colors or weights.
                   </p>
+                  <button
+                    type="button"
+                    data-testid="use-options-btn"
+                    onClick={() => setFormData((prev) => ({ ...prev, useOptions: true, variantOptions: [] }))}
+                    className="mt-1 text-[11px] font-bold text-primary underline"
+                  >
+                    Product has Size / Color options? Use options instead
+                  </button>
                 </div>
                 <button
                   onClick={() =>

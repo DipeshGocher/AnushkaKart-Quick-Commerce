@@ -13,6 +13,10 @@ export const sellerApi = {
     getProducts: (params) => axiosInstance.get('/products/seller/me', { params }),
     getProductById: (id) => axiosInstance.get(`/products/${id}`),
     createProduct: (data) => axiosInstance.post('/products', data),
+    // Bulk upload (Excel)
+    downloadProductTemplate: () => axiosInstance.get('/products/bulk/template', { responseType: 'blob' }),
+    bulkPreviewProducts: (file) => { const f = new FormData(); f.append('file', file); return axiosInstance.post('/products/bulk/preview', f, { timeout: 120000 }); },
+    bulkCommitProducts: (file) => { const f = new FormData(); f.append('file', file); return axiosInstance.post('/products/bulk/commit', f, { timeout: 600000 }); },
     updateProduct: (id, data) => axiosInstance.put(`/products/${id}`, data),
     deleteProduct: (id) => axiosInstance.delete(`/products/${id}`),
     bulkDeleteProducts: (productIds) => axiosInstance.post("/products/bulk-delete", { productIds }),
@@ -52,6 +56,8 @@ export const sellerApi = {
 
     // Shiprocket Courier Fulfillment & Reverse Pickup
     processShiprocketOrder: (orderId) => axiosInstance.post(`/shipping/shiprocket/process/${orderId}`),
+    // Runs / resumes the whole courier pipeline: shipment -> AWB -> pickup -> label
+    fulfillShiprocketOrder: (orderId) => axiosInstance.post(`/shipping/shiprocket/fulfill/${orderId}`),
     scheduleShiprocketPickup: (orderId) => axiosInstance.post(`/shipping/shiprocket/pickup/${orderId}`),
     getShiprocketLabel: (orderId) => axiosInstance.get(`/shipping/shiprocket/label/${orderId}`),
     scheduleShiprocketReversePickup: (orderId) => axiosInstance.post(`/shipping/shiprocket/reverse/pickup/${orderId}`),
