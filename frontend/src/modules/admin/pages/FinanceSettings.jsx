@@ -194,7 +194,7 @@ const FinanceSettings = () => {
 
       <Section
         title="File charge"
-        hint="The shop's charge for making the finance. It depends on how much money is financed (price minus down payment) and it is already part of the interest, not extra."
+        hint="The shop's charge for making the finance. It depends on how much money is financed (price minus down payment). It is a separate charge, added on top of the interest, and is paid through the EMIs."
       >
         <div className="rounded-xl border border-slate-100 overflow-hidden">
           <div className="grid grid-cols-[1fr_9rem_2.5rem] gap-3 px-4 py-2 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500">

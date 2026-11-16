@@ -292,7 +292,7 @@ export async function hydrateOrderItems(
     .filter(Boolean);
 
   const productQuery = Product.find({ _id: { $in: productIds } })
-    .select("_id name salePrice price mainImage headerId sellerId status approvalStatus variants deliveryMode weight length breadth height")
+    .select("_id name salePrice price mainImage headerId sellerId status approvalStatus variants variantOptions deliveryMode weight length breadth height")
     .lean();
   if (session) productQuery.session(session);
   const products = await productQuery;
@@ -325,6 +325,12 @@ export async function hydrateOrderItems(
         err.statusCode = 400;
         throw err;
       }
+    }
+
+    if (!resolvedVariant && Array.isArray(product.variantOptions) && product.variantOptions.length > 0) {
+      const err = new Error(`Please choose all options (like size and colour) for: ${product.name}`);
+      err.statusCode = 400;
+      throw err;
     }
 
     const quantity = normalizeLineQuantity(item.quantity);

@@ -18,6 +18,11 @@ jest.unstable_mockModule("../app/services/finance/orderFinanceService.js", () =>
   handleCodOrderFinance: jest.fn(),
   reconcileCodCash: jest.fn(),
   settleDeliveredOrder: jest.fn(),
+  reverseOrderFinanceOnCancellation: jest.fn(),
+  handleOnlineOrderFinance: jest.fn(),
+  freezeFinancialSnapshot: jest.fn(),
+  releaseHeldSellerPayout: jest.fn(),
+  createPendingSellerPayout: jest.fn(),
 }));
 
 jest.unstable_mockModule("../app/services/orderPlacementService.js", () => ({
@@ -34,6 +39,10 @@ jest.unstable_mockModule("../app/services/checkoutPricingService.js", () => ({
 
 jest.unstable_mockModule("../app/utils/orderLookup.js", () => ({
   orderMatchQueryFromRouteParam: jest.fn(),
+  orderMatchQueryFlexible: jest.fn(),
+  normalizeOrderRouteParam: jest.fn(),
+  resolveCanonicalOrderId: jest.fn(),
+  requireCanonicalOrderId: jest.fn(),
 }));
 
 const { createOrderWithFinancialSnapshot } = await import(

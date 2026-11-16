@@ -5,14 +5,20 @@
  *   finance amount = product price - down payment
  *   total interest = flat:     amount x rate% x months
  *                    reducing: equal principal each month, interest on the opening balance
- *   file charge    = slab picked by the finance amount; it is taken OUT OF the interest
- *                    (it is not added on top). So  remaining interest = total interest - file charge.
- *   If the file charge is bigger than the interest (very short tenures) the customer still pays
- *   at least the file charge:  total charge = max(interest, file charge).
+ *   file charge    = slab picked by the finance amount. It is a SEPARATE charge, added on top of the
+ *                    interest (it is not part of the interest) and paid through the EMIs.
+ *   total charge   = interest + file charge;  total payable = finance amount + total charge
+ *   EMI            = (finance amount + interest + file charge) spread over the months
  *   first EMI date = by the day of the month the finance is taken (rules are configurable).
  *
- * Money rules: every EMI is a whole rupee; the last EMI absorbs the rounding difference, so
- * the EMIs always add up exactly to the total payable.
+ * Money rules (same as the shop's sheet):
+ *   - the interest is a whole-rupee amount (1,764.80 -> 1,765), so total payable is a whole rupee too;
+ *   - every EMI is rounded UP to the paisa (4,188.333 -> 4,188.34);
+ *   - the last EMI takes what is left, so the EMIs add up to the total payable to the paisa
+ *     (the last EMI can be a few paise lower than the others, never higher);
+ *   - on screen / PDF / WhatsApp every amount is shown with paise, so nothing is rounded away.
+ *   Flat and reducing both go through exactly the same rounding, so the figures always agree:
+ *   sum(EMIs) = total payable, total payable - finance amount = file charge + interest.
  */
 
 export const DEFAULT_EMI_CONFIG = Object.freeze({
@@ -35,6 +41,8 @@ export const DEFAULT_EMI_CONFIG = Object.freeze({
 });
 
 const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+/** Round UP to the paisa; the toFixed(6) guards against 4188.34 being held as 4188.340000000001. */
+const ceil2 = (n) => Math.ceil(Number((Number(n) * 100).toFixed(6))) / 100;
 
 function fail(message) {
   const error = new Error(message);
@@ -117,21 +125,28 @@ export function calculateEmi({ price, downPayment, months, config, now = new Dat
       opening -= principalPer;
     }
   }
-  const rawInterest = round2(monthlyInterest.reduce((a, b) => a + b, 0));
+  const exactInterest = monthlyInterest.reduce((a, b) => a + b, 0); // not rounded: used to spread the rounding evenly
 
+  // The interest is a whole-rupee amount (as on the shop's sheet: 1,764.80 -> 1,765). The file charge is
+  // a SEPARATE charge on top of the interest (it is not part of it), and is paid through the EMIs.
+  // toFixed(6) removes float dust (1764.4999999999 vs 1764.5) so a true half rupee always rounds up
+  const interest = Math.round(Number(exactInterest.toFixed(6)));
   const fileCharge = round2(pickFileCharge(balance, cfg.fileChargeSlabs));
-  const totalCharge = round2(Math.max(rawInterest, fileCharge));
-  const topUp = totalCharge - rawInterest; // > 0 only when the file charge exceeds the interest
-  const remainingInterest = round2(totalCharge - fileCharge);
+  const totalCharge = round2(interest + fileCharge); // everything paid on top of the finance amount
   const totalPayable = round2(balance + totalCharge);
+  // The file charge plus the rounding of the interest, spread evenly over the EMIs.
+  const adjust = totalCharge - exactInterest;
 
-  const exact = monthlyInterest.map((intr) => principalPer + intr + topUp / m);
+  // Every EMI is rounded UP to the paisa (4,188.333 -> 4,188.34), like the sheet; the LAST EMI takes
+  // whatever is left, so the EMIs always add up to the total payable to the paisa. The last EMI can
+  // therefore be a few paise lower than the others, never higher.
+  const exact = monthlyInterest.map((intr) => principalPer + intr + adjust / m);
   const amounts = [];
   let running = 0;
   for (let i = 0; i < m - 1; i += 1) {
-    const whole = Math.round(exact[i]);
-    amounts.push(whole);
-    running += whole;
+    const emi = ceil2(exact[i]);
+    amounts.push(emi);
+    running = round2(running + emi);
   }
   amounts.push(round2(totalPayable - running));
 
@@ -150,12 +165,14 @@ export function calculateEmi({ price, downPayment, months, config, now = new Dat
     months: m,
     interestType: type,
     interestRatePerMonth: Number(cfg.interestRatePerMonth) || 0,
-    totalInterest: totalCharge,
+    interest, // interest only (what the customer pays on top of the loan, without the file charge)
     fileCharge,
-    remainingInterest,
+    totalInterest: totalCharge, // legacy name: interest + file charge = total paid on top of the loan
+    remainingInterest: interest, // legacy name of `interest` (older saved quotations use it)
     totalPayable,
     monthlyEmi: schedule[0].amount,
-    emiVaries: schedule.some((s) => s.amount !== schedule[0].amount),
+    // True when the EMIs really differ (reducing). A last EMI a few paise lower (rounding) is not "varying".
+    emiVaries: Math.max(...amounts) - Math.min(...amounts) > 1,
     financeDate: toIso(financeDate.y, financeDate.m, financeDate.d),
     firstEmiDate: firstDue,
     schedule,

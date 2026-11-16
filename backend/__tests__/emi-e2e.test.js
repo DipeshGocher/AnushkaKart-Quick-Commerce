@@ -92,7 +92,7 @@ const AADHAAR = "123412341234";
   const quoteBody = (over = {}) => ({
     productId: String(ctx.phone._id), variantSku: "A15-6-128", downPayment: 5000, months: 6,
     customer: { name: "Rahul Verma", phone: nextPhone(), pan: PAN, aadhaar: AADHAAR },
-    imei1: "123456789012345", ...over,
+    ...over,
   });
   const quote = (over = {}, auth) => {
     const r = request(app).post("/api/emi/quotes");
@@ -195,8 +195,8 @@ const AADHAAR = "123412341234";
       const res = await calc({ productId: String(ctx.phone._id), variantSku: "A15-6-128", downPayment: 3000, months: 6 });
       expect(res.status).toBe(200);
       const r = res.body.result;
-      expect(r).toMatchObject({ price: 18000, downPayment: 3000, financeAmount: 15000, months: 6, interestType: "flat", fileCharge: 1500, totalInterest: 4500, remainingInterest: 3000, totalPayable: 19500 });
-      expect(r.schedule.reduce((a, s) => a + s.amount, 0)).toBeCloseTo(19500, 2);
+      expect(r).toMatchObject({ price: 18000, downPayment: 3000, financeAmount: 15000, months: 6, interestType: "flat", fileCharge: 1500, interest: 4500, totalInterest: 6000, remainingInterest: 4500, totalPayable: 21000 });
+      expect(r.schedule.reduce((a, s) => a + s.amount, 0)).toBeCloseTo(21000, 2);
       expect(r.schedule).toHaveLength(6);
     });
 
@@ -240,6 +240,48 @@ const AADHAAR = "123412341234";
     });
   });
 
+  describe("all durations at once (calculate-options)", () => {
+    const optBody = (over = {}) => ({ productId: String(ctx.phone._id), variantSku: "A15-6-128", downPayment: 7200, ...over });
+    const options = (body) => request(app).post("/api/emi/calculate-options").send(body);
+
+    it("returns one option per duration the admin allows, each equal to the single calculation", async () => {
+      const res = await options(optBody());
+      expect(res.status).toBe(200);
+      expect(res.body.result).toMatchObject({ price: 18000, downPayment: 7200, financeAmount: 10800 });
+      expect(res.body.result.options.map((o) => o.months)).toEqual([3, 6, 12]);
+      for (const o of res.body.result.options) {
+        const single = (await calc({ productId: String(ctx.phone._id), variantSku: "A15-6-128", downPayment: 7200, months: o.months })).body.result;
+        expect(o.result).toEqual(single);
+        expect(o.totalCharge).toBeCloseTo(single.totalPayable - single.financeAmount, 2);
+        expect(o.interest).toBe(single.interest);
+        expect(o.result.schedule.reduce((a, s) => a + s.amount, 0)).toBeCloseTo(single.totalPayable, 2);
+      }
+    });
+
+    it("follows the admin: new durations appear, interest type stays out of the customer payload's choices", async () => {
+      await setConfig({ ...baseConfig(), tenures: [12, 3, 9], interestType: "reducing" });
+      const res = await options(optBody());
+      expect(res.body.result.options.map((o) => o.months)).toEqual([3, 9, 12]);
+      expect(res.body.result.options[0].result.interestType).toBe("reducing");
+    });
+
+    it("enforces the admin's minimum down payment (35% of 18,000 = 6,300)", async () => {
+      await setConfig({ ...baseConfig(), minDownPaymentPercent: 35 });
+      expect((await options(optBody({ downPayment: 6299 }))).status).toBe(400);
+      expect((await options(optBody({ downPayment: 6300 }))).status).toBe(200);
+      expect((await options(optBody({ downPayment: 17999 }))).status).toBe(200); // above the minimum: any amount
+    });
+
+    it.each([
+      ["down payment equal to price", { downPayment: 18000 }],
+      ["missing down payment", { downPayment: undefined }],
+      ["negative down payment", { downPayment: -1 }],
+      ["bad variant", { variantSku: "nope" }],
+    ])("%s is a 400", async (_n, over) => {
+      expect((await options(optBody(over))).status).toBe(400);
+    });
+  });
+
   describe("admin settings API", () => {
     it("returns defaults when nothing was saved, and rejects bad input without changing anything", async () => {
       await FinanceConfig.deleteMany({});
@@ -280,7 +322,7 @@ const AADHAAR = "123412341234";
       expect(message).toContain("Rahul Verma");
       expect(message).toContain("PAN: ABCDE****F");
       expect(message).toContain("Aadhaar: XXXX XXXX 1234");
-      expect(message).toContain("IMEI 1: 123456789012345");
+      expect(message).not.toContain("IMEI");
       expect(print.shop.name).toBe("Anushka Mobile Gallery");
       expect(print.terms).toEqual(["Pay on time."]);
 
@@ -301,8 +343,8 @@ const AADHAAR = "123412341234";
       expect(stored.settingsSnapshot.interestRatePerMonth).toBe(5);
     });
 
-    it("PAN, Aadhaar and IMEI are optional", async () => {
-      const res = await quote({ customer: { name: "Sita Devi", phone: nextPhone() }, imei1: undefined });
+    it("PAN and Aadhaar are optional", async () => {
+      const res = await quote({ customer: { name: "Sita Devi", phone: nextPhone() } });
       expect(res.status).toBe(201);
       expect(res.body.result.message).not.toContain("PAN:");
       expect(res.body.result.message).not.toContain("Aadhaar:");
@@ -324,8 +366,6 @@ const AADHAAR = "123412341234";
       ["phone starting with 1", { customer: { name: "Rahul", phone: "1234567890" } }],
       ["bad PAN", { customer: { name: "Rahul", phone: "9876543210", pan: "ABC123" } }],
       ["bad Aadhaar", { customer: { name: "Rahul", phone: "9876543210", aadhaar: "1234" } }],
-      ["short IMEI", { imei1: "12345" }],
-      ["same IMEI twice", { imei1: "123456789012345", imei2: "123456789012345" }],
       ["down payment above the price", { downPayment: 99999 }],
       ["a duration that is not offered", { months: 5 }],
       ["a product with no finance", { productId: "GROCERY" }],

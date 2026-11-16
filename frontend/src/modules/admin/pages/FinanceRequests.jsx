@@ -84,7 +84,7 @@ function Detail({ id, onClose, onChanged, onDelete }) {
     try {
       const cfg = (await adminEmiApi.getEmiConfig()).data?.result || {};
       await downloadEmiPdf({
-        quote: { quoteId: quote.quoteId, customer: quote.customer, product: quote.product, imei1: quote.imei1, imei2: quote.imei2, result: quote.result },
+        quote: { quoteId: quote.quoteId, customer: quote.customer, product: quote.product, result: quote.result },
         print: { shop: cfg.shop, terms: cfg.terms, lateFee: cfg.lateFee },
       });
     } catch (err) {
@@ -140,7 +140,6 @@ function Detail({ id, onClose, onChanged, onDelete }) {
                 {quote.product.name}
                 {quote.product.variantName ? ` (${quote.product.variantName})` : ""}
               </p>
-              <p className="text-xs text-slate-500 mt-1">IMEI 1: {quote.imei1 || "—"} · IMEI 2: {quote.imei2 || "—"}</p>
               <div className="grid grid-cols-2 gap-2.5 mt-3 text-sm">
                 {[
                   ["Product price", emiMoney(quote.result.price)],
@@ -148,7 +147,7 @@ function Detail({ id, onClose, onChanged, onDelete }) {
                   ["Finance amount", emiMoney(quote.result.financeAmount)],
                   ["Interest type", quote.result.interestType === "reducing" ? "Reducing" : "Flat"],
                   ["File charge", emiMoney(quote.result.fileCharge)],
-                  ["Interest (after file charge)", emiMoney(quote.result.remainingInterest)],
+                  ["Interest", emiMoney(quote.result.interest ?? quote.result.remainingInterest)],
                   ["Total payable", emiMoney(quote.result.totalPayable)],
                   ["Duration", `${quote.result.months} months`],
                   [quote.result.emiVaries ? "First EMI" : "Monthly EMI", emiMoney(quote.result.monthlyEmi)],

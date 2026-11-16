@@ -5,6 +5,7 @@ import {
   getEnabledHeaders,
   getProductFinanceInfo,
   calculate,
+  calculateOptions,
   createQuotation,
   getAdminConfig,
   saveAdminConfig,
@@ -39,6 +40,7 @@ const quoteLimiter = createRateLimiter({
 router.get("/enabled-headers", calcLimiter, getEnabledHeaders);
 router.get("/product/:productId", calcLimiter, getProductFinanceInfo);
 router.post("/calculate", calcLimiter, calculate);
+router.post("/calculate-options", calcLimiter, calculateOptions);
 router.post("/quotes", optionalVerifyToken, quoteLimiter, createQuotation);
 
 // Admin

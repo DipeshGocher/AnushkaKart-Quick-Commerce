@@ -25,8 +25,6 @@ const financeQuoteSchema = new mongoose.Schema(
       variantSku: { type: String, default: "" },
       image: { type: String, default: "" },
     },
-    imei1: { type: String, default: "" },
-    imei2: { type: String, default: "" },
     result: { type: mongoose.Schema.Types.Mixed, required: true },
     settingsSnapshot: { type: mongoose.Schema.Types.Mixed, default: {} },
     status: {

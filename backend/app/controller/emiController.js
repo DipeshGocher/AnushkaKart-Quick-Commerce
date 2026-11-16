@@ -47,6 +47,17 @@ export const calculate = async (req, res) => {
   }
 };
 
+/** POST /emi/calculate-options  -> the EMI for every duration the admin allows (3 / 6 / 12 months ...) */
+export const calculateOptions = async (req, res) => {
+  try {
+    const { productId, variantSku, downPayment } = req.body || {};
+    const { price, downPayment: down, financeAmount, options } = await emi.calculateOptionsForProduct({ productId, variantSku, downPayment });
+    return handleResponse(res, 200, "OK", { price, downPayment: down, financeAmount, options });
+  } catch (error) {
+    return handleResponse(res, getErrorStatus(error), error.message);
+  }
+};
+
 /** POST /emi/quotes  -> saves the quotation, returns the WhatsApp link + data for the PDF */
 export const createQuotation = async (req, res) => {
   try {
@@ -57,8 +68,6 @@ export const createQuotation = async (req, res) => {
       downPayment: body.downPayment,
       months: body.months,
       customer: body.customer,
-      imei1: body.imei1,
-      imei2: body.imei2,
       userId: req.user?.role === "user" || req.user?.role === "customer" ? req.user.id : null,
     });
     return handleResponse(res, 201, "Quotation created", created);

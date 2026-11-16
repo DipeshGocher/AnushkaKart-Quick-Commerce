@@ -5,7 +5,7 @@ import { customerApi } from "../../services/customerApi";
 import { useAuth } from "@core/context/AuthContext";
 import { useToast } from "@shared/components/ui/Toast";
 import { downloadEmiPdf, emiDate, emiMoney } from "@shared/utils/emiPdf";
-import { validateEmiForm } from "@shared/utils/emiForm";
+import { validateEmiForm, checkDownPayment, minDownPaymentAmount } from "@shared/utils/emiForm";
 import { openWhatsappChat, isMobileDevice } from "@shared/utils/whatsappLink";
 import { copyText } from "@shared/utils/clipboard";
 import { toast } from "sonner";
@@ -14,14 +14,9 @@ const inputCls =
   "w-full px-3.5 py-3 rounded-xl border border-slate-200 bg-white text-[15px] text-slate-900 outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 placeholder:text-slate-400";
 const labelCls = "block text-[12px] font-semibold text-slate-600 mb-1.5";
 
-function Stat({ label, value, tone = "default" }) {
-  return (
-    <div className={tone === "good" ? "rounded-xl bg-emerald-50 p-3" : "rounded-xl bg-slate-50 p-3"}>
-      <p className="text-[11px] text-slate-500 mb-1">{label}</p>
-      <p className={`text-[17px] font-extrabold leading-tight ${tone === "good" ? "text-emerald-700" : "text-slate-900"}`}>{value}</p>
-    </div>
-  );
-}
+/** 10 digit mobile number from the customer's account (it may be stored with +91). */
+const accountPhone = (u) => String(u?.phone || u?.mobile || u?.phoneNumber || "").replace(/\D/g, "").slice(-10);
+const accountName = (u) => String(u?.name || u?.fullName || [u?.firstName, u?.lastName].filter(Boolean).join(" ") || "").trim();
 
 /**
  * Finance (EMI) calculator for one product. The product, variant and price come from the
@@ -29,7 +24,7 @@ function Stat({ label, value, tone = "default" }) {
  * sees the full breakdown, then sends the quotation on WhatsApp or downloads it as a PDF.
  */
 export default function FinanceCalculatorModal({ productId, variantKey, onClose }) {
-  const { user } = useAuth();
+  const { user, authData } = useAuth();
   const { showToast } = useToast();
 
   const [info, setInfo] = useState(null); // { available, reason, config, product }
@@ -37,14 +32,15 @@ export default function FinanceCalculatorModal({ productId, variantKey, onClose 
 
   const [downPayment, setDownPayment] = useState("");
   const [months, setMonths] = useState("");
-  const [imei1, setImei1] = useState("");
-  const [imei2, setImei2] = useState("");
-  const [name, setName] = useState(user?.name || "");
-  const [phone, setPhone] = useState(String(user?.phone || "").replace(/\D/g, "").slice(-10));
+  // Name and phone come from the customer's account. The profile can arrive after this window
+  // opens, so they are filled again when it does (unless the customer already typed over them).
+  const [name, setName] = useState(accountName(user));
+  const [phone, setPhone] = useState(accountPhone(user));
+  const edited = useRef({ name: false, phone: false });
   const [pan, setPan] = useState("");
   const [aadhaar, setAadhaar] = useState("");
 
-  const [calc, setCalc] = useState({ loading: false, result: null, error: "" });
+  const [calc, setCalc] = useState({ loading: false, options: null, error: "" });
   const [working, setWorking] = useState(null); // "whatsapp" | "pdf" | null
   const [showSchedule, setShowSchedule] = useState(false);
   const calcSeq = useRef(0);
@@ -59,6 +55,36 @@ export default function FinanceCalculatorModal({ productId, variantKey, onClose 
     };
   }, []);
 
+  useEffect(() => {
+    const n = accountName(user);
+    if (!edited.current.name && n) setName(n);
+    const p = accountPhone(user);
+    if (!edited.current.phone && p) setPhone(p);
+  }, [user]);
+
+  // If the shared login state has not produced the profile (it can be late or missing for this
+  // window), read the customer's own profile directly. Only when a customer is actually logged in,
+  // so a guest never triggers a login-required request.
+  const customerLoggedIn = Boolean(authData?.customer);
+  useEffect(() => {
+    if (!customerLoggedIn) return undefined;
+    let alive = true;
+    customerApi
+      .getProfile()
+      .then((res) => {
+        const u = res?.data?.result;
+        if (!alive || !u) return;
+        const n = accountName(u);
+        const p = accountPhone(u);
+        if (!edited.current.name && n) setName((cur) => cur || n);
+        if (!edited.current.phone && p) setPhone((cur) => cur || p);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [customerLoggedIn]);
+
   // Product details, auto-filled from the server.
   useEffect(() => {
     let alive = true;
@@ -66,40 +92,53 @@ export default function FinanceCalculatorModal({ productId, variantKey, onClose 
     setInfoError("");
     customerApi
       .getEmiProductInfo(productId, variantKey)
-      .then((res) => alive && setInfo(res.data?.result || null))
+      .then((res) => {
+        if (!alive) return;
+        const data = res.data?.result || null;
+        setInfo(data);
+        // Down payment starts at the admin's minimum; the customer may only go up from there.
+        if (data?.available) setDownPayment(String(minDownPaymentAmount(data.product.price, data.config.minDownPaymentPercent)));
+      })
       .catch((err) => alive && setInfoError(err?.response?.data?.message || "Could not load finance details. Please try again."));
     return () => {
       alive = false;
     };
   }, [productId, variantKey]);
 
-  // Live calculation (the server does the maths).
+  const price = info?.product?.price || 0;
+  const minPercent = info?.config?.minDownPaymentPercent || 0;
+  const dp = useMemo(() => checkDownPayment(price, minPercent, downPayment), [price, minPercent, downPayment]);
+
+  // Live calculation of every duration the admin allows (the server does the maths).
+  // Nothing is requested while the down payment is invalid (the error is already on screen).
   useEffect(() => {
-    if (!info?.available || !months || downPayment === "") {
-      setCalc({ loading: false, result: null, error: "" });
+    if (!info?.available || !dp.ok) {
+      calcSeq.current += 1;
+      setCalc({ loading: false, options: null, error: "" });
       return undefined;
     }
     const seq = ++calcSeq.current;
     setCalc((c) => ({ ...c, loading: true, error: "" }));
     const timer = setTimeout(async () => {
       try {
-        const res = await customerApi.calculateEmi({
-          productId,
-          variantSku: variantKey,
-          downPayment: Number(downPayment),
-          months: Number(months),
-        });
-        if (seq === calcSeq.current) setCalc({ loading: false, result: res.data?.result || null, error: "" });
+        const res = await customerApi.calculateEmiOptions({ productId, variantSku: variantKey, downPayment: Number(downPayment) });
+        if (seq === calcSeq.current) setCalc({ loading: false, options: res.data?.result?.options || [], error: "" });
       } catch (err) {
         if (seq === calcSeq.current) {
-          setCalc({ loading: false, result: null, error: err?.response?.data?.message || "Could not calculate. Please try again." });
+          setCalc({ loading: false, options: null, error: err?.response?.data?.message || "Could not calculate. Please try again." });
         }
       }
-    }, 350);
+    }, 300);
     return () => clearTimeout(timer);
-  }, [info, productId, variantKey, downPayment, months]);
+  }, [info, productId, variantKey, downPayment, dp.ok]);
 
-  const form = useMemo(() => ({ name, phone, pan, aadhaar, imei1, imei2 }), [name, phone, pan, aadhaar, imei1, imei2]);
+  // The option the customer tapped; it carries the full breakdown the quotation is built from.
+  const selected = useMemo(
+    () => (calc.options || []).find((o) => String(o.months) === String(months)) || null,
+    [calc.options, months],
+  );
+
+  const form = useMemo(() => ({ name, phone, pan, aadhaar }), [name, phone, pan, aadhaar]);
 
   /** One saved quotation per set of inputs, shared by both buttons. */
   const ensureQuote = async () => {
@@ -110,8 +149,6 @@ export default function FinanceCalculatorModal({ productId, variantKey, onClose 
       variantSku: variantKey,
       downPayment: Number(downPayment),
       months: Number(months),
-      imei1: form.imei1,
-      imei2: form.imei2,
       customer: { name: form.name, phone: form.phone, pan: form.pan, aadhaar: form.aadhaar },
     });
     const data = res.data?.result;
@@ -120,7 +157,7 @@ export default function FinanceCalculatorModal({ productId, variantKey, onClose 
   };
 
   const precheck = () => {
-    const problem = validateEmiForm(form, { hasResult: Boolean(calc.result) });
+    const problem = validateEmiForm(form, { hasResult: Boolean(selected && !calc.loading) });
     if (problem) {
       showToast(problem, "error");
       return false;
@@ -166,8 +203,9 @@ export default function FinanceCalculatorModal({ productId, variantKey, onClose 
     }
   };
 
-  const r = calc.result;
-  const interestLabel = info?.config?.interestType === "reducing" ? "Reducing" : "Flat";
+  const r = calc.loading ? null : selected?.result || null;
+  const loanAmount = dp.ok ? price - Number(downPayment) : null;
+  const fileCharge = dp.ok && calc.options?.length ? calc.options[0].result.fileCharge : null;
 
   return createPortal(
     <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center">
@@ -219,76 +257,105 @@ export default function FinanceCalculatorModal({ productId, variantKey, onClose 
 
               {/* Inputs */}
               <section className="bg-white rounded-2xl p-4 border border-slate-100 space-y-3.5">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-3.5">
                   <div>
-                    <label className={labelCls}>Product price</label>
-                    <input className={`${inputCls} bg-slate-50 font-semibold`} value={emiMoney(info.product.price)} readOnly aria-readonly="true" />
+                    <label className={labelCls}>Product Cost (₹)</label>
+                    <input className={`${inputCls} bg-slate-50 font-semibold`} value={price} readOnly aria-readonly="true" />
                   </div>
                   <div>
-                    <label className={labelCls}>Down payment (₹) *</label>
+                    <label className={labelCls}>
+                      Down Payment (₹) {minPercent > 0 && <>• Auto {minPercent}%</>} *
+                    </label>
                     <input
-                      className={inputCls}
+                      className={`${inputCls} ${dp.error ? "!border-rose-400 !ring-2 !ring-rose-500/20" : ""}`}
                       inputMode="numeric"
                       placeholder="Amount you pay now"
+                      aria-invalid={Boolean(dp.error)}
                       value={downPayment}
                       onChange={(e) => setDownPayment(e.target.value.replace(/\D/g, "").slice(0, 8))}
                     />
+                    {dp.error && (
+                      <p role="alert" className="text-[12px] text-rose-600 mt-1.5">
+                        {dp.error}
+                      </p>
+                    )}
                   </div>
-                  <div>
-                    <label className={labelCls}>EMI duration *</label>
-                    <select className={inputCls} value={months} onChange={(e) => setMonths(e.target.value)}>
-                      <option value="">Choose months</option>
-                      {info.config.tenures.map((t) => (
-                        <option key={t} value={t}>
-                          {t} {t === 1 ? "month" : "months"}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="rounded-xl bg-emerald-50 p-3 text-center">
+                      <p className="text-[11px] text-slate-500 mb-0.5">Down Payment</p>
+                      <p className="text-[16px] font-extrabold text-emerald-800">{downPayment === "" ? "—" : `${dp.percent.toFixed(2)}%`}</p>
+                    </div>
+                    <div className="rounded-xl bg-emerald-50 p-3 text-center">
+                      <p className="text-[11px] text-slate-500 mb-0.5">Minimum ({minPercent}%)</p>
+                      <p className="text-[16px] font-extrabold text-emerald-800">{emiMoney(dp.minAmount)}</p>
+                    </div>
                   </div>
-                  <div>
-                    <label className={labelCls}>Interest type</label>
-                    <input className={`${inputCls} bg-slate-50 font-semibold`} value={interestLabel} readOnly aria-readonly="true" />
-                  </div>
-                  <div>
-                    <label className={labelCls}>IMEI 1 (optional)</label>
-                    <input className={inputCls} inputMode="numeric" maxLength={15} placeholder="15 digits" value={imei1} onChange={(e) => setImei1(e.target.value.replace(/\D/g, ""))} />
-                  </div>
-                  <div>
-                    <label className={labelCls}>IMEI 2 (optional)</label>
-                    <input className={inputCls} inputMode="numeric" maxLength={15} placeholder="15 digits" value={imei2} onChange={(e) => setImei2(e.target.value.replace(/\D/g, ""))} />
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="rounded-xl bg-emerald-50 p-3.5 text-center">
+                      <p className="text-[11.5px] text-slate-500 mb-0.5">Loan Amount</p>
+                      <p className="text-[19px] font-extrabold text-emerald-800" data-testid="loan-amount">
+                        {loanAmount === null ? "—" : emiMoney(loanAmount)}
+                      </p>
+                    </div>
+                    {/* The file charge depends only on the loan amount, so it is the same for every duration. */}
+                    <div className="rounded-xl bg-emerald-50 p-3.5 text-center">
+                      <p className="text-[11.5px] text-slate-500 mb-0.5">File Charge</p>
+                      <p className="text-[19px] font-extrabold text-emerald-800" data-testid="file-charge">
+                        {fileCharge === null ? "—" : emiMoney(fileCharge)}
+                      </p>
+                    </div>
                   </div>
                 </div>
-                {info.config.minDownPaymentPercent > 0 && (
-                  <p className="text-[11.5px] text-slate-500">
-                    Minimum down payment is {info.config.minDownPaymentPercent}% of the price ({emiMoney((info.product.price * info.config.minDownPaymentPercent) / 100)}).
-                  </p>
-                )}
               </section>
 
-              {/* Result */}
+              {/* EMI options: one card per duration the admin allows */}
               <section className="bg-white rounded-2xl p-4 border border-slate-100">
-                <h3 className="text-[14px] font-extrabold text-slate-900 mb-3">Your EMI</h3>
-                {!r && !calc.loading && !calc.error && (
-                  <p className="text-[13px] text-slate-500">Enter the down payment and choose the duration to see your EMI.</p>
-                )}
-                {calc.loading && (
+                <h3 className="text-[14px] font-extrabold text-slate-900 mb-3 rounded-xl bg-emerald-50 px-3 py-2.5">EMI Details</h3>
+                {!dp.ok && <p className="text-[13px] text-slate-500">Enter a valid down payment to see your EMI options.</p>}
+                {dp.ok && calc.loading && !calc.options && (
                   <div className="py-3 flex items-center gap-2 text-sm text-slate-500">
                     <Loader2 className="animate-spin" size={16} /> Calculating…
                   </div>
                 )}
                 {calc.error && !calc.loading && <p className="text-[13px] text-rose-600">{calc.error}</p>}
-                {r && !calc.loading && (
-                  <>
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <Stat label="Finance amount" value={emiMoney(r.financeAmount)} />
-                      <Stat label="EMI duration" value={`${r.months} months`} />
-                      <Stat label="File charge" value={emiMoney(r.fileCharge)} />
-                      <Stat label="Interest" value={emiMoney(r.remainingInterest)} />
-                      <Stat label={r.emiVaries ? "First EMI" : "Monthly EMI"} value={emiMoney(r.monthlyEmi)} tone="good" />
-                      <Stat label="First EMI date" value={emiDate(r.firstEmiDate)} tone="good" />
-                    </div>
-                    <p className="text-[12px] text-slate-500 mt-2.5">
-                      Total payable: <span className="font-bold text-slate-800">{emiMoney(r.totalPayable)}</span> (includes file charge)
+                {dp.ok && calc.options && (
+                  <div className={`space-y-2.5 transition-opacity ${calc.loading ? "opacity-50" : ""}`}>
+                    <p className="text-[12px] text-slate-500">Tap a duration to choose it.</p>
+                    {calc.options.map((o) => {
+                      const active = String(o.months) === String(months);
+                      return (
+                        <button
+                          key={o.months}
+                          type="button"
+                          data-testid={`emi-option-${o.months}`}
+                          aria-pressed={active}
+                          onClick={() => setMonths(String(o.months))}
+                          className={`w-full grid grid-cols-3 items-center gap-2 rounded-xl border px-3 py-3 text-center transition ${
+                            active ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/30" : "border-slate-200 bg-white"
+                          }`}
+                        >
+                          <span className="text-[12.5px] text-slate-600">
+                            {o.months} {o.months === 1 ? "Month" : "Months"}
+                          </span>
+                          <span>
+                            <span className="block text-[10.5px] text-slate-500">Interest</span>
+                            <span className="block text-[14px] font-extrabold text-emerald-800">{emiMoney(o.interest ?? o.result.interest)}</span>
+                          </span>
+                          <span>
+                            <span className="block text-[10.5px] text-slate-500">{o.result.emiVaries ? "First EMI" : "Monthly EMI"}</span>
+                            <span className="block text-[14px] font-extrabold text-emerald-800">{emiMoney(o.result.monthlyEmi)}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* The chosen duration: total payable, then the instalment list */}
+                {r && (
+                  <div className="mt-3.5">
+                    <p className="text-[12.5px] text-slate-500" data-testid="total-payable">
+                      Total payable: <span className="font-bold text-slate-800">{emiMoney(r.totalPayable)}</span> (loan + interest + file charge)
                     </p>
                     <button
                       type="button"
@@ -320,7 +387,7 @@ export default function FinanceCalculatorModal({ productId, variantKey, onClose 
                         </table>
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
               </section>
 
@@ -330,11 +397,11 @@ export default function FinanceCalculatorModal({ productId, variantKey, onClose 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
                     <label className={labelCls}>Full name *</label>
-                    <input className={inputCls} autoComplete="name" placeholder="Your full name" value={name} onChange={(e) => setName(e.target.value)} />
+                    <input className={inputCls} autoComplete="name" placeholder="Your full name" value={name} onChange={(e) => { edited.current.name = true; setName(e.target.value); }} />
                   </div>
                   <div className="col-span-2">
                     <label className={labelCls}>Mobile number *</label>
-                    <input className={inputCls} inputMode="numeric" autoComplete="tel" maxLength={10} placeholder="10 digit mobile number" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))} />
+                    <input className={inputCls} inputMode="numeric" autoComplete="tel" maxLength={10} placeholder="10 digit mobile number" value={phone} onChange={(e) => { edited.current.phone = true; setPhone(e.target.value.replace(/\D/g, "")); }} />
                   </div>
                   <div>
                     <label className={labelCls}>PAN (optional)</label>

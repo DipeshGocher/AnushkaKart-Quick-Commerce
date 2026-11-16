@@ -73,6 +73,13 @@ export const LEDGER_TRANSACTION_TYPE = {
   // ledger write inside `cancelPendingPayoutForOrder` threw a Mongoose
   // ValidationError and silently aborted the refund flow.
   PAYOUT_CANCELLED: "PAYOUT_CANCELLED",
+  // Returns: a pending payout made smaller (partial return / pickup fee), the admin's commission on a
+  // returned item taken back, and an amount owed by a seller who had too little balance to cover it
+  // (recovered from their next payouts).
+  PAYOUT_REDUCED: "PAYOUT_REDUCED",
+  ADMIN_EARNING_REVERSED: "ADMIN_EARNING_REVERSED",
+  RETURN_RECOVERY_DUE: "RETURN_RECOVERY_DUE",
+  RETURN_RECOVERY_APPLIED: "RETURN_RECOVERY_APPLIED",
   // Audit Phase 4 (H-5): emitted by `placeOrderAtomic` when a customer
   // redeems wallet balance at checkout. Previously the wallet debit only
   // wrote a legacy `Transaction({type:"Wallet Payment"})` row and mutated

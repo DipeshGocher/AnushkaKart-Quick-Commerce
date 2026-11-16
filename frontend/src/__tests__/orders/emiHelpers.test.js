@@ -1,5 +1,5 @@
 import { buildEmiPdfHtml, choosePageBreaks, emiDate, emiMoney } from "../../shared/utils/emiPdf.js";
-import { validateEmiForm } from "../../shared/utils/emiForm.js";
+import { validateEmiForm, checkDownPayment, minDownPaymentAmount } from "../../shared/utils/emiForm.js";
 import { isFinanceHeader } from "../../modules/customer/services/emiHeaders.js";
 
 
@@ -26,8 +26,6 @@ const quote = (over = {}) => ({
   quoteId: "FQ-ABC123DEF4",
   customer: { name: "Rahul Verma", phone: "9999999999" },
   product: { name: "Galaxy A15", variantName: "6/128 GB" },
-  imei1: "123456789012345",
-  imei2: "",
   ...over,
   result: { ...baseResult, ...(over.result || {}) },
 });
@@ -35,9 +33,12 @@ const print = { shop: { name: "Anushka Mobile Gallery", address: "Bus stand", ph
 
 describe("formatting", () => {
   it("rupees and dates read the way shopkeepers expect", () => {
-    expect(emiMoney(1234567)).toBe("₹12,34,567");
-    expect(emiMoney(5416.6)).toBe("₹5,417");
-    expect(emiMoney(null)).toBe("₹0");
+    // always with paise, so no amount is rounded away on screen
+    expect(emiMoney(1234567)).toBe("₹12,34,567.00");
+    expect(emiMoney(5416.6)).toBe("₹5,416.60");
+    expect(emiMoney(4188.34)).toBe("₹4,188.34");
+    expect(emiMoney(10800)).toBe("₹10,800.00");
+    expect(emiMoney(null)).toBe("₹0.00");
     expect(emiDate("2026-12-01")).toBe("01 Dec 2026");
     expect(emiDate("")).toBe("—");
   });
@@ -48,7 +49,7 @@ describe("PDF page", () => {
     const html = buildEmiPdfHtml({ quote: quote(), print });
     for (const text of [
       "Anushka Mobile Gallery", "8808802020", "FQ-ABC123DEF4", "Rahul Verma", "9999999999",
-      "Galaxy A15 (6/128 GB)", "123456789012345", "₹18,000", "₹3,000", "₹15,000", "₹1,500", "₹19,500",
+      "Galaxy A15 (6/128 GB)", "₹18,000", "₹3,000", "₹15,000", "₹1,500", "₹19,500",
       "3 महीने", "फ्लैट", "01 Dec 2026", "01 Jan 2027", "01 Feb 2027", "Pay on time.", "₹590",
     ]) {
       expect(html).toContain(text);
@@ -112,11 +113,11 @@ describe("PDF page breaks never cut a row in half", () => {
 });
 
 describe("quotation form checks", () => {
-  const ok = { name: "Rahul Verma", phone: "9876543210", pan: "", aadhaar: "", imei1: "", imei2: "" };
+  const ok = { name: "Rahul Verma", phone: "9876543210", pan: "", aadhaar: "" };
 
-  it("a minimal form passes; PAN, Aadhaar and IMEI are optional", () => {
+  it("a minimal form passes; PAN and Aadhaar are optional", () => {
     expect(validateEmiForm(ok)).toBe("");
-    expect(validateEmiForm({ ...ok, pan: "ABCDE1234F", aadhaar: "123412341234", imei1: "123456789012345", imei2: "543210987654321" })).toBe("");
+    expect(validateEmiForm({ ...ok, pan: "ABCDE1234F", aadhaar: "123412341234" })).toBe("");
   });
 
   it.each([
@@ -125,15 +126,44 @@ describe("quotation form checks", () => {
     [{ phone: "1234567890" }, /10 digit/],
     [{ pan: "ABC" }, /PAN/],
     [{ aadhaar: "1234" }, /Aadhaar/],
-    [{ imei1: "123" }, /IMEI 1/],
-    [{ imei2: "123" }, /IMEI 2/],
-    [{ imei1: "123456789012345", imei2: "123456789012345" }, /different/],
   ])("%j is refused", (over, pattern) => {
     expect(validateEmiForm({ ...ok, ...over })).toMatch(pattern);
   });
 
   it("asks for the EMI details first when there is no result yet", () => {
     expect(validateEmiForm(ok, { hasResult: false })).toMatch(/down payment/);
+  });
+});
+
+describe("down payment (auto-filled minimum, live error below it)", () => {
+  it("the auto-filled amount is the admin's minimum %, rounded up to a whole rupee", () => {
+    expect(minDownPaymentAmount(18000, 35)).toBe(6300);
+    expect(minDownPaymentAmount(18000, 40)).toBe(7200);
+    expect(minDownPaymentAmount(18000, 20)).toBe(3600);
+    expect(minDownPaymentAmount(14999, 35)).toBe(5250); // 5249.65 -> 5250
+    expect(minDownPaymentAmount(18000, 0)).toBe(0);
+  });
+
+  it("the minimum itself and anything above it is fine, with the live percentage", () => {
+    expect(checkDownPayment(18000, 35, "6300")).toMatchObject({ ok: true, error: "", minAmount: 6300 });
+    expect(checkDownPayment(18000, 35, "7200").percent).toBeCloseTo(40, 5);
+    expect(checkDownPayment(18000, 35, "17999").ok).toBe(true);
+  });
+
+  it("below the minimum is an error right away, naming the minimum", () => {
+    const r = checkDownPayment(18000, 35, "6299");
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/Minimum down payment is ₹6,300 \(35%\)/);
+  });
+
+  it("empty, the full price and more are refused", () => {
+    expect(checkDownPayment(18000, 35, "").ok).toBe(false);
+    expect(checkDownPayment(18000, 0, "18000").error).toMatch(/less than the product price/);
+    expect(checkDownPayment(18000, 0, "20000").ok).toBe(false);
+  });
+
+  it("with no minimum set, 0 is allowed", () => {
+    expect(checkDownPayment(18000, 0, "0").ok).toBe(true);
   });
 });
 

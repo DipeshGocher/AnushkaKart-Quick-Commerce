@@ -110,8 +110,6 @@ describe("WhatsApp quotation message", () => {
     quoteId: "FQ-ABC123DEF4",
     customer: { name: "Rahul Verma", phone: "9999999999", panMasked: "ABCDE****F", aadhaarMasked: "XXXX XXXX 1234" },
     product: { name: "Galaxy A15", variantName: "6/128 GB" },
-    imei1: "123456789012345",
-    imei2: "",
     result: {
       price: 30000,
       downPayment: 5000,
@@ -135,8 +133,7 @@ describe("WhatsApp quotation message", () => {
     expect(msg).toContain("Rahul Verma");
     expect(msg).toContain("9999999999");
     expect(msg).toContain("Galaxy A15 (6/128 GB)");
-    expect(msg).toContain("IMEI 1: 123456789012345");
-    expect(msg).not.toContain("IMEI 2");
+    expect(msg).not.toContain("IMEI");
     expect(msg).toContain("Down payment: Rs 5,000");
     expect(msg).toContain("File charge: Rs 2,000");
     expect(msg).toContain("Interest (flat): Rs 5,500");
@@ -148,8 +145,8 @@ describe("WhatsApp quotation message", () => {
   it("groups equal EMIs so a 24 month schedule stays short enough for a WhatsApp link", () => {
     const schedule = Array.from({ length: 24 }, (_, i) => ({ no: i + 1, amount: i === 23 ? 3411 : 3417, dueDate: `2027-${String((i % 12) + 1).padStart(2, "0")}-10` }));
     const msg = buildQuotationMessage(quote({ result: { ...quote().result, months: 24, schedule } }));
-    expect(msg).toContain("EMI 1-23: Rs 3,417 each");
-    expect(msg).toContain("EMI 24: Rs 3,411");
+    expect(msg).toContain("EMI 1-23: Rs 3,417.00 each"); // amounts always carry the paise
+    expect(msg).toContain("EMI 24: Rs 3,411.00");
     expect(encodeURIComponent(msg).length).toBeLessThan(2000);
   });
 

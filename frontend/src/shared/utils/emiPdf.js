@@ -4,7 +4,9 @@
  * without embedding fonts. Long schedules continue on a second page.
  */
 
-export const emiMoney = (n) => "₹" + Math.round(Number(n) || 0).toLocaleString("en-IN");
+/** Always with paise (₹4,188.34, ₹10,800.00): the EMIs are exact to the paisa, so nothing may be rounded away on screen. */
+export const emiMoney = (n) =>
+  "₹" + (Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function emiDate(iso) {
   const [y, m, d] = String(iso || "").split("-").map(Number);
@@ -70,8 +72,6 @@ export function buildEmiPdfHtml({ quote, print }) {
     ${row("कस्टमर नाम", quote.customer.name)}
     ${row("कस्टमर मोबाइल", quote.customer.phone)}
     <div class="cell full"><b>मोबाइल / मॉडल</b> ${esc(product)}</div>
-    ${row("IMEI 1", quote.imei1 || "—")}
-    ${row("IMEI 2", quote.imei2 || "—")}
   </div>
   <h2>फाइनेंस का हिसाब</h2>
   <div class="grid">
@@ -80,7 +80,7 @@ export function buildEmiPdfHtml({ quote, print }) {
     ${row("फाइनेंस रकम", emiMoney(r.financeAmount))}
     ${row("ब्याज का प्रकार", r.interestType === "reducing" ? "रिड्यूसिंग" : "फ्लैट")}
     ${row("फाइल चार्ज", emiMoney(r.fileCharge))}
-    ${row("ब्याज (बाकी)", emiMoney(r.remainingInterest))}
+    ${row("ब्याज", emiMoney(r.interest ?? r.remainingInterest))}
     ${row("कुल देय रकम", emiMoney(r.totalPayable))}
     ${row("EMI अवधि", r.months + " महीने")}
     ${row(r.emiVaries ? "पहली EMI" : "मासिक EMI", emiMoney(r.monthlyEmi))}

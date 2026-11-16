@@ -13,6 +13,7 @@ import { computeReturnWindowDates } from "../../utils/returnWindow.js";
 import { createLedgerEntry } from "./ledgerService.js";
 import { createFinanceAuditLog } from "./auditLogService.js";
 import {
+  applyRecoverableDue,
   creditWallet,
   debitWallet,
   getOrCreateWallet,
@@ -130,7 +131,19 @@ export async function createPendingSellerPayout(order, { session, actorId } = {}
   const baseAmount = roundCurrency(order.paymentBreakdown?.sellerPayoutTotal || 0);
   const discrepancy = Number(order.shiprocket?.weightDiscrepancyAmount || 0);
   const deduction = discrepancy > 0 ? Math.min(baseAmount, discrepancy) : 0;
-  const amount = roundCurrency(Math.max(0, baseAmount - deduction));
+  let amount = roundCurrency(Math.max(0, baseAmount - deduction));
+
+  // Money this seller still owes from an earlier return (their balance could not cover it then) is
+  // taken from this payout.
+  const returnRecovery = await applyRecoverableDue({
+    ownerType: OWNER_TYPE.SELLER,
+    ownerId: sellerId,
+    amount,
+    session,
+    orderId: order._id,
+    reference: order.orderId,
+  });
+  if (returnRecovery > 0) amount = roundCurrency(Math.max(0, amount - returnRecovery));
 
   if (amount <= 0) {
     order.settlementStatus = {
@@ -150,6 +163,7 @@ export async function createPendingSellerPayout(order, { session, actorId } = {}
       metadata: {
         flow: "order_delivered",
         weightDiscrepancyDeduction: deduction,
+        returnRecoveryDeduction: returnRecovery,
         originalSellerPayout: baseAmount,
       },
     },

@@ -91,6 +91,8 @@ jest.unstable_mockModule("../app/services/finance/walletService.js", () => ({
   debitWallet: mockDebitWallet,
   getOrCreateWallet: mockGetOrCreateWallet,
   updateCashInHand: mockUpdateCashInHand,
+  // seller payouts take back what a seller still owes from an earlier return (nothing owed here)
+  applyRecoverableDue: jest.fn().mockResolvedValue(0),
 }));
 
 jest.unstable_mockModule("../app/services/finance/payoutService.js", () => ({

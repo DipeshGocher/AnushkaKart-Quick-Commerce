@@ -247,9 +247,37 @@ export async function calculateForProduct({ productId, variantSku, downPayment, 
   return { result, info, config };
 }
 
+/**
+ * The EMI for EVERY duration the admin allows, for one down payment (the customer compares them
+ * and then picks one). Same maths and same checks as calculateForProduct, run once per duration,
+ * so a picked option is exactly what the quotation will later contain.
+ */
+export async function calculateOptionsForProduct({ productId, variantSku, downPayment }, now = new Date()) {
+  const config = await getConfig();
+  const info = await loadFinanceProduct(productId, variantSku, config);
+  if (!info.available) throw err(info.reason, 400);
+  const down = num(downPayment);
+  const options = config.tenures.map((months) => {
+    const result = calculateEmi({ price: info.price, downPayment: down, months, config, now });
+    // `interest` is what the cards show as the extra money; `totalCharge` = interest + file charge.
+    return { months, interest: result.interest, totalCharge: Math.round((result.totalPayable - result.financeAmount) * 100) / 100, result };
+  });
+  const first = options[0].result;
+  return {
+    price: first.price,
+    downPayment: first.downPayment,
+    financeAmount: first.financeAmount,
+    options,
+    info,
+    config,
+  };
+}
+
 /* ───────────────────────────── quotations ───────────────────────────── */
 
-const fmtMoney = (n) => `Rs ${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
+// Always with paise (Rs 4,188.34): EMIs are exact to the paisa, so nothing is rounded away in the message.
+const fmtMoney = (n) =>
+  `Rs ${(Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 function fmtDate(iso) {
   const [y, m, d] = String(iso).split("-").map(Number);
@@ -290,8 +318,6 @@ export function buildQuotationMessage(quote) {
     "",
     `Product: ${p.name}${p.variantName ? ` (${p.variantName})` : ""}`,
   );
-  if (quote.imei1) lines.push(`IMEI 1: ${quote.imei1}`);
-  if (quote.imei2) lines.push(`IMEI 2: ${quote.imei2}`);
   lines.push(
     "",
     `Product price: ${fmtMoney(r.price)}`,
@@ -334,19 +360,9 @@ function cleanCustomer(input = {}) {
   return { name, phone, pan: panRaw, aadhaar: aadhaarRaw };
 }
 
-function cleanImei(value, label) {
-  const v = String(value || "").replace(/\s/g, "");
-  if (!v) return "";
-  if (!/^\d{15}$/.test(v)) throw err(`${label} must be 15 digits.`);
-  return v;
-}
-
-export async function createQuote({ productId, variantSku, downPayment, months, customer, imei1, imei2, userId = null }, now = new Date()) {
+export async function createQuote({ productId, variantSku, downPayment, months, customer, userId = null }, now = new Date()) {
   // Validate everything first; nothing is written until all checks pass.
   const cust = cleanCustomer(customer);
-  const i1 = cleanImei(imei1, "IMEI 1");
-  const i2 = cleanImei(imei2, "IMEI 2");
-  if (i1 && i2 && i1 === i2) throw err("IMEI 1 and IMEI 2 must be different.");
 
   const { result, info, config } = await calculateForProduct({ productId, variantSku, downPayment, months }, now);
 
@@ -370,8 +386,6 @@ export async function createQuote({ productId, variantSku, downPayment, months, 
       variantSku: info.variant?.sku || "",
       image: productImage(info.product, info.variant),
     },
-    imei1: i1,
-    imei2: i2,
     result,
     settingsSnapshot: {
       interestType: config.interestType,
@@ -413,8 +427,6 @@ export function publicQuote(q) {
     createdAt: q.createdAt,
     customer: { name: q.customer.name, phone: q.customer.phone },
     product: q.product,
-    imei1: q.imei1,
-    imei2: q.imei2,
     result: q.result,
   };
 }
@@ -491,6 +503,7 @@ export default {
   validateConfigInput,
   loadFinanceProduct,
   calculateForProduct,
+  calculateOptionsForProduct,
   createQuote,
   buildQuotationMessage,
   listQuotes,
