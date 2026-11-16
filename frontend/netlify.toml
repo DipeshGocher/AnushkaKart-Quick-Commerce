@@ -6,3 +6,10 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Vite file names under /assets carry a content hash, so they can be cached for a year.
+# (Netlify's default is to re-check every time.) index.html stays re-checked on purpose.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

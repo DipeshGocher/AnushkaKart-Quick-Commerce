@@ -63,9 +63,9 @@ if [[ "$MODE" == "all" || "$MODE" == "frontend" ]]; then
   cd "$FRONTEND_DIR"
 
   if [ -d "node_modules" ]; then
-    npm run build
+    npm run build:web
   else
-    npm install && npm run build
+    npm install && npm run build:web
   fi
 
   if [ -d "$FRONTEND_DIR/dist" ]; then
