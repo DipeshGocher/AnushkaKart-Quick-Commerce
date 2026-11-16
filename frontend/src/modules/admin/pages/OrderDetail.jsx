@@ -6,6 +6,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
 import AdminLiveTrackingSection from '../components/orders/AdminLiveTrackingSection';
+import AdminOrderOutcomeSection from '../components/orders/AdminOrderOutcomeSection';
 import AdminShiprocketTrackingSection from '../components/orders/AdminShiprocketTrackingSection';
 import { adminApi } from '../services/adminApi';
 import { adminShippingApi } from '../services/api/shippingApi';
@@ -19,6 +20,7 @@ import {
 import { createSocketTokenReader } from '@core/utils/authStorage';
 import { STORAGE_KEYS } from '@core/utils/storage';
 import { getStatusOptions } from '@/shared/utils/orderStatus';
+import { returnGroupOfOrder } from '@/shared/utils/adminOrderViews';
 import {
     ChevronLeft,
     Box,
@@ -44,6 +46,38 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@shared/components/ui/Toast';
+
+const money = (n) =>
+    `₹${(Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+
+// Every charge that is really part of the total, so rows always add up to it.
+const priceRows = (p = {}) =>
+    [
+        ['Subtotal', p.subtotal, 1],
+        ['Delivery Fee', p.deliveryFee, 1],
+        ['Platform Fee', p.platformFee, 1],
+        ['GST', p.gst, 1],
+        ['Tip', p.tip, 1],
+        ['Discount', p.discount, -1],
+    ].filter(([label, v]) => label === 'Subtotal' || Number(v) > 0);
+
+const addressText = (a = {}) =>
+    [a.address, a.landmark, a.city, a.state, a.pincode]
+        .map((x) => (x == null ? '' : String(x).trim()))
+        .filter(Boolean)
+        .join(', ');
+
+const PAYMENT_MODE_LABEL = { COD: 'Cash on Delivery', CASH: 'Cash on Delivery', UPI_QR: 'UPI QR Code', ONLINE: 'Online (Razorpay)', WALLET: 'Wallet' };
+const PAYMENT_STATUS_LABEL = {
+    PAID: 'Paid', CASH_COLLECTED: 'Cash collected', PENDING: 'Pending', CREATED: 'Awaiting payment',
+    AWAITING_VERIFICATION: 'Awaiting verification', REJECTED: 'Rejected', FAILED: 'Failed',
+    REFUNDED: 'Refunded', COD_PENDING: 'Pay on delivery', completed: 'Paid',
+};
+const paymentModeLabel = (o) => PAYMENT_MODE_LABEL[o.paymentMode] || PAYMENT_MODE_LABEL[String(o.payment?.method || '').toUpperCase()] || o.paymentMode || o.payment?.method || '—';
+const paymentStatusLabel = (o) => {
+    const s = o.paymentStatus || o.payment?.status || 'PENDING';
+    return PAYMENT_STATUS_LABEL[s] || String(s).replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
+};
 
 const OrderDetail = () => {
     const { orderId } = useParams();
@@ -408,13 +442,21 @@ const OrderDetail = () => {
                         <div className="flex items-center gap-3">
                             <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Order #{order.orderId}</h1>
                             {order.returnStatus && order.returnStatus !== 'none' ? (
-                                <div className={cn(
-                                    "px-3 py-1.5 rounded-xl font-black uppercase tracking-widest border shadow-xs flex items-center gap-1.5 cursor-default select-none text-[10px]",
-                                    getReturnDisplayInfo(order.returnStatus).style
-                                )}>
+                                // A return lives on the Returns pages: this badge opens it there.
+                                <button
+                                    type="button"
+                                    data-testid="open-in-returns"
+                                    title="Open in Returns"
+                                    onClick={() => navigate(`/admin/returns/${returnGroupOfOrder(order)}`)}
+                                    className={cn(
+                                        "px-3 py-1.5 rounded-xl font-black uppercase tracking-widest border shadow-xs flex items-center gap-1.5 cursor-pointer select-none text-[10px] hover:brightness-95",
+                                        getReturnDisplayInfo(order.returnStatus).style
+                                    )}
+                                >
                                     <RotateCcw className="h-3.5 w-3.5 shrink-0" />
                                     <span>{getReturnDisplayInfo(order.returnStatus).label}</span>
-                                </div>
+                                    <span className="normal-case tracking-normal font-bold opacity-70">· view in Returns →</span>
+                                </button>
                             ) : (
                                 <div className="relative inline-block w-44">
                                 {(() => {
@@ -464,7 +506,9 @@ const OrderDetail = () => {
             </div>
 
             {/* ── Tracking Pipeline Section (Shiprocket vs Local In-House) ── */}
-            {order.fulfillmentType === "SHIPROCKET" ? (
+            {['delivered', 'cancelled'].includes(String(order.status || '').toLowerCase()) ? (
+                <AdminOrderOutcomeSection order={order} />
+            ) : order.fulfillmentType === "SHIPROCKET" ? (
                 <AdminShiprocketTrackingSection orderId={orderId} order={order} />
             ) : (
                 <AdminLiveTrackingSection orderId={orderId} order={order} />
@@ -506,6 +550,7 @@ const OrderDetail = () => {
                                                     </div>
                                                     <div>
                                                         <h4 className="text-sm font-black text-slate-900">{item.name}</h4>
+                                                        {item.variantName && <p className="text-xs font-bold text-brand-600 mt-0.5" data-testid="order-item-variant">{item.variantName}</p>}
                                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">ID: {item.product?._id || item.product}</p>
                                                     </div>
                                                 </div>
@@ -551,18 +596,18 @@ const OrderDetail = () => {
                             </div>
                         )}
                         <div className="p-4 bg-slate-50/50 flex flex-col items-end gap-3 text-right">
-                            <div className="flex items-center justify-between w-full max-w-[240px]">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subtotal</span>
-                                <span className="text-sm font-black text-slate-700">₹{order.pricing?.subtotal || 0}</span>
-                            </div>
-                            <div className="flex items-center justify-between w-full max-w-[240px]">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Delivery Fee</span>
-                                <span className="text-sm font-bold text-brand-600">₹{order.pricing?.deliveryFee || 0}</span>
-                            </div>
+                            {priceRows(order.pricing).map(([label, v, sign]) => (
+                                <div key={label} className="flex items-center justify-between w-full max-w-[240px]">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
+                                    <span className={`text-sm font-bold ${sign < 0 ? 'text-emerald-600' : 'text-slate-700'}`}>
+                                        {sign < 0 ? '− ' : ''}{money(v)}
+                                    </span>
+                                </div>
+                            ))}
                             <div className="h-px w-full max-w-[240px] bg-slate-200 my-2" />
                             <div className="flex items-center justify-between w-full max-w-[240px]">
                                 <span className="text-xs font-black text-slate-900 uppercase tracking-tight">Total Payable</span>
-                                <span className="text-2xl font-black text-fuchsia-600">₹{order.pricing?.total || 0}</span>
+                                <span className="text-2xl font-black text-fuchsia-600">{money(order.pricing?.total)}</span>
                             </div>
                         </div>
                     </Card>
@@ -571,7 +616,7 @@ const OrderDetail = () => {
                     <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-2xl p-6">
                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
                             <Store className="h-4 w-4" />
-                            Shop Node Information
+                            Shop Information
                         </h4>
                         <div className="flex items-center gap-4">
                             <div className="h-16 w-16 bg-brand-50 rounded-2xl flex items-center justify-center ds-h2 font-black text-brand-600 uppercase">
@@ -579,8 +624,12 @@ const OrderDetail = () => {
                             </div>
                             <div className="text-left">
                                 <h3 className="text-lg font-black text-slate-900 leading-tight">{order.seller?.shopName || 'Unknown Shop'}</h3>
-                                <p className="text-xs font-bold text-brand-600 uppercase tracking-tighter">Verified Anchor Partner</p>
-                                <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">OWNER: {order.seller?.name}</p>
+                                {order.seller?.name && (
+                                    <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Owner: {order.seller.name}</p>
+                                )}
+                                {order.seller?.phone && (
+                                    <p className="text-[10px] font-bold text-slate-400 mt-1">{order.seller.phone}</p>
+                                )}
                             </div>
                         </div>
                     </Card>
@@ -589,7 +638,7 @@ const OrderDetail = () => {
                     <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-xl p-6">
                         <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-8 flex items-center gap-3">
                             <Navigation className="h-4 w-4 text-brand-500" />
-                            Logistical Real-time State
+                            Order Status
                         </h3>
                         <div className="space-y-6 relative ml-4">
                             <div className="absolute top-0 bottom-0 left-[7.5px] w-0.5 bg-slate-100" />
@@ -598,10 +647,15 @@ const OrderDetail = () => {
                                 <div className="flex-1 pb-4">
                                     <div className="flex items-center justify-between mb-1">
                                         <h4 className="text-xs font-black uppercase tracking-tight text-slate-900">
-                                            Status: {order.status.replace(/_/g, ' ')}
+                                            {String(order.status || '').replace(/_/g, ' ')}
                                         </h4>
                                     </div>
-                                    <p className="text-[11px] font-bold text-slate-400 leading-relaxed italic">&quot;System verified current logistical state as {order.status}.&quot;</p>
+                                    {(order.deliveredAt || order.updatedAt) && (
+                                        <p className="text-[11px] font-bold text-slate-400 leading-relaxed">
+                                            {order.status === 'delivered' && order.deliveredAt ? 'Delivered on ' : 'Last updated '}
+                                            {new Date(order.deliveredAt && order.status === 'delivered' ? order.deliveredAt : order.updatedAt).toLocaleString('en-IN')}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -614,36 +668,35 @@ const OrderDetail = () => {
                     <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-2xl p-6">
                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
                             <User className="h-4 w-4" />
-                            Customer Node Information
+                            Customer Information
                         </h4>
                         <div className="flex items-center gap-4">
-                            <img 
-                                src="https://cdn-icons-png.flaticon.com/512/149/149071.png" 
-                                alt="" 
-                                className="h-16 w-16 rounded-2xl bg-slate-50 ring-2 ring-white shadow-sm object-cover" 
-                            />
+                            <div className="h-16 w-16 rounded-2xl bg-slate-100 flex items-center justify-center text-xl font-black text-slate-500 uppercase">
+                                {order.customer?.name?.[0] || <User className="h-6 w-6" />}
+                            </div>
                             <div className="text-left">
                                 <h3 className="text-lg font-black text-slate-900 leading-tight">
                                     {order.customer?.name}
                                 </h3>
-                                <p className="text-xs font-bold text-slate-400">
-                                    Node ID: {order.customer?._id}
-                                </p>
                             </div>
                         </div>
                         <div className="space-y-6 text-left mt-6">
                             <div className="flex flex-col gap-2">
-                                <span className="text-[10px] font-bold text-slate-400 flex items-center gap-3">
-                                    <Mail className="h-3.5 w-3.5" /> {order.customer?.email || 'NA'}
-                                </span>
-                                <span className="text-[10px] font-bold text-slate-400 flex items-center gap-3">
-                                    <Phone className="h-3.5 w-3.5" /> {order.customer?.phone}
-                                </span>
+                                {order.customer?.email && (
+                                    <span className="text-[10px] font-bold text-slate-400 flex items-center gap-3">
+                                        <Mail className="h-3.5 w-3.5" /> {order.customer.email}
+                                    </span>
+                                )}
+                                {order.customer?.phone && (
+                                    <span className="text-[10px] font-bold text-slate-400 flex items-center gap-3">
+                                        <Phone className="h-3.5 w-3.5" /> {order.customer.phone}
+                                    </span>
+                                )}
                             </div>
                             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                                 <div className="flex items-center justify-between gap-2 mb-1">
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                        Destination Protocol
+                                        Delivery Address
                                     </span>
                                     {order?.address?.location &&
                                         typeof order.address.location.lat === "number" &&
@@ -664,8 +717,8 @@ const OrderDetail = () => {
                                             </button>
                                         )}
                                 </div>
-                                <p className="text-xs font-bold text-slate-600 leading-relaxed italic">
-                                    &quot;{order.address?.address}, {order.address?.landmark}, {order.address?.city}&quot;
+                                <p className="text-xs font-bold text-slate-600 leading-relaxed">
+                                    {addressText(order.address) || 'No address on this order'}
                                 </p>
                             </div>
                             {order.address?.type === "Other" &&
@@ -742,12 +795,14 @@ const OrderDetail = () => {
                                     </span>
                                 </div>
 
+                                {!["delivered", "cancelled"].includes(String(order.status || "").toLowerCase()) && (order.shiprocket?.etd || order.deliveryEstimate) && (
                                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Delivery Estimate</span>
                                     <span className="font-bold text-slate-700 text-xs mt-1 block">
-                                        {order.shiprocket?.etd || order.deliveryEstimate || "3-4 days"}
+                                        {order.shiprocket?.etd || order.deliveryEstimate}
                                     </span>
                                 </div>
+                                )}
 
                                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Shipment ID</span>
@@ -773,6 +828,7 @@ const OrderDetail = () => {
                                     ["shipped", "out_for_delivery", "delivered", "cancelled"].includes(String(order.status || "").toLowerCase())
                                 );
 
+                                if (["delivered", "cancelled"].includes(String(order.status || "").toLowerCase())) return null;
                                 return (
                                     <div className="pt-2 flex flex-wrap gap-2">
                                         {!order.shiprocket?.awb ? (
@@ -926,7 +982,7 @@ const OrderDetail = () => {
                         <div className="p-6 bg-slate-900 text-white flex items-center justify-between">
                             <h4 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-white">
                                 <CreditCard className="h-4 w-4 text-brand-400" />
-                                Payment Vector
+                                Payment
                             </h4>
                             {order.paymentMode === 'UPI_QR' && (
                                 <Badge className="bg-blue-600 text-white text-[9px] font-bold border-none uppercase">
@@ -936,21 +992,21 @@ const OrderDetail = () => {
                         </div>
                         <div className="p-4 space-y-4">
                             <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Protocol Summary</span>
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Status</span>
                                 <Badge className={cn(
                                     "border-none text-[8px] font-black uppercase",
-                                    (order.paymentStatus === 'PAID' || order.payment?.status === 'completed') ? 'bg-emerald-100 text-emerald-700' :
+                                    (['PAID', 'CASH_COLLECTED'].includes(order.paymentStatus) || order.payment?.status === 'completed') ? 'bg-emerald-100 text-emerald-700' :
                                     order.paymentStatus === 'REJECTED' ? 'bg-rose-100 text-rose-700' :
                                     'bg-amber-100 text-amber-700'
                                 )}>
-                                    {order.paymentStatus || order.payment?.status || 'PENDING'}
+                                    {paymentStatusLabel(order)}
                                 </Badge>
                             </div>
 
                             <div className="flex items-center justify-between px-2">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Payment Mode</span>
                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-900">
-                                    {order.paymentMode === 'UPI_QR' ? 'UPI QR Code' : order.payment?.method || 'CASH'}
+                                    {paymentModeLabel(order)}
                                 </span>
                             </div>
 
@@ -1065,8 +1121,7 @@ const OrderDetail = () => {
                                     <div style={{ fontSize: "9px", fontWeight: "900", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: "12px" }}>Billed To</div>
                                     <div style={{ fontSize: "16px", fontWeight: "800", color: "#0f172a", marginBottom: "8px" }}>{order.customer?.name}</div>
                                     <div style={{ fontSize: "12px", color: "#475569", lineHeight: "1.7" }}>
-                                        {order.address?.address},<br />
-                                        {order.address?.landmark && `${order.address.landmark}, `}{order.address?.city}
+                                        {addressText(order.address)}
                                     </div>
                                     <div style={{ fontSize: "11px", fontWeight: "700", color: "#64748b", marginTop: "15px" }}>Contact: {order.customer?.phone}</div>
                                 </td>
@@ -1098,7 +1153,7 @@ const OrderDetail = () => {
                                     {order.items.map((item, idx) => (
                                         <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
                                             <td style={{ padding: "18px 20px" }}>
-                                                <div style={{ fontSize: "13px", fontWeight: "700", color: "#0f172a" }}>{item.name}</div>
+                                                <div style={{ fontSize: "13px", fontWeight: "700", color: "#0f172a" }}>{item.name}{item.variantName ? ` (${item.variantName})` : ""}</div>
                                                 <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: "4px" }}>Item Ref: {item.product?._id?.slice(-8).toUpperCase() || item._id?.slice(-8).toUpperCase()}</div>
                                             </td>
                                             <td align="center" style={{ padding: "18px 20px", fontSize: "13px", color: "#475569", fontWeight: "700" }}>₹{item.price}</td>
@@ -1116,27 +1171,25 @@ const OrderDetail = () => {
                                 <td width="50%" style={{ verticalAlign: "top" }}>
                                     <div style={{ backgroundColor: "#f8fafc", padding: "25px", borderRadius: "8px", border: "1px solid #f1f5f9" }}>
                                         <div style={{ fontSize: "10px", color: "#94a3b8", fontWeight: "900", textTransform: "uppercase", marginBottom: "12px", letterSpacing: "1.5px" }}>Transaction Detail</div>
-                                        <div style={{ fontSize: "12px", color: "#475569", marginBottom: "8px" }}>Method: <b style={{ color: "#0f172a" }}>{order.paymentMode || order.payment?.method || 'CASH'}</b></div>
-                                        <div style={{ fontSize: "12px", color: "#475569" }}>Status: <b style={{ color: "#0f172a", textTransform: "uppercase" }}>{order.paymentStatus || order.payment?.status || 'PENDING'}</b></div>
+                                        <div style={{ fontSize: "12px", color: "#475569", marginBottom: "8px" }}>Method: <b style={{ color: "#0f172a" }}>{paymentModeLabel(order)}</b></div>
+                                        <div style={{ fontSize: "12px", color: "#475569" }}>Status: <b style={{ color: "#0f172a", }}>{paymentStatusLabel(order)}</b></div>
                                     </div>
                                 </td>
                                 <td width="10%"></td>
                                 <td width="40%" style={{ verticalAlign: "top" }}>
                                     <table width="100%" cellPadding="8" cellSpacing="0">
-                                        <tr>
-                                            <td align="left" style={{ fontSize: "12px", color: "#64748b", fontWeight: "700" }}>Subtotal Aggregate</td>
-                                            <td align="right" style={{ fontSize: "13px", fontWeight: "800", color: "#0f172a" }}>₹{order.pricing?.subtotal || 0}</td>
-                                        </tr>
-                                        <tr>
-                                            <td align="left" style={{ fontSize: "12px", color: "#64748b", fontWeight: "700" }}>Logistics Cost</td>
-                                            <td align="right" style={{ fontSize: "13px", fontWeight: "800", color: "#2563eb" }}>+ ₹{order.pricing?.deliveryFee || 0}</td>
-                                        </tr>
+                                        {priceRows(order.pricing).map(([label, v, sign]) => (
+                                            <tr key={label}>
+                                                <td align="left" style={{ fontSize: "12px", color: "#64748b", fontWeight: "700" }}>{label}</td>
+                                                <td align="right" style={{ fontSize: "13px", fontWeight: "800", color: sign < 0 ? "#059669" : "#0f172a" }}>{sign < 0 ? "− " : ""}{money(v)}</td>
+                                            </tr>
+                                        ))}
                                         <tr>
                                             <td colSpan="2" style={{ padding: "12px 0" }}><div style={{ height: "1px", backgroundColor: "#e2e8f0" }}></div></td>
                                         </tr>
                                         <tr>
                                             <td align="left" style={{ fontSize: "15px", fontWeight: "900", color: "#0f172a" }}>Grand Total</td>
-                                            <td align="right" style={{ fontSize: "24px", fontWeight: "900", color: "#2563eb" }}>₹{order.pricing?.total || 0}</td>
+                                            <td align="right" style={{ fontSize: "24px", fontWeight: "900", color: "#2563eb" }}>{money(order.pricing?.total)}</td>
                                         </tr>
                                     </table>
                                 </td>

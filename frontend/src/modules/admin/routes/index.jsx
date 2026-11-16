@@ -1,5 +1,6 @@
 import React, { useEffect, Suspense } from "react";
-import { Outlet, Navigate } from "react-router-dom";
+import { Outlet, Navigate, useLocation } from "react-router-dom";
+import { adminApi } from "../services/adminApi";
 import PageSkeleton from "@/shared/components/PageSkeleton";
 import NotFoundPage from "@/shared/components/NotFoundPage";
 import { useSupportUnread } from "@core/context/SupportUnreadContext";
@@ -134,15 +135,17 @@ const navItems = [
     icon: ClipboardList,
     color: "fuchsia",
     children: [
-      { label: "All Orders", path: "/admin/orders/all" },
-      { label: "Pending UPI Approvals", path: "/admin/orders/upi-pending" },
-      { label: "New Orders", path: "/admin/orders/pending" },
-      { label: "Being Prepared", path: "/admin/orders/processed" },
-      { label: "On the Way", path: "/admin/orders/out-for-delivery" },
-      { label: "Delivered", path: "/admin/orders/delivered" },
-      { label: "Cancelled", path: "/admin/orders/cancelled" },
-      { label: "Returned", path: "/admin/orders/returned" },
-      { label: "Return Requests", path: "/admin/returns" },
+      { label: "Active Orders", path: "/admin/orders/active" },
+      { label: "Completed Orders", path: "/admin/orders/completed" },
+    ],
+  },
+  {
+    label: "Returns",
+    icon: RotateCcw,
+    color: "orange",
+    children: [
+      { label: "Active Returns", path: "/admin/returns/active" },
+      { label: "Completed Returns", path: "/admin/returns/completed" },
     ],
   },
   {
@@ -316,9 +319,12 @@ export const adminRoutes = [
   { path: "customers", element: <CustomerManagement /> },
   { path: "customers/:id", element: <CustomerDetail /> },
   { path: "faqs", element: <FAQManagement /> },
-  { path: "orders/:status", element: <OrdersList /> },
   { path: "orders/view/:orderId", element: <OrderDetail /> },
+  // Active / Completed Orders. The old detailed URLs (/orders/pending, /delivered, ...) redirect inside OrdersList.
+  { path: "orders/:status", element: <OrdersList /> },
+  // Active / Completed Returns. /admin/returns alone redirects to Active Returns inside Returns.
   { path: "returns", element: <Returns /> },
+  { path: "returns/:group", element: <Returns /> },
   { path: "billing", element: <BillingCharges /> },
   { path: "layout-branding", element: <LayoutBranding /> },
   { path: "settings", element: <AdminSettings /> },
@@ -336,15 +342,38 @@ const AdminRoutes = () => {
   }, []);
 
   const { totalUnread } = useSupportUnread();
+  const { pathname } = useLocation();
+
+  // What needs the admin right now (UPI approvals + new orders, return requests + QC + disputes).
+  // Refreshed when the admin moves between pages and once a minute.
+  const [navCounts, setNavCounts] = React.useState(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      adminApi
+        .getAdminNavCounts()
+        .then((res) => alive && setNavCounts(res?.data?.result || null))
+        .catch(() => {});
+    load();
+    const timer = setInterval(load, 60000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [pathname]);
 
   const navItemsWithBadges = React.useMemo(() => {
-    const count = Number.isFinite(totalUnread) ? totalUnread : 0;
-    if (count <= 0) return navItems;
+    const support = Number.isFinite(totalUnread) ? totalUnread : 0;
+    const orders = Number(navCounts?.ordersNeedAction) || 0;
+    const returns = Number(navCounts?.returnsNeedAction) || 0;
+    if (support <= 0 && orders <= 0 && returns <= 0) return navItems;
     return navItems.map((item) => {
-      if (item?.label !== "Customer Support") return item;
-      return { ...item, badgeCount: count };
+      if (item?.label === "Customer Support" && support > 0) return { ...item, badgeCount: support };
+      if (item?.label === "Orders" && orders > 0) return { ...item, badgeCount: orders };
+      if (item?.label === "Returns" && returns > 0) return { ...item, badgeCount: returns };
+      return item;
     });
-  }, [totalUnread]);
+  }, [totalUnread, navCounts]);
 
   return (
     <Suspense fallback={<PageSkeleton variant="dashboard" />}>

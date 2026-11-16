@@ -48,6 +48,21 @@ export const checkReviewEligibility = async (req, res) => {
     }
 };
 
+// The logged-in customer's own reviews (any status). The My Orders page uses it to show
+// which delivered products are already rated and which can still be rated.
+export const getMyReviews = async (req, res) => {
+    try {
+        const reviews = await Review.find({ userId: req.user.id })
+            .select("productId orderId rating comment status createdAt")
+            .sort({ createdAt: -1 })
+            .limit(500)
+            .lean();
+        return handleResponse(res, 200, "Your reviews", reviews);
+    } catch (error) {
+        return handleResponse(res, getErrorStatus(error), error.message);
+    }
+};
+
 // Submit a review (Customer)
 export const submitReview = async (req, res) => {
     try {

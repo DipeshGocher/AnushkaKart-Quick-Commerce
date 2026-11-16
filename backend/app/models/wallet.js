@@ -45,6 +45,13 @@ const walletSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    // Money this owner still owes the platform (a seller whose balance could not cover a return).
+    // The balance itself never goes negative; this is taken from the owner's next payouts.
+    recoverableDue: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     status: {
       type: String,
       enum: ALL_WALLET_STATUSES,

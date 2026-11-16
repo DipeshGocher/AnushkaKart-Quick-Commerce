@@ -75,12 +75,15 @@ jest.unstable_mockModule("../app/services/seller/sellerStatsService.js", () => (
   invalidateSellerStatsCache: jest.fn().mockResolvedValue(true),
 }));
 jest.unstable_mockModule("../app/services/shipping/shiprocketService.js", () => ({
-  processShiprocketOrder: mockProcessShiprocketOrder,
   cancelShiprocketShipmentForOrder: mockCancelShiprocketShipment,
   // other modules in the import graph pull these named exports
   calculateShiprocketLiveRate: jest.fn(),
   createShiprocketReversePickup: jest.fn(),
   syncSellerPickupLocationToShiprocket: jest.fn(),
+}));
+// "Packed" on a courier order runs the shipment -> AWB -> pickup -> label pipeline (tested in shiprocket-automation.test.js).
+jest.unstable_mockModule("../app/services/shipping/shiprocketAutomation.js", () => ({
+  autoFulfillShiprocketOrder: mockProcessShiprocketOrder,
 }));
 
 const { updateOrderStatus } = await import("../app/controller/orderController.js");
@@ -228,13 +231,23 @@ describe("updateOrderStatus - courier (Shiprocket) orders", () => {
     expect(order.shiprocket.currentStatus).toBe("NEW");
   });
 
-  it("does not re-book a shipment that already exists", async () => {
+  it("with a shipment that already exists the pipeline still runs (it skips finished steps by itself)", async () => {
     const order = courierOrder({
       shiprocket: { shipmentId: "123", awb: "AWB1", currentStatus: "AWB_ASSIGNED", history: [] },
     });
     await call(order, { status: "packed" }, seller);
+    expect(mockProcessShiprocketOrder).toHaveBeenCalledWith(order);
+    expect(order.status).toBe("packed");
+  });
+
+  it("a local (rider) order never touches the courier pipeline", async () => {
+    const order = localOrder();
+    const res = await call(order, { status: "packed" }, seller);
+    expect(res.status).toBe(200);
     expect(mockProcessShiprocketOrder).not.toHaveBeenCalled();
     expect(order.status).toBe("packed");
+    // packed is only a flag for local orders: the rider workflow keeps its state
+    expect(order.workflowStatus).toBe("DELIVERY_SEARCH");
   });
 
   it("if booking the shipment fails the order is NOT marked packed", async () => {

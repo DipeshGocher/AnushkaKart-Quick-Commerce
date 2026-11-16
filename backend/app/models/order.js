@@ -42,6 +42,7 @@ const orderSchema = new mongoose.Schema(
           required: true,
         },
         variantSlot: String,
+        variantName: String, // e.g. "L / Red" so the seller knows which one to pack
         image: String,
         kitAddons: [
           {
@@ -302,6 +303,10 @@ const orderSchema = new mongoose.Schema(
       type: String,
       default: "20-35 mins",
     },
+    // Short-lived lock so a double click on "Packed" (or the retry job) cannot book the same
+    // parcel on Shiprocket twice. Top-level on purpose: `shiprocket` is rewritten wholesale
+    // while booking, which would wipe a lock stored inside it.
+    shiprocketFulfillLockUntil: { type: Date, default: null },
     shiprocket: {
       shipmentId: { type: String, default: null, index: true },
       shiprocketOrderId: { type: String, default: null },
@@ -326,6 +331,18 @@ const orderSchema = new mongoose.Schema(
       shippedAt: { type: Date, default: null },
       deliveredAt: { type: Date, default: null },
       lastEventAt: { type: Date, default: null },
+      // "Packed" auto-pipeline (shipment -> AWB -> pickup -> label). COMPLETE when every step
+      // worked; otherwise the first step that failed, and the retry job / Retry button resumes there.
+      automation: {
+        state: {
+          type: String,
+          enum: ["COMPLETE", "AWB_PENDING", "PICKUP_PENDING", "LABEL_PENDING", null],
+          default: null,
+        },
+        lastError: { type: String, default: null },
+        attempts: { type: Number, default: 0 },
+        lastAttemptAt: { type: Date, default: null },
+      },
       weightDiscrepancyAmount: { type: Number, default: 0 },
       weightDiscrepancyReason: { type: String, default: null },
       chargedWeightKg: { type: Number, default: 0 },
@@ -587,6 +604,26 @@ const orderSchema = new mongoose.Schema(
     returnReasonDetail: {
       type: String,
     },
+    // Structured reason (constants/returnReasons.js) and whose fault it is; decides who pays the
+    // return-pickup fee. null on returns made before this existed (treated as "unknown": platform pays).
+    // What the return actually did to the money (set once, when the refund is completed). Used by the
+    // Returns pages and for audit. All amounts in rupees.
+    returnFinance: {
+      appliedAt: { type: Date, default: null },
+      refundAmount: { type: Number, default: 0 }, // customer's wallet refund (item price)
+      sellerShare: { type: Number, default: 0 }, // what the seller had earned on the returned items
+      adminCommission: { type: Number, default: 0 }, // admin commission on the returned items
+      adminCommissionReversed: { type: Number, default: 0 }, // taken back from admin earnings (online orders only)
+      pickupFee: { type: Number, default: 0 },
+      pickupFeePayer: { type: String, enum: ["seller", "platform", null], default: null },
+      sellerCharged: { type: Number, default: 0 }, // sellerShare (+ pickup fee when the seller pays it)
+      fromPendingPayout: { type: Number, default: 0 }, // part taken off a not-yet-paid payout
+      fromWallet: { type: Number, default: 0 }, // part debited from the seller's wallet
+      owedBySeller: { type: Number, default: 0 }, // part the seller could not cover now (recovered later)
+      payoutAction: { type: String, enum: ["cancelled", "reduced", "wallet_debited", "none", null], default: null },
+    },
+    returnReasonCode: { type: String, default: null },
+    returnFault: { type: String, enum: ["seller", "customer", "unknown", null], default: null },
     returnConditionAssurance: {
       type: Boolean,
       default: false,
@@ -610,6 +647,7 @@ const orderSchema = new mongoose.Schema(
           required: true,
         },
         variantSlot: String,
+        variantName: String, // e.g. "L / Red" so the seller knows which one to pack
         itemIndex: {
           type: Number,
         },

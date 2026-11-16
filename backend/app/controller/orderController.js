@@ -37,8 +37,10 @@ import {
   getCustomerOrders,
   getOrderWithAccess,
   getSellerReturns as getSellerReturnsFromService,
+  getAdminNavCounts as getAdminNavCountsFromService,
 } from "../services/orderQueryService.js";
 import { orderMatchQueryFromRouteParam } from "../utils/orderLookup.js";
+import { RETURN_REASONS } from "../constants/returnReasons.js";
 import { createFinanceOrderSchema } from "../validation/financeValidation.js";
 import { placeOrderAtomic } from "../services/orderPlacementService.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
@@ -60,10 +62,8 @@ import { validateBody as validateWithJoi } from "../middleware/validate.js";
 import OrderReturnService from "../services/order/orderReturnService.js";
 import ReturnQcService from "../services/order/returnQcService.js";
 import { getErrorStatus } from "../utils/httpError.js";
-import {
-  processShiprocketOrder,
-  cancelShiprocketShipmentForOrder,
-} from "../services/shipping/shiprocketService.js";
+import { cancelShiprocketShipmentForOrder } from "../services/shipping/shiprocketService.js";
+import { autoFulfillShiprocketOrder } from "../services/shipping/shiprocketAutomation.js";
 
 /** Workflow states where no rider has picked the parcel up yet. */
 const PRE_PICKUP_WORKFLOW_STATES = [
@@ -246,6 +246,17 @@ export const getMyOrders = async (req, res) => {
 };
 
 /* ===============================
+   ADMIN SIDEBAR BADGE COUNTS
+================================ */
+export const getAdminNavCounts = async (req, res) => {
+  try {
+    return handleResponse(res, 200, "Counts fetched", await getAdminNavCountsFromService());
+  } catch (error) {
+    return handleResponse(res, getErrorStatus(error), error.message);
+  }
+};
+
+/* ===============================
    GET SELLER RETURNS (Admin/Seller)
 ================================ */
 export const getSellerReturns = async (req, res) => {
@@ -415,6 +426,18 @@ export const requestReturn = async (req, res) => {
 };
 
 /* ===============================
+   RETURN REASONS (for the customer's return form)
+================================ */
+export const getReturnReasons = async (req, res) => {
+  return handleResponse(
+    res,
+    200,
+    "Return reasons",
+    RETURN_REASONS.map(({ code, label, fault }) => ({ code, label, fault })),
+  );
+};
+
+/* ===============================
    GET RETURN DETAILS (Order-scoped)
 ================================ */
 export const getReturnDetails = async (req, res) => {
@@ -550,11 +573,14 @@ export const updateOrderStatus = async (req, res) => {
             return handleResponse(res, getErrorStatus(e), e.message);
           }
         }
-        if (newStatus === "packed" && !order.shiprocket?.shipmentId) {
-          // "Packed" for a courier order means the shipment exists: book it now so
-          // seller/admin/customer never see "packed" with nothing to hand over.
+        if (newStatus === "packed") {
+          // "Packed" for a courier order means everything that needs no human is done:
+          // shipment booked, AWB assigned, pickup requested, label ready. The seller only
+          // prints the label and hands the parcel over. If booking itself fails nothing is
+          // created and the order keeps its status; if a LATER step fails the order is still
+          // Packed and the failed step is recorded on `order.shiprocket.automation` for retry.
           try {
-            await processShiprocketOrder(order);
+            await autoFulfillShiprocketOrder(order);
           } catch (e) {
             return handleResponse(res, getErrorStatus(e), e.message);
           }

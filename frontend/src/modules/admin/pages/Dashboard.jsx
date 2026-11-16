@@ -310,7 +310,7 @@ const AdminDashboard = () => {
                         </div>
                         <button
                             type="button"
-                            onClick={() => navigate('/admin/orders/all')}
+                            onClick={() => navigate('/admin/orders/active')}
                             className="w-full mt-6 py-3 rounded-xl bg-gray-50 text-xs font-bold text-gray-500 hover:bg-primary hover:text-white transition-all cursor-pointer"
                         >
                             VIEW ALL ORDERS

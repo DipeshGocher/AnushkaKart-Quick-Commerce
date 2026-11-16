@@ -11,7 +11,8 @@ import {
   X, 
   RotateCcw,
   CheckCircle2,
-  ArrowRight
+  ArrowRight,
+  Star
 } from 'lucide-react';
 import { customerApi } from '../services/customerApi';
 import { getOrderStatusLabel, getLegacyStatusFromOrder } from '@/shared/utils/orderStatus';
@@ -20,8 +21,11 @@ import PageSkeleton from '@/shared/components/PageSkeleton';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import AccountDesktopLayout from '../components/layout/AccountDesktopLayout';
+import ReviewSubmissionModal from '../components/shared/ReviewSubmissionModal';
+import { headerChips, matchesHeader, ratableItems } from '@/shared/utils/orderListHelpers';
 
-// Filter tabs matching user specification and Flipkart style
+// Order-status filter (inside the Filters sheet). The chips under the search box are the header
+// categories instead (All, Grocery, Mobile, ...), which come live from the admin's category list.
 const TABS = [
   { id: 'all', label: 'All' },
   { id: 'delivered', label: 'Delivered' },
@@ -43,6 +47,61 @@ const formatOrderDate = (dateString) => {
   return `${month} ${day}, ${d.getFullYear()}`;
 };
 
+/**
+ * "Rate & Review" strip of a DELIVERED order: 5 outline stars (Flipkart style). Tapping a star opens
+ * the review form with that rating. A product that is already rated shows its stars filled instead.
+ * `items` is already restricted to delivered, not-returned orders by ratableItems().
+ */
+const RateStrip = ({ items, myReviews, onRate }) => {
+  if (!items.length) return null;
+  return (
+    <div className="space-y-2">
+      {items.map((item) => {
+        const review = myReviews[item.productId];
+        const stars = review ? Number(review.rating) || 0 : 0;
+        const name = item.name || item.product?.name || '';
+        return (
+          <div
+            key={item.productId}
+            data-testid="rate-strip"
+            className="bg-[#F9F9F9] rounded-lg px-3 py-2.5 flex items-center justify-between gap-3"
+          >
+            <div className="min-w-0">
+              <p className="text-[12.5px] font-medium text-slate-800">{review ? 'Your rating' : 'Rate & Review'}</p>
+              {(items.length > 1 || review?.status === 'pending') && (
+                <p className="text-[10.5px] text-slate-500 truncate">
+                  {items.length > 1 ? name : ''}
+                  {items.length > 1 && review?.status === 'pending' ? ' · ' : ''}
+                  {review?.status === 'pending' ? 'Pending approval' : ''}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  data-testid={`rate-star-${n}`}
+                  aria-label={`Rate ${n} star${n > 1 ? 's' : ''}`}
+                  disabled={Boolean(review)}
+                  onClick={() => onRate(item, n)}
+                  className="p-0.5 cursor-pointer disabled:cursor-default active:scale-90 transition-transform"
+                >
+                  <Star
+                    size={24}
+                    strokeWidth={1.6}
+                    className={n <= stars ? 'fill-amber-400 text-amber-400' : 'text-slate-400'}
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const OrdersPage = () => {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
@@ -51,11 +110,52 @@ const OrdersPage = () => {
   const [selectedTab, setSelectedTab] = useState('all');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [timeFilter, setTimeFilter] = useState('all');
+  // Header-category chips ("all" or a header category id)
+  const [selectedHeader, setSelectedHeader] = useState('all');
+  const [headerCategories, setHeaderCategories] = useState([]);
+  // The customer's own reviews, by product id, and the product currently being rated
+  const [myReviews, setMyReviews] = useState({});
+  const [reviewTarget, setReviewTarget] = useState(null); // { item, rating }
+
+  const chips = useMemo(() => [{ id: 'all', label: 'All' }, ...headerChips(headerCategories)], [headerCategories]);
+
+  // If the admin removes the category that is selected, fall back to All.
+  useEffect(() => {
+    if (selectedHeader !== 'all' && !chips.some((c) => c.id === selectedHeader)) setSelectedHeader('all');
+  }, [chips, selectedHeader]);
+
+  useEffect(() => {
+    let alive = true;
+    customerApi
+      .getCategories()
+      .then((res) => {
+        if (alive) setHeaderCategories(res?.data?.results || res?.data?.result || []);
+      })
+      .catch(() => {});
+    customerApi
+      .getMyReviews()
+      .then((res) => {
+        if (!alive) return;
+        const map = {};
+        (res?.data?.results || res?.data?.result || []).forEach((r) => {
+          map[String(r.productId)] = r;
+        });
+        setMyReviews(map);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const handleReviewSubmitted = (productId, review) => {
+    setMyReviews((prev) => ({ ...prev, [String(productId)]: { productId, rating: review?.rating, comment: review?.comment, status: 'pending' } }));
+  };
 
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const response = await customerApi.getMyOrders();
+        const response = await customerApi.getMyOrdersForList();
         const payload = response?.data;
         const items =
           payload?.result?.items ||
@@ -76,7 +176,12 @@ const OrdersPage = () => {
   const filteredOrders = useMemo(() => {
     let list = orders;
 
-    // 1. Tab filter (All, Delivered, Returned, Pending, Cancelled)
+    // 0. Header-category chip (All / Grocery / Mobile / ...)
+    if (selectedHeader !== 'all') {
+      list = list.filter((order) => matchesHeader(order, selectedHeader));
+    }
+
+    // 1. Status filter (from the Filters sheet): All, Delivered, Returned, Pending, Cancelled
     if (selectedTab !== 'all') {
       list = list.filter((order) => {
         const legacy = getLegacyStatusFromOrder(order);
@@ -135,7 +240,7 @@ const OrdersPage = () => {
     }
 
     return list;
-  }, [orders, selectedTab, timeFilter, searchQuery]);
+  }, [orders, selectedHeader, selectedTab, timeFilter, searchQuery]);
 
   if (loading) {
     return <PageSkeleton variant="rows" />;
@@ -190,14 +295,14 @@ const OrdersPage = () => {
         </button>
       </section>
 
-      {/* Upper Sorting / Filter Pills: All, Delivered, Returned, Pending, Cancelled */}
-      <nav className="px-4 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar border-b border-gray-100">
-        {TABS.map((tab) => {
-          const isSelected = selectedTab === tab.id;
+      {/* Header-category chips: All + every header category the admin has (Grocery, Mobile, ...) */}
+      <nav data-testid="category-chips" className="px-4 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar border-b border-gray-100">
+        {chips.map((tab) => {
+          const isSelected = selectedHeader === tab.id;
           return (
             <button
               key={tab.id}
-              onClick={() => setSelectedTab(tab.id)}
+              onClick={() => setSelectedHeader(tab.id)}
               className={cn(
                 "px-4 py-1.5 rounded-lg text-[13px] font-medium transition-all whitespace-nowrap cursor-pointer select-none",
                 isSelected
@@ -222,16 +327,19 @@ const OrdersPage = () => {
               {searchQuery ? 'No matching orders found' : 'No orders found'}
             </h3>
             <p className="text-slate-500 text-xs sm:text-sm mb-5 max-w-[280px]">
-              {searchQuery 
-                ? 'Try searching with a different product name or order ID.' 
-                : selectedTab !== 'all' 
-                ? `You do not have any ${selectedTab} orders.` 
+              {searchQuery
+                ? 'Try searching with a different product name or order ID.'
+                : selectedHeader !== 'all'
+                ? `You do not have any ${chips.find((c) => c.id === selectedHeader)?.label || 'category'} orders.`
+                : selectedTab !== 'all'
+                ? `You do not have any ${selectedTab} orders.`
                 : 'Start exploring products and place your first order.'
               }
             </p>
-            {selectedTab !== 'all' || searchQuery ? (
+            {selectedTab !== 'all' || selectedHeader !== 'all' || timeFilter !== 'all' || searchQuery ? (
               <button
                 onClick={() => {
+                  setSelectedHeader('all');
                   setSelectedTab('all');
                   setSearchQuery('');
                   setTimeFilter('all');
@@ -276,6 +384,8 @@ const OrdersPage = () => {
               order.workflowStatus === 'CANCELLED';
 
             const isAwaitingOnlinePayment = isOnline && !isPaid && !isCancelled;
+            // Rate & Review: delivered orders only
+            const rateItems = ratableItems(order);
 
             // Status title & subtitle logic matching Flipkart UI reference
             let statusTitle = `Delivered on ${formattedDate}`;
@@ -308,9 +418,9 @@ const OrdersPage = () => {
             }
 
             return (
+              <div key={order._id || order.orderId} data-testid="order-row" className="bg-white">
               <Link
                 to={`/orders/${order.orderId || order._id}`}
-                key={order._id || order.orderId}
                 className="block bg-white px-4 py-3.5 hover:bg-slate-50/70 transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-3.5">
@@ -375,6 +485,12 @@ const OrdersPage = () => {
                   </div>
                 )}
               </Link>
+              {rateItems.length > 0 && (
+                <div className="px-4 pb-3.5">
+                  <RateStrip items={rateItems} myReviews={myReviews} onRate={(item, rating) => setReviewTarget({ item, rating })} />
+                </div>
+              )}
+              </div>
             );
           })
         )}
@@ -405,14 +521,14 @@ const OrdersPage = () => {
           )}
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-          {TABS.map((tab) => {
-            const isSelected = selectedTab === tab.id;
+        {/* Header-category chips (All + the admin's header categories) */}
+        <div data-testid="category-chips-desktop" className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          {chips.map((tab) => {
+            const isSelected = selectedHeader === tab.id;
             return (
               <button
                 key={tab.id}
-                onClick={() => setSelectedTab(tab.id)}
+                onClick={() => setSelectedHeader(tab.id)}
                 className={cn(
                   "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer",
                   isSelected
@@ -439,9 +555,10 @@ const OrdersPage = () => {
           <p className="text-xs text-slate-500 mb-4">
             {searchQuery ? 'Try searching with different keywords' : 'You have not placed any orders yet'}
           </p>
-          {selectedTab !== 'all' || searchQuery ? (
+          {selectedTab !== 'all' || selectedHeader !== 'all' || timeFilter !== 'all' || searchQuery ? (
             <button
               onClick={() => {
+                setSelectedHeader('all');
                 setSelectedTab('all');
                 setSearchQuery('');
                 setTimeFilter('all');
@@ -468,11 +585,12 @@ const OrdersPage = () => {
             const remainingCount = (order.items?.length || 1) - 1;
             const formattedDate = formatOrderDate(order.createdAt);
             const totalAmount = order.totalAmount || order.grandTotal || 0;
+            const rateItems = ratableItems(order);
 
             return (
+              <div key={order._id || order.orderId} data-testid="order-row-desktop" className="space-y-2">
               <Link
                 to={`/orders/${order.orderId || order._id}`}
-                key={order._id || order.orderId}
                 className="block bg-white rounded-xl border border-slate-200 hover:border-slate-300 p-4 transition-all hover:shadow-xs group cursor-pointer"
               >
                 <div className="flex items-center gap-4">
@@ -511,6 +629,10 @@ const OrdersPage = () => {
                   </div>
                 </div>
               </Link>
+              {rateItems.length > 0 && (
+                <RateStrip items={rateItems} myReviews={myReviews} onRate={(item, rating) => setReviewTarget({ item, rating })} />
+              )}
+              </div>
             );
           })}
         </div>
@@ -527,6 +649,18 @@ const OrdersPage = () => {
       >
         {desktopOrdersContent}
       </AccountDesktopLayout>
+
+      {/* Rate & Review form (opened by tapping a star on a delivered order) */}
+      {reviewTarget && (
+        <ReviewSubmissionModal
+          key={`${reviewTarget.item.productId}-${reviewTarget.rating}`}
+          isOpen
+          onClose={() => setReviewTarget(null)}
+          product={reviewTarget.item}
+          initialRating={reviewTarget.rating}
+          onReviewSubmitted={handleReviewSubmitted}
+        />
+      )}
 
       {/* Filters Modal / Bottom Sheet */}
       <AnimatePresence>
@@ -609,6 +743,7 @@ const OrdersPage = () => {
               <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
                 <button
                   onClick={() => {
+                    setSelectedHeader('all');
                     setSelectedTab('all');
                     setTimeFilter('all');
                     setSearchQuery('');

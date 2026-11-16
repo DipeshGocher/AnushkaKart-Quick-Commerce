@@ -6,7 +6,8 @@ import {
     getPendingReviews,
     updateReviewStatus,
     deleteReview,
-    checkReviewEligibility
+    checkReviewEligibility,
+    getMyReviews
 } from "../controller/reviewController.js";
 import { verifyToken, allowRoles, optionalVerifyToken } from "../middleware/authMiddleware.js";
 
@@ -24,6 +25,7 @@ const router = express.Router();
 router.get("/product/:productId", optionalVerifyToken, getProductReviews);
 
 // Authenticated Customer routes
+router.get("/mine", verifyToken, getMyReviews);
 router.get("/check-eligibility/:productId", verifyToken, checkReviewEligibility);
 router.post("/submit", verifyToken, upload.array("images", 5), submitReview);
 

@@ -11,7 +11,9 @@ import {
   skipOrder,
   requestReturn,
   getReturnDetails,
+  getReturnReasons,
   getSellerReturns,
+  getAdminNavCounts,
   approveReturnRequest,
   rejectReturnRequest,
   updateReturnQcStatus,
@@ -122,9 +124,12 @@ router.get("/my-orders", verifyToken, getMyOrders);
 router.get("/details/:orderId", verifyToken, getOrderDetails);
 router.put("/cancel/:orderId", verifyToken, cancelOrder);
 router.post("/:orderId/returns", verifyToken, requestReturn);
+router.get("/return-reasons", verifyToken, getReturnReasons);
 router.get("/:orderId/returns", verifyToken, getReturnDetails);
 
 // Admin/Seller routes
+// Admin sidebar badges (UPI approvals + new orders, return requests + QC waiting + disputes)
+router.get("/admin-nav-counts", verifyToken, allowRoles("admin"), getAdminNavCounts);
 router.get(
   "/seller-orders",
   verifyToken,

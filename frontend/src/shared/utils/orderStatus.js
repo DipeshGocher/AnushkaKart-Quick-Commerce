@@ -239,6 +239,18 @@ export function getOrderStatusLabel(order) {
 export function adminRouteMatchesOrder(routeStatus, order) {
   const legacy = getLegacyStatusFromOrder(order);
   if (routeStatus === "all") return true;
+  // Active Orders: still in progress and not in a return (same rule as the server's `active` filter).
+  if (routeStatus === "active") {
+    const rs = order?.returnStatus;
+    const inReturn = (rs && rs !== "none") || order?.status === "returned";
+    return !inReturn && !["delivered", "cancelled", "returned"].includes(legacy);
+  }
+  // Completed Orders: delivered (no return in progress/finished; a rejected one comes back) + cancelled.
+  if (routeStatus === "completed") {
+    const rs = order?.returnStatus;
+    const returnOpenOrDone = rs && !["none", "return_rejected"].includes(rs);
+    return legacy === "cancelled" || (legacy === "delivered" && !returnOpenOrDone && order?.status !== "returned");
+  }
   if (routeStatus === "upi-pending") {
     const mode = String(order?.paymentMode || order?.payment || order?.rawOrder?.paymentMode || "").toUpperCase();
     const pStatus = String(order?.paymentStatus || order?.rawOrder?.paymentStatus || "").toUpperCase();

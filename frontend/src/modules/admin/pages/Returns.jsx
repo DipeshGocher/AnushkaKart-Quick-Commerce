@@ -1,4 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Navigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  RETURN_GROUPS,
+  RETURN_VIEWS,
+  returnGroupTitle,
+  resolveReturnsView,
+  returnMatchesView,
+} from "@shared/utils/adminOrderViews";
 import Card from "@shared/components/ui/Card";
 import Badge from "@shared/components/ui/Badge";
 import Button from "@shared/components/ui/Button";
@@ -17,6 +25,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Loader2, X } from "lucide-react";
 import ProofImagePicker from "@shared/components/ProofImagePicker";
+import ReturnMoneyCard from "@shared/components/ReturnMoneyCard";
 import {
   QC_NOTE_MIN_LENGTH,
   getQcCountdown,
@@ -24,12 +33,22 @@ import {
   getQcDeciderLabel,
 } from "@shared/utils/returnQc";
 
+/**
+ * Two pages: Active Returns and Completed Returns (/admin/returns/active, /admin/returns/completed).
+ * The pills under the title narrow the list. /admin/returns alone goes to Active Returns.
+ */
 const Returns = () => {
+  const { group = "" } = useParams();
+  if (!RETURN_GROUPS.includes(group)) return <Navigate to="/admin/returns/active" replace />;
+  return <ReturnsPage group={group} />;
+};
+
+const ReturnsPage = ({ group: groupParam }) => {
   const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { group, view } = resolveReturnsView(groupParam, searchParams.get("view"));
   const [returns, setReturns] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("All");
-  const [activeQcTab, setActiveQcTab] = useState("QC Requested");
   const [selectedReturn, setSelectedReturn] = useState(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [actionModal, setActionModal] = useState({ open: false, mode: null });
@@ -38,19 +57,7 @@ const Returns = () => {
   const [submittingAction, setSubmittingAction] = useState(false);
   const [assigningPickup, setAssigningPickup] = useState(false);
 
-  const tabs = [
-    "All",
-    "Requested",
-    "Approved",
-    "Rejected",
-    "Pickup Assigned",
-    "In Transit",
-    "Quality Check",
-    "Disputes",
-    "Completed",
-  ];
-
-  const qcTabs = ["QC Requested", "QC Passed", "QC Failed"];
+  const views = RETURN_VIEWS[group];
 
   const mapReturnStatusLabel = (status) => {
     switch (status) {
@@ -105,7 +112,7 @@ const Returns = () => {
   const fetchReturns = async () => {
     try {
       setLoading(true);
-      const res = await adminApi.getReturns();
+      const res = await adminApi.getReturns({ group, limit: 100 });
       const payload = res.data.result || {};
       const items = Array.isArray(payload.items)
         ? payload.items
@@ -121,7 +128,7 @@ const Returns = () => {
 
   useEffect(() => {
     fetchReturns();
-  }, []);
+  }, [group]);
 
   useEffect(() => {
     if (isDetailsOpen || actionModal.open) {
@@ -137,19 +144,10 @@ const Returns = () => {
     };
   }, [isDetailsOpen, actionModal.open]);
 
-  const filteredReturns = useMemo(() => {
-    if (activeTab === "All") return returns;
-    return returns.filter((r) => {
-      const label = mapReturnStatusLabel(r.returnStatus);
-      if (activeTab === "Quality Check") {
-        return label === activeQcTab;
-      }
-      if (activeTab === "Disputes") {
-        return r.returnDispute?.status === "open";
-      }
-      return label === activeTab;
-    });
-  }, [returns, activeTab, activeQcTab]);
+  const filteredReturns = useMemo(
+    () => returns.filter((r) => returnMatchesView(view, r)),
+    [returns, view],
+  );
 
   const openDetails = (ret) => {
     setSelectedReturn(ret);
@@ -300,7 +298,7 @@ const Returns = () => {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
           <div className="min-w-0">
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 flex flex-wrap items-center gap-2">
-              Return Requests
+              {returnGroupTitle(group)}
               <Badge
                 variant="secondary"
                 className="text-[10px] px-1.5 py-0 font-bold tracking-widest uppercase"
@@ -309,7 +307,9 @@ const Returns = () => {
               </Badge>
             </h1>
             <p className="text-slate-600 text-sm sm:text-base mt-0.5 font-medium">
-              Review, approve, and QC customer returns.
+              {group === "completed"
+                ? "Returns that are finished: refunded, rejected or closed after a failed QC."
+                : "Returns that still need action: approve, pickup, quality check, disputes."}
             </p>
           </div>
           <div className="flex gap-2 flex-shrink-0">
@@ -335,10 +335,9 @@ const Returns = () => {
       ) : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {["Requested", "Approved", "QC Requested", "Completed"].map((label, i) => {
-              const count = returns.filter(
-                (r) => mapReturnStatusLabel(r.returnStatus) === label,
-              ).length;
+            {views.filter((v) => v.id !== "all").map((v, i) => {
+              const label = v.label;
+              const count = returns.filter((r) => returnMatchesView(v, r)).length;
               return (
                 <BlurFade key={label} delay={0.1 + i * 0.05}>
                   <MagicCard
@@ -366,57 +365,33 @@ const Returns = () => {
 
           <BlurFade delay={0.2}>
             <Card className="border-none shadow-xl ring-1 ring-slate-100 rounded-lg bg-white overflow-hidden">
-              <div className="border-b border-slate-100 bg-slate-50/30 overflow-x-auto scrollbar-hide">
-                <div className="flex px-3 sm:px-6 items-center min-w-max">
-                  {tabs.map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab(tab)}
-                      className={cn(
-                        "relative py-3 sm:py-4 px-2.5 sm:px-4 text-xs sm:text-sm font-bold whitespace-nowrap transition-all duration-300",
-                        activeTab === tab
-                          ? "text-primary scale-105"
-                          : "text-slate-600 hover:text-slate-700",
-                      )}
-                    >
-                      {tab}
-                      {activeTab === tab && (
-                        <motion.div
-                          layoutId="returns-admin-tab-underline"
-                          className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full mx-2 sm:mx-4"
-                        />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {activeTab === "Quality Check" && (
-                <div className="border-b border-slate-100 bg-slate-50/10 overflow-x-auto scrollbar-hide">
-                  <div className="flex px-3 sm:px-6 items-center min-w-max">
-                    {qcTabs.map((tab) => (
+              <div data-testid="return-pills" className="border-b border-slate-100 bg-slate-50/30 overflow-x-auto scrollbar-hide">
+                <div className="flex px-3 sm:px-6 py-3 items-center gap-2 min-w-max">
+                  {views.map((v) => {
+                    const selected = view.id === v.id;
+                    const count = v.id === "all" ? returns.length : returns.filter((r) => returnMatchesView(v, r)).length;
+                    return (
                       <button
-                        key={`qc-${tab}`}
-                        onClick={() => setActiveQcTab(tab)}
+                        key={v.id}
+                        type="button"
+                        data-testid={`return-pill-${v.id}`}
+                        onClick={() => {
+                          const next = new URLSearchParams(searchParams);
+                          if (v.id === "all") next.delete("view"); else next.set("view", v.id);
+                          setSearchParams(next, { replace: true });
+                        }}
                         className={cn(
-                          "relative py-2 sm:py-3 px-3 sm:px-4 text-xs font-bold whitespace-nowrap transition-all duration-300 rounded-t-lg",
-                          activeQcTab === tab
-                            ? "text-primary bg-primary/5"
-                            : "text-slate-500 hover:text-slate-700 hover:bg-slate-50/50"
+                          "px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5",
+                          selected ? "bg-primary text-white shadow-sm" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50",
                         )}
                       >
-                        {tab}
-                        {activeQcTab === tab && (
-                          <motion.div
-                            layoutId="returns-qc-tab-underline"
-                            className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary mx-2"
-                          />
-                        )}
+                        {v.label}
+                        <span className={cn("text-[10px] font-black", selected ? "text-white/80" : "text-slate-400")}>{count}</span>
                       </button>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
 
               <div className="p-3 sm:p-4">
                 {filteredReturns.length === 0 ? (
@@ -575,7 +550,12 @@ const Returns = () => {
                   </p>
                   <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 space-y-2">
                     <p className="text-sm font-bold text-slate-800">
-                      Reason: <span className="font-medium text-slate-600">{selectedReturn.returnReason || "N/A"}</span>
+                      Reason: <span className="font-medium text-slate-600" data-testid="return-reason-line">{selectedReturn.returnReason || "Not given"}</span>
+                      {selectedReturn.returnFault && selectedReturn.returnFault !== "unknown" && (
+                        <span className="ml-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                          ({selectedReturn.returnFault === "seller" ? "seller's fault" : "customer's choice"})
+                        </span>
+                      )}
                     </p>
                     {selectedReturn.returnReasonDetail && (
                       <p className="text-sm text-slate-700 italic border-l-2 border-slate-300 pl-2">
@@ -631,12 +611,12 @@ const Returns = () => {
                           </div>
                           <div>
                             <p className="text-[10px] font-black text-sky-600 uppercase tracking-widest leading-none mb-1">Shiprocket Reverse Courier</p>
-                            <p className="text-sm font-bold text-slate-900 leading-none">{selectedReturn.shiprocket?.reverseCourierName || "Delhivery / Ecom Express"}</p>
+                            <p className="text-sm font-bold text-slate-900 leading-none">{selectedReturn.shiprocket?.reverseCourierName || "Courier partner"}</p>
                           </div>
                         </div>
                         <div className="bg-white/70 p-2.5 rounded-xl border border-sky-200 text-xs space-y-1">
                           <p className="font-semibold text-slate-700">Reverse AWB: <span className="font-mono font-bold text-sky-900">{selectedReturn.shiprocket?.reverseAwb || "Scheduled"}</span></p>
-                          <p className="text-[11px] text-slate-500">Status: <span className="font-medium text-slate-800">{selectedReturn.shiprocket?.reverseStatus || "Pickup In-Progress"}</span></p>
+                          <p className="text-[11px] text-slate-500">Status: <span className="font-medium text-slate-800">{selectedReturn.shiprocket?.reverseStatus || "Pickup scheduled"}</span></p>
                           {selectedReturn.shiprocket?.reverseLabelUrl && (
                             <a
                               href={selectedReturn.shiprocket.reverseLabelUrl}
@@ -768,16 +748,17 @@ const Returns = () => {
                 )}
 
                 {/* Quality Check Comparison (2-Way) */}
+                {selectedReturn.returnPickupImages?.[0] && (
                 <div className="space-y-3 pt-2">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">
-                    Product Comparison (QC)
+                  <p className="text-xs font-bold text-slate-600 uppercase tracking-widest">
+                    Listing photo vs returned item
                   </p>
                   <div className="grid grid-cols-2 gap-3">
                     {/* 1. Original Listing Image */}
                     <div className="space-y-1.5 flex flex-col h-full group">
                       <div className="relative aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shadow-inner group-hover:border-slate-300 transition-colors">
                         <img
-                          src={selectedReturn.items?.[0]?.image || "https://placehold.co/400x400/f8fafc/64748b?text=Original"}
+                          src={selectedReturn.items?.[0]?.image}
                           alt="Original"
                           className="h-full w-full object-cover"
                         />
@@ -820,6 +801,7 @@ const Returns = () => {
                     </div>
                   )}
                 </div>
+                )}
 
                 <div className="space-y-2">
                   <p className="text-xs font-bold text-slate-600 uppercase tracking-widest">
@@ -832,7 +814,7 @@ const Returns = () => {
                         className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100"
                       >
                         <div>
-                          <p className="text-xs font-bold text-slate-900">{item.name}</p>
+                          <p className="text-xs font-bold text-slate-900">{item.name}{item.variantName ? ` (${item.variantName})` : ""}</p>
                           <p className="text-xs text-slate-500">Qty: {item.quantity}</p>
                         </div>
                         <p className="text-xs font-black text-slate-900">
@@ -843,6 +825,7 @@ const Returns = () => {
                   </div>
                 </div>
 
+                {!selectedReturn.returnMoney && (
                 <div className="space-y-1">
                   <p className="text-xs font-bold text-slate-600 uppercase tracking-widest">
                     Payment Breakdown
@@ -860,6 +843,9 @@ const Returns = () => {
                     </span>
                   </p>
                 </div>
+                )}
+
+                <ReturnMoneyCard money={selectedReturn.returnMoney} role="admin" />
               </div>
 
               <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center justify-end shrink-0">

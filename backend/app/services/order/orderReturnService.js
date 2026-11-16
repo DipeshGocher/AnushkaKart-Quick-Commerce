@@ -29,6 +29,7 @@ import Seller from "../../models/seller.js";
 import OrderOtp from "../../models/orderOtp.js";
 import Transaction from "../../models/transaction.js";
 import { orderMatchQueryFromRouteParam } from "../../utils/orderLookup.js";
+import { findReturnReason, RETURN_FAULT } from "../../constants/returnReasons.js";
 import { computeReturnWindowForOrder } from "../../utils/returnWindow.js";
 import { buildQcView } from "../../utils/returnQcPolicy.js";
 import { buildCustomerShiprocket } from "../../utils/customerShipmentView.js";
@@ -39,8 +40,10 @@ import {
   emitToSeller,
 } from "../orderSocketEmitter.js";
 import * as walletService from "../finance/walletService.js";
-import { cancelPendingPayoutForOrder } from "../finance/payoutService.js";
-import { LEDGER_TRANSACTION_TYPE, OWNER_TYPE } from "../../constants/finance.js";
+import { reducePendingPayoutForOrder } from "../finance/payoutService.js";
+import { createLedgerEntry } from "../finance/ledgerService.js";
+import { computeReturnMoney, buildReturnMoneyView } from "./returnMoney.js";
+import { LEDGER_DIRECTION, LEDGER_TRANSACTION_TYPE, OWNER_TYPE, PAYOUT_TYPE } from "../../constants/finance.js";
 import { clearOrderTracking } from "../firebaseService.js";
 import { createShiprocketReversePickup } from "../shipping/shiprocketService.js";
 import { buildKey, invalidate } from "../cacheService.js";
@@ -58,10 +61,20 @@ export class OrderReturnService {
    * Throws: 400 (validation), 404 (order missing).
    */
   static async createReturnRequest(customerId, orderId, payload = {}) {
-    const { items, reason, images, reasonDetail, conditionAssurance } = payload;
+    const { items, images, reasonDetail, conditionAssurance, reasonCode } = payload;
+    let { reason } = payload;
 
     if (!Array.isArray(items) || items.length === 0) {
       throw err("Please select at least one item to return.", 400);
+    }
+
+    // Structured reason (preferred): its label is the reason text and its fault decides who pays the
+    // pickup fee. Without a code (old app versions) a written reason is still required, fault unknown.
+    let reasonEntry = null;
+    if (reasonCode !== undefined && reasonCode !== null && String(reasonCode).trim() !== "") {
+      reasonEntry = findReturnReason(reasonCode);
+      if (!reasonEntry) throw err("Please choose a valid return reason.", 400);
+      reason = reasonEntry.label;
     }
     if (!reason || typeof reason !== "string" || reason.trim().length === 0) {
       throw err("Return reason is required.", 400);
@@ -142,6 +155,7 @@ export class OrderReturnService {
         quantity: qty,
         price: original.price,
         variantSlot: original.variantSlot,
+        variantName: original.variantName,
         itemIndex,
         status: "requested",
       });
@@ -149,6 +163,8 @@ export class OrderReturnService {
 
     order.returnStatus = "return_requested";
     order.returnReason = reason.trim();
+    order.returnReasonCode = reasonEntry ? reasonEntry.code : null;
+    order.returnFault = reasonEntry ? reasonEntry.fault : RETURN_FAULT.UNKNOWN;
     order.returnReasonDetail = reasonDetail?.trim() || "";
     order.returnConditionAssurance = Boolean(conditionAssurance);
     order.returnImages = Array.isArray(images) ? images.slice(0, 5) : [];
@@ -266,6 +282,9 @@ export class OrderReturnService {
       pricing: order.pricing,
       payment: order.payment,
       returnReason: order.returnReason,
+      returnMoney: buildReturnMoneyView(order, { role: isAdmin ? "admin" : isOwnerSeller ? "seller" : "customer" }),
+      returnReasonCode: order.returnReasonCode || null,
+      returnFault: order.returnFault || null,
       returnReasonDetail: order.returnReasonDetail,
       returnConditionAssurance: order.returnConditionAssurance,
       returnRejectedReason: order.returnRejectedReason,
@@ -607,82 +626,83 @@ export class OrderReturnService {
             );
           }
 
-          // 2. Seller adjustment.
+          // 2. Money split (see returnMoney.js): the seller gives back what THEY earned on the returned
+          //    items (not the full price) and, if the return is the seller's fault, the pickup fee; the
+          //    admin gives back the commission on those items.
+          const money = computeReturnMoney(order);
           const entityId = order.seller;
           const entityOwnerType = OWNER_TYPE.SELLER;
           const entityUserModel = "Seller";
+          const applied = {
+            appliedAt: new Date(),
+            refundAmount: money.refundAmount,
+            sellerShare: money.sellerShare,
+            adminCommission: money.adminCommission,
+            adminCommissionReversed: 0,
+            pickupFee: money.pickupFee,
+            pickupFeePayer: money.pickupFeePayer,
+            sellerCharged: 0,
+            fromPendingPayout: 0,
+            fromWallet: 0,
+            owedBySeller: 0,
+            payoutAction: "none",
+          };
 
-          if (entityId && (refundAmount > 0 || commission > 0)) {
-            const isHeld =
-              order.settlementStatus?.sellerPayout === "HOLD" ||
-              order.financeFlags?.sellerPayoutHeld;
+          if (entityId && money.sellerCharged > 0) {
+            let remaining = money.sellerCharged;
 
-            if (isHeld) {
-              try {
-                const cancelled = await cancelPendingPayoutForOrder(
-                  order._id,
-                  entityOwnerType,
+            // 2a. First take it off the seller's payout that has not been paid yet (a partial return only
+            //     reduces it; a full return cancels it).
+            const payoutResult = await reducePendingPayoutForOrder(
+              order._id,
+              PAYOUT_TYPE.SELLER,
+              remaining,
+              {
+                remarks: "Return accepted (QC passed): payout reduced by the returned items.",
+                session,
+              },
+            );
+            if (payoutResult.mode) {
+              applied.fromPendingPayout = payoutResult.reducedBy;
+              applied.payoutAction = payoutResult.mode;
+              remaining = Math.max(0, Math.round((remaining - payoutResult.reducedBy) * 100) / 100);
+              if (payoutResult.mode === "cancelled") {
+                await Order.updateOne(
+                  { _id: order._id },
                   {
-                    remarks: "Payout cancelled due to return QC passed.",
-                    session,
-                  },
-                );
-
-                if (cancelled) {
-                  await Order.updateOne(
-                    { _id: order._id },
-                    {
-                      $set: {
-                        "settlementStatus.sellerPayout": "CANCELLED",
-                        "financeFlags.sellerPayoutHeld": false,
-                      },
+                    $set: {
+                      "settlementStatus.sellerPayout": "CANCELLED",
+                      "financeFlags.sellerPayoutHeld": false,
                     },
-                    { session },
-                  );
-                }
-              } catch (error) {
-                // Inside withTransaction(): bubble up so the txn aborts.
-                logger.error("Payout cancellation failed for entity", {
-                  scope: "ReturnFinance",
-                  entityId,
-                  error: error.message,
-                });
-                throw error;
-              }
-            } else {
-              const adjustment = Math.max(0, refundAmount + commission);
-              if (adjustment > 0) {
-                try {
-                  await walletService.debitWallet({
-                    ownerType: entityOwnerType,
-                    ownerId: entityId,
-                    amount: adjustment,
-                    bucket: "available",
-                    session,
-                    ledgerType: LEDGER_TRANSACTION_TYPE.REFUND,
-                    ledgerReference: `REF-RET-${order.orderId}`,
-                    ledgerDescription:
-                      "Seller wallet debited to recover refund + return commission",
-                    orderId: order._id,
-                    idempotencyKey: `RET-ADJ-DEBIT-${order._id}`,
-                    correlationId,
-                    metadata: { refundAmount, commission },
-                  });
-                } catch (error) {
-                  // Insufficient balance is a legitimate business
-                  // failure — must abort the whole refund flow so the
-                  // customer is not silently over-credited.
-                  logger.error("Wallet debit failed for entity", {
-                    scope: "ReturnFinance",
-                    entityId,
-                    error: error.message,
-                  });
-                  throw error;
-                }
+                  },
+                  { session },
+                );
               }
             }
 
-            const adjustment = Math.max(0, refundAmount + commission);
+            // 2b. What is left comes from the seller's wallet. If the wallet cannot cover it, the rest is
+            //     recorded as owed and taken from their next payouts; the refund itself never gets stuck.
+            if (remaining > 0) {
+              const recovered = await walletService.debitWalletUpTo({
+                ownerType: entityOwnerType,
+                ownerId: entityId,
+                amount: remaining,
+                session,
+                ledgerType: LEDGER_TRANSACTION_TYPE.REFUND,
+                ledgerReference: `REF-RET-${order.orderId}`,
+                ledgerDescription: "Seller wallet debited for the returned items (what the seller had earned)",
+                orderId: order._id,
+                idempotencyKey: `RET-ADJ-DEBIT-${order._id}`,
+                correlationId,
+                metadata: { sellerShare: money.sellerShare, pickupFee: money.pickupFee, payer: money.pickupFeePayer },
+              });
+              applied.fromWallet = recovered.debited;
+              applied.owedBySeller = recovered.shortfall;
+              if (applied.payoutAction === "none") applied.payoutAction = "wallet_debited";
+            }
+            applied.sellerCharged = money.sellerCharged;
+
+            // The seller's own transaction list shows what was really taken back from them.
             await Transaction.create(
               [
                 {
@@ -690,14 +710,45 @@ export class OrderReturnService {
                   userModel: entityUserModel,
                   order: order._id,
                   type: "Refund",
-                  amount: -adjustment,
+                  amount: -money.sellerCharged,
                   status: "Settled",
                   reference: `REF-RET-${order.orderId}`,
+                  meta: {
+                    sellerShare: money.sellerShare,
+                    pickupFee: money.pickupFeePayer === "seller" ? money.pickupFee : 0,
+                    action: applied.payoutAction,
+                    owedBySeller: applied.owedBySeller,
+                  },
                 },
               ],
               { session },
             );
           }
+
+          // 2c. The admin's commission on the returned items is taken back (online orders only).
+          if (money.adminCommissionReversed > 0) {
+            const adminWallet = await walletService.getOrCreateWallet(OWNER_TYPE.ADMIN, null, { session });
+            await createLedgerEntry(
+              {
+                orderId: order._id,
+                walletId: adminWallet._id,
+                actorType: OWNER_TYPE.ADMIN,
+                actorId: null,
+                type: LEDGER_TRANSACTION_TYPE.ADMIN_EARNING_REVERSED,
+                direction: LEDGER_DIRECTION.DEBIT,
+                amount: money.adminCommissionReversed,
+                paymentMode: order.paymentMode,
+                description: "Commission on returned items taken back",
+                reference: order.orderId,
+                idempotencyKey: `RET-ADMIN-REV-${order._id}`,
+                correlationId,
+              },
+              { session },
+            );
+            applied.adminCommissionReversed = money.adminCommissionReversed;
+          }
+
+          order.returnFinance = applied;
 
           // 3. Delivery partner earning for return pickup (idempotent
           //    guard: only credit if not already paid at OTP time).
@@ -757,7 +808,7 @@ export class OrderReturnService {
               if (pId && qty > 0) {
                 if (retItem.variantSlot) {
                   await Product.updateOne(
-                    { _id: pId, "variants.slot": retItem.variantSlot },
+                    { _id: pId, "variants.sku": retItem.variantSlot },
                     {
                       $inc: {
                         stock: qty,

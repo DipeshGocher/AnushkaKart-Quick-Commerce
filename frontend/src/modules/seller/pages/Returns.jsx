@@ -20,6 +20,7 @@ import { onReturnDropOtp } from "@core/services/orderSocket";
 import { createSocketTokenReader } from "@core/utils/authStorage";
 import { STORAGE_KEYS } from "@core/utils/storage";
 import ProofImagePicker from "@shared/components/ProofImagePicker";
+import ReturnMoneyCard from "@shared/components/ReturnMoneyCard";
 import {
     QC_NOTE_MIN_LENGTH,
     getQcCountdown,
@@ -843,7 +844,7 @@ const Returns = () => {
                                                 >
                                                     <div>
                                                         <p className="text-xs font-bold text-slate-900">
-                                                            {item.name}
+                                                            {item.name}{item.variantName ? ` (${item.variantName})` : ""}
                                                         </p>
                                                         <p className="text-xs text-slate-500">
                                                             Qty: {item.quantity}
@@ -880,6 +881,13 @@ const Returns = () => {
                                         </span>
                                     </p>
                                 </div>
+
+                                <ReturnMoneyCard money={selectedReturn.returnMoney} role="seller" />
+                                {selectedReturn.returnReason && (
+                                    <p className="text-xs text-slate-600">
+                                        Reason: <span className="font-bold text-slate-800">{selectedReturn.returnReason}</span>
+                                    </p>
+                                )}
 
                                 {/* Active OTP Display */}
                                 {activeOtps[selectedReturn.orderId] && (

@@ -1,6 +1,12 @@
 // Comprehensive Order Management System
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Navigate } from 'react-router-dom';
+import {
+    ORDER_VIEWS,
+    orderGroupTitle,
+    resolveOrdersView,
+    legacyOrderRedirect,
+} from '@shared/utils/adminOrderViews';
 import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
 import Pagination from '@shared/components/ui/Pagination';
@@ -261,8 +267,22 @@ const AdminOrderTableRow = React.memo(function AdminOrderTableRow({
     );
 });
 
+/**
+ * Two pages only: Active Orders and Completed Orders. The pills under the title narrow the list.
+ * Old URLs (/admin/orders/pending, /delivered, ...) redirect to the matching group + pill.
+ */
 const OrdersList = () => {
-    const { status = 'all' } = useParams();
+    const { status: segment = 'active' } = useParams();
+    const redirect = legacyOrderRedirect(segment);
+    if (redirect) return <Navigate to={redirect} replace />;
+    return <OrdersListPage group={segment} />;
+};
+
+const OrdersListPage = ({ group: groupParam }) => {
+    const [searchParams, setSearchParams] = useSearchParams();
+    // `status` is the filter the rest of this page (and the server) already understands:
+    // the group ("active" / "completed") or one pill inside it ("pending", "delivered", ...).
+    const { group, status } = resolveOrdersView(groupParam, searchParams.get('view'));
     const navigate = useNavigate();
     const { showToast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
@@ -324,7 +344,7 @@ const OrdersList = () => {
         setIsLoading(true);
         try {
             const params = { page: requestedPage, limit: pageSize };
-            if (status !== 'all') params.status = status;
+            params.status = status;
             if (searchTerm.trim()) params.search = searchTerm.trim();
             if (sortBy) params.sort = sortBy;
             if (dateRange !== 'All Time') {
@@ -518,11 +538,10 @@ const OrdersList = () => {
         showToast('Order ledger exported successfully', 'success');
     };
 
-    const pageTitle = status === 'all'
-        ? 'All Orders'
-        : status === 'upi-pending'
-        ? 'Pending UPI Approvals'
-        : status.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    const pageTitle = orderGroupTitle(group);
+    const views = ORDER_VIEWS[group];
+    // Numbers on the pills that need the admin's attention
+    const pillCount = (id) => (id === 'upi-pending' ? summary.upiPending : id === 'pending' ? summary.pending : 0);
 
     return (
         <div className="ds-section-spacing animate-in fade-in slide-in-from-bottom-4 duration-700 pb-12">
@@ -535,7 +554,11 @@ const OrdersList = () => {
                             <ShoppingBag className="h-5 w-5 text-fuchsia-600" />
                         </div>
                     </h1>
-                    <p className="ds-description mt-1">View and manage all orders.</p>
+                    <p className="ds-description mt-1">
+                        {group === 'completed'
+                            ? 'Delivered and cancelled orders. Orders with a return are in Returns.'
+                            : 'Orders that are still in progress. Orders with a return are in Returns.'}
+                    </p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button
@@ -609,6 +632,38 @@ const OrdersList = () => {
                     </Card>
                 ))}
             </div>
+
+            {/* Pills: narrow this page (same page, just a filter) */}
+            <nav data-testid="order-pills" className="flex flex-wrap items-center gap-2 px-1" aria-label="Order filters">
+                {views.map((v) => {
+                    const selected = status === v.id;
+                    const count = pillCount(v.id);
+                    return (
+                        <button
+                            key={v.id}
+                            type="button"
+                            data-testid={`order-pill-${v.id}`}
+                            onClick={() => {
+                                const next = new URLSearchParams(searchParams);
+                                if (v.id === group) next.delete('view'); else next.set('view', v.id);
+                                setSearchParams(next, { replace: true });
+                                setPage(1);
+                            }}
+                            className={cn(
+                                'px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2',
+                                selected ? 'bg-fuchsia-600 text-white shadow-md shadow-fuchsia-100' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
+                            )}
+                        >
+                            {v.label}
+                            {count > 0 && (
+                                <span className={cn('min-w-5 h-5 px-1.5 rounded-full text-[10px] font-black flex items-center justify-center', selected ? 'bg-white text-fuchsia-700' : 'bg-rose-500 text-white')}>
+                                    {count}
+                                </span>
+                            )}
+                        </button>
+                    );
+                })}
+            </nav>
 
             {/* Orders Table Section */}
             <Card className="border-none shadow-2xl ring-1 ring-slate-100/50 bg-white rounded-xl overflow-hidden">

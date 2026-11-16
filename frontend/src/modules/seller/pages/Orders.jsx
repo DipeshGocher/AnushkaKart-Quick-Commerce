@@ -40,6 +40,25 @@ import { useSellerOrders } from '../context/SellerOrdersContext';
 import { onOrderStatusUpdate } from '@/core/services/orderSocket';
 import { createSocketTokenReader } from '@core/utils/authStorage';
 import { STORAGE_KEYS } from '@core/utils/storage';
+import { parcelWarningText } from "@shared/utils/parcel";
+
+/** The payment line shown to the seller, from the order's real payment mode and status. */
+const describePayment = (order) => {
+    const mode = String(order?.paymentMode || '').toUpperCase();
+    const status = String(order?.paymentStatus || '').toUpperCase();
+    const legacy = String(order?.payment?.method || '').toLowerCase();
+    if (mode === 'COD' || (!mode && (legacy === 'cash' || legacy === 'cod'))) {
+        return status === 'CASH_COLLECTED' ? 'Cash on Delivery · cash collected' : 'Cash on Delivery';
+    }
+    if (mode === 'UPI_QR') {
+        if (status === 'PAID') return 'UPI QR · payment verified';
+        if (status === 'REJECTED') return 'UPI QR · payment rejected';
+        return 'UPI QR · awaiting verification';
+    }
+    if (status === 'PAID' || order?.payment?.status === 'completed') return 'Online Paid';
+    if (status === 'REFUNDED') return 'Online · refunded';
+    return 'Online payment pending';
+};
 
 const Orders = () => {
     const { orders: ordersFromContext } = useSellerOrders();
@@ -148,8 +167,10 @@ const Orders = () => {
                     phone: order.customer?.phone || '',
                     avatar: (order.customer?.name || 'U').charAt(0)
                 },
+                parcelIssues: Array.isArray(order.parcelIssues) ? order.parcelIssues : [],
                 items: (order.items || []).map(item => ({
                     name: item.name,
+                    variantName: item.variantName,
                     price: item.price,
                     qty: item.quantity,
                     image: item.image
@@ -168,12 +189,11 @@ const Orders = () => {
                     ? new Date(order.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
                     : '',
                 address: order.address
-                    ? `${order.address.address || ''}, ${order.address.city || ''}`.trim()
+                    ? [order.address.address, order.address.city, order.address.state, order.address.pincode]
+                        .map((p) => String(p || '').trim()).filter(Boolean).join(', ')
                     : '',
                 location: order.address?.location || null,
-                payment: order.payment?.method === 'cash' || order.payment?.method === 'cod'
-                    ? 'Cash on Delivery'
-                    : 'Online Paid',
+                payment: describePayment(order),
                 shiprocket: order.shiprocket || null,
                 deliveryEstimate: order.deliveryEstimate || null,
                 rawOrder: order
@@ -271,12 +291,35 @@ const Orders = () => {
     };
 
     const handleStatusUpdate = async (orderId, newStatus) => {
+        // Courier orders: a missing weight / box size can bring a weight penalty cut from the payout.
+        const target = orders.find((o) => o.id === orderId) || (selectedOrder && selectedOrder.id === orderId ? selectedOrder : null);
+        if (target?.fulfillmentType === 'SHIPROCKET' && newStatus.toLowerCase() === 'packed' && target.parcelIssues?.length) {
+            const ok = window.confirm(`${parcelWarningText(target.parcelIssues)}\n\nPack anyway?`);
+            if (!ok) return;
+        }
         try {
-            await sellerApi.updateOrderStatus(orderId, { status: newStatus.toLowerCase() });
-            showToast(`Order status updated to ${newStatus}`, "success");
+            const res = await sellerApi.updateOrderStatus(orderId, { status: newStatus.toLowerCase() });
+            const updated = res?.data?.result;
+            const automation = updated?.fulfillmentType === 'SHIPROCKET' && newStatus.toLowerCase() === 'packed'
+                ? updated?.shiprocket?.automation
+                : null;
+            if (automation?.state === 'COMPLETE') {
+                showToast("Packed. Shipment, AWB, pickup and label are ready - print the label and stick it on the parcel.", "success");
+            } else if (automation?.state) {
+                showToast(
+                    `Packed, but the courier booking is not finished (${automation.lastError || automation.state}). It retries automatically; you can also press Retry on the order.`,
+                    "warning",
+                );
+            } else {
+                showToast(`Order status updated to ${newStatus}`, "success");
+            }
             fetchOrders(page, false); // Refresh orders without resetting page
             if (selectedOrder && selectedOrder.id === orderId) {
-                setSelectedOrder({ ...selectedOrder, status: newStatus });
+                setSelectedOrder({
+                    ...selectedOrder,
+                    status: newStatus,
+                    ...(updated?.shiprocket ? { shiprocket: updated.shiprocket } : {}),
+                });
             }
         } catch (error) {
             console.error("Failed to update status:", error);
@@ -332,18 +375,19 @@ const Orders = () => {
     const handleProcessShiprocket = async (orderId) => {
         try {
             setIsProcessingShiprocket(true);
-            const res = await sellerApi.processShiprocketOrder(orderId);
+            // One call re-runs every courier step that is still missing (shipment, AWB, pickup, label).
+            const res = await sellerApi.fulfillShiprocketOrder(orderId);
             if (res.data?.success) {
-                showToast(res.data.message || "Shiprocket shipment created & AWB assigned", "success");
-                const shipmentData = res.data.result?.shipment || res.data.result || null;
+                const result = res.data.result || {};
+                showToast(
+                    res.data.message || "Courier booking updated",
+                    result.complete ? "success" : "warning",
+                );
+                const shipmentData = result.shipment || null;
                 if (selectedOrder && selectedOrder.id === orderId) {
                     setSelectedOrder(prev => ({
                         ...prev,
-                        status: 'confirmed',
-                        shiprocket: shipmentData || {
-                            ...(prev.shiprocket || {}),
-                            currentStatus: 'AWB_ASSIGNED',
-                        }
+                        shiprocket: shipmentData || prev.shiprocket,
                     }));
                 }
                 fetchOrders(page, false, true);
@@ -966,7 +1010,6 @@ const Orders = () => {
                                                     <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 shadow-sm">
                                                         <p className="text-xs font-bold text-slate-800">{selectedOrder.customer.name}</p>
                                                         <p className="text-xs font-semibold text-slate-600 mt-0.5">{selectedOrder.customer.phone}</p>
-                                                        <p className="text-xs font-semibold text-slate-600 mt-0.5">{selectedOrder.customer.email || 'NA'}</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1004,9 +1047,17 @@ const Orders = () => {
                                                         )}
                                                         <div className="h-px bg-primary/10 my-2" />
                                                         <div className="flex justify-between text-sm">
-                                                            <span className="font-black text-slate-900">Total</span>
+                                                            <span className="font-black text-slate-900">Total (paid by customer)</span>
                                                             <span className="font-black text-primary">₹{Number(selectedOrder.total || 0).toFixed(2)}</span>
                                                         </div>
+                                                        {Number(selectedOrder.rawOrder?.paymentBreakdown?.sellerPayoutTotal || 0) > 0 && selectedOrder.status !== 'cancelled' && (
+                                                            <div className="flex justify-between text-xs pt-1">
+                                                                <span className="font-bold text-slate-600">Your earning (after commission)</span>
+                                                                <span className="font-black text-emerald-700" data-testid="seller-earning">
+                                                                    ₹{Number(selectedOrder.rawOrder.paymentBreakdown.sellerPayoutTotal).toFixed(2)}
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <div className="bg-slate-900 p-3 sm:p-4 rounded-3xl text-white shadow-xl shadow-slate-900/10">
@@ -1044,7 +1095,9 @@ const Orders = () => {
                                                             ? "bg-sky-100 text-sky-800"
                                                             : "bg-amber-100 text-amber-800"
                                                     }`}>
-                                                        {selectedOrder.shiprocket?.currentStatus || "PENDING SHIPMENT"}
+                                                        {selectedOrder.status === "cancelled" && !selectedOrder.shiprocket?.shipmentId
+                                                            ? "NOT BOOKED (CANCELLED)"
+                                                            : selectedOrder.shiprocket?.currentStatus || "PENDING SHIPMENT"}
                                                     </span>
                                                 </div>
 
@@ -1072,14 +1125,14 @@ const Orders = () => {
                                                     <div className="bg-white/80 backdrop-blur-sm p-3 rounded-2xl border border-sky-100">
                                                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Courier Partner</span>
                                                         <span className="font-black text-slate-800 text-xs mt-1 block truncate">
-                                                            {selectedOrder.shiprocket?.courierName || "Pending Assignment"}
+                                                            {selectedOrder.shiprocket?.courierName || (selectedOrder.shiprocket?.shipmentId ? "Pending Assignment" : "—")}
                                                         </span>
                                                     </div>
 
                                                     <div className="bg-white/80 backdrop-blur-sm p-3 rounded-2xl border border-sky-100">
                                                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Estimate</span>
                                                         <span className="font-bold text-slate-700 text-xs mt-1 block truncate">
-                                                            {selectedOrder.shiprocket?.etd || selectedOrder.deliveryEstimate || "3-4 days"}
+                                                            {selectedOrder.shiprocket?.etd || selectedOrder.deliveryEstimate || "—"}
                                                         </span>
                                                     </div>
 
@@ -1090,6 +1143,19 @@ const Orders = () => {
                                                         </span>
                                                     </div>
                                                 </div>
+
+                                                {/* Automatic booking status */}
+                                                {selectedOrder.shiprocket?.automation?.state === "COMPLETE" && (
+                                                    <p className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
+                                                        Ready: AWB, pickup and label are done. Print the label, stick it on the parcel and hand it to the courier.
+                                                    </p>
+                                                )}
+                                                {["AWB_PENDING", "PICKUP_PENDING", "LABEL_PENDING"].includes(selectedOrder.shiprocket?.automation?.state) && (
+                                                    <p className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+                                                        Courier booking is not finished: {selectedOrder.shiprocket.automation.lastError || selectedOrder.shiprocket.automation.state}.
+                                                        It is retried automatically every few minutes; press Retry to try right now.
+                                                    </p>
+                                                )}
 
                                                 {/* Action Controls */}
                                                 {!["cancelled", "delivered"].includes(selectedOrder.status) && (
@@ -1104,12 +1170,12 @@ const Orders = () => {
                                                                 {isProcessingShiprocket ? (
                                                                     <>
                                                                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                                        <span>Generating AWB...</span>
+                                                                        <span>Booking courier...</span>
                                                                     </>
                                                                 ) : (
                                                                     <>
                                                                         <Package className="h-3.5 w-3.5" />
-                                                                        <span>Generate AWB & Label</span>
+                                                                        <span>{selectedOrder.shiprocket?.shipmentId ? "Retry AWB, Pickup & Label" : "Book Courier (AWB, Pickup & Label)"}</span>
                                                                     </>
                                                                 )}
                                                             </button>
@@ -1201,6 +1267,11 @@ const Orders = () => {
                                             </div>
                                         )}
 
+                                        {selectedOrder.fulfillmentType === 'SHIPROCKET' && selectedOrder.parcelIssues?.length > 0 && (
+                                            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-800" data-testid="parcel-warning">
+                                                {parcelWarningText(selectedOrder.parcelIssues)}
+                                            </div>
+                                        )}
                                         <h4 className="text-xs font-black text-slate-600 uppercase tracking-widest mb-3 sm:mb-4">Items Ordered ({selectedOrder.items.length})</h4>
                                         <div className="space-y-3 max-h-52 sm:max-h-64 overflow-y-auto pr-1">
                                             {selectedOrder.items.map((item, idx) => (
@@ -1211,6 +1282,7 @@ const Orders = () => {
                                                         </div>
                                                         <div>
                                                             <p className="text-xs font-bold text-slate-900">{item.name}</p>
+                                                            {item.variantName && <p className="text-xs font-bold text-brand-600" data-testid="order-item-variant">{item.variantName}</p>}
                                                             <p className="text-xs font-semibold text-slate-600 mt-0.5">₹{item.price.toFixed(2)} × {item.qty}</p>
                                                         </div>
                                                     </div>

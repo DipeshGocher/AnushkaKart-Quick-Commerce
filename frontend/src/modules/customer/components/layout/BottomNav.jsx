@@ -226,16 +226,16 @@ const StylishProfileIcon = ({ isActive }) => (
     </div>
 );
 
-/* ── 5. MIDDLE CART BUTTON (Unchanged Orange-Skyblue Glowing Circle) ── */
+/* ── 5. MIDDLE CART BUTTON (Purple Glowing Circle) ── */
 const MiddleCartButton = ({ isActive, count }) => {
     return (
         <div className="relative -mt-5 flex flex-col items-center justify-center select-none group pointer-events-auto cursor-pointer">
             <motion.div
                 whileTap={{ scale: 0.93 }}
                 whileHover={{ scale: 1.05 }}
-                className="relative flex flex-col items-center justify-center w-[54px] h-[54px] rounded-full shadow-[0_6px_20px_rgba(255,122,0,0.32),0_2px_8px_rgba(2,132,199,0.25)] border-2 border-white transition-transform duration-200 pointer-events-auto"
+                className="relative flex flex-col items-center justify-center w-[54px] h-[54px] rounded-full shadow-[0_6px_20px_rgba(109,40,217,0.38),0_2px_8px_rgba(91,33,182,0.28)] border-2 border-white transition-transform duration-200 pointer-events-auto"
                 style={{
-                    background: 'linear-gradient(135deg, #FFA94D 0%, #FF7A00 42%, #38BDF8 85%, #0284C7 100%)',
+                    background: 'linear-gradient(135deg, #8B3DF0 0%, #6D28D9 55%, #5B21B6 100%)',
                 }}
             >
                 {/* Glossy glass reflection overlay */}
@@ -270,7 +270,7 @@ const MiddleCartButton = ({ isActive, count }) => {
 
                 {/* Notification Badge */}
                 {count > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-white bg-white px-1 text-[9px] font-black text-[#FF7A00] shadow-sm z-20">
+                    <span className="absolute -top-1 -right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-white bg-white px-1 text-[9px] font-black text-[#6D28D9] shadow-sm z-20">
                         {count > 99 ? '99+' : count}
                     </span>
                 )}

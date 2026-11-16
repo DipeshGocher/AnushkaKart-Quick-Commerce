@@ -110,6 +110,9 @@ export const customerApi = {
   placeOrder: (data) =>
     axiosInstance.post("/orders/place", data, { timeout: 120000 }),
   getMyOrders: () => getWithDedupe("/orders/my-orders"),
+  // The newest 100 orders (the server default is 20): the My Orders page groups them by category,
+  // so it needs more than one short page.
+  getMyOrdersForList: () => getWithDedupe("/orders/my-orders", { limit: 100 }),
   /**
    * Order details must reflect live workflow, but we still dedupe in-flight requests to avoid
    * network spam when multiple effects/events trigger refresh simultaneously.
@@ -125,6 +128,7 @@ export const customerApi = {
     axiosInstance.get(`/orders/workflow/${orderId}/route`, { params }),
   cancelOrder: (orderId, data) =>
     axiosInstance.put(`/orders/cancel/${orderId}`, data),
+  getReturnReasons: () => axiosInstance.get("/orders/return-reasons"),
   requestReturn: (orderId, data) =>
     axiosInstance.post(`/orders/${orderId}/returns`, data),
   getReturnDetails: (orderId) =>
@@ -143,11 +147,14 @@ export const customerApi = {
   getEmiProductInfo: (productId, variant) =>
     axiosInstance.get(`/emi/product/${encodeURIComponent(productId)}`, { params: { variant } }),
   calculateEmi: (data) => axiosInstance.post("/emi/calculate", data),
+  calculateEmiOptions: (data) => axiosInstance.post("/emi/calculate-options", data),
   createEmiQuote: (data) => axiosInstance.post("/emi/quotes", data),
 
   // Support & Reviews
   getProductReviews: (productId) =>
     getWithDedupe(`/reviews/product/${productId}`),
+  // The customer's own reviews (any status): which products are already rated.
+  getMyReviews: () => axiosInstance.get("/reviews/mine"),
   checkReviewEligibility: (productId) =>
     axiosInstance.get(`/reviews/check-eligibility/${productId}`),
   submitReview: (data) => {

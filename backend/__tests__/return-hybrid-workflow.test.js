@@ -109,10 +109,20 @@ jest.unstable_mockModule("../app/services/shipping/shiprocketService.js", () => 
 jest.unstable_mockModule("../app/services/finance/walletService.js", () => ({
   creditWallet: mockWalletCredit,
   debitWallet: mockWalletDebit,
+  // the seller's share of a refund is debited up to their balance (rest is owed)
+  debitWalletUpTo: jest.fn().mockResolvedValue({ debited: 0, shortfall: 0 }),
+  getOrCreateWallet: jest.fn().mockResolvedValue({ _id: "admin_wallet" }),
 }));
 
 jest.unstable_mockModule("../app/services/finance/payoutService.js", () => ({
   cancelPendingPayoutForOrder: jest.fn(),
+  // no unpaid payout in these fixtures
+  reducePendingPayoutForOrder: jest.fn().mockResolvedValue({ mode: null, reducedBy: 0, payout: null }),
+}));
+
+// the admin-commission reversal writes a ledger entry
+jest.unstable_mockModule("../app/services/finance/ledgerService.js", () => ({
+  createLedgerEntry: jest.fn().mockResolvedValue({}),
 }));
 
 jest.unstable_mockModule("../app/services/firebaseService.js", () => ({

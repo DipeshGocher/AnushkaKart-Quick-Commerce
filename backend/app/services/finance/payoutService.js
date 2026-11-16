@@ -309,6 +309,67 @@ export async function cancelPendingPayoutForOrder(orderId, payoutType, { remarks
   }
 }
 
+/**
+ * Makes a PENDING payout smaller (a partial return, or the pickup fee the seller has to pay).
+ * Reducing by the whole amount (or more) cancels the payout. Returns how much was taken off.
+ * @returns {{ mode: "cancelled"|"reduced"|null, reducedBy: number, payout: object|null }}
+ */
+export async function reducePendingPayoutForOrder(orderId, payoutType, reduceBy, { remarks, session } = {}) {
+  const wanted = roundCurrency(reduceBy);
+  if (!(wanted > 0)) return { mode: null, reducedBy: 0, payout: null };
+
+  const payout = await Payout.findOne(
+    {
+      relatedOrderIds: orderId,
+      payoutType,
+      status: { $in: [PAYOUT_STATUS.PENDING, PAYOUT_STATUS.PROCESSING] },
+    },
+    null,
+    { session },
+  );
+  if (!payout) return { mode: null, reducedBy: 0, payout: null };
+
+  const current = roundCurrency(payout.amount);
+  if (wanted >= current - 0.005) {
+    const cancelled = await cancelPendingPayoutForOrder(orderId, payoutType, {
+      remarks: remarks || "Payout cancelled due to return.",
+      session,
+    });
+    return { mode: cancelled ? "cancelled" : null, reducedBy: cancelled ? current : 0, payout: cancelled };
+  }
+
+  const ownerType = payoutTypeToOwnerType(payout.payoutType);
+  const wallet = await getOrCreateWallet(ownerType, payout.beneficiaryId, { session });
+  wallet.pendingBalance = roundCurrency(Math.max((wallet.pendingBalance || 0) - wanted, 0));
+  wallet.totalCredited = roundCurrency(Math.max((wallet.totalCredited || 0) - wanted, 0));
+  await wallet.save({ session });
+
+  payout.amount = roundCurrency(current - wanted);
+  payout.metadata = {
+    ...(payout.metadata || {}),
+    returnReducedBy: roundCurrency((payout.metadata?.returnReducedBy || 0) + wanted),
+  };
+  payout.remarks = remarks || "Payout reduced due to a return.";
+  if (typeof payout.markModified === "function") payout.markModified("metadata");
+  await payout.save({ session });
+
+  await createLedgerEntry(
+    {
+      orderId,
+      payoutId: payout._id,
+      walletId: wallet._id,
+      actorType: ownerType,
+      actorId: payout.beneficiaryId,
+      type: LEDGER_TRANSACTION_TYPE.PAYOUT_REDUCED,
+      direction: LEDGER_DIRECTION.DEBIT,
+      amount: wanted,
+      description: `Pending ${payout.payoutType} payout reduced due to a return.`,
+    },
+    { session },
+  );
+  return { mode: "reduced", reducedBy: wanted, payout };
+}
+
 export const bulkProcessPayouts = async ({
   payoutIds = [],
   payoutType,

@@ -5,6 +5,7 @@ import User from "../../models/customer.js";
 import Transaction from "../../models/transaction.js";
 import {
   LEDGER_DIRECTION,
+  LEDGER_TRANSACTION_TYPE,
   ORDER_PAYMENT_STATUS,
   OWNER_TYPE,
   PAYOUT_STATUS,
@@ -323,6 +324,113 @@ export async function debitWallet({
     bucket,
     ledgerEntry,
   };
+}
+
+/**
+ * Debits as much of `amount` as the owner's available balance can cover and records the rest as
+ * money still owed (wallet.recoverableDue), which is taken from their next payouts. The balance never
+ * goes below zero and the caller's transaction never fails because the owner is short of money
+ * (used when a seller has to give back a returned order's money).
+ * @returns {{ debited: number, shortfall: number }}
+ */
+export async function debitWalletUpTo({
+  ownerType,
+  ownerId,
+  amount,
+  session,
+  ledgerType = null,
+  ledgerReference = "",
+  ledgerDescription = "",
+  orderId = null,
+  metadata = null,
+  idempotencyKey = null,
+  correlationId = null,
+}) {
+  const wanted = assertPositiveAmount(amount);
+  const wallet = await getOrCreateWallet(ownerType, ownerId, { session });
+  if (wallet.status !== WALLET_STATUS.ACTIVE) {
+    throw new Error("Wallet is not active");
+  }
+  const available = roundCurrency(wallet.availableBalance || 0);
+  const take = Math.min(available, wanted);
+
+  let debited = 0;
+  if (take > 0) {
+    await debitWallet({
+      ownerType,
+      ownerId,
+      amount: take,
+      session,
+      ledgerType,
+      ledgerReference,
+      ledgerDescription,
+      orderId,
+      metadata,
+      idempotencyKey,
+      correlationId,
+    });
+    debited = take;
+  }
+
+  const shortfall = roundCurrency(wanted - debited);
+  if (shortfall > 0) {
+    const fresh = await getOrCreateWallet(ownerType, ownerId, { session });
+    fresh.recoverableDue = roundCurrency((fresh.recoverableDue || 0) + shortfall);
+    await fresh.save({ session });
+    await createLedgerEntry(
+      {
+        orderId,
+        walletId: fresh._id,
+        actorType: ownerType,
+        actorId: ownerId,
+        type: LEDGER_TRANSACTION_TYPE.RETURN_RECOVERY_DUE,
+        direction: LEDGER_DIRECTION.DEBIT,
+        amount: shortfall,
+        description: ledgerDescription || "Amount owed after a return; taken from the next payouts",
+        reference: ledgerReference,
+        metadata: { ...(metadata || {}), shortfall },
+      },
+      { session },
+    );
+  }
+  return { debited, shortfall };
+}
+
+/**
+ * Takes what an owner still owes (wallet.recoverableDue) out of `amount` (a payout about to be
+ * created). Returns how much was taken (0 when nothing is owed).
+ */
+export async function applyRecoverableDue({
+  ownerType,
+  ownerId,
+  amount,
+  session,
+  orderId = null,
+  reference = "",
+}) {
+  const gross = roundCurrency(amount);
+  if (gross <= 0 || !ownerId) return 0;
+  const wallet = await getOrCreateWallet(ownerType, ownerId, { session });
+  const due = roundCurrency(wallet.recoverableDue || 0);
+  const take = Math.min(due, gross);
+  if (take <= 0) return 0;
+  wallet.recoverableDue = roundCurrency(due - take);
+  await wallet.save({ session });
+  await createLedgerEntry(
+    {
+      orderId,
+      walletId: wallet._id,
+      actorType: ownerType,
+      actorId: ownerId,
+      type: LEDGER_TRANSACTION_TYPE.RETURN_RECOVERY_APPLIED,
+      direction: LEDGER_DIRECTION.DEBIT,
+      amount: take,
+      description: "Owed return amount recovered from this payout",
+      reference,
+    },
+    { session },
+  );
+  return take;
 }
 
 export async function movePendingToAvailable({

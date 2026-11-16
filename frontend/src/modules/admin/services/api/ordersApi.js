@@ -18,6 +18,8 @@ export const adminOrdersApi = {
 
     getReturns: (params) =>
         axiosInstance.get('/orders/seller-returns', { params }),
+    // Numbers for the sidebar badges (what needs the admin right now)
+    getAdminNavCounts: () => axiosInstance.get('/orders/admin-nav-counts'),
     getReturnDetails: (orderId) =>
         axiosInstance.get(`/orders/${orderId}/returns`),
     approveReturn: (orderId, data) =>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@core/context/AuthContext";
 import { useSettings } from "@core/context/SettingsContext";
@@ -314,8 +314,18 @@ const SidebarContent = ({ items, title, onClose, openMenu, handleToggle, hovered
 
 const Sidebar = ({ items, title, isOpen, onClose }) => {
   const { role } = useAuth();
-  const [openMenu, setOpenMenu] = useState(null);
+  const { pathname } = useLocation();
+  // The group that holds the page we are on starts open (and opens when we move to one of its pages),
+  // so the admin always sees where they are. Clicking a group still opens / closes it.
+  const groupOfPath = (path) =>
+    (items || []).find((it) => Array.isArray(it.children) && it.children.some((c) => c.path === path))?.label || null;
+  const [openMenu, setOpenMenu] = useState(() => groupOfPath(pathname));
   const [hoveredIdx, setHoveredIdx] = useState(null);
+  useEffect(() => {
+    const group = groupOfPath(pathname);
+    if (group) setOpenMenu(group);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   const handleToggle = (label) => {
     setOpenMenu((prev) => (prev === label ? null : label));

@@ -14,11 +14,12 @@ const RATING_LABELS = {
     5: 'Excellent'
 };
 
-const ReviewSubmissionModal = ({ isOpen, onClose, product, onReviewSubmitted }) => {
+const ReviewSubmissionModal = ({ isOpen, onClose, product, onReviewSubmitted, initialRating }) => {
     const { showToast } = useToast();
     const fileInputRef = useRef(null);
 
-    const [rating, setRating] = useState(5);
+    // `initialRating`: the star the customer tapped on the My Orders page (mount the modal fresh for each tap).
+    const [rating, setRating] = useState(Math.min(5, Math.max(1, Number(initialRating) || 5)));
     const [hoverRating, setHoverRating] = useState(0);
     const [comment, setComment] = useState('');
     const [selectedFiles, setSelectedFiles] = useState([]);
@@ -131,7 +132,7 @@ const ReviewSubmissionModal = ({ isOpen, onClose, product, onReviewSubmitted }) 
             if (res.data?.success) {
                 showToast('Review submitted! It will appear once verified by admin.', 'success');
                 if (onReviewSubmitted) {
-                    onReviewSubmitted(productId);
+                    onReviewSubmitted(productId, { rating, comment: comment.trim() });
                 }
                 onClose();
             } else {

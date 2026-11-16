@@ -14,6 +14,8 @@ import { buildKey, getOrSet, getTTL } from "./cacheService.js";
 import { resolveWorkflowStatus } from "./orderWorkflowService.js";
 import logger from "./logger.js";
 import { sanitizeOrderForCustomer } from "../utils/customerShipmentView.js";
+import { buildReturnMoneyView } from "./order/returnMoney.js";
+import { attachParcelIssues } from "../utils/parcelCheck.js";
 
 function svcErr(message, statusCode) {
   const error = new Error(message);
@@ -42,12 +44,39 @@ function isUpiPendingFilter(statusParam) {
   return String(statusParam || "").toLowerCase().trim().replace(/_/g, "-") === "upi-pending";
 }
 
+/** Order statuses that are finished (or belong to the Returns pages), so they are never "active". */
+const NOT_ACTIVE_ORDER_STATUSES = ["delivered", "cancelled", "returned", "refunded"];
+const NO_RETURN = {
+  $or: [{ returnStatus: { $in: ["none", null, ""] } }, { returnStatus: { $exists: false } }],
+};
+
 function normalizeSellerStatusFilter(statusParam) {
   if (!statusParam || statusParam === "all") {
     return {};
   }
 
   const normalized = String(statusParam).toLowerCase().trim().replace(/_/g, "-");
+
+  // Admin "Active Orders": everything still in progress and not in a return. Any status we do not know
+  // by name counts as active too, so an order can never fall out of every list.
+  if (normalized === "active") {
+    return { status: { $nin: NOT_ACTIVE_ORDER_STATUSES }, ...NO_RETURN };
+  }
+  // Admin "Completed Orders": delivered (with no return in progress/finished) and cancelled.
+  if (normalized === "completed") {
+    return {
+      $or: [
+        {
+          status: "delivered",
+          $or: [
+            { returnStatus: { $in: ["none", "return_rejected", null, ""] } },
+            { returnStatus: { $exists: false } },
+          ],
+        },
+        { status: "cancelled" },
+      ],
+    };
+  }
 
   if (normalized === "upi-pending") {
     return { ...UNAPPROVED_UPI_ORDER };
@@ -172,7 +201,7 @@ export async function fetchSellerOrdersPage({
       .skip(skip)
       .limit(limit)
       .populate("customer", "name phone")
-      .populate("items.product", "name mainImage price salePrice")
+      .populate("items.product", "name mainImage price salePrice weight length breadth height")
       .populate("deliveryBoy", "name phone profileImage image location vehicleType")
       .populate("seller", "shopName name location address")
       .lean(),
@@ -298,6 +327,8 @@ export async function fetchSellerOrdersPage({
     summary.confirmed +
     summary.packed +
     summary.outForDelivery;
+
+  attachParcelIssues(orders);
 
   return {
     query,
@@ -546,7 +577,8 @@ export async function getCustomerOrders(customerId, pagination) {
           .sort({ createdAt: -1, _id: -1 })
           .skip(skip)
           .limit(limit)
-          .populate("items.product", "name mainImage price salePrice conditionType catalogType refurbishedDetails isReturnable returnWindowDays returnPolicyNote")
+          // headerId: lets the My Orders page group orders by header category (Grocery, Mobile, ...)
+          .populate("items.product", "name mainImage headerId price salePrice conditionType catalogType refurbishedDetails isReturnable returnWindowDays returnPolicyNote")
           .lean(),
         Order.countDocuments({ customer: customerId }),
       ]);
@@ -580,11 +612,12 @@ export async function getOrderWithAccess(orderId, userId, role) {
 
   let order = await Order.findOne(orderKey)
     .populate("customer", "name email phone")
-    .populate("items.product", "name mainImage price salePrice conditionType catalogType refurbishedDetails isReturnable returnWindowDays returnPolicyNote")
+    .populate("items.product", "name mainImage price salePrice weight length breadth height conditionType catalogType refurbishedDetails isReturnable returnWindowDays returnPolicyNote")
     .populate("deliveryBoy", "name phone")
     .populate("returnDeliveryBoy", "name phone")
     .populate("seller", "shopName name address phone location")
     .lean();
+  if (order && (role === "admin" || role === "seller")) attachParcelIssues([order]);
 
   if (!order) {
     if (orderId && orderId.startsWith("CHK-")) {
@@ -783,16 +816,62 @@ export async function getOrderWithAccess(orderId, userId, role) {
 /**
  * Returns paginated seller/admin view of orders with active return status.
  */
+/** Return statuses where someone still has something to do (request, pickup, QC, refund retry). */
+export const ACTIVE_RETURN_STATUSES = [
+  "return_requested",
+  "return_approved",
+  "return_pickup_assigned",
+  "return_in_transit",
+  "return_drop_pending",
+  "returned",
+  "qc_passed",
+];
+/** Closed for good: refund paid or request rejected. A failed QC joins them once its dispute is settled. */
+export const DONE_RETURN_STATUSES = ["refund_completed", "return_rejected"];
+
+/**
+ * Mongo filter for the admin Returns pages.
+ *   active    = ACTIVE_RETURN_STATUSES, plus a failed QC that is still open (customer may dispute within the
+ *               window / a dispute is open / the seller payout has not been released yet).
+ *   completed = DONE_RETURN_STATUSES, plus a failed QC that is settled (payout released, or admin ruled).
+ */
+export function returnGroupQuery(group) {
+  const g = String(group || "").toLowerCase();
+  const failedQcSettled = {
+    returnStatus: "qc_failed",
+    $or: [
+      { returnQcPayoutReleasedAt: { $ne: null, $exists: true } },
+      { "returnDispute.status": { $in: ["upheld", "overturned"] } },
+    ],
+  };
+  if (g === "active") {
+    return {
+      $or: [
+        { returnStatus: { $in: ACTIVE_RETURN_STATUSES } },
+        {
+          returnStatus: "qc_failed",
+          returnQcPayoutReleasedAt: { $in: [null] },
+          "returnDispute.status": { $nin: ["upheld", "overturned"] },
+        },
+      ],
+    };
+  }
+  if (g === "completed") {
+    return { $or: [{ returnStatus: { $in: DONE_RETURN_STATUSES } }, failedQcSettled] };
+  }
+  return null;
+}
+
 export async function getSellerReturns({
   role,
   userId,
   filters = {},
   pagination,
 }) {
-  const { status, startDate, endDate } = filters;
+  const { status, startDate, endDate, group } = filters;
   const { page, limit, skip } = pagination;
 
-  const query = {};
+  let query = {};
   if (role !== "admin") {
     query.seller = userId;
   }
@@ -800,6 +879,12 @@ export async function getSellerReturns({
 
   if (status && status !== "all") {
     query.returnStatus = status;
+  }
+
+  // Active / Completed Returns pages
+  const groupQuery = returnGroupQuery(group);
+  if (groupQuery) {
+    query = { $and: [query, groupQuery] };
   }
 
   if (startDate || endDate) {
@@ -828,11 +913,45 @@ export async function getSellerReturns({
   const now = new Date();
   return {
     // `qc` = server-computed QC deadlines / dispute window so every panel shows the same times.
-    items: orders.map((o) => ({ ...o, qc: buildQcView(o, now) })),
+    items: orders.map((o) => ({
+      ...o,
+      qc: buildQcView(o, now),
+      // the money split for the Returns pages (a seller only gets their own side of it)
+      returnMoney: buildReturnMoneyView(o, { role: role === "admin" ? "admin" : "seller" }),
+    })),
     page,
     limit,
     total,
     totalPages: Math.ceil(total / limit) || 1,
+  };
+}
+
+/**
+ * Small numbers for the admin sidebar badges: what needs the admin's attention right now.
+ *   orders  = UPI payments to approve + brand-new orders
+ *   returns = return requests to approve + items waiting for QC + open disputes
+ */
+export async function getAdminNavCounts() {
+  const notUnapprovedUpi = { $nor: [{ ...UNAPPROVED_UPI_ORDER }] };
+  const [upiPending, newOrders, activeOrders, activeReturns, returnRequests, qcWaiting, openDisputes] = await Promise.all([
+    Order.countDocuments({ ...UNAPPROVED_UPI_ORDER }),
+    Order.countDocuments({ status: "pending", ...notUnapprovedUpi }),
+    Order.countDocuments({ ...normalizeSellerStatusFilter("active"), ...notUnapprovedUpi }),
+    Order.countDocuments(returnGroupQuery("active")),
+    Order.countDocuments({ returnStatus: "return_requested" }),
+    Order.countDocuments({ returnStatus: "returned" }),
+    Order.countDocuments({ "returnDispute.status": "open" }),
+  ]);
+  return {
+    upiPending,
+    newOrders,
+    activeOrders,
+    activeReturns,
+    returnRequests,
+    qcWaiting,
+    openDisputes,
+    ordersNeedAction: upiPending + newOrders,
+    returnsNeedAction: returnRequests + qcWaiting + openDisputes,
   };
 }
 
@@ -843,4 +962,5 @@ export default {
   getCustomerOrders,
   getOrderWithAccess,
   getSellerReturns,
+  getAdminNavCounts,
 };

@@ -43,6 +43,7 @@ import { cn } from "@/lib/utils";
 import { useSettings } from "@core/context/SettingsContext";
 import ReviewSubmissionModal from "../components/shared/ReviewSubmissionModal";
 import { customerApi } from "../services/customerApi";
+import { FALLBACK_RETURN_REASONS } from "@/shared/constants/returnReasons";
 import { getCourierDeliveryDateText } from "../services/deliveryService";
 import { toast } from "sonner";
 import { subscribeToOrderLocation, subscribeToOrderTrail, subscribeToOrderRoute } from "@/core/services/trackingClient";
@@ -194,13 +195,31 @@ const OrderDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [returnDetails, setReturnDetails] = useState(null);
   const [showReturnModal, setShowReturnModal] = useState(false);
+
+  // Load the return reasons from the server when the return form opens (the built-in list is the fallback).
+  useEffect(() => {
+    if (!showReturnModal) return undefined;
+    let alive = true;
+    customerApi
+      .getReturnReasons()
+      .then((res) => {
+        const list = res?.data?.results || res?.data?.result;
+        if (alive && Array.isArray(list) && list.length) setReturnReasons(list);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [showReturnModal]);
   const [showDisputeModal, setShowDisputeModal] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
   const [disputeImages, setDisputeImages] = useState([]);
   const [submittingDispute, setSubmittingDispute] = useState(false);
   const [requestingReturn, setRequestingReturn] = useState(false);
   const [selectedReturnItems, setSelectedReturnItems] = useState({});
-  const [returnReason, setReturnReason] = useState("");
+  const [returnReason, setReturnReason] = useState(""); // the reason's text (label)
+  const [returnReasonCode, setReturnReasonCode] = useState("");
+  const [returnReasons, setReturnReasons] = useState(FALLBACK_RETURN_REASONS);
   const [returnReasonDetail, setReturnReasonDetail] = useState("");
   const [returnConditionAssurance, setReturnConditionAssurance] = useState(false);
   const [returnImages, setReturnImages] = useState([]);
@@ -922,7 +941,7 @@ const OrderDetailPage = () => {
       toast.error("Please select at least one item to return.");
       return;
     }
-    if (!returnReason.trim()) {
+    if (!returnReasonCode || !returnReason.trim()) {
       toast.error("Please provide a reason for return.");
       return;
     }
@@ -940,6 +959,7 @@ const OrderDetailPage = () => {
         itemIndex: Number(idx),
         quantity: val.quantity,
       })),
+      reasonCode: returnReasonCode,
       reason: returnReason,
       reasonDetail: returnReasonDetail,
       conditionAssurance: returnConditionAssurance,
@@ -953,6 +973,7 @@ const OrderDetailPage = () => {
       setShowReturnModal(false);
       setSelectedReturnItems({});
       setReturnReason("");
+      setReturnReasonCode("");
       setReturnReasonDetail("");
       setReturnConditionAssurance(false);
       setReturnImages([]);
@@ -1473,6 +1494,9 @@ const OrderDetailPage = () => {
                   <h4 className="font-semibold text-slate-800 text-sm mb-0.5 truncate">
                     {item.name}
                   </h4>
+                  {item.variantName && (
+                    <p className="text-xs font-bold text-slate-500 mb-0.5" data-testid="order-item-variant">{item.variantName}</p>
+                  )}
                   <p className="text-slate-500 text-xs font-medium">
                     Qty: {item.quantity}
                   </p>
@@ -1967,7 +1991,7 @@ const OrderDetailPage = () => {
                     <div className="bg-brand-50 p-4 rounded-2xl border border-brand-100">
                       <p className="text-xs font-bold text-brand-800 uppercase tracking-wider mb-1">Refund Successful</p>
                       <p className="text-sm text-brand-700 font-medium">
-                        ₹{returnDetails.returnRefundAmount} has been credited to your {order.paymentMethod === 'cod' ? 'hand (Cash)' : 'wallet'}.
+                        ₹{returnDetails.returnRefundAmount} has been credited to your wallet.
                       </p>
                     </div>
                   )}
@@ -2094,7 +2118,7 @@ const OrderDetailPage = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-bold text-slate-800 truncate">
-                          {item.name}
+                          {item.name}{item.variantName ? ` (${item.variantName})` : ""}
                         </p>
                         {isItemNonReturnable && (
                           <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
@@ -2122,16 +2146,19 @@ const OrderDetailPage = () => {
                   Reason for return
                 </label>
                 <select
-                  value={returnReason}
-                  onChange={(e) => setReturnReason(e.target.value)}
+                  data-testid="return-reason"
+                  value={returnReasonCode}
+                  onChange={(e) => {
+                    const picked = returnReasons.find((r) => r.code === e.target.value);
+                    setReturnReasonCode(picked?.code || "");
+                    setReturnReason(picked?.label || "");
+                  }}
                   className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-900/10"
                 >
                   <option value="" disabled>Select a reason...</option>
-                  <option value="Defective product">Defective product</option>
-                  <option value="Wrong item delivered">Wrong item delivered</option>
-                  <option value="Not as expected">Not as expected</option>
-                  <option value="Size issue">Size issue</option>
-                  <option value="Other">Other</option>
+                  {returnReasons.map((r) => (
+                    <option key={r.code} value={r.code}>{r.label}</option>
+                  ))}
                 </select>
               </div>
 

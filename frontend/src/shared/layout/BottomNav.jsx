@@ -15,7 +15,7 @@ const BottomNav = () => {
     // Define the primary bottom nav items based on user role
     const primaryItems = role === 'admin' ? [
         { label: 'Dashboard', path: '/admin', icon: LayoutDashboard, end: true },
-        { label: 'Orders', path: '/admin/orders/all', icon: ClipboardList },
+        { label: 'Orders', path: '/admin/orders/active', icon: ClipboardList },
         { label: 'Products', path: '/admin/products', icon: Box },
         { label: 'Wallet', path: '/admin/wallet', icon: Wallet },
     ] : [
