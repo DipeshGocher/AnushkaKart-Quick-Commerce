@@ -12,6 +12,7 @@ import { compensateOrderCancellation } from "../orderCompensation.js";
 import { emitNotificationEvent } from "../../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../../modules/notifications/notification.constants.js";
 import { invalidate, buildKey } from "../cacheService.js";
+import { parseWeightKg } from "../../utils/parcelCheck.js";
 import {
   normalizeShipmentStatus,
   outOfOrderReason,
@@ -398,10 +399,7 @@ export async function processShiprocketOrder(orderParam) {
   const productsById = new Map(productDocs.map((product) => [String(product._id), product]));
   const defaultItemWeightKg = Number(process.env.SHIPROCKET_DEFAULT_ITEM_WEIGHT_KG || 0.5);
   const itemWeightKg = (product) => {
-    const raw = String(product?.weight || "").trim().toLowerCase();
-    const match = raw.match(/^(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|grams?)$/);
-    if (!match) return defaultItemWeightKg;
-    return match[2].startsWith("k") ? Number(match[1]) : Number(match[1]) / 1000;
+    return parseWeightKg(product?.weight) ?? defaultItemWeightKg;
   };
 
   let maxLength = 10;
@@ -548,6 +546,104 @@ export async function processShiprocketOrder(orderParam) {
     const msg = error.response?.data?.message || error.message;
     throw new Error(`Shiprocket Error: ${typeof msg === "object" ? JSON.stringify(msg) : msg}`);
   }
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Pulls a readable reason out of the different shapes Shiprocket uses for a failed AWB assignment. */
+function awbFailureReason(error, data) {
+  const parts = [];
+  const pick = (v) => {
+    if (!v) return;
+    if (typeof v === "string") parts.push(v);
+    else if (typeof v === "object") parts.push(JSON.stringify(v));
+  };
+  pick(error?.response?.data?.message);
+  pick(data?.message);
+  pick(data?.response?.data?.awb_assign_error);
+  pick(data?.awb_assign_error);
+  if (!parts.length) pick(error?.message);
+  return parts.join(" | ").slice(0, 300) || "no reason given";
+}
+
+/**
+ * Assigns the AWB (courier + tracking number) to a shipment that already exists on Shiprocket.
+ * Used when the automatic assignment during booking was skipped or failed: it retries a few
+ * times (couriers sometimes answer "try again") and throws only if every attempt failed.
+ * Idempotent: an order that already has an AWB is returned untouched.
+ */
+export async function assignShiprocketAwb(order, { attempts = 3, retryDelayMs = 1500 } = {}) {
+  if (order.shiprocket?.awb) return { awb: order.shiprocket.awb, alreadyAssigned: true };
+
+  const shipmentId = order.shiprocket?.shipmentId;
+  if (!shipmentId) {
+    const err = new Error("Shipment has not been generated for this order yet");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (!isShiprocketConfigured()) {
+    if (process.env.NODE_ENV === "production") {
+      const err = new Error("Shiprocket API credentials are not configured; AWB cannot be assigned");
+      err.statusCode = 503;
+      throw err;
+    }
+    const mockAwb = `SR${Math.floor(10000000 + Math.random() * 90000000)}IN`;
+    order.shiprocket.awb = mockAwb;
+    order.shiprocket.courierName = order.shiprocket.courierName || "Delhivery Surface";
+    order.shiprocket.trackingUrl = `https://shiprocket.co/tracking/${mockAwb}`;
+    order.shiprocket.currentStatus = "AWB_ASSIGNED";
+    order.shiprocket.history.push({
+      status: "AWB_ASSIGNED",
+      location: order.address?.city || "",
+      timestamp: new Date(),
+      remarks: `Simulated local mode: AWB ${mockAwb} generated.`,
+      source: "system",
+    });
+    await order.save();
+    return { awb: mockAwb, simulated: true };
+  }
+
+  const token = await getShiprocketAuthToken();
+  let lastReason = "no reason given";
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const res = await axios.post(
+        `${SHIPROCKET_BASE_URL}/courier/assign/awb`,
+        { shipment_id: shipmentId },
+        { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 },
+      );
+      const data = res.data?.response?.data;
+      if (data?.awb_code) {
+        const sr = order.shiprocket;
+        sr.awb = String(data.awb_code);
+        sr.courierName = data.courier_name || sr.courierName || "Shiprocket Courier Partner";
+        if (data.courier_company_id) sr.courierId = String(data.courier_company_id);
+        sr.trackingUrl = `https://shiprocket.co/tracking/${sr.awb}`;
+        if (["NEW", "ORDER_CREATED", "PENDING_DISPATCH", null, undefined, ""].includes(sr.currentStatus)) {
+          sr.currentStatus = "AWB_ASSIGNED";
+        }
+        sr.lastEventAt = new Date();
+        sr.history.push({
+          status: "AWB_ASSIGNED",
+          location: order.address?.city || "",
+          timestamp: new Date(),
+          remarks: `AWB ${sr.awb} assigned (${sr.courierName}).`,
+          source: "api",
+        });
+        await order.save();
+        return { awb: sr.awb, attempts: attempt };
+      }
+      lastReason = awbFailureReason(null, res.data);
+    } catch (error) {
+      lastReason = awbFailureReason(error, error.response?.data);
+    }
+    if (attempt < attempts) await sleep(retryDelayMs * attempt);
+  }
+
+  const err = new Error(`Courier AWB could not be assigned after ${attempts} tries: ${lastReason}`);
+  err.statusCode = 502;
+  throw err;
 }
 
 /**
@@ -772,11 +868,18 @@ export async function getShiprocketLabel(orderParam) {
   }
 
   const token = await getShiprocketAuthToken();
-  const res = await axios.post(
-    `${SHIPROCKET_BASE_URL}/courier/generate/label`,
-    { shipment_id: [shipmentId] },
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
+  let res;
+  try {
+    res = await axios.post(
+      `${SHIPROCKET_BASE_URL}/courier/generate/label`,
+      { shipment_id: [shipmentId] },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+  } catch (error) {
+    // Shiprocket hiccup: a label we already saved still works for the parcel.
+    if (order.shiprocket?.labelUrl) return { success: true, labelUrl: order.shiprocket.labelUrl, cached: true };
+    throw error;
+  }
 
   const labelUrl = res.data?.label_url;
   if (labelUrl) {

@@ -27,6 +27,7 @@ import {
   getShiprocketReverseLabel,
   updateShiprocketReverseStatus,
 } from "../services/shipping/shiprocketService.js";
+import { autoFulfillShiprocketOrder } from "../services/shipping/shiprocketAutomation.js";
 import { getErrorStatus } from "../utils/httpError.js";
 
 /**
@@ -283,6 +284,26 @@ export const processShiprocket = async (req, res) => {
     await verifyOrderShipmentAccess(orderId, req.user);
     const result = await processShiprocketOrder(orderId);
     return handleResponse(res, 200, result.message || "Shiprocket shipment processed", result);
+  } catch (error) {
+    return handleResponse(res, getErrorStatus(error), error.message);
+  }
+};
+
+/**
+ * Admin / Seller: run (or resume) the whole courier pipeline for an order:
+ * shipment -> AWB -> pickup -> label. Safe to press repeatedly; it continues where it stopped.
+ */
+export const fulfillShiprocket = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    await verifyOrderShipmentAccess(orderId, req.user);
+    const result = await autoFulfillShiprocketOrder(orderId);
+    const message = result.inProgress
+      ? "Courier booking is already in progress. Please wait a moment."
+      : result.complete
+        ? "Shipment, AWB, pickup and label are ready. Print the label."
+        : `Courier booking is not finished yet (${result.state}). It will be retried automatically.`;
+    return handleResponse(res, 200, message, result);
   } catch (error) {
     return handleResponse(res, getErrorStatus(error), error.message);
   }

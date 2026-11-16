@@ -10,6 +10,7 @@ import {
   deletePincode,
   togglePincode,
   processShiprocket,
+  fulfillShiprocket,
   scheduleShiprocketPickup,
   fetchShiprocketLabel,
   updateShiprocketStatusManual,
@@ -44,6 +45,7 @@ router.patch("/pincodes/:id/toggle", verifyToken, allowRoles("admin"), togglePin
 
 /* Shiprocket Fulfillment operations (Admin & Seller) */
 router.post("/shiprocket/process/:orderId", verifyToken, allowRoles("admin", "seller"), processShiprocket);
+router.post("/shiprocket/fulfill/:orderId", verifyToken, allowRoles("admin", "seller"), fulfillShiprocket);
 router.post("/shiprocket/pickup/:orderId", verifyToken, allowRoles("admin", "seller"), scheduleShiprocketPickup);
 router.get("/shiprocket/label/:orderId", verifyToken, allowRoles("admin", "seller"), fetchShiprocketLabel);
 router.post("/shiprocket/manual-status/:orderId", verifyToken, allowRoles("admin"), updateShiprocketStatusManual);

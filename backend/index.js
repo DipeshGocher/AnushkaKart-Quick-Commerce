@@ -32,6 +32,7 @@ import { getOrderAutoCancelJobHandler, getOrderAutoCancelJobInterval } from "./a
 import { getReturnWindowReleaseJobHandler, getReturnWindowReleaseJobInterval } from "./app/jobs/returnWindowReleaseJob.js";
 import { getReturnQcJobHandler, getReturnQcJobInterval } from "./app/jobs/returnQcJob.js";
 import { getUpiExpiryJobHandler, getUpiExpiryJobInterval } from "./app/jobs/upiApprovalExpiryJob.js";
+import { getShiprocketAutomationJobHandler, getShiprocketAutomationJobInterval } from "./app/jobs/shiprocketAutomationJob.js";
 import {
   getPayoutBatchJobHandler,
   getPayoutBatchJobInterval,
@@ -155,6 +156,9 @@ function createApp() {
       "X-Admin-Request",
       "X-Skip-Cache",
     ],
+    // Let the browser remember the preflight answer. Without this every cross-origin API call
+    // (the mobile app always is one) sends an extra OPTIONS request first. Chrome caps it at 2h.
+    maxAge: 86400,
   };
 
   // Middleware
@@ -366,6 +370,13 @@ async function startScheduler() {
     getUpiExpiryJobHandler()
   );
 
+  // Courier "Packed" automation: finish bookings that stopped at AWB / pickup / label
+  registerScheduledJob(
+    'shiprocketAutomationJob',
+    getShiprocketAutomationJobInterval(),
+    getShiprocketAutomationJobHandler()
+  );
+
   // Return QC SLA: reminders -> admin escalation -> auto-pass, dispute-window payout release, refund retry
   registerScheduledJob(
     'returnQcJob',
@@ -408,7 +419,7 @@ async function startScheduler() {
   await startScheduledJobs();
   registerSchedulerStopper(stopScheduledJobs);
 
-  const scheduledJobs = ['orderAutoCancelJob', 'returnWindowReleaseJob', 'returnQcJob', 'upiApprovalExpiryJob'];
+  const scheduledJobs = ['orderAutoCancelJob', 'returnWindowReleaseJob', 'returnQcJob', 'upiApprovalExpiryJob', 'shiprocketAutomationJob'];
   if (isPayoutBatchJobEnabled()) scheduledJobs.push('payoutBatchJob');
   if (isWalletLedgerVerifierEnabled()) scheduledJobs.push('walletLedgerVerifierJob');
   if (isFirebaseTrackingCleanupJobEnabled()) scheduledJobs.push('firebaseTrackingCleanupJob');

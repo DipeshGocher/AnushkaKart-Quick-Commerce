@@ -16,6 +16,7 @@ const mockGetShiprocketLabel = jest.fn();
 
 jest.unstable_mockModule("../app/services/shipping/shiprocketService.js", () => ({
   processShiprocketOrder: mockProcessShiprocketOrder,
+  assignShiprocketAwb: jest.fn(),
   requestShiprocketPickup: mockRequestShiprocketPickup,
   getShiprocketLabel: mockGetShiprocketLabel,
   listLocalPincodes: jest.fn(),
@@ -42,6 +43,7 @@ jest.unstable_mockModule("../app/models/localPincode.js", () => ({
 
 const {
   processShiprocket,
+  fulfillShiprocket,
   scheduleShiprocketPickup,
   fetchShiprocketLabel,
 } = await import("../app/controller/shippingController.js");
@@ -98,7 +100,7 @@ describe("Shiprocket Access Control & RBAC (Admin vs Seller)", () => {
         select: jest.fn().mockReturnValue({
           lean: jest.fn().mockResolvedValue({
             orderId: "ORD-SELLER-01",
-            seller: sellerId,
+            seller: sellerId,
           }),
         }),
       });
@@ -128,7 +130,7 @@ describe("Shiprocket Access Control & RBAC (Admin vs Seller)", () => {
         select: jest.fn().mockReturnValue({
           lean: jest.fn().mockResolvedValue({
             orderId: "ORD-OTHER-01",
-            seller: otherSellerId,
+            seller: otherSellerId,
           }),
         }),
       });
@@ -152,7 +154,7 @@ describe("Shiprocket Access Control & RBAC (Admin vs Seller)", () => {
         select: jest.fn().mockReturnValue({
           lean: jest.fn().mockResolvedValue({
             orderId: "ORD-SELLER-POP-01",
-            seller: { _id: sellerId, shopName: "My Shop" },
+            seller: { _id: sellerId, shopName: "My Shop" },
           }),
         }),
       });
@@ -190,6 +192,30 @@ describe("Shiprocket Access Control & RBAC (Admin vs Seller)", () => {
     });
   });
 
+  describe("fulfillShiprocket (retry of the whole courier pipeline)", () => {
+    it("rejects a seller who does not own the order, before anything runs", async () => {
+      const req = { params: { orderId: "ORD-OTHER-02" }, user: { id: "64b7f1a2c3d4e5f6a7b8c9d0", role: "seller" } };
+      const res = createMockRes();
+      mockOrderFindOne.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          lean: jest.fn().mockResolvedValue({ orderId: "ORD-OTHER-02", seller: "64b7f1a2c3d4e5f6a7b8c9d1" }),
+        }),
+      });
+
+      await fulfillShiprocket(req, res);
+
+      expect(res.statusCode).toBe(403);
+      expect(res.body.message).toContain("Unauthorized");
+      expect(mockProcessShiprocketOrder).not.toHaveBeenCalled();
+    });
+
+    it("needs a logged-in user", async () => {
+      const res = createMockRes();
+      await fulfillShiprocket({ params: { orderId: "ORD-1" }, user: null }, res);
+      expect(res.statusCode).toBe(401);
+    });
+  });
+
   describe("scheduleShiprocketPickup", () => {
     it("allows Seller to schedule pickup for their own order", async () => {
       const sellerId = "64b7f1a2c3d4e5f6a7b8c9d0";
@@ -203,7 +229,7 @@ describe("Shiprocket Access Control & RBAC (Admin vs Seller)", () => {
         select: jest.fn().mockReturnValue({
           lean: jest.fn().mockResolvedValue({
             orderId: "ORD-SELLER-02",
-            seller: sellerId,
+            seller: sellerId,
           }),
         }),
       });
@@ -232,7 +258,7 @@ describe("Shiprocket Access Control & RBAC (Admin vs Seller)", () => {
         select: jest.fn().mockReturnValue({
           lean: jest.fn().mockResolvedValue({
             orderId: "ORD-OTHER-02",
-            seller: otherSellerId,
+            seller: otherSellerId,
           }),
         }),
       });
@@ -257,7 +283,7 @@ describe("Shiprocket Access Control & RBAC (Admin vs Seller)", () => {
         select: jest.fn().mockReturnValue({
           lean: jest.fn().mockResolvedValue({
             orderId: "ORD-SELLER-03",
-            seller: sellerId,
+            seller: sellerId,
           }),
         }),
       });
@@ -286,7 +312,7 @@ describe("Shiprocket Access Control & RBAC (Admin vs Seller)", () => {
         select: jest.fn().mockReturnValue({
           lean: jest.fn().mockResolvedValue({
             orderId: "ORD-OTHER-03",
-            seller: otherSellerId,
+            seller: otherSellerId,
           }),
         }),
       });

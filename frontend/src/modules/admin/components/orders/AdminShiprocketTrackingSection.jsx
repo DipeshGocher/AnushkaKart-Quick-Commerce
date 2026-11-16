@@ -46,9 +46,9 @@ export default function AdminShiprocketTrackingSection({ orderId, order }) {
   };
 
   const activeIndex = getStageIndex();
-  const courierName = shiprocket.courierName || "Blue Dart Express";
+  const courierName = shiprocket.courierName || "Courier not assigned yet";
   const awbCode = shiprocket.awb || null;
-  const etd = shiprocket.etd || order?.deliveryEstimate || "3-5 Business Days";
+  const etd = shiprocket.etd || order?.deliveryEstimate || null;
   const trackingUrl = shiprocket.trackingUrl || (awbCode ? `https://shiprocket.co/tracking/${awbCode}` : null);
 
   const handleCopyAwb = () => {
@@ -73,7 +73,7 @@ export default function AdminShiprocketTrackingSection({ orderId, order }) {
             </span>
           </h3>
           <p className="text-[11px] font-semibold text-slate-500">
-            {courierName} • Surface Doorstep Delivery
+            {courierName}
           </p>
         </div>
         <div className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 rounded-full border border-blue-200/60 shadow-xs">
@@ -153,10 +153,10 @@ export default function AdminShiprocketTrackingSection({ orderId, order }) {
                 Delivery Estimate
               </p>
               <h4 className="text-lg font-black text-slate-900 tracking-tight">
-                {etd}
+                {etd || "Shown once the courier is assigned"}
               </h4>
               <p className="text-[11px] text-slate-500 font-medium">
-                Standard Courier Delivery ({courierName})
+                {courierName}
               </p>
             </div>
           </div>
