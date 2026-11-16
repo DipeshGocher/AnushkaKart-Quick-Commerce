@@ -423,3 +423,16 @@ body {
   z-index: 9999 !important;
   pointer-events: auto !important;
 }
+
+/* ── Weak phones (see core/utils/devicePerformance.js → <html data-perf="low">) ──
+   Blurring what is behind a bar/sheet is re-drawn on every scroll frame, which is what makes
+   budget Android phones stutter. Drop the blur there and make the glass nearly solid instead. */
+html[data-perf="low"] [class*="backdrop-blur"],
+html[data-perf="low"] .glass-panel,
+html[data-perf="low"] .glass-card {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+html[data-perf="low"] [class*="backdrop-blur"][class*="bg-white/"] {
+  background-color: rgba(255, 255, 255, 0.97) !important;
+}

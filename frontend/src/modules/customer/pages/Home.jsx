@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, memo } from "react";
 import { useNavigate, useLocation as useRouterLocation, useParams } from "react-router-dom";
 import { slugify } from "@/core/utils/productUrl";
 import { motion, useScroll, useTransform } from "framer-motion";
@@ -20,13 +20,23 @@ import CuratedCategoryDealsSection from "../components/home/CuratedCategoryDeals
 import TopDealsOnProducts from "../components/home/TopDealsOnProducts";
 import HeaderCategoryProductsSection from "../components/home/HeaderCategoryProductsSection";
 import NewArrivalsSection from "../components/home/NewArrivalsSection";
-import quickCommerceBanner from "@/assets/quick_commerce_banner.png";
+import quickCommerceBanner from "@/assets/quick_commerce_banner.webp";
 import ForYouProductsSection from "../components/home/ForYouProductsSection";
 import HeaderCategoryPageView from "../components/home/HeaderCategoryPageView";
+import DeferredSection from "../components/shared/DeferredSection";
 import PageSkeleton from '@/shared/components/PageSkeleton';
 import NotFoundPage from '@/shared/components/NotFoundPage';
 import { getDefaultHomeHeroBanners } from '@shared/constants/homeHeroDefaults';
 import { clearAllCache, invalidateCache } from "@core/api/dedupe";
+
+// Home re-renders when its own state changes (location, active header, loading flags).
+// The big sections only need to re-render when their own inputs change.
+const MemoGreeting = memo(AllCategoriesGreeting);
+const MemoCuratedDeals = memo(CuratedCategoryDealsSection);
+const MemoTopDeals = memo(TopDealsOnProducts);
+const MemoHeaderProducts = memo(HeaderCategoryProductsSection);
+const MemoNewArrivals = memo(NewArrivalsSection);
+const MemoForYou = memo(ForYouProductsSection);
 
 const DEFAULT_CATEGORY_THEME = {
   gradient: "linear-gradient(to bottom, var(--primary), var(--brand-400))",
@@ -137,6 +147,13 @@ const Home = () => {
   const navigate = useNavigate();
   const routerLocation = useRouterLocation();
   const cachedHomePageData = getCachedHomePageData(currentLocation);
+
+  // A shared product link (/product/:id -> /?product=:id) opens the product sheet over Home.
+  // Fetching the whole Home feed behind it only slows the product down, so on that first load
+  // the feed waits until the sheet is closed.
+  const productSheetOpen = Boolean(new URLSearchParams(routerLocation.search).get("product"));
+  const [openedFromProductLink] = useState(productSheetOpen);
+  const feedReady = !openedFromProductLink || !productSheetOpen;
 
   const { language } = useTranslation();
   const { getTranslatedText } = usePageTranslation(homeStaticTexts);
@@ -420,7 +437,7 @@ const Home = () => {
     }
   };
 
-  useEffect(() => { fetchData(); }, [currentLocation?.latitude, currentLocation?.longitude]);
+  useEffect(() => { if (feedReady) fetchData(); }, [currentLocation?.latitude, currentLocation?.longitude, feedReady]);
 
   // Auto-refresh home data when network connection is restored
   useEffect(() => {
@@ -445,6 +462,7 @@ const Home = () => {
   const heroConfigCache = useRef(heroConfigMemoryCache);
 
   useEffect(() => {
+    if (!feedReady) return undefined;
     const fetchHeroConfig = async (force = false) => {
       try {
         const isHeader = activeCategory && activeCategory._id !== "all";
@@ -537,7 +555,7 @@ const Home = () => {
         try { bc.close(); } catch (_) {}
       }
     };
-  }, [activeCategory, currentLocation?.latitude, currentLocation?.longitude]);
+  }, [activeCategory, currentLocation?.latitude, currentLocation?.longitude, feedReady]);
 
   useEffect(() => {
     const firstUrl = heroConfig?.banners?.items?.[0]?.imageUrl;
@@ -563,6 +581,13 @@ const Home = () => {
       })
       .map((category) => ({ id: category._id || category.id, name: category.name, image: category.image || category.iconImage || '' }));
   }, [displayCategories, displayCategoryMap]);
+
+  // Same array between renders, so the memoised sections below do not re-render for nothing.
+  const curatedSubCategories = useMemo(() => Object.values(displaySubcategoryMap || {}), [displaySubcategoryMap]);
+  const homeBanners = useMemo(() => {
+    const configured = (heroConfig.banners?.items || []).filter((b) => b && b.imageUrl && b.status !== "inactive");
+    return configured.length > 0 ? configured : getDefaultHomeHeroBanners();
+  }, [heroConfig]);
 
   const isMobile = useMemo(() => isMobileOrWebView(), []);
   const opacity = useTransform(scrollY, (heroVisible && !isMobile) ? [0, 300] : [0, 0], [1, 0.6]);
@@ -607,15 +632,7 @@ const Home = () => {
         <PageSkeleton variant="home-content" />
       ) : (
         <div className="w-full transition-opacity duration-150">
-        {isAllCategorySelected && (() => {
-          const configuredBanners = (heroConfig.banners?.items || []).filter(
-            (b) => b && b.imageUrl && b.status !== "inactive"
-          );
-          const homeBanners = configuredBanners.length > 0
-            ? configuredBanners
-            : getDefaultHomeHeroBanners();
-          if (homeBanners.length === 0) return null;
-
+        {isAllCategorySelected && homeBanners.length > 0 && (() => {
           return (
             <motion.div ref={heroRef} className="block will-change-transform pt-0" style={isMobile ? { opacity: 1 } : { opacity, y, scale, pointerEvents }}>
               <div className="w-full min-w-0 max-w-none px-3 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16 mt-1.5 sm:mt-2 md:mt-4 mb-1 relative z-20 overflow-hidden">
@@ -636,32 +653,41 @@ const Home = () => {
         })()}
 
         {isAllCategorySelected && (
-          <AllCategoriesGreeting
+          <MemoGreeting
             categories={allMainCategories}
             firstName={firstName}
             greetingConfig={heroConfig?.greetingSection}
           />
         )}
-        {isAllCategorySelected && (
-          <CuratedCategoryDealsSection
+        {isAllCategorySelected && feedReady && (
+          <MemoCuratedDeals
             pageType="home"
             heroConfig={heroConfig}
-            subCategories={Object.values(displaySubcategoryMap || {})}
+            subCategories={curatedSubCategories}
           />
         )}
-        {isAllCategorySelected && (
-          <TopDealsOnProducts
-            latitude={currentLocation?.latitude}
-            longitude={currentLocation?.longitude}
-            subcategoryMap={displaySubcategoryMap}
-            categoryMap={displayCategoryMap}
-          />
+        {/* Everything below starts loading only when it is about to scroll into view */}
+        {isAllCategorySelected && feedReady && (
+          <DeferredSection id="home-top-deals" minHeight={300}>
+            <MemoTopDeals
+              latitude={currentLocation?.latitude}
+              longitude={currentLocation?.longitude}
+              subcategoryMap={displaySubcategoryMap}
+              categoryMap={displayCategoryMap}
+            />
+          </DeferredSection>
         )}
-        {isAllCategorySelected && <HeaderCategoryProductsSection latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} heroConfig={heroConfig} />}
-        {isAllCategorySelected && (
-          <div className="w-full max-w-none px-0 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">
-            <NewArrivalsSection latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} />
-          </div>
+        {isAllCategorySelected && feedReady && (
+          <DeferredSection id="home-header-products" minHeight={420}>
+            <MemoHeaderProducts latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} heroConfig={heroConfig} />
+          </DeferredSection>
+        )}
+        {isAllCategorySelected && feedReady && (
+          <DeferredSection id="home-new-arrivals" minHeight={320}>
+            <div className="w-full max-w-none px-0 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">
+              <MemoNewArrivals latitude={currentLocation?.latitude} longitude={currentLocation?.longitude} />
+            </div>
+          </DeferredSection>
         )}
 
         {isAllCategorySelected && (() => {
@@ -707,14 +733,16 @@ const Home = () => {
           );
         })()}
 
-        {isAllCategorySelected && (
-          <div className="w-full max-w-none px-0 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">
-            <ForYouProductsSection
-              categories={displayCategories}
-              latitude={currentLocation?.latitude}
-              longitude={currentLocation?.longitude}
-            />
-          </div>
+        {isAllCategorySelected && feedReady && (
+          <DeferredSection id="home-for-you" minHeight={500}>
+            <div className="w-full max-w-none px-0 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">
+              <MemoForYou
+                categories={displayCategories}
+                latitude={currentLocation?.latitude}
+                longitude={currentLocation?.longitude}
+              />
+            </div>
+          </DeferredSection>
         )}
 
         {!isAllCategorySelected && (

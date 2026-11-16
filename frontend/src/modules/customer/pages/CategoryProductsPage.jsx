@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils';
 import { applyCloudinaryTransform, isPngImage, IMAGE_PRESETS } from '@/core/utils/imageUtils';
 import { getProductUrl, slugify, getProductVariantText } from '@/core/utils/productUrl';
 import CategoryIcon from '@shared/components/CategoryIcon';
-import ProductDetailSheet from '../components/shared/ProductDetailSheet';
 import { useProductDetail } from '../context/ProductDetailContext';
 import { customerApi } from '../services/customerApi';
 import MiniCart from '../components/shared/MiniCart';

@@ -14,7 +14,9 @@ const ProductDetailPage = () => {
   const navigate = useNavigate();
 
   const headerSlug = String(params.headerSlug || '').toLowerCase();
-  const productId = searchParams.get('id') || params.id || params.productSlug;
+  // /header/category/[sub-category/]product comes in as a splat: the product is the last segment.
+  const lastSplatSegment = String(params['*'] || '').split('/').filter(Boolean).pop();
+  const productId = searchParams.get('id') || params.id || params.productSlug || lastSplatSegment;
 
   if (headerSlug && RESERVED_MODULE_SLUGS.has(headerSlug)) {
     return <NotFoundPage />;

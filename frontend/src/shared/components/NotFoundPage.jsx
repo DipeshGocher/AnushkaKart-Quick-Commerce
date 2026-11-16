@@ -1,11 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, lazy, Suspense } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Home, RefreshCw, LayoutDashboard, LogIn } from 'lucide-react';
-import Lottie from 'lottie-react';
-import emptyBoxAnimation from '@/assets/lottie/Empty box.json';
 import { useSettings } from '@core/context/SettingsContext';
 import { useAuth } from '@core/context/AuthContext';
+
+// The animation library is big, so it loads only when a 404 is really shown.
+const NotFoundAnimation = lazy(() => import('./NotFoundAnimation'));
 
 const NotFoundPage = () => {
     const navigate = useNavigate();
@@ -114,12 +115,9 @@ const NotFoundPage = () => {
 
                 {/* 404 Lottie Animation */}
                 <div className="w-48 h-48 mx-auto -my-2 flex items-center justify-center">
-                    <Lottie
-                        animationData={emptyBoxAnimation}
-                        loop={true}
-                        autoplay={true}
-                        className="w-full h-full object-contain"
-                    />
+                    <Suspense fallback={null}>
+                        <NotFoundAnimation />
+                    </Suspense>
                 </div>
 
                 {/* 404 Headline */}

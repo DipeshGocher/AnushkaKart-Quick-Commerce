@@ -103,18 +103,33 @@ export const applyThemeVariables = applyThemeColors;
  * Updates dynamic browser favicon across all icon link tags.
  * Replaces tags and adds cache-buster so browsers immediately refresh tab icon.
  */
+// One cache-buster per page load. It used to be Date.now() on every call, so every settings
+// refresh made the browser download the logo again (3 tags x every call).
+const FAVICON_PAGE_VERSION = Date.now();
+let lastAppliedFavicon = null;
+
 export function applyFavicon(faviconUrl) {
   if (typeof document === 'undefined') return;
   const url = (faviconUrl && String(faviconUrl).trim()) || '/logo.png?v=connect';
   if (!url) return;
+  // Same icon as the last call: nothing to do.
+  if (lastAppliedFavicon === url) return;
 
   try {
+    // The page already ships with this very icon (index.html): keep those tags, no second download.
+    const current = document.querySelector("link[rel='icon']");
+    if (!lastAppliedFavicon && current && current.getAttribute('href') === url) {
+      lastAppliedFavicon = url;
+      return;
+    }
+    lastAppliedFavicon = url;
+
     const existingLinks = document.querySelectorAll("link[rel*='icon'], link[rel='apple-touch-icon']");
     existingLinks.forEach(el => el.remove());
 
     const cacheBuster = url.startsWith('data:')
       ? url
-      : `${url}${url.includes('?') ? '&' : '?'}v=connect_${Date.now()}`;
+      : `${url}${url.includes('?') ? '&' : '?'}v=connect_${FAVICON_PAGE_VERSION}`;
 
     const link = document.createElement('link');
     link.rel = 'icon';

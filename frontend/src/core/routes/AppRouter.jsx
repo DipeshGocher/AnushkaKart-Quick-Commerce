@@ -1,9 +1,9 @@
 import React, { lazy, useMemo, useEffect, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider, Outlet, Navigate, useOutlet, useLocation, useNavigationType, useParams } from 'react-router-dom';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from 'framer-motion';
+import { isLowEndDevice } from '../utils/devicePerformance';
 import ProtectedRoute from '../guards/ProtectedRoute';
-import RoleGuard from '../guards/RoleGuard';
-import { UserRole } from '../constants/roles';
+import lazyWithRetry from '../utils/lazyWithRetry';
 import RootErrorBoundary from '../../shared/components/RootErrorBoundary';
 import { setActiveRole, ROLES } from '../auth/activeRoleStore';
 
@@ -17,11 +17,17 @@ import { LocationProvider } from '../../modules/customer/context/LocationContext
 import PageSkeleton from '../../shared/components/PageSkeleton';
 import ScrollToTop from '../../modules/customer/components/shared/ScrollToTop';
 
-// Public Pages
-import Auth from '../../modules/seller/pages/Auth';
-import ApplicationPending from '../../modules/seller/pages/ApplicationPending';
-import AdminAuth from '../../modules/admin/pages/AdminAuth';
-import DeliveryAuth from '../../modules/delivery/pages/DeliveryAuth';
+// Seller / admin / delivery code is loaded only when one of those pages is opened,
+// so a customer never downloads it (login screens included).
+const Auth = lazyWithRetry(() => import('../../modules/seller/pages/Auth'));
+const ApplicationPending = lazyWithRetry(() => import('../../modules/seller/pages/ApplicationPending'));
+const AdminAuth = lazyWithRetry(() => import('../../modules/admin/pages/AdminAuth'));
+const DeliveryAuth = lazyWithRetry(() => import('../../modules/delivery/pages/DeliveryAuth'));
+const SellerPanel = lazyWithRetry(() => import('./panels/SellerPanel'));
+const AdminPanel = lazyWithRetry(() => import('./panels/AdminPanel'));
+const DeliveryPanel = lazyWithRetry(() => import('./panels/DeliveryPanel'));
+
+// Customer public pages (small, needed on the first screen of a logged-out customer)
 import CustomerAuth from '../../modules/customer/pages/CustomerAuth';
 import VerifyOtpPage from '../../modules/customer/pages/VerifyOtpPage';
 
@@ -56,9 +62,6 @@ const NotificationsPage = lazy(() => import('../../modules/customer/pages/Notifi
 import NotFoundPage from '../../shared/components/NotFoundPage';
 
 
-import SellerRoutes, { sellerRoutes } from '../../modules/seller/routes/index';
-import AdminRoutes, { adminRoutes } from '../../modules/admin/routes/index';
-import DeliveryRoutes, { deliveryRoutes } from '../../modules/delivery/routes/index';
 const DynamicLegalPage = lazy(() => import('../../shared/components/DynamicLegalPage'));
 const DeliveryHelpSupport = lazy(() => import('../../modules/delivery/pages/profile/HelpSupport'));
 
@@ -116,9 +119,15 @@ const RESERVED_CUSTOMER_SLUGS = new Set([
 ]);
 
 const HierarchicalProductRoute = () => {
-    const { headerSlug } = useParams();
+    const { headerSlug, '*': splat } = useParams();
     const cleanHeader = String(headerSlug || '').toLowerCase();
     if (cleanHeader && (RESERVED_CUSTOMER_SLUGS.has(cleanHeader) || ['admin', 'seller', 'delivery'].includes(cleanHeader))) {
+        return <NotFoundPage />;
+    }
+    // header/category/[sub-category/]product is at most 4 segments; the splat holds the part after
+    // the first two, so more than two extra segments is not a product link.
+    const extraSegments = String(splat || '').split('/').filter(Boolean).length;
+    if (extraSegments > 2) {
         return <NotFoundPage />;
     }
     return <ProductDetailPage />;
@@ -145,19 +154,19 @@ const AppRouter = () => {
                 },
                 {
                     path: 'seller/auth',
-                    element: <Auth />,
+                    element: <Suspense fallback={<PageSkeleton />}><Auth /></Suspense>,
                 },
                 {
                     path: 'seller/pending-approval',
-                    element: <ApplicationPending />,
+                    element: <Suspense fallback={<PageSkeleton />}><ApplicationPending /></Suspense>,
                 },
                 {
                     path: 'admin/auth',
-                    element: <AdminAuth />,
+                    element: <Suspense fallback={<PageSkeleton />}><AdminAuth /></Suspense>,
                 },
                 {
                     path: 'delivery/auth',
-                    element: <DeliveryAuth />,
+                    element: <Suspense fallback={<PageSkeleton />}><DeliveryAuth /></Suspense>,
                 },
                 // Public legal and support pages for each module
                 {
@@ -252,50 +261,18 @@ const AppRouter = () => {
                     path: 'admin/support',
                     element: <Suspense fallback={<PageSkeleton variant="rows" />}><SupportPage /></Suspense>,
                 },
+                // Each panel brings its own routes (and its own 404) inside the lazy file.
                 {
-                    path: 'seller',
-                    element: (
-                        <ProtectedRoute>
-                            <RoleGuard allowedRoles={[UserRole.SELLER]}>
-                                <SellerRoutes />
-                            </RoleGuard>
-                        </ProtectedRoute>
-                    ),
-                    children: sellerRoutes,
-                },
-                {
-                    path: 'admin',
-                    element: (
-                        <ProtectedRoute>
-                            <RoleGuard allowedRoles={[UserRole.ADMIN]}>
-                                <AdminRoutes />
-                            </RoleGuard>
-                        </ProtectedRoute>
-                    ),
-                    children: adminRoutes,
-                },
-                {
-                    path: 'delivery',
-                    element: (
-                        <ProtectedRoute>
-                            <RoleGuard allowedRoles={[UserRole.DELIVERY]}>
-                                <DeliveryRoutes />
-                            </RoleGuard>
-                        </ProtectedRoute>
-                    ),
-                    children: deliveryRoutes,
+                    path: 'seller/*',
+                    element: <Suspense fallback={<PageSkeleton variant="dashboard" />}><SellerPanel /></Suspense>,
                 },
                 {
                     path: 'admin/*',
-                    element: <NotFoundPage />,
-                },
-                {
-                    path: 'seller/*',
-                    element: <NotFoundPage />,
+                    element: <Suspense fallback={<PageSkeleton variant="dashboard" />}><AdminPanel /></Suspense>,
                 },
                 {
                     path: 'delivery/*',
-                    element: <NotFoundPage />,
+                    element: <Suspense fallback={<PageSkeleton />}><DeliveryPanel /></Suspense>,
                 },
                 {
                     path: 'unauthorized',
@@ -343,8 +320,10 @@ const AppRouter = () => {
                         { path: 'product', element: <ProductsPage /> },
                         { path: 'store/:sellerId', element: <StorePage /> },
                         { path: 'search', element: <SearchPage /> },
-                        { path: ':headerSlug/:categorySlug/:subCategorySlug/:productSlug', element: <HierarchicalProductRoute /> },
-                        { path: ':headerSlug/:categorySlug/:productSlug', element: <HierarchicalProductRoute /> },
+                        // 3 or more segments (header/category/[sub-category/]product): one splat route.
+                        // It must stay a splat: route ranking puts it below the seller/*, admin/* and
+                        // delivery/* panels, so panel pages with 3-4 segments are never taken by it.
+                        { path: ':headerSlug/:categorySlug/*', element: <HierarchicalProductRoute /> },
                         { path: ':headerSlug/:productSlug', element: <HierarchicalProductRoute /> },
                         { path: ':headerSlug', element: <Home /> },
                     ]
@@ -357,7 +336,13 @@ const AppRouter = () => {
         }
     ]), []);
 
-    return <RouterProvider router={router} />;
+    // Weak phones: framer-motion skips slide/scale/layout animations (they jump to the final state)
+    // and keeps only fades. Everyone else follows the phone's own "reduce motion" setting.
+    return (
+        <MotionConfig reducedMotion={isLowEndDevice() ? 'always' : 'user'}>
+            <RouterProvider router={router} />
+        </MotionConfig>
+    );
 };
 
 export default AppRouter;

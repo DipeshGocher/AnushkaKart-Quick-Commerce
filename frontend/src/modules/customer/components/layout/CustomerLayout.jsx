@@ -1,9 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, lazy, Suspense } from 'react';
 import Header from './Header';
 import Footer from './Footer';
 import BottomNav from './BottomNav';
 import MiniCart from '../shared/MiniCart';
-import ProductDetailSheet from '../shared/ProductDetailSheet';
 import VariantSelectionSheet from '../shared/VariantSelectionSheet';
 import MobileFooterMessage from './MobileFooterMessage';
 import { useProductDetail } from '../../context/ProductDetailContext';
@@ -16,10 +15,31 @@ import { ShieldCheck, Package, X } from 'lucide-react';
 import { setStatusBarColor } from '@/core/utils/statusBar';
 
 
+// The product page is big (zoom, reviews, finance...). It is not part of the first download:
+// it loads in the background once the screen is up, and is mounted the first time a product opens.
+const loadProductDetailSheet = () => import('../shared/ProductDetailSheet');
+const ProductDetailSheet = lazy(loadProductDetailSheet);
+
 const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = false, showCart: showCartProp, showBottomNav: showBottomNavProp }) => {
     const location = useLocation();
-    const { isOpen: isProductDetailOpen } = useProductDetail();
+    const { isOpen: isProductDetailOpen, selectedProduct } = useProductDetail();
     const { user, token } = useAuth();
+
+    // Once the sheet has been needed it stays mounted, so its close animation still plays.
+    const [sheetMounted, setSheetMounted] = useState(false);
+    // A shared product link (?product=...) starts downloading the sheet right away, in parallel with the product data.
+    if (!sheetMounted && (isProductDetailOpen || selectedProduct || new URLSearchParams(location.search).get('product'))) setSheetMounted(true);
+
+    useEffect(() => {
+        // Download it quietly after the first screen so the first product tap is instant.
+        const warm = () => { loadProductDetailSheet().catch(() => {}); };
+        if (typeof window.requestIdleCallback === 'function') {
+            const id = window.requestIdleCallback(warm, { timeout: 4000 });
+            return () => window.cancelIdleCallback?.(id);
+        }
+        const t = setTimeout(warm, 2500);
+        return () => clearTimeout(t);
+    }, []);
 
     // Listen for Return OTPs (Real-time Alert for Customer)
     useEffect(() => {
@@ -202,7 +222,11 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
             </main>
 
             {showCart && <MiniCart />}
-            <ProductDetailSheet />
+            {sheetMounted && (
+                <Suspense fallback={null}>
+                    <ProductDetailSheet />
+                </Suspense>
+            )}
             <VariantSelectionSheet />
 
             {/* Footer logic: render only for laptop, desktop, and large screen devices (hidden on mobile, tablet, iPad) */}
