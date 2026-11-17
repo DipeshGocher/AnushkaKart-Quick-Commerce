@@ -161,7 +161,7 @@ const AADHAAR = "123412341234";
         id: String(ctx.phone._id), name: "Galaxy A15", variantName: "4/64 GB", variantSku: "A15-4-64", price: 14000,
         image: "https://cdn.test/a15-4.png",
       });
-      expect(res.body.result.config).toEqual({ enabled: true, interestType: "flat", tenures: [3, 6, 12], minDownPaymentPercent: 0 });
+      expect(res.body.result.config).toEqual({ enabled: true, interestType: "flat", tenures: [3, 6, 12], minDownPaymentPercent: 0, defaultDownPaymentPercent: 40 });
     });
 
     it("a variant can be found by its name too, and the other variant has its own price", async () => {

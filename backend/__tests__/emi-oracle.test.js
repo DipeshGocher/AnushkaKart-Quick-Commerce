@@ -113,6 +113,34 @@ describe("EMI maths agrees with an exact-fraction check (flat and reducing)", ()
     }
   });
 
+  // The number in the "Interest" box of the calculator is the interest of the chosen duration. For the
+  // usual 3 / 6 / 9 / 12 months it must equal the plain textbook formula, whichever type the admin chose:
+  //   flat      balance x rate x months
+  //   reducing  balance x rate x (months + 1) / 2   (equal principal, interest on what is left)
+  test("interest for 3, 6, 9 and 12 months equals the closed-form formula (flat and reducing)", () => {
+    const four = [3, 6, 9, 12];
+    let checked = 0;
+    for (let i = 0; i < 400; i += 1) {
+      const price = Math.round((5000 + rnd() * 145000) * 100) / 100;
+      const down = Math.round(price * (0.3 + rnd() * 0.5) * 100) / 100;
+      const rateHundredths = pickOf([100, 150, 200, 250, 300, 450, 500, 750, 1000]);
+      for (const type of ["flat", "reducing"]) {
+        for (const months of four) {
+          const cfg = { ...DEFAULT_EMI_CONFIG, interestType: type, interestRatePerMonth: rateHundredths / 100, tenures: four };
+          const got = calculateEmi({ price, downPayment: down, months, config: cfg, now: NOW });
+          const balPaise = paise(price) - paise(down);
+          // exact interest in paise: balance x rate x (months for flat, (months+1)/2 for reducing); the 2 keeps it whole
+          const factor = type === "flat" ? BigInt(months) * 2n : BigInt(months + 1);
+          const exactPaise = F(balPaise * BigInt(rateHundredths) * factor, 10000n * 2n);
+          const wantRupees = Number(roundHalfUp(div(exactPaise, F(100n))));
+          expect({ type, months, price, down, rate: rateHundredths, interest: got.interest }).toEqual({ type, months, price, down, rate: rateHundredths, interest: wantRupees });
+          checked += 1;
+        }
+      }
+    }
+    expect(checked).toBe(400 * 2 * 4);
+  });
+
   test("the interest type the admin saves is the one used (nothing else decides it)", () => {
     const common = { price: 30000, downPayment: 5000, months: 6, now: NOW };
     const flat = calculateEmi({ ...common, config: { ...DEFAULT_EMI_CONFIG, interestType: "flat" } });

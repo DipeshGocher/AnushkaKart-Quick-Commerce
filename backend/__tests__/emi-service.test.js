@@ -83,6 +83,10 @@ describe("admin finance settings validation", () => {
     ["first EMI day 30 (does not exist every month)", (c) => (c.dueDateRules = [{ fromDay: 1, toDay: 31, dueDay: 30 }]), /between 1 and 28/],
     ["negative late fee", (c) => (c.lateFee = -1), /Late fee/],
     ["min down payment 100%", (c) => (c.minDownPaymentPercent = 100), /Minimum down payment/],
+    ["default down payment above 90%", (c) => (c.defaultDownPaymentPercent = 95), /Default down payment must be between/],
+    ["default down payment negative", (c) => (c.defaultDownPaymentPercent = -1), /Default down payment must be between/],
+    ["default down payment not a number", (c) => (c.defaultDownPaymentPercent = "abc"), /Default down payment must be between/],
+    ["default lower than the minimum", (c) => { c.minDownPaymentPercent = 30; c.defaultDownPaymentPercent = 20; }, /cannot be lower than the minimum/],
     ["short WhatsApp number", (c) => (c.whatsappNumber = "12345"), /WhatsApp/],
     ["too many terms", (c) => (c.terms = Array(30).fill("x")), /terms/],
   ])("rejects: %s", (_name, mutate, pattern) => {
@@ -101,7 +105,30 @@ describe("admin finance settings validation", () => {
 
   it("customers never see the WhatsApp number or the interest rate", () => {
     const pub = publicConfig({ ...DEFAULT_EMI_CONFIG, whatsappNumber: "919999999999", interestRatePerMonth: 5 });
-    expect(Object.keys(pub).sort()).toEqual(["enabled", "interestType", "minDownPaymentPercent", "tenures"]);
+    expect(Object.keys(pub).sort()).toEqual(["defaultDownPaymentPercent", "enabled", "interestType", "minDownPaymentPercent", "tenures"]);
+  });
+
+  it("saves a minimum of 30 % and a default of 40 %, and a default equal to the minimum is fine", () => {
+    const ok = validateConfigInput({ ...goodConfig(), minDownPaymentPercent: 30, defaultDownPaymentPercent: 40 });
+    expect(ok.minDownPaymentPercent).toBe(30);
+    expect(ok.defaultDownPaymentPercent).toBe(40);
+    expect(validateConfigInput({ ...goodConfig(), minDownPaymentPercent: 30, defaultDownPaymentPercent: 30 }).defaultDownPaymentPercent).toBe(30);
+  });
+
+  it("an older client that sends no default gets 40 %, or the minimum when that is higher", () => {
+    const base = goodConfig();
+    delete base.defaultDownPaymentPercent;
+    expect(validateConfigInput({ ...base, minDownPaymentPercent: 30 }).defaultDownPaymentPercent).toBe(40);
+    expect(validateConfigInput({ ...base, minDownPaymentPercent: 55 }).defaultDownPaymentPercent).toBe(55);
+  });
+
+  it("customers get the default, never below the minimum (also for settings saved before the default existed)", () => {
+    expect(publicConfig({ ...DEFAULT_EMI_CONFIG, minDownPaymentPercent: 30, defaultDownPaymentPercent: 40 }).defaultDownPaymentPercent).toBe(40);
+    expect(publicConfig({ ...DEFAULT_EMI_CONFIG, minDownPaymentPercent: 50, defaultDownPaymentPercent: 40 }).defaultDownPaymentPercent).toBe(50);
+    const old = { ...DEFAULT_EMI_CONFIG, minDownPaymentPercent: 40 };
+    delete old.defaultDownPaymentPercent;
+    expect(publicConfig(old).defaultDownPaymentPercent).toBe(40);
+    expect(publicConfig({ ...DEFAULT_EMI_CONFIG, minDownPaymentPercent: 0, defaultDownPaymentPercent: 0 }).defaultDownPaymentPercent).toBe(0);
   });
 });
 

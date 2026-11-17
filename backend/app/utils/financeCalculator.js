@@ -38,6 +38,7 @@ export const DEFAULT_EMI_CONFIG = Object.freeze({
   ],
   lateFee: 590,
   minDownPaymentPercent: 0,
+  defaultDownPaymentPercent: 40,
 });
 
 const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;

@@ -36,6 +36,7 @@ function toForm(c) {
     dueDateRules: rulesToRows(c.dueDateRules),
     lateFee: String(c.lateFee ?? 0),
     minDownPaymentPercent: String(c.minDownPaymentPercent ?? 0),
+    defaultDownPaymentPercent: String(c.defaultDownPaymentPercent ?? 40),
     whatsappNumber: c.whatsappNumber || "",
     shop: { name: c.shop?.name || "", address: c.shop?.address || "", phone: c.shop?.phone || "" },
     terms: (c.terms || []).join("\n"),
@@ -55,6 +56,7 @@ function toPayload(f) {
     dueDateRules: rowsToRules(f.dueDateRules),
     lateFee: f.lateFee,
     minDownPaymentPercent: f.minDownPaymentPercent,
+    defaultDownPaymentPercent: f.defaultDownPaymentPercent,
     whatsappNumber: f.whatsappNumber,
     shop: f.shop,
     terms: f.terms.split("\n"),
@@ -332,15 +334,34 @@ const FinanceSettings = () => {
         </button>
       </Section>
 
+      <Section
+        title="Down payment"
+        hint="The minimum is the lowest down payment a customer may enter (a red message appears below it). The default is what the calculator fills in when it opens; the customer can lower it down to the minimum."
+      >
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className={label}>Minimum down payment (% of price)</label>
+            <input className={field} inputMode="decimal" data-testid="min-down-input" value={form.minDownPaymentPercent} onChange={(e) => set({ minDownPaymentPercent: e.target.value.replace(/[^0-9.]/g, "") })} />
+          </div>
+          <div>
+            <label className={label}>Default down payment (% of price, filled in automatically)</label>
+            <input className={field} inputMode="decimal" data-testid="default-down-input" value={form.defaultDownPaymentPercent} onChange={(e) => set({ defaultDownPaymentPercent: e.target.value.replace(/[^0-9.]/g, "") })} />
+          </div>
+        </div>
+        {Number(form.defaultDownPaymentPercent) < Number(form.minDownPaymentPercent) ? (
+          <p role="alert" className="mt-2 text-xs font-semibold text-rose-600">The default cannot be lower than the minimum.</p>
+        ) : (
+          <p className="mt-2 text-xs text-slate-500">
+            Example: on a ₹1,00,000 phone the calculator opens with ₹{Math.round(Number(form.defaultDownPaymentPercent || 0) * 1000).toLocaleString("en-IN")} and the customer cannot go below ₹{Math.round(Number(form.minDownPaymentPercent || 0) * 1000).toLocaleString("en-IN")}.
+          </p>
+        )}
+      </Section>
+
       <Section title="Other rules">
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
             <label className={label}>Late fee (₹, printed in the terms)</label>
             <input className={field} inputMode="numeric" value={form.lateFee} onChange={(e) => set({ lateFee: e.target.value.replace(/\D/g, "") })} />
-          </div>
-          <div>
-            <label className={label}>Minimum down payment (% of price)</label>
-            <input className={field} inputMode="decimal" value={form.minDownPaymentPercent} onChange={(e) => set({ minDownPaymentPercent: e.target.value.replace(/[^0-9.]/g, "") })} />
           </div>
         </div>
       </Section>
