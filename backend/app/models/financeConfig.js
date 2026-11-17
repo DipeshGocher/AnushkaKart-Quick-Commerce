@@ -28,7 +28,10 @@ const financeConfigSchema = new mongoose.Schema(
       },
     ],
     lateFee: { type: Number, default: 590, min: 0 },
+    // The customer can never go below this share of the price...
     minDownPaymentPercent: { type: Number, default: 0, min: 0, max: 90 },
+    // ...and the calculator opens with this share already filled in (never below the minimum).
+    defaultDownPaymentPercent: { type: Number, default: 40, min: 0, max: 90 },
     // Customers' quotations are sent to this WhatsApp number (digits, with or without 91).
     whatsappNumber: { type: String, default: "", trim: true },
     shop: {

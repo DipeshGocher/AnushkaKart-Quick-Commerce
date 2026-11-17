@@ -5,7 +5,7 @@ import { customerApi } from "../../services/customerApi";
 import { useAuth } from "@core/context/AuthContext";
 import { useToast } from "@shared/components/ui/Toast";
 import { downloadEmiPdf, emiDate, emiMoney } from "@shared/utils/emiPdf";
-import { validateEmiForm, checkDownPayment, minDownPaymentAmount } from "@shared/utils/emiForm";
+import { validateEmiForm, checkDownPayment, defaultDownPaymentAmount } from "@shared/utils/emiForm";
 import { openWhatsappChat, isMobileDevice } from "@shared/utils/whatsappLink";
 import { copyText } from "@shared/utils/clipboard";
 import { toast } from "sonner";
@@ -96,8 +96,11 @@ export default function FinanceCalculatorModal({ productId, variantKey, onClose 
         if (!alive) return;
         const data = res.data?.result || null;
         setInfo(data);
-        // Down payment starts at the admin's minimum; the customer may only go up from there.
-        if (data?.available) setDownPayment(String(minDownPaymentAmount(data.product.price, data.config.minDownPaymentPercent)));
+        // Down payment starts at the admin's default share (e.g. 40 %); the customer may go down to the
+        // admin's minimum (e.g. 30 %) but not below it.
+        if (data?.available) {
+          setDownPayment(String(defaultDownPaymentAmount(data.product.price, data.config.defaultDownPaymentPercent, data.config.minDownPaymentPercent)));
+        }
       })
       .catch((err) => alive && setInfoError(err?.response?.data?.message || "Could not load finance details. Please try again."));
     return () => {
@@ -107,6 +110,7 @@ export default function FinanceCalculatorModal({ productId, variantKey, onClose 
 
   const price = info?.product?.price || 0;
   const minPercent = info?.config?.minDownPaymentPercent || 0;
+  const defaultPercent = Math.max(info?.config?.defaultDownPaymentPercent || 0, minPercent);
   const dp = useMemo(() => checkDownPayment(price, minPercent, downPayment), [price, minPercent, downPayment]);
 
   // Live calculation of every duration the admin allows (the server does the maths).
@@ -131,6 +135,13 @@ export default function FinanceCalculatorModal({ productId, variantKey, onClose 
     }, 300);
     return () => clearTimeout(timer);
   }, [info, productId, variantKey, downPayment, dp.ok]);
+
+  // Until the customer taps a duration, the shortest one is chosen so the interest box is never empty.
+  useEffect(() => {
+    const list = calc.options;
+    if (!list || !list.length) return;
+    if (!list.some((o) => String(o.months) === String(months))) setMonths(String(list[0].months));
+  }, [calc.options, months]);
 
   // The option the customer tapped; it carries the full breakdown the quotation is built from.
   const selected = useMemo(
@@ -264,7 +275,7 @@ export default function FinanceCalculatorModal({ productId, variantKey, onClose 
                   </div>
                   <div>
                     <label className={labelCls}>
-                      Down Payment (₹) {minPercent > 0 && <>• Auto {minPercent}%</>} *
+                      Down Payment (₹) {defaultPercent > 0 && <>• Auto {defaultPercent}%</>} *
                     </label>
                     <input
                       className={`${inputCls} ${dp.error ? "!border-rose-400 !ring-2 !ring-rose-500/20" : ""}`}
@@ -274,10 +285,16 @@ export default function FinanceCalculatorModal({ productId, variantKey, onClose 
                       value={downPayment}
                       onChange={(e) => setDownPayment(e.target.value.replace(/\D/g, "").slice(0, 8))}
                     />
-                    {dp.error && (
-                      <p role="alert" className="text-[12px] text-rose-600 mt-1.5">
+                    {dp.error ? (
+                      <p role="alert" data-testid="down-payment-error" className="text-[12px] font-semibold text-rose-600 mt-1.5">
                         {dp.error}
                       </p>
+                    ) : (
+                      minPercent > 0 && (
+                        <p className="text-[11.5px] text-slate-500 mt-1.5" data-testid="down-payment-hint">
+                          Minimum down payment: {emiMoney(dp.minAmount)} ({minPercent}%)
+                        </p>
+                      )
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-2.5">
@@ -285,9 +302,14 @@ export default function FinanceCalculatorModal({ productId, variantKey, onClose 
                       <p className="text-[11px] text-slate-500 mb-0.5">Down Payment</p>
                       <p className="text-[16px] font-extrabold text-emerald-800">{downPayment === "" ? "—" : `${dp.percent.toFixed(2)}%`}</p>
                     </div>
-                    <div className="rounded-xl bg-emerald-50 p-3 text-center">
-                      <p className="text-[11px] text-slate-500 mb-0.5">Minimum ({minPercent}%)</p>
-                      <p className="text-[16px] font-extrabold text-emerald-800">{emiMoney(dp.minAmount)}</p>
+                    {/* The interest of the duration chosen below; it changes when another duration is tapped. */}
+                    <div className="rounded-xl bg-emerald-50 p-3 text-center" data-testid="interest-box">
+                      <p className="text-[11px] text-slate-500 mb-0.5">
+                        Interest{selected ? <> · {selected.months} {selected.months === 1 ? "Month" : "Months"}</> : null}
+                      </p>
+                      <p className="text-[16px] font-extrabold text-emerald-800" data-testid="interest-amount">
+                        {dp.ok && selected && !calc.loading ? emiMoney(selected.interest ?? selected.result.interest) : "—"}
+                      </p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2.5">
@@ -330,16 +352,12 @@ export default function FinanceCalculatorModal({ productId, variantKey, onClose 
                           data-testid={`emi-option-${o.months}`}
                           aria-pressed={active}
                           onClick={() => setMonths(String(o.months))}
-                          className={`w-full grid grid-cols-3 items-center gap-2 rounded-xl border px-3 py-3 text-center transition ${
+                          className={`w-full grid grid-cols-2 items-center gap-2 rounded-xl border px-3 py-3 text-center transition ${
                             active ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/30" : "border-slate-200 bg-white"
                           }`}
                         >
                           <span className="text-[12.5px] text-slate-600">
                             {o.months} {o.months === 1 ? "Month" : "Months"}
-                          </span>
-                          <span>
-                            <span className="block text-[10.5px] text-slate-500">Interest</span>
-                            <span className="block text-[14px] font-extrabold text-emerald-800">{emiMoney(o.interest ?? o.result.interest)}</span>
                           </span>
                           <span>
                             <span className="block text-[10.5px] text-slate-500">{o.result.emiVaries ? "First EMI" : "Monthly EMI"}</span>

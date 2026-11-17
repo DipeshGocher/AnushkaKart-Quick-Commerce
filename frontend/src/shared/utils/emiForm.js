@@ -7,6 +7,17 @@ export function minDownPaymentAmount(price, minPercent) {
 }
 
 /**
+ * What the down payment field is filled with when the calculator opens: the admin's default share of the
+ * price, rounded up to a whole rupee, and never below the minimum.
+ */
+export function defaultDownPaymentAmount(price, defaultPercent, minPercent) {
+  const p = Number(price) || 0;
+  const pct = Number(defaultPercent) || 0;
+  const fromDefault = Math.max(0, Math.ceil((p * pct) / 100 - 1e-9));
+  return Math.max(fromDefault, minDownPaymentAmount(p, minPercent));
+}
+
+/**
  * Live check of what the customer typed as down payment. Returns
  * { ok, error, minAmount, percent } - `error` is shown straight away under the field.
  */

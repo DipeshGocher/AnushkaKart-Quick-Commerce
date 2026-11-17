@@ -1,5 +1,5 @@
 import { buildEmiPdfHtml, choosePageBreaks, emiDate, emiMoney } from "../../shared/utils/emiPdf.js";
-import { validateEmiForm, checkDownPayment, minDownPaymentAmount } from "../../shared/utils/emiForm.js";
+import { validateEmiForm, checkDownPayment, minDownPaymentAmount, defaultDownPaymentAmount } from "../../shared/utils/emiForm.js";
 import { isFinanceHeader } from "../../modules/customer/services/emiHeaders.js";
 
 
@@ -164,6 +164,38 @@ describe("down payment (auto-filled minimum, live error below it)", () => {
 
   it("with no minimum set, 0 is allowed", () => {
     expect(checkDownPayment(18000, 0, "0").ok).toBe(true);
+  });
+});
+
+describe("the down payment the calculator opens with", () => {
+  it("is the admin's default share of the price: 40 % of 129999 is 52000 (rounded up to a whole rupee)", () => {
+    expect(defaultDownPaymentAmount(129999, 40, 30)).toBe(52000);
+    expect(defaultDownPaymentAmount(18000, 40, 30)).toBe(7200);
+    expect(defaultDownPaymentAmount(10001, 40, 30)).toBe(4001);
+  });
+  it("never goes below the minimum, even if the default is set lower or missing", () => {
+    expect(defaultDownPaymentAmount(18000, 20, 30)).toBe(5400);
+    expect(defaultDownPaymentAmount(18000, 0, 30)).toBe(5400);
+    expect(defaultDownPaymentAmount(18000, undefined, 30)).toBe(5400);
+  });
+  it("with no default and no minimum it is 0", () => {
+    expect(defaultDownPaymentAmount(18000, 0, 0)).toBe(0);
+  });
+  it("the opening amount always passes the live check, and 1 rupee less than the minimum fails with a clear message", () => {
+    for (const price of [999, 10001, 18000, 129999, 56789]) {
+      const open = defaultDownPaymentAmount(price, 40, 30);
+      expect(checkDownPayment(price, 30, String(open)).ok).toBe(true);
+      const min = minDownPaymentAmount(price, 30);
+      expect(checkDownPayment(price, 30, String(min)).ok).toBe(true);
+      const below = checkDownPayment(price, 30, String(min - 1));
+      expect(below.ok).toBe(false);
+      expect(below.error).toMatch(/Minimum down payment is ₹[\d,]+ \(30%\)/);
+    }
+  });
+  it("30 % minimum of 129999 is 38999.7 -> 39000", () => {
+    expect(minDownPaymentAmount(129999, 30)).toBe(39000);
+    expect(checkDownPayment(129999, 30, "38999").ok).toBe(false);
+    expect(checkDownPayment(129999, 30, "39000").ok).toBe(true);
   });
 });
 

@@ -59,4 +59,4 @@ export default defineConfig([
     files: ['src/sw/**/*.js', 'public/**/*sw*.js'],
     languageOptions: { globals: { ...globals.serviceworker, firebase: 'readonly' } },
   },
-])
+]);

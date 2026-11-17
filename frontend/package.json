@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "build:web": "vite build && node scripts/precompress.mjs",
+    "dev": "node init && vite",
+    "build": "node init && vite build",
+    "build:web": "node init && vite build && node scripts/precompress.mjs",
     "lint": "eslint .",
     "lint:language": "node scripts/check-language.js",
     "report:language": "node scripts/generate-language-report.js",

@@ -133,6 +133,14 @@ export function validateConfigInput(input = {}) {
   if (!Number.isFinite(minDown) || minDown < 0 || minDown > 90) throw err("Minimum down payment must be between 0 and 90 %.");
   out.minDownPaymentPercent = minDown;
 
+  // Share filled in automatically when the calculator opens. Older saved settings / clients do not send it:
+  // then it is 40 %, or the minimum if that is higher.
+  const defaultRaw = input.defaultDownPaymentPercent;
+  const defaultDown = defaultRaw === undefined || defaultRaw === null || defaultRaw === "" ? Math.max(DEFAULT_EMI_CONFIG.defaultDownPaymentPercent, minDown) : num(defaultRaw);
+  if (!Number.isFinite(defaultDown) || defaultDown < 0 || defaultDown > 90) throw err("Default down payment must be between 0 and 90 %.");
+  if (defaultDown < minDown) throw err(`Default down payment (${defaultDown} %) cannot be lower than the minimum down payment (${minDown} %).`);
+  out.defaultDownPaymentPercent = defaultDown;
+
   const wa = String(input.whatsappNumber || "").replace(/\D/g, "");
   if (wa && (wa.length < 10 || wa.length > 13)) throw err("WhatsApp number must be 10 digits (or with country code).");
   out.whatsappNumber = wa;
@@ -157,6 +165,14 @@ export async function saveConfig(input) {
   return getConfig();
 }
 
+/** The share the calculator starts with: the admin's default, but never below the minimum (settings saved before this existed have no default). */
+export function effectiveDefaultDownPercent(config) {
+  const min = Number(config?.minDownPaymentPercent) || 0;
+  const stored = Number(config?.defaultDownPaymentPercent);
+  const wanted = Number.isFinite(stored) ? stored : DEFAULT_EMI_CONFIG.defaultDownPaymentPercent;
+  return Math.min(90, Math.max(wanted, min));
+}
+
 /** What a customer may see about the settings (no WhatsApp number, rates stay private). */
 export function publicConfig(config) {
   return {
@@ -164,6 +180,7 @@ export function publicConfig(config) {
     interestType: config.interestType,
     tenures: config.tenures,
     minDownPaymentPercent: config.minDownPaymentPercent || 0,
+    defaultDownPaymentPercent: effectiveDefaultDownPercent(config),
   };
 }
 
