@@ -68,11 +68,19 @@ export default function ReturnMoneyCard({ money, role = "admin", className }) {
             <>
               <Row
                 label="Customer is refunded"
-                note="Price of the returned items, to the customer's wallet (delivery and platform fees are not refunded)"
+                note="What the customer paid for the returned items (after any coupon), to their wallet. Delivery and platform fees are not refunded."
                 value={rupees(money.refundAmount)}
                 tone="plus"
                 testId="rm-customer"
               />
+              {money.discountShare > 0 && (
+                <Row
+                  label="Coupon share (not refunded)"
+                  note={`The items cost ${rupees(money.itemValue)}; the customer paid ${rupees(money.refundAmount)} after the coupon. The platform paid the coupon.`}
+                  value={rupees(money.discountShare)}
+                  testId="rm-coupon"
+                />
+              )}
               <Row
                 label={role === "seller" ? "Taken back from you" : "Taken back from the seller"}
                 note={sellerNote}
@@ -94,9 +102,15 @@ export default function ReturnMoneyCard({ money, role = "admin", className }) {
                 />
               )}
               <Row
-                label="Return pickup fee"
-                note={sellerPays ? "Paid by the seller (the return is the seller's fault)" : "Paid by the platform"}
-                value={rupees(money.pickupFee)}
+                label={money.freightPending || money.freightLater ? "Return courier freight" : "Return pickup fee"}
+                note={
+                  money.freightPending
+                    ? `The courier's real freight is not known yet. ${sellerPays ? "It will be taken from the seller when it is recorded (the return is the seller's fault)." : "It is paid by the platform."}`
+                    : sellerPays
+                      ? "Paid by the seller (the return is the seller's fault)"
+                      : "Paid by the platform"
+                }
+                value={money.freightPending ? "Pending" : rupees(money.pickupFee)}
                 testId="rm-pickup"
               />
             </>

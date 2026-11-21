@@ -287,6 +287,34 @@ const settingSchema = new mongoose.Schema(
             type: Boolean,
             default: true,
         },
+        // Which payment modes a customer may use, per delivery type. Deliberately NO schema
+        // defaults: an older settings document has none of these, and the resolver in
+        // services/platformRulesService.js then falls back to the three legacy switches above.
+        // (Shiprocket cash-on-delivery is never allowed; the resolver forces it off.)
+        paymentModes: {
+            local: {
+                cod: { type: Boolean },
+                online: { type: Boolean },
+                upiQr: { type: Boolean },
+            },
+            shiprocket: {
+                cod: { type: Boolean },
+                online: { type: Boolean },
+                upiQr: { type: Boolean },
+            },
+        },
+        // How long after delivery a customer may ask for a return, per delivery type. No schema
+        // defaults for the same reason: when unset, the old env variables / 4 hours / 7 days apply.
+        returnWindows: {
+            local: {
+                value: { type: Number, min: 0 },
+                unit: { type: String, enum: ["hours", "days"] },
+            },
+            shiprocket: {
+                value: { type: Number, min: 0 },
+                unit: { type: String, enum: ["hours", "days"] },
+            },
+        },
         upiId: {
             type: String,
             default: "anushkaconnect@okaxis",

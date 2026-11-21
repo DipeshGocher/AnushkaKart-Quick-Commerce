@@ -52,6 +52,7 @@ const Earnings = () => {
   const navigate = useNavigate();
   const { earningsData: data, earningsLoading: loading } = useSellerEarnings();
   const [tableFilter, setTableFilter] = React.useState("all");
+  const [visibleRows, setVisibleRows] = React.useState(10);
 
   if (loading) {
     return (
@@ -60,6 +61,11 @@ const Earnings = () => {
       </div>
     );
   }
+
+  // every order earning (newest first as the server sends it); the table shows 10 and "Show more" adds 10
+  const earningRows = (Array.isArray(data?.ledger) ? data.ledger : [])
+    .filter((txn) => txn.type === "Order Payment" || (txn.amount !== 0 && txn.type !== "Withdrawal"))
+    .filter((txn) => (tableFilter === "settled" ? txn.status === "Settled" : true));
 
   return (
     <div className="space-y-8 pb-16">
@@ -294,7 +300,7 @@ const Earnings = () => {
               <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
                 <button
                   type="button"
-                  onClick={() => setTableFilter("all")}
+                  onClick={() => { setTableFilter("all"); setVisibleRows(10); }}
                   className={cn(
                     "px-3 py-1 text-xs font-bold rounded-lg transition-all",
                     tableFilter === "all"
@@ -305,7 +311,7 @@ const Earnings = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setTableFilter("settled")}
+                  onClick={() => { setTableFilter("settled"); setVisibleRows(10); }}
                   className={cn(
                     "px-3 py-1 text-xs font-bold rounded-lg transition-all",
                     tableFilter === "settled"
@@ -315,12 +321,6 @@ const Earnings = () => {
                   Settled Only
                 </button>
               </div>
-              <Button
-                variant="ghost"
-                onClick={() => navigate("/seller/transactions")}
-                className="text-xs font-bold text-brand-600 hover:text-brand-700">
-                View All &rarr;
-              </Button>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -334,13 +334,8 @@ const Earnings = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {(Array.isArray(data?.ledger) ? data.ledger : [])
-                  .filter((txn) => txn.type === "Order Payment" || (txn.amount !== 0 && txn.type !== "Withdrawal"))
-                  .filter((txn) => {
-                    if (tableFilter === "settled") return txn.status === "Settled";
-                    return true;
-                  })
-                  .slice(0, 10)
+                {earningRows
+                  .slice(0, visibleRows)
                   .map((txn, i) => {
                     const isCancelled = txn.status === "Cancelled";
                     const isSettled = txn.status === "Settled";
@@ -398,9 +393,7 @@ const Earnings = () => {
                       </tr>
                     );
                   })}
-                {(Array.isArray(data?.ledger) ? data.ledger : []).filter(
-                  (txn) => txn.type === "Order Payment" || (txn.amount !== 0 && txn.type !== "Withdrawal")
-                ).length === 0 && (
+                {earningRows.length === 0 && (
                   <tr>
                     <td
                       colSpan={4}
@@ -412,6 +405,16 @@ const Earnings = () => {
               </tbody>
             </table>
           </div>
+          {earningRows.length > visibleRows && (
+            <div className="flex justify-center py-3 border-t border-slate-100">
+              <Button
+                variant="ghost"
+                onClick={() => setVisibleRows((n) => n + 10)}
+                className="text-xs font-bold text-brand-600 hover:text-brand-700">
+                Show more ({earningRows.length - visibleRows} more)
+              </Button>
+            </div>
+          )}
         </Card>
       </BlurFade>
     </div>

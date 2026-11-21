@@ -345,6 +345,9 @@ export async function debitWalletUpTo({
   metadata = null,
   idempotencyKey = null,
   correlationId = null,
+  // When true, what was really taken goes to the PLATFORM wallet (it is money coming back to the platform:
+  // a refund the platform already paid, a courier charge, ...). Without it the money would just disappear.
+  creditAdmin = false,
 }) {
   const wanted = assertPositiveAmount(amount);
   const wallet = await getOrCreateWallet(ownerType, ownerId, { session });
@@ -370,6 +373,21 @@ export async function debitWalletUpTo({
       correlationId,
     });
     debited = take;
+    if (creditAdmin) {
+      await creditWallet({
+        ownerType: OWNER_TYPE.ADMIN,
+        ownerId: null,
+        amount: take,
+        bucket: "available",
+        session,
+        ledgerType: LEDGER_TRANSACTION_TYPE.RECOVERY_RECEIVED,
+        ledgerReference,
+        ledgerDescription: ledgerDescription || "Money taken back from a seller / partner",
+        orderId,
+        idempotencyKey: idempotencyKey ? `${idempotencyKey}-ADM` : null,
+        metadata: { ...(metadata || {}), from: String(ownerId) },
+      });
+    }
   }
 
   const shortfall = roundCurrency(wanted - debited);
@@ -394,6 +412,56 @@ export async function debitWalletUpTo({
     );
   }
   return { debited, shortfall };
+}
+
+/**
+ * Money that goes BACK to a seller / partner (a charge that was waived or lowered): it comes out of the platform
+ * wallet (as far as the wallet holds; it never goes below zero) and lands in theirs.
+ */
+export async function payBackFromAdmin({
+  ownerType,
+  ownerId,
+  amount,
+  session,
+  ledgerType,
+  ledgerReference = "",
+  ledgerDescription = "",
+  orderId = null,
+  idempotencyKey = null,
+  metadata = null,
+  bucket = "available",
+}) {
+  const back = assertPositiveAmount(amount);
+  const adminWallet = await getOrCreateWallet(OWNER_TYPE.ADMIN, null, { session });
+  const take = Math.min(roundCurrency(adminWallet.availableBalance || 0), back);
+  if (take > 0) {
+    await debitWallet({
+      ownerType: OWNER_TYPE.ADMIN,
+      ownerId: null,
+      amount: take,
+      bucket: "available",
+      session,
+      ledgerType: LEDGER_TRANSACTION_TYPE.RECOVERY_GIVEN_BACK,
+      ledgerReference,
+      ledgerDescription: ledgerDescription || "Money given back to a seller / partner",
+      orderId,
+      idempotencyKey: idempotencyKey ? `${idempotencyKey}-ADM` : null,
+      metadata: { ...(metadata || {}), to: String(ownerId) },
+    });
+  }
+  return creditWallet({
+    ownerType,
+    ownerId,
+    amount: back,
+    bucket,
+    session,
+    ledgerType,
+    ledgerReference,
+    ledgerDescription,
+    orderId,
+    idempotencyKey,
+    metadata,
+  });
 }
 
 /**
@@ -604,9 +672,25 @@ export async function getAdminFinanceSummary() {
         { $group: { _id: null, amount: { $sum: "$paymentBreakdown.codRemittedAmount" } } },
       ]),
       Order.aggregate([
-        // Total Admin Earning includes delivered orders (both ONLINE and COD)
-        { $match: { status: "delivered" } },
-        { $group: { _id: null, amount: { $sum: "$paymentBreakdown.platformTotalEarning" } } },
+        // Total Admin Earning = what the platform really earns (commission + fees, minus rider / courier
+        // costs and coupons, returns taken into account). Delivered orders and returned ones (a returned order
+        // keeps its delivery fee and has costs), online and cash alike; older orders fall back to the old figure.
+        { $match: { status: { $in: ["delivered", "returned"] } } },
+        {
+          $group: {
+            _id: null,
+            amount: { $sum: { $ifNull: ["$platformEarning.net", "$paymentBreakdown.platformTotalEarning"] } },
+            cashPending: {
+              $sum: {
+                $cond: [
+                  { $and: [{ $eq: ["$paymentMode", "COD"] }, { $gt: ["$paymentBreakdown.codPendingAmount", 0] }] },
+                  { $ifNull: ["$platformEarning.net", "$paymentBreakdown.platformTotalEarning"] },
+                  0,
+                ],
+              },
+            },
+          },
+        },
       ]),
       Payout.aggregate([
         { $match: { status: { $in: [PAYOUT_STATUS.PENDING, PAYOUT_STATUS.PROCESSING] } } },
@@ -693,6 +777,8 @@ export async function getAdminFinanceSummary() {
   return {
     totalPlatformEarning,
     totalAdminEarning: roundCurrency(adminEarning[0]?.amount || 0),
+    // part of that earning on cash orders whose cash has not reached the platform yet
+    adminEarningCashPending: roundCurrency(adminEarning[0]?.cashPending || 0),
     availableBalance: availableBalanceVirtual,
     walletAvailableBalance: roundCurrency(adminWallet.availableBalance || 0),
     systemFloatCOD: roundCurrency(systemFloatCOD[0]?.amount || 0),
@@ -700,6 +786,70 @@ export async function getAdminFinanceSummary() {
     deliveryPendingPayouts: roundCurrency(riderPendingPayouts),
     reconciledOnlineInflows: roundCurrency(onlineCollection[0]?.amount || 0),
     reconciledCODInflows: roundCurrency(codReconciled[0]?.amount || 0),
+  };
+}
+
+/**
+ * The four plain numbers of the admin Wallet page (everything in rupees):
+ *
+ *   platformHolds   money the platform is holding: its own wallet + the sellers' and riders' wallets (money
+ *                   already moved to them but not withdrawn yet) + withdrawals asked and not paid yet.
+ *                   (Customer refund-wallet balances sit inside the platform wallet figure.)
+ *   owedToPartners  what sellers and riders can still claim: payouts not processed yet (this includes seller
+ *                   money held for the return window) + their wallet balances + withdrawals waiting.
+ *   riderCash       cash that riders collected from customers and have not handed over yet.
+ *   ourEarning      what the platform really earned (commission + fees - rider / courier cost - coupons).
+ *
+ * platformHolds - owedToPartners is the platform's own free money (the old "available balance").
+ * `summary` is the result of getAdminFinanceSummary() (passed in so nothing is queried twice).
+ */
+export async function getAdminMoneyOverview(summary) {
+  const base = summary || (await getAdminFinanceSummary());
+  const [walletRows, withdrawalRows, courierRows] = await Promise.all([
+    Wallet.aggregate([
+      { $match: { ownerType: { $in: [OWNER_TYPE.SELLER, OWNER_TYPE.DELIVERY_PARTNER] } } },
+      { $group: { _id: "$ownerType", amount: { $sum: "$availableBalance" } } },
+    ]),
+    // withdrawals that were already taken out of the partner's wallet and wait for the admin to pay
+    Transaction.aggregate([
+      {
+        $match: {
+          type: "Withdrawal",
+          userModel: { $in: ["Seller", "Delivery"] },
+          status: { $in: ["Pending", "Processing"] },
+          "meta.walletDebited": true,
+        },
+      },
+      { $group: { _id: "$userModel", amount: { $sum: { $abs: "$amount" } } } },
+    ]),
+    // cash of courier (Shiprocket) COD orders that the courier has not paid to us yet
+    Order.aggregate([
+      { $match: { paymentMode: "COD", fulfillmentType: "SHIPROCKET", "paymentBreakdown.codPendingAmount": { $gt: 0 } } },
+      { $group: { _id: null, amount: { $sum: "$paymentBreakdown.codPendingAmount" } } },
+    ]),
+  ]);
+  const pick = (rows, id) => roundCurrency(rows.find((row) => row._id === id)?.amount || 0);
+
+  const sellerWallets = pick(walletRows, OWNER_TYPE.SELLER);
+  const riderWallets = pick(walletRows, OWNER_TYPE.DELIVERY_PARTNER);
+  const sellerWithdrawals = pick(withdrawalRows, "Seller");
+  const riderWithdrawals = pick(withdrawalRows, "Delivery");
+
+  const owedToSellers = roundCurrency((base.sellerPendingPayouts || 0) + sellerWallets + sellerWithdrawals);
+  const owedToRiders = roundCurrency((base.deliveryPendingPayouts || 0) + riderWallets + riderWithdrawals);
+  const platformHolds = roundCurrency(
+    (base.walletAvailableBalance || 0) + sellerWallets + riderWallets + sellerWithdrawals + riderWithdrawals,
+  );
+
+  return {
+    platformHolds,
+    owedToPartners: roundCurrency(owedToSellers + owedToRiders),
+    owedToSellers,
+    owedToRiders,
+    riderCash: roundCurrency(base.systemFloatCOD || 0),
+    courierCash: roundCurrency(courierRows[0]?.amount || 0),
+    ourEarning: roundCurrency(base.totalAdminEarning || 0),
+    ourEarningCashPending: roundCurrency(base.adminEarningCashPending || 0),
   };
 }
 

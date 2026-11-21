@@ -1,6 +1,6 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
+import { motion, useAnimationControls } from "framer-motion";
 import {
   applyCloudinaryTransform,
   buildCloudinarySrcSet,
@@ -23,7 +23,7 @@ const ExperienceBannerCarousel = ({
   showContentOverlay = true,
   peekNext = true,
   stretchSingle = false,
-  autoPlay = true,
+  autoPlay = false,
   autoPlayInterval = 2500,
   isSectionBanner = false,
 }) => {
@@ -141,7 +141,7 @@ const ExperienceBannerCarousel = ({
 
     const intervalId = setInterval(() => {
       setActiveIndex((prev) => (prev >= maxActiveIndex ? 0 : prev + 1));
-    }, autoPlayInterval);
+    }, autoPlayInterval); // only used when a page passes autoPlay={true}
 
     return () => clearInterval(intervalId);
   }, [totalItems, maxActiveIndex, currentSlideIsVideo, isPaused, autoPlay, autoPlayInterval]);
@@ -153,29 +153,57 @@ const ExperienceBannerCarousel = ({
     }
   }, [activeIndex, totalItems, hasMore, loadMore]);
 
+  // Manual scrolling only. One swipe moves exactly ONE banner. On the last banner a swipe forward
+  // does nothing (you swipe back), on the first banner a swipe back does nothing. No wrap-around.
+  const controls = useAnimationControls();
+  const xForIndex = React.useCallback(
+    (index) =>
+      !isMobile && maxActiveIndex === 0
+        ? 0
+        : cardStep
+        ? -(index * cardStep)
+        : isMobile && edgeToEdge && !peekNext
+        ? `-${index * 100}%`
+        : `-${(index / Math.max(1, totalItems)) * 100}%`,
+    [isMobile, maxActiveIndex, cardStep, edgeToEdge, peekNext, totalItems],
+  );
+  const slideTransition = isMobile
+    ? { type: "spring", stiffness: 320, damping: 36, mass: 0.8 }
+    : { type: "spring", stiffness: 280, damping: 30 };
+
+  // keep the track on the active banner (also after a resize or when the banners load)
+  React.useEffect(() => {
+    controls.start({ x: xForIndex(Math.min(activeIndex, maxActiveIndex)), transition: slideTransition });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex, xForIndex, controls, maxActiveIndex]);
+
+  const goTo = (index) => {
+    const next = Math.max(0, Math.min(maxActiveIndex, index));
+    setActiveIndex(next);
+    // always move the track, even when the index did not change (a short drag snaps back)
+    controls.start({ x: xForIndex(next), transition: slideTransition });
+  };
+
   const handleDragEnd = (_, info) => {
     resumeAutoPlay();
     if (maxActiveIndex <= 0) return;
-    const threshold = 35;
-    if (info.offset.x < -threshold) {
-      // Swipe left -> Next
-      setActiveIndex((prev) => (prev >= maxActiveIndex ? 0 : prev + 1));
-    } else if (info.offset.x > threshold) {
-      // Swipe right -> Prev
-      setActiveIndex((prev) => (prev <= 0 ? maxActiveIndex : prev - 1));
-    }
+    const distance = info.offset.x;
+    const speed = info.velocity.x;
+    if (distance < -40 || (distance < -12 && speed < -450)) goTo(activeIndex + 1); // swipe left -> next
+    else if (distance > 40 || (distance > 12 && speed > 450)) goTo(activeIndex - 1); // swipe right -> previous
+    else goTo(activeIndex);
   };
 
   const handleNext = (e) => {
     if (e) e.stopPropagation();
     pauseAutoPlay();
-    setActiveIndex((prev) => (prev >= maxActiveIndex ? 0 : prev + 1));
+    goTo(activeIndex + 1);
   };
 
   const handlePrev = (e) => {
     if (e) e.stopPropagation();
     pauseAutoPlay();
-    setActiveIndex((prev) => (prev <= 0 ? maxActiveIndex : prev - 1));
+    goTo(activeIndex - 1);
   };
 
   const getBannerOptimizedSrc = React.useCallback((url) => {
@@ -294,19 +322,13 @@ const ExperienceBannerCarousel = ({
         <motion.div
           drag={!isMobile && totalItems <= 2 ? false : (maxActiveIndex > 0 ? "x" : false)}
           dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.15}
+          dragElastic={0.12}
+          dragMomentum={false}
+          dragDirectionLock
           onDragStart={pauseAutoPlay}
           onDragEnd={handleDragEnd}
-          animate={{
-            x: (!isMobile && maxActiveIndex === 0)
-              ? 0
-              : (cardStep ? -(activeIndex * cardStep) : (isMobile && edgeToEdge && !peekNext) ? `-${activeIndex * 100}%` : `-${(activeIndex / totalItems) * 100}%`),
-          }}
-          transition={
-            isMobile
-              ? { type: "spring", stiffness: 320, damping: 32, mass: 0.8 }
-              : { type: "spring", stiffness: 280, damping: 28 }
-          }
+          initial={false}
+          animate={controls}
           className={cn(
             "flex items-start",
             !isMobile && maxActiveIndex === 0 ? "w-full justify-center" : ""
@@ -402,7 +424,7 @@ const ExperienceBannerCarousel = ({
                     }
                   }}
                   onEnded={() => {
-                    setActiveIndex((prev) => (prev >= maxActiveIndex ? 0 : prev + 1));
+                    // a video never pushes the banner on by itself; the user swipes
                   }}
                 />
               ) : (
@@ -459,6 +481,7 @@ const ExperienceBannerCarousel = ({
       {/* Flipkart-style Desktop Navigation Arrows */}
       {!isMobile && maxActiveIndex > 0 && (
         <>
+          {activeIndex > 0 && (
           <button
             type="button"
             onClick={handlePrev}
@@ -467,6 +490,8 @@ const ExperienceBannerCarousel = ({
           >
             <ChevronLeft size={22} className="stroke-[2.5]" />
           </button>
+          )}
+          {activeIndex < maxActiveIndex && (
           <button
             type="button"
             onClick={handleNext}
@@ -475,6 +500,7 @@ const ExperienceBannerCarousel = ({
           >
             <ChevronRight size={22} className="stroke-[2.5]" />
           </button>
+          )}
         </>
       )}
 
@@ -485,7 +511,7 @@ const ExperienceBannerCarousel = ({
             <button
               key={index}
               type="button"
-              onClick={() => setActiveIndex(index)}
+              onClick={() => goTo(index)}
               className={cn(
                 "h-1.5 rounded-full transition-all duration-300 cursor-pointer",
                 index === activeIndex ? "w-6 bg-slate-800" : "w-1.5 bg-slate-300 hover:bg-slate-400"

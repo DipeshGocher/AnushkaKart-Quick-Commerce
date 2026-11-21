@@ -123,10 +123,10 @@ describe("checkout pricing snapshot handling fee", () => {
     });
 
     expect(snapshot.sellerCount).toBe(2);
-    expect(snapshot.aggregateBreakdown.deliveryFeeCharged).toBe(98);
+    expect(snapshot.aggregateBreakdown.deliveryFeeCharged).toBe(198);
     expect(snapshot.aggregateBreakdown.handlingFeeCharged).toBe(30);
     expect(snapshot.aggregateBreakdown.productSubtotal).toBe(300);
-    expect(snapshot.aggregateBreakdown.grandTotal).toBe(428);
+    expect(snapshot.aggregateBreakdown.grandTotal).toBe(528);
 
     const perSellerFees = snapshot.sellerBreakdownEntries.map(
       (entry) => entry.breakdown.handlingFeeCharged,

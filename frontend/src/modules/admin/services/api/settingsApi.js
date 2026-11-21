@@ -17,6 +17,9 @@ export const adminSettingsApi = {
     // Centralized settings (public GET, admin PUT)
     getSettings: () => axiosInstance.get('/settings'),
     updateSettings: (data) => axiosInstance.put('/settings', data),
+    // Payment modes (COD / online / UPI QR per delivery type) and return windows
+    savePaymentModes: (data) => axiosInstance.put('/settings/payment-modes', data),
+    saveReturnWindows: (data) => axiosInstance.put('/settings/return-windows', data),
     uploadSettingsImage: (formData, type = 'logo') =>
         axiosInstance.post(`/settings/upload?type=${type}`, formData),
 };

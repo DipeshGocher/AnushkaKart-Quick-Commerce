@@ -65,6 +65,15 @@ async function verifyOneWallet(wallet, tolerance) {
       $match: {
         ...ownerMatch,
         status: { $ne: "FAILED" },
+        // Earning rows record profit as it is recognised, and "recovery due / applied" rows record a debt (no wallet
+        // movement); the money itself is already in the wallet (it came
+        // in with the payment), so they are not wallet movements.
+        type: { $nin: ["ADMIN_EARNING_CREDITED", "ADMIN_EARNING_REVERSED", "RETURN_RECOVERY_DUE", "RETURN_RECOVERY_APPLIED"] },
+        // A rider's cash in hand (cash collected / handed over) is tracked apart from the wallet balance.
+        $nor: [
+          { "metadata.bucket": "cashInHand" },
+          { actorType: "DELIVERY_PARTNER", type: { $in: ["ORDER_COD_COLLECTED", "COD_REMITTED"] } },
+        ],
       },
     },
     {

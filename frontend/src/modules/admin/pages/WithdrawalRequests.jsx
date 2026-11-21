@@ -24,6 +24,7 @@ import {
 import { cn } from '@/lib/utils';
 import { adminApi } from '../services/adminApi';
 import { toast } from 'sonner';
+import CustomerRefundRequests from './CustomerRefundRequests';
 
 /**
  * Extracts and normalizes bank details from a requester or transaction record.
@@ -83,6 +84,8 @@ const parseBankDetails = (user, meta) => {
 };
 
 const WithdrawalRequests = () => {
+    // 'partners' = sellers + delivery partners (the original page), 'customers' = customers' refund money
+    const [section, setSection] = useState('partners');
     const [activeTab, setActiveTab] = useState('sellers'); // 'sellers' | 'delivery'
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
@@ -317,6 +320,47 @@ const WithdrawalRequests = () => {
         toast.success(`Exported ${rowsToExport.length} requests successfully`);
     };
 
+    const sectionSwitch = (
+        <div className="flex bg-slate-100 p-1.5 rounded-2xl w-fit">
+            {[
+                ['partners', 'SELLERS & DELIVERY PARTNERS'],
+                ['customers', 'CUSTOMERS (REFUNDS)'],
+            ].map(([key, label]) => (
+                <button
+                    key={key}
+                    data-testid={`mr-section-${key}`}
+                    onClick={() => setSection(key)}
+                    className={cn(
+                        'px-5 py-2.5 rounded-xl text-xs font-bold transition-all',
+                        section === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    )}
+                >
+                    {label}
+                </button>
+            ))}
+        </div>
+    );
+
+    if (section === 'customers') {
+        return (
+            <div className="ds-section-spacing animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="px-1">
+                    <h1 className="ds-h1 flex items-center gap-3">
+                        Money Requests
+                        <Badge variant="primary" className="text-[10px] px-2.5 py-0.5 font-bold uppercase tracking-wider bg-brand-50 text-brand-700 border-none">
+                            CUSTOMER REFUNDS
+                        </Badge>
+                    </h1>
+                    <p className="ds-description mt-1">
+                        Customers ask to withdraw their refund money to their own bank account or UPI. Send the money from your bank, then mark the request as paid.
+                    </p>
+                </div>
+                {sectionSwitch}
+                <CustomerRefundRequests />
+            </div>
+        );
+    }
+
     return (
         <div className="ds-section-spacing animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header Section */}
@@ -353,6 +397,8 @@ const WithdrawalRequests = () => {
                     </button>
                 </div>
             </div>
+
+            {sectionSwitch}
 
             {/* Top Quick Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

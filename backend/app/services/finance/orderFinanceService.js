@@ -15,12 +15,14 @@ import { createFinanceAuditLog } from "./auditLogService.js";
 import {
   applyRecoverableDue,
   creditWallet,
-  debitWallet,
   getOrCreateWallet,
   updateCashInHand,
 } from "./walletService.js";
 import { createPendingPayoutForOrder } from "./payoutService.js";
 import { computeOverallSettlement } from "./settlementStatus.js";
+import { computePlatformEarning } from "../../utils/platformEarning.js";
+import { emitNotificationEvent } from "../../modules/notifications/notification.emitter.js";
+import { NOTIFICATION_EVENTS } from "../../modules/notifications/notification.constants.js";
 
 function toOrderIdQuery(orderOrId) {
   if (!orderOrId) return null;
@@ -131,6 +133,8 @@ export async function createPendingSellerPayout(order, { session, actorId } = {}
   const baseAmount = roundCurrency(order.paymentBreakdown?.sellerPayoutTotal || 0);
   const discrepancy = Number(order.shiprocket?.weightDiscrepancyAmount || 0);
   const deduction = discrepancy > 0 ? Math.min(baseAmount, discrepancy) : 0;
+  // Remember that the weight charge is taken (here, as the payout is created), so it is never taken twice.
+  if (discrepancy > 0 && order.shiprocket) order.shiprocket.weightDiscrepancyApplied = discrepancy;
   let amount = roundCurrency(Math.max(0, baseAmount - deduction));
 
   // Money this seller still owes from an earlier return (their balance could not cover it then) is
@@ -265,20 +269,9 @@ export async function createPendingRiderPayout(order, { session, actorId } = {})
 export async function creditAdminEarning(order, { session, actorId } = {}) {
   if (order.financeFlags?.adminEarningCredited) return null;
 
-  // Requirement: For COD orders, do not recognize/credit admin earning at delivery time.
-  // COD inflows are tracked via remittance (system float) instead.
-  if (order.paymentMode === "COD") {
-    order.settlementStatus = {
-      ...(order.settlementStatus || {}),
-      adminEarningCredited: true,
-    };
-    order.financeFlags = {
-      ...(order.financeFlags || {}),
-      adminEarningCredited: true,
-    };
-    return null;
-  }
-
+  // The earning is counted when the order is delivered, for online AND cash orders. For a cash order the
+  // money itself reaches the platform later (the rider hands the cash over: "COD remitted"), so its ledger
+  // row says so (metadata.cashPending) and the order's codPendingAmount shows what is still to come.
   const adminEarning = roundCurrency(order.paymentBreakdown?.platformTotalEarning || 0);
   if (adminEarning <= 0) {
     order.settlementStatus = {
@@ -305,6 +298,7 @@ export async function creditAdminEarning(order, { session, actorId } = {}) {
       paymentMode: order.paymentMode,
       description: "Platform earning recognized on delivery",
       reference: order.orderId,
+      metadata: order.paymentMode === "COD" ? { cashPending: true } : {},
     },
     { session },
   );
@@ -316,6 +310,7 @@ export async function creditAdminEarning(order, { session, actorId } = {}) {
   order.financeFlags = {
     ...(order.financeFlags || {}),
     adminEarningCredited: true,
+    adminEarningBooked: true,
   };
 
   await createFinanceAuditLog(
@@ -554,6 +549,154 @@ export async function handleCodOrderFinance(
   }
 }
 
+/**
+ * COD order delivered by a COURIER (Shiprocket): there is no rider, so the customer's cash is held by the
+ * courier company, not by us. The whole order total is booked as "collected, not received yet"
+ * (codPendingAmount) so nothing is lost track of; the admin wallet is credited only when the courier
+ * really pays it out (see remitCourierCod). Idempotent.
+ */
+export async function recordCourierCodCollected(orderOrId) {
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+    const order = await findOrderForUpdate(orderOrId, session);
+    if (order.paymentMode !== "COD" || order.fulfillmentType !== "SHIPROCKET") {
+      await session.commitTransaction();
+      return order;
+    }
+    if (order.financeFlags?.codMarkedCollected) {
+      await session.commitTransaction();
+      return order;
+    }
+    const total = roundCurrency(order.paymentBreakdown?.grandTotal || order.pricing?.total || 0);
+    if (total <= 0) {
+      await session.commitTransaction();
+      return order;
+    }
+    if (!order.paymentBreakdown) order.paymentBreakdown = {};
+    order.paymentBreakdown.codCollectedAmount = total;
+    order.paymentBreakdown.codRemittedAmount = roundCurrency(order.paymentBreakdown.codRemittedAmount || 0);
+    order.paymentBreakdown.codPendingAmount = roundCurrency(total - order.paymentBreakdown.codRemittedAmount);
+    if (typeof order.markModified === "function") order.markModified("paymentBreakdown");
+    order.paymentStatus = ORDER_PAYMENT_STATUS.CASH_COLLECTED;
+    order.payment = { ...(order.payment || {}), method: "cash", status: "completed" };
+    order.financeFlags = { ...(order.financeFlags || {}), codMarkedCollected: true };
+    await createFinanceAuditLog(
+      {
+        action: "COD_MARKED_COLLECTED",
+        actorType: OWNER_TYPE.ADMIN,
+        actorId: null,
+        orderId: order._id,
+        metadata: { amount: total, holder: "COURIER" },
+      },
+      { session },
+    );
+    await order.save({ session });
+    await session.commitTransaction();
+    return order;
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
+}
+
+/**
+ * The courier (Shiprocket) paid the COD cash of one order into the platform's bank: credit the admin wallet.
+ * `amount` defaults to everything still pending; a part payment is allowed, more than pending is not.
+ */
+export async function remitCourierCod(orderOrId, { amount = null, actorId = null, reference = "" } = {}) {
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+    const order = await findOrderForUpdate(orderOrId, session);
+    if (order.paymentMode !== "COD" || order.fulfillmentType !== "SHIPROCKET") {
+      const e = new Error("This is not a courier (Shiprocket) cash-on-delivery order.");
+      e.statusCode = 400;
+      throw e;
+    }
+    if (order.status !== "delivered" && order.orderStatus !== "delivered" && order.status !== "returned") {
+      const e = new Error("The courier's cash can only be received after the order is delivered.");
+      e.statusCode = 409;
+      throw e;
+    }
+    const collected = roundCurrency(order.paymentBreakdown?.codCollectedAmount || 0);
+    const remitted = roundCurrency(order.paymentBreakdown?.codRemittedAmount || 0);
+    const pending = roundCurrency(collected - remitted);
+    if (collected <= 0 || pending <= 0) {
+      const e = new Error("There is no courier cash pending for this order.");
+      e.statusCode = 409;
+      throw e;
+    }
+    const requested = amount == null || amount === "" ? pending : roundCurrency(amount);
+    if (!(requested > 0)) {
+      const e = new Error("Enter an amount greater than 0.");
+      e.statusCode = 400;
+      throw e;
+    }
+    if (requested > pending) {
+      const e = new Error(`Only ₹${pending} is pending for this order; you cannot receive ₹${requested}.`);
+      e.statusCode = 400;
+      throw e;
+    }
+
+    const adminCredit = await creditWallet({
+      ownerType: OWNER_TYPE.ADMIN,
+      ownerId: null,
+      amount: requested,
+      bucket: "available",
+      session,
+    });
+    await createLedgerEntry(
+      {
+        orderId: order._id,
+        walletId: adminCredit.wallet._id,
+        actorType: OWNER_TYPE.ADMIN,
+        actorId: null,
+        type: LEDGER_TRANSACTION_TYPE.COD_REMITTED,
+        direction: LEDGER_DIRECTION.CREDIT,
+        amount: requested,
+        paymentMode: "COD",
+        metadata: { via: "courier_cod", reference: String(reference || "") },
+        description: "Courier (Shiprocket) COD cash received",
+        reference: order.orderId,
+        balanceBefore: adminCredit.before,
+        balanceAfter: adminCredit.after,
+      },
+      { session },
+    );
+
+    const nextRemitted = addMoney(remitted, requested);
+    const nextPending = roundCurrency(collected - nextRemitted);
+    order.paymentBreakdown.codRemittedAmount = nextRemitted;
+    order.paymentBreakdown.codPendingAmount = nextPending;
+    if (typeof order.markModified === "function") order.markModified("paymentBreakdown");
+    order.paymentStatus = nextPending <= 0 ? ORDER_PAYMENT_STATUS.COD_RECONCILED : ORDER_PAYMENT_STATUS.PARTIALLY_REMITTED;
+    if (nextPending <= 0) {
+      order.settlementStatus = { ...(order.settlementStatus || {}), reconciledAt: new Date() };
+    }
+    await createFinanceAuditLog(
+      {
+        action: "COD_RECONCILED",
+        actorType: OWNER_TYPE.ADMIN,
+        actorId: actorId || null,
+        orderId: order._id,
+        metadata: { amount: requested, holder: "COURIER", codRemittedAmount: nextRemitted, codPendingAmount: nextPending, reference: String(reference || "") },
+      },
+      { session },
+    );
+    await order.save({ session });
+    await session.commitTransaction();
+    return { orderId: order.orderId, received: requested, codRemittedAmount: nextRemitted, codPendingAmount: nextPending };
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
+}
+
 export async function settleDeliveredOrder(orderOrId, { actorId = null } = {}) {
   const session = await mongoose.startSession();
   try {
@@ -569,7 +712,7 @@ export async function settleDeliveredOrder(orderOrId, { actorId = null } = {}) {
     }
 
     if (!order.returnEligibleAt || !order.returnWindowExpiresAt) {
-      const { eligibleAt, windowExpiresAt } = computeReturnWindowDates(order.deliveredAt, order);
+      const { eligibleAt, windowExpiresAt } = await computeReturnWindowDates(order.deliveredAt, order);
       order.returnEligibleAt = order.returnEligibleAt || eligibleAt;
       order.returnWindowExpiresAt = order.returnWindowExpiresAt || windowExpiresAt;
       order.returnDeadline = order.returnDeadline || windowExpiresAt;
@@ -623,6 +766,9 @@ export async function settleDeliveredOrder(orderOrId, { actorId = null } = {}) {
     };
 
     order.settlementStatus = computeOverallSettlement(order);
+
+    const earning = computePlatformEarning(order);
+    order.platformEarning = { net: earning.net, parts: earning.parts, updatedAt: new Date() };
 
     await order.save({ session });
     await session.commitTransaction();
@@ -796,34 +942,48 @@ export async function reverseOrderFinanceOnCancellation(
       return order;
     }
 
-    if (order.paymentMode === "ONLINE" && order.financeFlags?.onlinePaymentCaptured) {
+    // A cancelled order that was already paid (gateway or UPI QR) is refunded into the customer's wallet,
+    // from where they can withdraw it to their bank. The money stays on the platform until the admin pays
+    // that withdrawal, so the admin wallet is not touched here.
+    let walletRefundedAmount = 0;
+    const paidBeforeCancel =
+      (order.paymentMode === "ONLINE" || order.paymentMode === "UPI_QR") &&
+      order.financeFlags?.onlinePaymentCaptured;
+    if (paidBeforeCancel) {
       const refundAmount = roundCurrency(order.paymentBreakdown?.grandTotal || 0);
-      if (refundAmount > 0) {
-        const debitResult = await debitWallet({
-          ownerType: OWNER_TYPE.ADMIN,
-          ownerId: null,
+      if (refundAmount > 0 && order.customer) {
+        await creditWallet({
+          ownerType: OWNER_TYPE.CUSTOMER,
+          ownerId: order.customer,
           amount: refundAmount,
           bucket: "available",
           session,
+          ledgerType: LEDGER_TRANSACTION_TYPE.WALLET_REFUND,
+          ledgerReference: `CAN-REF-${order.orderId}`,
+          ledgerDescription: `Refund for cancelled order: ${reason}`,
+          orderId: order._id,
+          paymentMode: order.paymentMode,
+          idempotencyKey: `CAN-CUST-REFUND-${order._id}`,
+          metadata: { source: "order_cancelled", reason },
         });
-
-        await createLedgerEntry(
-          {
-            orderId: order._id,
-            walletId: debitResult.wallet._id,
-            actorType: OWNER_TYPE.ADMIN,
-            actorId: null,
-            type: LEDGER_TRANSACTION_TYPE.REFUND,
-            direction: LEDGER_DIRECTION.DEBIT,
-            amount: refundAmount,
-            paymentMode: "ONLINE",
-            description: reason,
-            reference: order.orderId,
-            balanceBefore: debitResult.before,
-            balanceAfter: debitResult.after,
-          },
+        // loaded here (not at the top) so this file does not need the transaction model to be imported
+        const { default: Transaction } = await import("../../models/transaction.js");
+        await Transaction.create(
+          [
+            {
+              user: order.customer,
+              userModel: "User",
+              order: order._id,
+              type: "Refund",
+              amount: refundAmount,
+              status: "Settled",
+              reference: `CAN-REF-${order.orderId}`,
+              meta: { orderId: order._id, type: "order_cancelled_wallet" },
+            },
+          ],
           { session },
         );
+        walletRefundedAmount = refundAmount;
       }
       order.paymentStatus = ORDER_PAYMENT_STATUS.REFUNDED;
     }
@@ -887,6 +1047,14 @@ export async function reverseOrderFinanceOnCancellation(
 
     await order.save({ session });
     await session.commitTransaction();
+    if (walletRefundedAmount > 0) {
+      emitNotificationEvent(NOTIFICATION_EVENTS.REFUND_COMPLETED, {
+        orderId: order.orderId,
+        customerId: order.customer,
+        userId: order.customer,
+        data: { refundAmount: walletRefundedAmount },
+      });
+    }
     return order;
   } catch (error) {
     await session.abortTransaction();

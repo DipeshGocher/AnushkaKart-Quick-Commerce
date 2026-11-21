@@ -27,6 +27,7 @@ import { customerApi } from "../services/customerApi";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "@core/context/AuthContext";
 import { useSettings } from "@core/context/SettingsContext";
+import { firstOpenMode, visiblePaymentModes } from "@shared/utils/platformRules";
 import { useToast } from "@shared/components/ui/Toast";
 import CheckoutOrderSuccess from "./checkout/components/CheckoutOrderSuccess";
 import { createSocketTokenReader } from "@core/utils/authStorage";
@@ -58,7 +59,6 @@ const PaymentPage = () => {
   const appName = settings?.storeName || settings?.brandName || "Anushka Connect";
   const upiId = settings?.upiId || "anushkaconnect@okaxis";
   const upiDisplayName = settings?.upiDisplayName || appName || "Anushka Connect";
-  const upiEnabled = settings?.upiEnabled !== false;
 
   // Retrieve checkout state from route state or sessionStorage backup
   const checkoutData = useMemo(() => {
@@ -79,8 +79,13 @@ const PaymentPage = () => {
     return null;
   }, [location.state]);
 
-  // "Pay Online" is always the section that opens first.
-  const [openAccordion, setOpenAccordion] = useState("online"); // 'upi_qr' | 'online' | 'cod' | 'emi'
+  // Which payment modes this checkout may use: the server's answer for this exact cart (admin
+  // "Payment Modes" page), else the admin's settings for the delivery type. "Pay Online" opens
+  // first when it is available.
+  const fulfillmentType =
+    checkoutData?.pricingPreview?.fulfillmentType || checkoutData?.pricingPreview?.breakdown?.fulfillmentType || "LOCAL";
+  const paymentModes = visiblePaymentModes({ preview: checkoutData?.pricingPreview, settings, fulfillmentType });
+  const [openAccordion, setOpenAccordion] = useState(() => firstOpenMode(paymentModes) || "online"); // 'upi_qr' | 'online' | 'cod' | 'emi'
   const [isPriceDropdownOpen, setIsPriceDropdownOpen] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [orderId, setOrderId] = useState(null);
@@ -299,7 +304,6 @@ const PaymentPage = () => {
         taxTotal: taxAmount,
         tipAmount: 0,
         timeSlot: selectedTimeSlot,
-        walletAmount: walletAmountToUse,
         couponCode: selectedCoupon?.code || null,
         couponId: selectedCoupon?._id || selectedCoupon?.id || null,
         items: (orderItems.length > 0 ? orderItems : cart).map((item) => ({
@@ -594,7 +598,7 @@ const PaymentPage = () => {
         {/* Payment Options Accordion */}
         <div className="space-y-3">
           {/* Option: UPI QR Code (Option A) */}
-          {upiEnabled && (
+          {paymentModes.upiQr && (
             <div className="bg-white rounded-2xl border-2 border-emerald-500/30 shadow-xs overflow-hidden transition-all">
               <button
                 type="button"
@@ -643,6 +647,7 @@ const PaymentPage = () => {
           )}
 
           {/* Option 1: Credit / Debit / ATM Card / UPI (Pay Online) */}
+          {paymentModes.online && (
           <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
             <button
               type="button"
@@ -697,7 +702,10 @@ const PaymentPage = () => {
             )}
           </div>
 
+          )}
+
           {/* Option 2: Cash on Delivery — Matches Image 4 */}
+          {paymentModes.cod && (
           <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
             <button
               type="button"
@@ -744,6 +752,8 @@ const PaymentPage = () => {
               </div>
             )}
           </div>
+
+          )}
 
           {/* Option 3: No Cost EMI */}
           <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">

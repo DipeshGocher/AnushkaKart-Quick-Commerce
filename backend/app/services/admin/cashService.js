@@ -3,7 +3,7 @@ import Delivery from "../../models/delivery.js";
 import Transaction from "../../models/transaction.js";
 import Notification from "../../models/notification.js";
 import Order from "../../models/order.js";
-import Wallet from "../../models/wallet.js";
+import { reconcileCodCash } from "../finance/orderFinanceService.js";
 import { buildKey, del } from "../cacheService.js";
 
 export async function getDeliveryCashBalancesData({ page, limit, skip }) {
@@ -300,8 +300,16 @@ export async function getDeliveryCashBalancesData({ page, limit, skip }) {
 }
 
 export async function settleRiderCashEntry({ riderId, amount, method, notes, actorId }) {
-  if (!riderId || !amount || amount <= 0) {
-    throw new Error("Missing riderId or invalid amount");
+  const amountAbs = Math.round(Math.abs(Number(amount)) * 100) / 100;
+  if (!riderId || !Number.isFinite(amountAbs) || amountAbs <= 0) {
+    const e = new Error("Missing riderId or invalid amount");
+    e.statusCode = 400;
+    throw e;
+  }
+  if (!mongoose.Types.ObjectId.isValid(riderId)) {
+    const e = new Error("Missing riderId or invalid amount");
+    e.statusCode = 400;
+    throw e;
   }
 
   const rider = await Delivery.findById(riderId);
@@ -309,77 +317,92 @@ export async function settleRiderCashEntry({ riderId, amount, method, notes, act
     return null;
   }
 
-  const amountAbs = Math.abs(Number(amount));
-
-  // 1. Check if there is an existing pending handover transaction for this rider
-  let settlement = await Transaction.findOne({
-    user: riderId,
-    userModel: "Delivery",
-    type: "Cash Settlement",
-    status: { $in: ["Pending", "Processing"] },
-  }).sort({ createdAt: -1 });
-
-  if (settlement) {
-    settlement.status = "Settled";
-    settlement.amount = -amountAbs;
-    settlement.notes = notes || `Settled by Admin at Hub. Method: ${method || "Cash"}`;
-    if (!settlement.reference) {
-      settlement.reference = `CSH-SET-${Date.now()}`;
-    }
-    await settlement.save();
-  } else {
-    settlement = await Transaction.create({
-      user: riderId,
-      userModel: "Delivery",
-      type: "Cash Settlement",
-      amount: -amountAbs,
-      status: "Settled",
-      reference: `CSH-SET-${Date.now()}`,
-      notes: notes || `Settled by Admin at Hub. Method: ${method || "Cash"}`,
-    });
-  }
-
-  // 2. Reconcile COD Orders for this rider so codPendingAmount becomes 0
+  // The cash the rider still holds for orders, oldest first.
   const pendingOrders = await Order.find({
     deliveryBoy: riderId,
     paymentMode: { $in: ["COD", "cod"] },
     status: { $ne: "cancelled" },
     orderStatus: { $ne: "cancelled" },
     "paymentBreakdown.codPendingAmount": { $gt: 0 },
-  }).sort({ createdAt: 1 });
+  })
+    .select("_id orderId paymentBreakdown.codPendingAmount")
+    .sort({ createdAt: 1 })
+    .lean();
+  const totalPending = Math.round(pendingOrders.reduce((a, o) => a + Number(o.paymentBreakdown?.codPendingAmount || 0), 0) * 100) / 100;
 
+  // Never collect more than the rider holds (this also stops a double click from collecting twice).
+  if (amountAbs > totalPending + 0.005) {
+    const e = new Error(`This rider only holds ₹${totalPending.toLocaleString("en-IN")} of cash; you cannot collect ₹${amountAbs.toLocaleString("en-IN")}.`);
+    e.statusCode = 400;
+    throw e;
+  }
+
+  // 1. The money itself: for each order the cash is booked as REMITTED through the finance service, which
+  //    credits the admin wallet (so seller / rider payouts for cash orders can be paid), writes the ledger rows,
+  //    reduces the rider's cash in hand and moves the order's cash-pending amount. One order at a time, each
+  //    one atomic. If two collections run at the same moment, the second one fails here (the order has no cash
+  //    left) and leaves nothing behind.
   let remaining = amountAbs;
+  let collected = 0;
+  let failure = null;
+  const settlementRef = `CSH-SET-${Date.now()}`;
   for (const order of pendingOrders) {
-    if (remaining <= 0) break;
+    if (remaining <= 0.004) break;
     const pending = Number(order.paymentBreakdown?.codPendingAmount || 0);
-    if (pending <= 0) continue;
-    const settleAmt = Math.min(pending, remaining);
-    order.paymentBreakdown.codPendingAmount = Math.max(0, pending - settleAmt);
-    order.paymentBreakdown.codRemittedAmount = (order.paymentBreakdown.codRemittedAmount || 0) + settleAmt;
-    if (order.paymentBreakdown.codPendingAmount === 0) {
-      if (!order.financeFlags) order.financeFlags = {};
-      order.financeFlags.codSettled = true;
-      order.financeFlags.codMarkedCollected = true;
+    const settleAmt = Math.round(Math.min(pending, remaining) * 100) / 100;
+    if (settleAmt <= 0) continue;
+    try {
+      await reconcileCodCash(order._id, settleAmt, riderId, {
+        actorId,
+        metadata: { via: "collect_cash", settlementRef, method: method || "Cash" },
+      });
+    } catch (error) {
+      failure = error;
+      break;
     }
-    await order.save();
-    remaining -= settleAmt;
+    collected = Math.round((collected + settleAmt) * 100) / 100;
+    remaining = Math.round((remaining - settleAmt) * 100) / 100;
   }
 
-  // 3. Update Wallet cashInHand
-  try {
-    const wallet = await Wallet.findOne({
-      ownerType: { $in: ["DELIVERY_PARTNER", "DELIVERY"] },
-      ownerId: riderId,
-    });
-    if (wallet) {
-      wallet.cashInHand = Math.max(0, (wallet.cashInHand || 0) - amountAbs);
-      await wallet.save();
+  // 2. The settlement record shown in the cash history: exactly what was really collected (nothing, when
+  //    nothing was). It reuses a pending handover request if the rider made one.
+  let settlement = null;
+  if (collected > 0) {
+    settlement = await Transaction.findOne({
+      user: riderId,
+      userModel: "Delivery",
+      type: "Cash Settlement",
+      status: { $in: ["Pending", "Processing"] },
+    }).sort({ createdAt: -1 });
+    if (settlement) {
+      settlement.status = "Settled";
+      settlement.amount = -collected;
+      settlement.notes = notes || `Settled by Admin at Hub. Method: ${method || "Cash"}`;
+      if (!settlement.reference) settlement.reference = settlementRef;
+      await settlement.save();
+    } else {
+      settlement = await Transaction.create({
+        user: riderId,
+        userModel: "Delivery",
+        type: "Cash Settlement",
+        amount: -collected,
+        status: "Settled",
+        reference: settlementRef,
+        notes: notes || `Settled by Admin at Hub. Method: ${method || "Cash"}`,
+      });
     }
-  } catch (wErr) {
-    // Non-blocking
+  }
+  if (failure) {
+    const e = new Error(
+      collected > 0
+        ? `Only ₹${collected.toLocaleString("en-IN")} could be collected (another collection was happening at the same time).`
+        : "This rider's cash was just collected by another request. Refresh and check the balance.",
+    );
+    e.statusCode = 409;
+    throw e;
   }
 
-  // 4. Invalidate rider COD cache
+  // 3. Invalidate rider COD cache
   try {
     const cacheKey = buildKey("delivery", "codSummary", String(riderId));
     await del(cacheKey);
@@ -387,13 +410,13 @@ export async function settleRiderCashEntry({ riderId, amount, method, notes, act
     // Non-blocking
   }
 
-  // 5. Notify rider
+  // 4. Notify rider
   try {
     await Notification.create({
       recipient: riderId,
       recipientModel: "Delivery",
       title: "Cash Settled at Hub",
-      message: `Admin has collected and verified ₹${amountAbs.toLocaleString()} cash from you. Your balance is updated.`,
+      message: `Admin has collected and verified ₹${collected.toLocaleString()} cash from you. Your balance is updated.`,
       type: "payment",
       data: { transactionId: settlement._id },
     });

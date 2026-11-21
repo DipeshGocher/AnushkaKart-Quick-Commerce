@@ -311,7 +311,7 @@ describe("updateOrderStatus - courier (Shiprocket) orders", () => {
     expect(sequence).toEqual(["shiprocket-cancel", "order-cancel"]);
   });
 
-  it("admin cancel before pickup: shipment cancelled, stock restored and customer refunded once", async () => {
+  it("admin cancel before pickup: shipment cancelled, stock + refund handled once by compensateOrderCancellation", async () => {
     const order = courierOrder({
       status: "confirmed",
       items: [{ product: "p1", quantity: 2 }],
@@ -325,7 +325,8 @@ describe("updateOrderStatus - courier (Shiprocket) orders", () => {
     expect(order.status).toBe("cancelled");
     expect(order.orderStatus).toBe("cancelled");
     expect(order.workflowStatus).toBe("CANCELLED");
-    expect(mockProductUpdate).toHaveBeenCalledWith("p1", { $inc: { stock: 2 } });
+    // the controller must NOT add the stock itself: compensateOrderCancellation does it (once), including variants
+    expect(mockProductUpdate).not.toHaveBeenCalled();
     expect(mockCompensate).toHaveBeenCalledTimes(1);
   });
 

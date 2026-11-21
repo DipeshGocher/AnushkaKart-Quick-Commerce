@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import Card from '@shared/components/ui/Card';
 import {
     Save,
@@ -93,7 +94,6 @@ const AdminSettings = () => {
         metaKeywords: '',
         keywords: [],
         lowStockAlertsEnabled: true,
-        upiEnabled: true,
         upiId: 'anushkaconnect@okaxis',
         upiDisplayName: 'Anushka Connect',
         supportWhatsappNumber: '8209224481',
@@ -213,7 +213,6 @@ const AdminSettings = () => {
                 playStoreLink: normalizeUrl(settings.playStoreLink),
                 appStoreLink: normalizeUrl(settings.appStoreLink),
                 keywords: Array.isArray(settings.keywords) ? settings.keywords : (settings.metaKeywords ? settings.metaKeywords.split(',').map(k => k.trim()).filter(Boolean) : []),
-                upiEnabled: settings.upiEnabled !== false,
                 upiId: (settings.upiId || '').trim(),
                 upiDisplayName: (settings.upiDisplayName || '').trim(),
                 supportWhatsappNumber: (settings.supportWhatsappNumber || '').trim(),
@@ -579,31 +578,9 @@ const AdminSettings = () => {
                                 </p>
                             </div>
                             <div className="p-6 space-y-6">
-                                {/* Toggle Enable / Disable */}
-                                <div className="flex items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50/50">
-                                    <div>
-                                        <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
-                                            Enable UPI QR Payments
-                                        </h4>
-                                        <p className="text-[11px] text-slate-500 mt-0.5">
-                                            Allow customers to pay directly via Dynamic UPI QR Code during checkout
-                                        </p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleInputChange('upiEnabled', !settings.upiEnabled)}
-                                        className={cn(
-                                            "relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-200 focus:outline-hidden cursor-pointer",
-                                            settings.upiEnabled !== false ? "bg-emerald-600" : "bg-slate-300"
-                                        )}
-                                    >
-                                        <span
-                                            className={cn(
-                                                "inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200",
-                                                settings.upiEnabled !== false ? "translate-x-8" : "translate-x-1"
-                                            )}
-                                        />
-                                    </button>
+                                {/* The on/off switch moved to the "Payment Modes" page (sidebar). */}
+                                <div className="p-4 rounded-xl border border-slate-100 bg-slate-50/50 text-[12px] text-slate-600">
+                                    Turn UPI QR payments on or off from <Link to="/admin/payment-modes" className="font-bold text-blue-600 underline">Payment Modes</Link> in the sidebar. Set the UPI ID and name here.
                                 </div>
 
                                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

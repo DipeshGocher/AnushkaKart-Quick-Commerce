@@ -11,7 +11,7 @@ export function exampleRows(paths = []) {
   const p3 = paths[2] || paths[1] || paths[0] || "Fashion > Men > Jeans";
   const shirt = {
     group: "EXAMPLE-SHIRT", category: p2, price: 999, salePrice: 799, description: "Soft cotton shirt, regular fit.", brand: "Urban Style",
-    spec1Name: "Fabric", spec1Value: "Cotton", spec2Name: "Fit", spec2Value: "Regular", tags: "shirt, cotton",
+    spec1Name: "Fabric", spec1Value: "Cotton", spec2Name: "Fit", spec2Value: "Regular",
   };
   const jeans = { group: "EXAMPLE-JEANS", category: p3, price: 1299, brand: "Urban Style", description: "Slim fit stretch denim." };
   return [
@@ -20,7 +20,7 @@ export function exampleRows(paths = []) {
       name: "EXAMPLE - Basmati Rice 5kg", category: p1, price: 650, salePrice: 599, stock: 40, sku: "RICE-5KG",
       weight: 5, weightUnit: "kg", length: 30, breadth: 20, height: 10,
       description: "Long grain basmati rice, 5 kg pack.", brand: "India Gate",
-      image: "https://your-site.com/rice.jpg", tags: "rice, basmati", returnable: "No",
+      image: "https://your-site.com/rice.jpg", returnable: "No",
       spec1Name: "Type", spec1Value: "Basmati", shelfLife: "12 Months", country: "India", fssai: "10020042001234",
     },
     // 2. Size + Color (one row per combination that you sell; Large-Blue is NOT sold, so it has no row)

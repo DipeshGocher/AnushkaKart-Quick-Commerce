@@ -10,6 +10,10 @@ jest.unstable_mockModule("../app/models/customer.js", () => ({ default: { findBy
 jest.unstable_mockModule("../app/models/product.js", () => ({ default: { find: jest.fn() } }));
 
 const mockApplyDeliveredSettlement = jest.fn().mockResolvedValue(true);
+const mockApplyWeightDiscrepancy = jest.fn().mockResolvedValue({ delta: 60 });
+jest.unstable_mockModule("../app/services/finance/weightDiscrepancyService.js", () => ({
+  applyWeightDiscrepancyToSeller: mockApplyWeightDiscrepancy,
+}));
 const mockCompensateOrderCancellation = jest.fn().mockResolvedValue(true);
 const mockEmitOrderStatusUpdate = jest.fn();
 const mockEmitNotificationEvent = jest.fn();
@@ -175,6 +179,8 @@ describe("Shiprocket status lifecycle (webhook)", () => {
     expect(order.status).toBe("delivered");
     expect(order.shiprocket.weightDiscrepancyAmount).toBe(60);
     expect(order.save).toHaveBeenCalledTimes(1);
+    // the charge is taken from the seller's payout / wallet right away (the parcel is already delivered)
+    expect(mockApplyWeightDiscrepancy).toHaveBeenCalledWith(order._id);
   });
 
   it("treats Shiprocket's 'CANCELED' spelling as a cancellation (refund flow runs once)", async () => {

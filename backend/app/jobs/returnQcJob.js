@@ -5,6 +5,8 @@ import {
   releaseExpiredDisputeWindows,
   retryPendingRefunds,
 } from "../services/order/returnQcService.js";
+import { sweepReturnRequests } from "../services/order/returnRequestSlaService.js";
+import { sweepStuckReturnPickups } from "../services/order/returnPickupRecoveryService.js";
 
 dotenv.config();
 
@@ -27,6 +29,8 @@ const runReturnQcJob = async () => {
   const { completeReturnAndRefund } = await import("../controller/orderController.js");
 
   const steps = [
+    ["request-reminders", () => sweepReturnRequests()],
+    ["pickup-recovery", () => sweepStuckReturnPickups()],
     ["deadlines", () => sweepReturnQcDeadlines({ completeRefund: completeReturnAndRefund })],
     ["dispute-window-release", () => releaseExpiredDisputeWindows()],
     ["refund-retry", () => retryPendingRefunds({ completeRefund: completeReturnAndRefund })],

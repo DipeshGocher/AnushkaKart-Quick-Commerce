@@ -308,6 +308,8 @@ const orderSchema = new mongoose.Schema(
     // while booking, which would wipe a lock stored inside it.
     shiprocketFulfillLockUntil: { type: Date, default: null },
     shiprocket: {
+      // true when the courier booking was only SIMULATED (test mode, no real courier was booked)
+      simulated: { type: Boolean, default: false },
       shipmentId: { type: String, default: null, index: true },
       shiprocketOrderId: { type: String, default: null },
       awb: { type: String, default: null, index: true },
@@ -343,7 +345,11 @@ const orderSchema = new mongoose.Schema(
         attempts: { type: Number, default: 0 },
         lastAttemptAt: { type: Date, default: null },
       },
+      // What the courier really charged for the forward shipment (Shiprocket's figure or one typed in by the admin).
+      freightCharge: { type: Number, default: null },
       weightDiscrepancyAmount: { type: Number, default: 0 },
+      // How much of that has already been taken from the seller (payout reduced / wallet debited).
+      weightDiscrepancyApplied: { type: Number, default: 0 },
       weightDiscrepancyReason: { type: String, default: null },
       chargedWeightKg: { type: Number, default: 0 },
       enteredWeightKg: { type: Number, default: 0 },
@@ -418,6 +424,8 @@ const orderSchema = new mongoose.Schema(
       sellerPayoutQueued: { type: Boolean, default: false },
       riderPayoutQueued: { type: Boolean, default: false },
       adminEarningCredited: { type: Boolean, default: false },
+      // true only when the earning was really written to the ledger (online orders, and cash orders from now on)
+      adminEarningBooked: { type: Boolean, default: false },
       // Added in Phase 1 (audit-plan ticket P1-3). These flags were
       // already written and read by orderController, orderFinanceService,
       // orderWorkflowController, and returnWindowReleaseJob, but they
@@ -610,7 +618,9 @@ const orderSchema = new mongoose.Schema(
     // Returns pages and for audit. All amounts in rupees.
     returnFinance: {
       appliedAt: { type: Date, default: null },
-      refundAmount: { type: Number, default: 0 }, // customer's wallet refund (item price)
+      refundAmount: { type: Number, default: 0 }, // customer's wallet refund (what they paid for the items)
+      itemValue: { type: Number, default: 0 }, // price of the returned items before any coupon
+      discountShare: { type: Number, default: 0 }, // the returned items' share of the coupon discount (not refunded)
       sellerShare: { type: Number, default: 0 }, // what the seller had earned on the returned items
       adminCommission: { type: Number, default: 0 }, // admin commission on the returned items
       adminCommissionReversed: { type: Number, default: 0 }, // taken back from admin earnings (online orders only)
@@ -622,6 +632,26 @@ const orderSchema = new mongoose.Schema(
       owedBySeller: { type: Number, default: 0 }, // part the seller could not cover now (recovered later)
       payoutAction: { type: String, enum: ["cancelled", "reduced", "wallet_debited", "none", null], default: null },
     },
+    // How many "the seller has not answered this return request" reminders were sent (see returnRequestSlaService).
+    returnRequestReminderStage: { type: Number, default: 0 },
+    // Approved return whose pickup has not started (see returnPickupRecoveryService).
+    // Courier return: what the reverse shipment really cost (Shiprocket's figure or typed in by the admin), and
+    // how much of it has already been taken from the seller (when the return was the seller's fault).
+    returnFreightCharge: { type: Number, default: null },
+    returnFreightApplied: { type: Number, default: 0 },
+    returnFreightSource: { type: String, default: null },
+    // QC outcome: may the returned items go back into the seller's sellable stock? (null = old orders: yes)
+    returnQcRestock: { type: Boolean, default: null },
+    // What the platform really earns on this order (see utils/platformEarning.js); the admin report adds these up.
+    platformEarning: {
+      net: { type: Number, default: null },
+      parts: { type: Object, default: null },
+      updatedAt: { type: Date, default: null },
+    },
+    returnPickupStuckAt: { type: Date, default: null },
+    returnPickupRecoveryAttempts: { type: Number, default: 0 },
+    returnPickupRecoveryAt: { type: Date, default: null },
+    returnPickupAlertedAt: { type: Date, default: null },
     returnReasonCode: { type: String, default: null },
     returnFault: { type: String, enum: ["seller", "customer", "unknown", null], default: null },
     returnConditionAssurance: {

@@ -24,8 +24,6 @@ const BillingCharges = () => {
         platformFee: 0,
         freeDeliveryThreshold: 0,
         handlingFeeStrategy: "highest_category_fee",
-        codEnabled: true,
-        onlineEnabled: true,
         // Customer
         customerPricingType: 'distance',
         customerFixedCharge: 30,
@@ -53,8 +51,6 @@ const BillingCharges = () => {
                     setConfig((prev) => ({
                         ...prev,
                         handlingFeeStrategy: s.handlingFeeStrategy ?? prev.handlingFeeStrategy,
-                        codEnabled: s.codEnabled ?? prev.codEnabled,
-                        onlineEnabled: s.onlineEnabled ?? prev.onlineEnabled,
                         // Customer
                         customerPricingType: s.customerPricingType || 'distance',
                         customerFixedCharge: s.customerFixedCharge ?? prev.customerFixedCharge,
@@ -81,8 +77,6 @@ const BillingCharges = () => {
             setIsSaving(true);
             await adminApi.updateDeliveryFinanceSettings({
                 handlingFeeStrategy: config.handlingFeeStrategy,
-                codEnabled: config.codEnabled,
-                onlineEnabled: config.onlineEnabled,
                 customerPricingType: config.customerPricingType,
                 customerFixedCharge: config.customerFixedCharge,
                 customerBaseDistance: config.customerBaseDistance,

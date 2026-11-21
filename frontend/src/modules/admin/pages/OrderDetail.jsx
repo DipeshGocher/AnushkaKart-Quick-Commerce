@@ -91,6 +91,8 @@ const OrderDetail = () => {
     // Shiprocket fulfillment action states
     const [isProcessingShiprocket, setIsProcessingShiprocket] = useState(false);
     const [isSchedulingPickup, setIsSchedulingPickup] = useState(false);
+    const [courierCodAmount, setCourierCodAmount] = useState("");
+    const [isReceivingCod, setIsReceivingCod] = useState(false);
     const [isFetchingLabel, setIsFetchingLabel] = useState(false);
     const [isManualStatusModalOpen, setIsManualStatusModalOpen] = useState(false);
     const [manualStatusData, setManualStatusData] = useState({
@@ -160,6 +162,28 @@ const OrderDetail = () => {
             showToast(error.response?.data?.message || "Failed to process with Shiprocket", "error");
         } finally {
             setIsProcessingShiprocket(false);
+        }
+    };
+
+    // The courier (Shiprocket) paid the cash of a COD order into the bank: record it so the admin wallet gets it.
+    const handleReceiveCourierCod = async (pending) => {
+        const amount = courierCodAmount === "" ? pending : Number(courierCodAmount);
+        if (!(amount > 0) || amount > pending) {
+            showToast(`Enter an amount between ₹1 and ₹${pending}`, "error");
+            return;
+        }
+        try {
+            setIsReceivingCod(true);
+            const res = await adminShippingApi.receiveCourierCod(orderId, { amount });
+            if (res.data?.success) {
+                showToast(`₹${amount} received from the courier`, "success");
+                setCourierCodAmount("");
+                fetchDetail();
+            }
+        } catch (error) {
+            showToast(error.response?.data?.message || "Could not record the courier cash", "error");
+        } finally {
+            setIsReceivingCod(false);
         }
     };
 
@@ -757,6 +781,14 @@ const OrderDetail = () => {
                                     <p className="text-[10px] text-slate-400 font-medium mt-0.5">
                                         Out-of-reach Pan-India Courier Order
                                     </p>
+                                    {order.shiprocket?.simulated && (
+                                        <p
+                                            data-testid="courier-simulated-badge"
+                                            className="mt-1.5 inline-block text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-fuchsia-100 text-fuchsia-800 border border-fuchsia-200"
+                                        >
+                                            Test mode - no real courier booked
+                                        </p>
+                                    )}
                                 </div>
                                 <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${
                                     order.shiprocket?.currentStatus === "DELIVERED"
@@ -892,6 +924,45 @@ const OrderDetail = () => {
                                         >
                                             Manual Status Update
                                         </button>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Courier cash on delivery: the courier holds the cash until it pays it to the bank */}
+                            {order.paymentMode === "COD" && Number(order.paymentBreakdown?.codCollectedAmount || 0) > 0 && (() => {
+                                const pending = Number(order.paymentBreakdown?.codPendingAmount || 0);
+                                const received = Number(order.paymentBreakdown?.codRemittedAmount || 0);
+                                return (
+                                    <div data-testid="courier-cod-box" className="p-3 rounded-xl border border-amber-200 bg-amber-50/60 space-y-2">
+                                        <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest">Courier cash (COD)</p>
+                                        <p className="text-xs text-slate-700">
+                                            Received from courier: <b>₹{received.toLocaleString("en-IN")}</b> &middot; Still with courier: <b data-testid="courier-cod-pending">₹{pending.toLocaleString("en-IN")}</b>
+                                        </p>
+                                        {pending > 0 ? (
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    max={pending}
+                                                    value={courierCodAmount}
+                                                    onChange={(e) => setCourierCodAmount(e.target.value)}
+                                                    placeholder={`${pending}`}
+                                                    data-testid="courier-cod-amount"
+                                                    className="w-28 px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleReceiveCourierCod(pending)}
+                                                    disabled={isReceivingCod}
+                                                    data-testid="courier-cod-receive"
+                                                    className="flex-1 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-700 disabled:opacity-50"
+                                                >
+                                                    {isReceivingCod ? "Saving..." : "Courier cash received"}
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <p className="text-[11px] font-bold text-emerald-700">All cash received from the courier.</p>
+                                        )}
                                     </div>
                                 );
                             })()}

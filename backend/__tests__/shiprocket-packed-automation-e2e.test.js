@@ -392,16 +392,23 @@ const RUN = process.env.RUN_E2E_TESTS === "true" && Boolean(process.env.MONGO_UR
   describe("a REAL order: customer checkout -> seller confirms -> seller packs", () => {
     let ctx;
     const customerTok = () => `Bearer ${tok("user", ctx.customer._id)}`;
-    const checkout = (pincode, city, state) =>
+    const checkout = (pincode, city, state, paymentMode = "COD") =>
       request(app)
         .post("/api/orders")
         .set("Authorization", customerTok())
         .send({
           items: [{ product: String(ctx.product._id), quantity: 2, price: 1500 }],
           address: { type: "Home", name: "Rahul Verma", address: "12 MG Road", city, state, pincode, phone: "9876543210", location: { lat: 18.52, lng: 73.85 } },
-          paymentMode: "COD",
+          paymentMode,
           timeSlot: "now",
         });
+    // For the packed-automation test the customer pays by UPI QR and the admin approves it.
+    const payByQrAndApprove = async (orderId) => {
+      const utr = await request(app).post(`/api/orders/${orderId}/payment/submit-utr`).set("Authorization", customerTok()).send({ utrNumber: "402938491029" });
+      expect(utr.status).toBe(200);
+      const ok = await request(app).post(`/api/orders/${orderId}/payment/approve-upi`).set("Authorization", asAdmin()).send({});
+      expect(ok.status).toBe(200);
+    };
     const setStatus = (orderId, status) =>
       request(app).put(`/api/orders/status/${orderId}`).set("Authorization", asSeller(ctx.seller)).send({ status });
 
@@ -432,12 +439,18 @@ const RUN = process.env.RUN_E2E_TESTS === "true" && Boolean(process.env.MONGO_UR
     });
 
     it("out-of-town customer (Pune): courier order -> confirm -> Packed gives AWB, pickup and label with no extra clicks", async () => {
-      const placed = await checkout("411001", "Pune", "Maharashtra");
+      // Cash on delivery is a normal choice for courier orders now (the admin can switch it off)...
+      const codOrder = await checkout("411001", "Pune", "Maharashtra", "COD");
+      expect(codOrder.status).toBe(201);
+      expect(codOrder.body.result.order.fulfillmentType).toBe("SHIPROCKET");
+      // ...this test follows the UPI QR order.
+      const placed = await checkout("411001", "Pune", "Maharashtra", "UPI_QR");
       expect(placed.status).toBe(201);
       const orderId = placed.body.result.order.orderId;
+      await payByQrAndApprove(orderId);
       let o = await Order.findOne({ orderId }).lean();
       expect(o.fulfillmentType).toBe("SHIPROCKET");
-      expect(o.status).toBe("pending");
+      expect(o.status).toBe("confirmed"); // the admin's QR approval hands the order to the seller
       expect(calls.length).toBe(0); // nothing is booked until the seller acts
 
       const confirmed = await setStatus(orderId, "confirmed");
@@ -457,7 +470,7 @@ const RUN = process.env.RUN_E2E_TESTS === "true" && Boolean(process.env.MONGO_UR
       ]);
       // what Shiprocket was told, from the real checkout numbers
       const booking = calls.find((c) => c.url === "/orders/create/adhoc").body;
-      expect(booking).toMatchObject({ order_id: orderId, billing_pincode: "411001", billing_city: "Pune", payment_method: "COD", sub_total: 3000 });
+      expect(booking).toMatchObject({ order_id: orderId, billing_pincode: "411001", billing_city: "Pune", payment_method: "Prepaid", sub_total: 3000 });
       expect(booking.order_items).toEqual([expect.objectContaining({ name: "Galaxy A15", units: 2, selling_price: 1500 })]);
     });
 

@@ -73,19 +73,12 @@ export const getSellerEarnings = async (req, res) => {
             .filter(t => t.type === 'Withdrawal' && (t.status === 'Pending' || t.status === 'Processing'))
             .reduce((acc, t) => acc + Math.abs(t.amount || 0), 0);
 
-        const settledBalance = Math.max(0, settledEarnings - settledWithdrawals);
-        const realAvailableBalance = Math.max(0, settledBalance - pendingWithdrawals);
-
-        // Fetch wallet for live pending balance (money on hold due to return window)
-        const wallet = await Wallet.findOne({ ownerType: 'SELLER', ownerId: sellerId });
-        const onHoldBalance = wallet ? wallet.pendingBalance : 0;
-
-        // Auto-heal wallet if drifted
-        if (wallet && wallet.availableBalance !== realAvailableBalance) {
-            wallet.availableBalance = realAvailableBalance;
-            await wallet.save();
-        }
-        const liveAvailableBalance = realAvailableBalance;
+        // The seller's money lives in their WALLET (filled by the payout system): "available" is what can be
+        // withdrawn now (return window closed, nothing taken back), "on hold" is still inside the return window.
+        const wallet = await Wallet.findOne({ ownerType: 'SELLER', ownerId: sellerId }).lean();
+        const onHoldBalance = wallet ? wallet.pendingBalance || 0 : 0;
+        const liveAvailableBalance = wallet ? wallet.availableBalance || 0 : 0;
+        const settledBalance = liveAvailableBalance + pendingWithdrawals;
 
         // Keep "Total Revenue" aligned with Dashboard definition:
         // sum of delivered seller orders from Order collection (matches both ObjectId and String seller references).

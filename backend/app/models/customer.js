@@ -137,6 +137,26 @@ const userSchema = new mongoose.Schema(
             default: 0,
         },
 
+        /**
+         * Where the customer wants their wallet (refund) money sent: a bank account or a UPI id. The
+         * account number is stored encrypted and this whole field is hidden from normal reads
+         * (select: false), so it never leaks through the profile API.
+         */
+        payoutAccount: {
+            type: {
+                method: { type: String, enum: ["bank", "upi"] },
+                holderName: { type: String, trim: true },
+                bankName: { type: String, trim: true },
+                accountNumberEnc: { type: String },
+                accountLast4: { type: String },
+                ifsc: { type: String, uppercase: true, trim: true },
+                upiId: { type: String, trim: true, lowercase: true },
+                updatedAt: { type: Date },
+            },
+            select: false,
+            default: undefined,
+        },
+
         isActive: {
             type: Boolean,
             default: true,

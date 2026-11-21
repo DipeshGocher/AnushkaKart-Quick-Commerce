@@ -52,6 +52,7 @@ const ReturnsPage = ({ group: groupParam }) => {
   const [selectedReturn, setSelectedReturn] = useState(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [actionModal, setActionModal] = useState({ open: false, mode: null });
+  const [qcPassAsk, setQcPassAsk] = useState(null); // orderId waiting for "are the items fine?"
   const [actionNote, setActionNote] = useState("");
   const [actionImages, setActionImages] = useState([]);
   const [submittingAction, setSubmittingAction] = useState(false);
@@ -207,9 +208,9 @@ const ReturnsPage = ({ group: groupParam }) => {
     }
   };
 
-  const handleQcPass = async (orderId) => {
+  const handleQcPass = async (orderId, restock) => {
     try {
-      await adminApi.updateReturnQc(orderId, { qcStatus: "qc_passed" });
+      await adminApi.updateReturnQc(orderId, { qcStatus: "qc_passed", ...(restock === undefined ? {} : { restock }) });
       showToast("QC passed. Refund processed.", "success");
       setIsDetailsOpen(false);
       await fetchReturns();
@@ -919,7 +920,7 @@ const ReturnsPage = ({ group: groupParam }) => {
                       </Button>
                       <Button
                         className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700"
-                        onClick={() => handleQcPass(selectedReturn.orderId)}
+                        onClick={() => setQcPassAsk(selectedReturn.orderId)}
                       >
                         QC Passed
                       </Button>
@@ -932,6 +933,34 @@ const ReturnsPage = ({ group: groupParam }) => {
         )}
       </AnimatePresence>
 
+      {qcPassAsk && (
+        <div className="fixed inset-0 z-[2020] flex items-center justify-center p-4" data-testid="qc-restock-dialog">
+          <div className="absolute inset-0 bg-slate-900/40" onClick={() => setQcPassAsk(null)} />
+          <div className="relative w-full max-w-md bg-white rounded-3xl p-6 space-y-4 shadow-xl">
+            <h3 className="text-lg font-black text-slate-900">Are the returned items fine?</h3>
+            <p className="text-sm text-slate-600">
+              The customer is refunded either way. Choose whether the items go back into the sellable stock.
+            </p>
+            <div className="space-y-2">
+              <button
+                data-testid="qc-restock-yes"
+                className="w-full text-left px-4 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold"
+                onClick={() => { const id = qcPassAsk; setQcPassAsk(null); handleQcPass(id, true); }}
+              >
+                Items are fine: refund and add back to stock
+              </button>
+              <button
+                data-testid="qc-restock-no"
+                className="w-full text-left px-4 py-3 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-sm font-bold"
+                onClick={() => { const id = qcPassAsk; setQcPassAsk(null); handleQcPass(id, false); }}
+              >
+                Items are damaged: refund, but do NOT add to stock
+              </button>
+              <button className="w-full px-4 py-2 text-xs font-bold text-slate-500" onClick={() => setQcPassAsk(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
       <AnimatePresence>
         {actionModal.open && (
           <div className="fixed inset-0 z-[2010] flex items-center justify-center p-4">

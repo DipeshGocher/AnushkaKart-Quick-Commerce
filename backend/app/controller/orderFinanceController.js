@@ -18,6 +18,7 @@ import { placeOrderAtomic } from "../services/orderPlacementService.js";
 import { orderMatchQueryFromRouteParam, orderMatchQueryFlexible } from "../utils/orderLookup.js";
 import { verifyClientPaymentCallback } from "../services/paymentService.js";
 import { buildCheckoutPricingSnapshot } from "../services/checkoutPricingService.js";
+import { allowedPaymentModesFor, getPlatformRules } from "../services/platformRulesService.js";
 import { afterPlaceOrderV2 } from "../services/orderWorkflowService.js";
 import { DEFAULT_SELLER_TIMEOUT_MS, WORKFLOW_STATUS } from "../constants/orderWorkflow.js";
 import logger from "../services/logger.js";
@@ -54,6 +55,14 @@ export const previewCheckoutFinance = async (req, res) => {
       breakdown: entry.breakdown,
     }));
 
+    // Which payment modes this exact checkout may use (admin "Payment Modes" page): the payment
+    // screen shows only these. Place-order re-checks it on the server.
+    const { paymentModes } = await getPlatformRules();
+    const allowedPaymentModes = allowedPaymentModesFor(
+      pricingSnapshot.sellerBreakdownEntries.map((entry) => entry.fulfillmentType),
+      paymentModes,
+    );
+
     const distanceDebug = String(process.env.FINANCE_DEBUG_DISTANCE || "").toLowerCase() === "true"
       ? sellerBreakdowns.map((item) => ({
           sellerId: item.sellerId,
@@ -67,6 +76,7 @@ export const previewCheckoutFinance = async (req, res) => {
       sellerCount: pricingSnapshot.sellerCount,
       itemCount: pricingSnapshot.itemCount,
       sellerBreakdowns,
+      allowedPaymentModes,
       fulfillmentType: pricingSnapshot.fulfillmentType,
       deliveryEstimate: pricingSnapshot.deliveryEstimate,
       isLocal: pricingSnapshot.isLocal,

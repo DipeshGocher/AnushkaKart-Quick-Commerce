@@ -8,6 +8,8 @@ import crypto from "node:crypto";
 import { WORKFLOW_STATUS } from "../../constants/orderWorkflow.js";
 import { emitOrderStatusUpdate } from "../orderSocketEmitter.js";
 import { applyDeliveredSettlement } from "../orderSettlement.js";
+import { applyWeightDiscrepancyToSeller } from "../finance/weightDiscrepancyService.js";
+import { extractFreight } from "../../utils/freight.js";
 import { compensateOrderCancellation } from "../orderCompensation.js";
 import { emitNotificationEvent } from "../../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../../modules/notifications/notification.constants.js";
@@ -51,6 +53,26 @@ export function isShiprocketConfigured() {
 }
 
 /**
+ * Courier TEST MODE. Without Shiprocket credentials the system can pretend to book couriers (fake AWB,
+ * courier, tracking) so the whole order / return / money flow can be tested without a Shiprocket account.
+ * It is always allowed outside production. On a production server it is allowed ONLY when the server's
+ * .env has SHIPROCKET_SIMULATION=true (for a client's test period); it is never used when real
+ * credentials are present, so turning it on can not fake a real booking.
+ */
+export function isShiprocketSimulationAllowed() {
+  return process.env.NODE_ENV !== "production" || String(process.env.SHIPROCKET_SIMULATION || "").trim().toLowerCase() === "true";
+}
+
+if (process.env.NODE_ENV === "production" && isShiprocketSimulationAllowed() && !isShiprocketConfigured()) {
+  console.warn("[Shiprocket] SIMULATION MODE IS ON in production: courier bookings are FAKE. Remove SHIPROCKET_SIMULATION from .env before real customers order.");
+}
+
+/** true when courier bookings are currently being simulated (no credentials + simulation allowed) */
+export function isShiprocketSimulated() {
+  return !isShiprocketConfigured() && isShiprocketSimulationAllowed();
+}
+
+/**
  * Authenticates with Shiprocket or returns cached JWT token.
  */
 export async function getShiprocketAuthToken() {
@@ -65,7 +87,7 @@ export async function getShiprocketAuthToken() {
   }
 
   if (!email || !password) {
-    if (process.env.NODE_ENV === "production") {
+    if (!isShiprocketSimulationAllowed()) {
       const err = new Error("Shiprocket API credentials are not configured");
       err.statusCode = 503;
       throw err;
@@ -195,7 +217,7 @@ export async function calculateShiprocketLiveRate({
 
   // Dynamic weight-based fallback
   const computeFallbackRate = () => {
-    const baseFee = Number(process.env.SHIPROCKET_DELIVERY_CHARGE || 49);
+    const baseFee = Number(process.env.SHIPROCKET_DELIVERY_CHARGE || 99);
     const extraWeight = Math.max(0, billableWeight - 0.5);
     const extraBlocks = Math.ceil(extraWeight / 0.5);
     const extraFee = extraBlocks * 25;
@@ -299,7 +321,7 @@ export async function processShiprocketOrder(orderParam) {
 
   // Check if real credentials exist
   if (!isShiprocketConfigured()) {
-    if (process.env.NODE_ENV === "production") {
+    if (!isShiprocketSimulationAllowed()) {
       const err = new Error("Shiprocket API credentials are not configured; courier booking is unavailable");
       err.statusCode = 503;
       throw err;
@@ -312,6 +334,7 @@ export async function processShiprocketOrder(orderParam) {
     const chosenCourier = mockCouriers[Math.floor(Math.random() * mockCouriers.length)];
 
     order.shiprocket = {
+      simulated: true,
       shipmentId: mockShipmentId,
       shiprocketOrderId: `SRO_${Date.now()}`,
       awb: mockAwb,
@@ -483,6 +506,7 @@ export async function processShiprocketOrder(orderParam) {
     // Try to auto-generate AWB
     let awbCode = null;
     let courierName = null;
+    let freightCharge = null;
     try {
       const awbRes = await axios.post(
         `${SHIPROCKET_BASE_URL}/courier/assign/awb`,
@@ -492,6 +516,7 @@ export async function processShiprocketOrder(orderParam) {
       if (awbRes.data?.response?.data?.awb_code) {
         awbCode = awbRes.data.response.data.awb_code;
         courierName = awbRes.data.response.data.courier_name;
+        freightCharge = extractFreight(awbRes.data);
       }
     } catch (awbErr) {
       console.warn("[Shiprocket] AWB auto-assignment deferred:", awbErr.response?.data || awbErr.message);
@@ -504,6 +529,7 @@ export async function processShiprocketOrder(orderParam) {
       courierName: courierName || "Shiprocket Courier Partner",
       currentStatus: awbCode ? "AWB_ASSIGNED" : "NEW",
       currentStatusCode: srData.status_code || 1,
+      freightCharge,
       trackingUrl: awbCode ? `https://shiprocket.co/tracking/${awbCode}` : null,
       lastEventAt: new Date(),
       history: [
@@ -583,12 +609,13 @@ export async function assignShiprocketAwb(order, { attempts = 3, retryDelayMs = 
   }
 
   if (!isShiprocketConfigured()) {
-    if (process.env.NODE_ENV === "production") {
+    if (!isShiprocketSimulationAllowed()) {
       const err = new Error("Shiprocket API credentials are not configured; AWB cannot be assigned");
       err.statusCode = 503;
       throw err;
     }
     const mockAwb = `SR${Math.floor(10000000 + Math.random() * 90000000)}IN`;
+    order.shiprocket.simulated = true;
     order.shiprocket.awb = mockAwb;
     order.shiprocket.courierName = order.shiprocket.courierName || "Delhivery Surface";
     order.shiprocket.trackingUrl = `https://shiprocket.co/tracking/${mockAwb}`;
@@ -619,6 +646,8 @@ export async function assignShiprocketAwb(order, { attempts = 3, retryDelayMs = 
         sr.awb = String(data.awb_code);
         sr.courierName = data.courier_name || sr.courierName || "Shiprocket Courier Partner";
         if (data.courier_company_id) sr.courierId = String(data.courier_company_id);
+        const assignedFreight = extractFreight(res.data);
+        if (assignedFreight !== null) sr.freightCharge = assignedFreight;
         sr.trackingUrl = `https://shiprocket.co/tracking/${sr.awb}`;
         if (["NEW", "ORDER_CREATED", "PENDING_DISPATCH", null, undefined, ""].includes(sr.currentStatus)) {
           sr.currentStatus = "AWB_ASSIGNED";
@@ -682,7 +711,7 @@ export async function requestShiprocketPickup(orderParam) {
   }
 
   if (!isShiprocketConfigured()) {
-    if (process.env.NODE_ENV === "production") {
+    if (!isShiprocketSimulationAllowed()) {
       const err = new Error("Shiprocket API credentials are not configured; pickup cannot be booked");
       err.statusCode = 503;
       throw err;
@@ -813,7 +842,7 @@ export async function cancelShiprocketShipmentForOrder(order) {
       err.statusCode = 502;
       throw err;
     }
-  } else if (process.env.NODE_ENV === "production") {
+  } else if (!isShiprocketSimulationAllowed()) {
     const err = new Error("Shiprocket API credentials are not configured; the courier shipment cannot be cancelled");
     err.statusCode = 503;
     throw err;
@@ -856,7 +885,7 @@ export async function getShiprocketLabel(orderParam) {
   }
 
   if (!isShiprocketConfigured()) {
-    if (process.env.NODE_ENV === "production") {
+    if (!isShiprocketSimulationAllowed()) {
       const err = new Error("Shiprocket API credentials are not configured; label cannot be generated");
       err.statusCode = 503;
       throw err;
@@ -926,7 +955,7 @@ export async function createShiprocketReversePickup(orderParam) {
   const destinationPincode = seller?.pincode || "284001";
 
   if (!isShiprocketConfigured()) {
-    if (process.env.NODE_ENV === "production") {
+    if (!isShiprocketSimulationAllowed()) {
       const err = new Error("Shiprocket credentials are not configured for reverse pickup");
       err.statusCode = 503;
       throw err;
@@ -940,6 +969,7 @@ export async function createShiprocketReversePickup(orderParam) {
     if (!order.shiprocket) {
       order.shiprocket = { history: [] };
     }
+    order.shiprocket.simulated = true;
     order.shiprocket.reverseShipmentId = String(mockReverseShipmentId);
     order.shiprocket.reverseAwb = mockReverseAwb;
     order.shiprocket.reverseCourierName = mockCourier;
@@ -1039,6 +1069,11 @@ export async function createShiprocketReversePickup(orderParam) {
     order.shiprocket.reverseShipmentId = String(reverseShipmentId);
     order.shiprocket.reverseAwb = reverseAwb;
     order.shiprocket.reverseCourierName = reverseCourier;
+    const reverseFreight = extractFreight(retData);
+    if (reverseFreight !== null) {
+      order.returnFreightCharge = reverseFreight;
+      order.returnFreightSource = "shiprocket";
+    }
     order.shiprocket.reverseStatus = "REVERSE_PICKUP_SCHEDULED";
     order.shiprocket.reverseLabelUrl = reverseLabelUrl;
     order.shiprocket.history.push({
@@ -1100,7 +1135,7 @@ export async function getShiprocketReverseLabel(orderParam) {
   }
 
   if (!isShiprocketConfigured()) {
-    if (process.env.NODE_ENV === "production") {
+    if (!isShiprocketSimulationAllowed()) {
       const err = new Error("Shiprocket API credentials are not configured; reverse label cannot be generated");
       err.statusCode = 503;
       throw err;
@@ -1161,6 +1196,7 @@ export async function updateShiprocketReverseStatus(orderParam, { status, remark
   }
 
   const upperStatus = String(status || "").toUpperCase().trim();
+  let pickupCancelled = false;
   const validReverseStatuses = [
     "REVERSE_PICKUP_SCHEDULED",
     "PICKUP_SCHEDULED",
@@ -1210,8 +1246,20 @@ export async function updateShiprocketReverseStatus(orderParam, { status, remark
   } else if (upperStatus === "REVERSE_PICKUP_SCHEDULED" || upperStatus === "PICKUP_SCHEDULED") {
     order.returnStatus = "return_pickup_assigned";
   } else if (upperStatus === "CANCELLED" || upperStatus === "REVERSE_CANCELLED") {
-    order.returnStatus = "return_rejected";
-    order.returnRejectedReason = remarks || "Shiprocket reverse courier pickup cancelled";
+    // The courier cancelled the PICKUP. That is not a rejection of the customer's return: it goes back to
+    // "approved", the old booking is cleared, and the recovery job books a new pickup (the admin is told if
+    // that keeps failing).
+    order.returnStatus = "return_approved";
+    order.shiprocket.reverseStatus = upperStatus;
+    order.shiprocket.reverseAwb = null;
+    order.shiprocket.reverseShipmentId = null;
+    order.shiprocket.reverseCourierName = null;
+    order.shiprocket.reverseLabelUrl = null;
+    order.returnPickupAlertedAt = null;
+    order.returnPickupStuckAt = new Date();
+    order.returnPickupRecoveryAttempts = 0;
+    order.returnPickupRecoveryAt = null;
+    pickupCancelled = true;
   }
 
   order.shiprocket.history.push({
@@ -1223,6 +1271,11 @@ export async function updateShiprocketReverseStatus(orderParam, { status, remark
   });
 
   await order.save();
+
+  if (pickupCancelled) {
+    const { notifyReturnPickupDelayed } = await import("../order/returnPickupRecoveryService.js");
+    await notifyReturnPickupDelayed(order, remarks || "The courier cancelled the return pickup. A new pickup will be booked automatically.");
+  }
 
   emitOrderStatusUpdate(
     order.orderId,
@@ -1520,6 +1573,7 @@ export async function processShiprocketWebhook(payload = {}, headers = {}) {
     // A weight penalty can arrive on a stale event; it is still real money.
     if (ignoreReason !== "duplicate" && recordDiscrepancy()) {
       await order.save();
+      await applyWeightDiscrepancyToSeller(order._id).catch((e) => console.error("[Shiprocket] weight charge not applied:", e.message));
     }
     return {
       success: true,
@@ -1555,7 +1609,7 @@ export async function processShiprocketWebhook(payload = {}, headers = {}) {
     order.shiprocket.etd = payload.etd;
   }
 
-  recordDiscrepancy();
+  const discrepancyRecorded = recordDiscrepancy();
 
   if (statusRaw === "DELIVERED") {
     order.status = "delivered";
@@ -1604,6 +1658,12 @@ export async function processShiprocketWebhook(payload = {}, headers = {}) {
   });
 
   await order.save();
+
+  // A weight charge that arrives after the payout exists is taken from the seller now (before delivery
+  // settlement it is skipped here and taken when the payout is created).
+  if (discrepancyRecorded) {
+    await applyWeightDiscrepancyToSeller(order._id).catch((e) => console.error("[Shiprocket Webhook] weight charge not applied:", e.message));
+  }
 
   if (statusRaw === "DELIVERED") {
     try {
@@ -1691,8 +1751,10 @@ export async function recordShiprocketWeightDiscrepancy(orderId, { discrepancyAm
     err.statusCode = 404;
     throw err;
   }
-  const amt = Number(discrepancyAmount || 0);
-  if (amt <= 0) {
+  const amt = Number(discrepancyAmount ?? NaN);
+  const alreadyCharged = Number(order.shiprocket?.weightDiscrepancyAmount || 0);
+  // 0 is allowed only to WAIVE a charge that was recorded earlier (the seller gets it back).
+  if (!Number.isFinite(amt) || amt < 0 || (amt === 0 && !(alreadyCharged > 0))) {
     const err = new Error("Valid positive discrepancy penalty amount is required");
     err.statusCode = 400;
     throw err;
@@ -1710,6 +1772,12 @@ export async function recordShiprocketWeightDiscrepancy(orderId, { discrepancyAm
     source: "manual",
   });
   await order.save();
-  return { success: true, message: `Weight discrepancy of ₹${amt} recorded`, order };
+  const applied = await applyWeightDiscrepancyToSeller(order._id);
+  return {
+    success: true,
+    message: amt === 0 ? "Weight discrepancy waived" : `Weight discrepancy of ₹${amt} recorded`,
+    order,
+    applied,
+  };
 }
 

@@ -17,6 +17,8 @@ import {
   shiprocketWebhookHandler,
   getShiprocketStatus,
   recordDiscrepancy,
+  recordShipmentFreight,
+  receiveCourierCod,
   scheduleShiprocketReversePickupHandler,
   fetchShiprocketReverseLabel,
   updateShiprocketReverseStatusManual,
@@ -50,6 +52,8 @@ router.post("/shiprocket/pickup/:orderId", verifyToken, allowRoles("admin", "sel
 router.get("/shiprocket/label/:orderId", verifyToken, allowRoles("admin", "seller"), fetchShiprocketLabel);
 router.post("/shiprocket/manual-status/:orderId", verifyToken, allowRoles("admin"), updateShiprocketStatusManual);
 router.post("/shiprocket/discrepancy/:orderId", verifyToken, allowRoles("admin"), recordDiscrepancy);
+router.post("/shiprocket/freight/:orderId", verifyToken, allowRoles("admin"), recordShipmentFreight);
+router.post("/shiprocket/cod-received/:orderId", verifyToken, allowRoles("admin"), receiveCourierCod);
 
 /* Shiprocket Reverse Courier Operations (Admin & Seller) */
 router.post("/shiprocket/reverse/pickup/:orderId", verifyToken, allowRoles("admin", "seller"), scheduleShiprocketReversePickupHandler);

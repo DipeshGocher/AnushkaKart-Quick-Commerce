@@ -17,6 +17,7 @@ export const adminShippingApi = {
   processShiprocketOrder: (orderId) => axiosInstance.post(`/shipping/shiprocket/process/${orderId}`),
   scheduleShiprocketPickup: (orderId) => axiosInstance.post(`/shipping/shiprocket/pickup/${orderId}`),
   getShiprocketLabel: (orderId) => axiosInstance.get(`/shipping/shiprocket/label/${orderId}`),
+  receiveCourierCod: (orderId, data) => axiosInstance.post(`/shipping/shiprocket/cod-received/${orderId}`, data),
   updateShiprocketManualStatus: (orderId, data) => axiosInstance.post(`/shipping/shiprocket/manual-status/${orderId}`, data),
 };
 

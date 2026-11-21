@@ -43,8 +43,10 @@ import * as walletService from "../finance/walletService.js";
 import { reducePendingPayoutForOrder } from "../finance/payoutService.js";
 import { createLedgerEntry } from "../finance/ledgerService.js";
 import { computeReturnMoney, buildReturnMoneyView } from "./returnMoney.js";
+import { computePlatformEarning } from "../../utils/platformEarning.js";
 import { LEDGER_DIRECTION, LEDGER_TRANSACTION_TYPE, OWNER_TYPE, PAYOUT_TYPE } from "../../constants/finance.js";
 import { clearOrderTracking } from "../firebaseService.js";
+import { createReturnPickupRiderPayout } from "../finance/returnPickupPayoutService.js";
 import { createShiprocketReversePickup } from "../shipping/shiprocketService.js";
 import { buildKey, invalidate } from "../cacheService.js";
 import logger from "../logger.js";
@@ -99,8 +101,8 @@ export class OrderReturnService {
     }
 
     const now = new Date();
-    const { eligibleAt, windowExpiresAt, eligibleDelay, windowMinutes } =
-      computeReturnWindowForOrder(order);
+    const { eligibleAt, windowExpiresAt, eligibleDelay, displayWindow } =
+      await computeReturnWindowForOrder(order);
 
     if (now < eligibleAt) {
       throw err(
@@ -111,7 +113,7 @@ export class OrderReturnService {
 
     if (windowExpiresAt && now > windowExpiresAt) {
       throw err(
-        `Return window has expired. You can only request a return within ${windowMinutes} minutes of delivery.`,
+        `Return window has expired. You can only request a return within ${displayWindow} of delivery.`,
         400,
       );
     }
@@ -358,11 +360,6 @@ export class OrderReturnService {
       throw err("No return items found for this order.", 400);
     }
 
-    const refundAmount = order.returnItems.reduce(
-      (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
-      0,
-    );
-
     const settings = await Setting.findOne({});
     const returnCommission =
       settings?.returnDeliveryCommission ||
@@ -374,6 +371,8 @@ export class OrderReturnService {
       ...(item.toObject?.() ?? item),
       status: "approved",
     }));
+    // What the customer will get back: what they paid for these items (price minus their coupon share).
+    const refundAmount = computeReturnMoney(order).refundAmount;
     order.returnRefundAmount = refundAmount;
     order.returnDeliveryCommission = returnCommission;
 
@@ -574,14 +573,11 @@ export class OrderReturnService {
             return;
           }
 
-          const refundAmount =
-            order.returnRefundAmount ||
-            (Array.isArray(order.returnItems)
-              ? order.returnItems.reduce(
-                  (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
-                  0,
-                )
-              : 0);
+          // The money split is worked out first: the refund is what the customer PAID for the items
+          // (price minus the coupon share), not the full price.
+          const money = computeReturnMoney(order);
+          const refundAmount = money.refundAmount;
+          order.returnRefundAmount = refundAmount;
           const commission = order.returnDeliveryCommission || 0;
           const walletRefundTotal = refundAmount;
 
@@ -629,13 +625,14 @@ export class OrderReturnService {
           // 2. Money split (see returnMoney.js): the seller gives back what THEY earned on the returned
           //    items (not the full price) and, if the return is the seller's fault, the pickup fee; the
           //    admin gives back the commission on those items.
-          const money = computeReturnMoney(order);
           const entityId = order.seller;
           const entityOwnerType = OWNER_TYPE.SELLER;
           const entityUserModel = "Seller";
           const applied = {
             appliedAt: new Date(),
             refundAmount: money.refundAmount,
+            itemValue: money.itemValue,
+            discountShare: money.discountShare,
             sellerShare: money.sellerShare,
             adminCommission: money.adminCommission,
             adminCommissionReversed: 0,
@@ -694,6 +691,8 @@ export class OrderReturnService {
                 orderId: order._id,
                 idempotencyKey: `RET-ADJ-DEBIT-${order._id}`,
                 correlationId,
+                // the seller's money comes back to the platform, which holds the customer's refund
+                creditAdmin: true,
                 metadata: { sellerShare: money.sellerShare, pickupFee: money.pickupFee, payer: money.pickupFeePayer },
               });
               applied.fromWallet = recovered.debited;
@@ -749,62 +748,49 @@ export class OrderReturnService {
           }
 
           order.returnFinance = applied;
+          // Courier return: remember how much of the real freight was taken from the seller (if it was
+          // known now); the rest is applied when the freight becomes known (returnFreightService).
+          if (order.fulfillmentType === "SHIPROCKET" && order.returnFreightCharge !== null && order.returnFreightCharge !== undefined) {
+            order.returnFreightApplied = money.pickupFeePayer === "seller" ? money.pickupFee : 0;
+          }
+          const earning = computePlatformEarning(order);
+          order.platformEarning = { net: earning.net, parts: earning.parts, updatedAt: new Date() };
 
           // 3. Delivery partner earning for return pickup (idempotent
           //    guard: only credit if not already paid at OTP time).
           const commissionAlreadyPaid =
             order.financeFlags?.returnPickupCommissionPaid;
-          if (
-            order.returnDeliveryBoy &&
-            commission > 0 &&
-            !commissionAlreadyPaid
-          ) {
-            try {
-              await walletService.creditWallet({
-                ownerType: OWNER_TYPE.DELIVERY_PARTNER,
-                ownerId: order.returnDeliveryBoy,
-                amount: commission,
-                bucket: "available",
-                session,
-                ledgerType: LEDGER_TRANSACTION_TYPE.RIDER_PAYOUT_PROCESSED,
-                ledgerReference: `RET-DEL-${order.orderId}`,
-                ledgerDescription:
-                  "Return-pickup commission credited to delivery partner",
-                orderId: order._id,
-                idempotencyKey: `RET-DEL-CREDIT-${order._id}`,
-                correlationId,
-                metadata: { source: "return_qc_passed" },
-              });
-            } catch (error) {
-              logger.error("Failed to credit delivery boy", {
-                scope: "ReturnFinance",
-                deliveryBoyId: order.returnDeliveryBoy,
-                error: error.message,
-              });
-              throw error;
-            }
-
-            await Transaction.create(
-              [
-                {
-                  user: order.returnDeliveryBoy,
-                  userModel: "Delivery",
-                  order: order._id,
-                  type: "Delivery Earning",
-                  amount: commission,
-                  status: "Settled",
-                  reference: `RET-DEL-${order.orderId}`,
-                },
-              ],
-              { session },
-            );
+          if (order.returnDeliveryBoy && commission > 0 && !commissionAlreadyPaid) {
+            // Normally already created when the pickup was verified; this is the safety net (and it is
+            // idempotent: one payout per order).
+            await createReturnPickupRiderPayout(order, { session });
           }
 
-          // 4. Automatically restock returned items to seller inventory
+          // 4. Restock the returned items, but only when the quality check said they are fine. Damaged items
+          //    (or a QC nobody did: auto-passed) are NOT added to the sellable stock; a "Damaged Return" row is
+          //    kept in the stock history instead so nothing is lost track of. Older orders (no answer saved)
+          //    are restocked as before.
+          const restock = order.returnQcRestock !== false;
           if (Array.isArray(order.returnItems) && order.returnItems.length > 0) {
             for (const retItem of order.returnItems) {
               const pId = retItem.product?._id || retItem.product;
               const qty = Number(retItem.quantity) || 0;
+              if (pId && qty > 0 && !restock) {
+                await StockHistory.create(
+                  [
+                    {
+                      product: pId,
+                      seller: order.seller || undefined,
+                      type: "Damaged Return",
+                      quantity: qty,
+                      note: `Returned item NOT added back to stock (damaged / not checked) - Order #${order.orderId}`,
+                      order: order._id,
+                    },
+                  ],
+                  { session },
+                );
+                continue;
+              }
               if (pId && qty > 0) {
                 if (retItem.variantSlot) {
                   await Product.updateOne(

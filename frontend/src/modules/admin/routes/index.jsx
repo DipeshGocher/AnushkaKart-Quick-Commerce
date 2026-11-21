@@ -30,6 +30,8 @@ import {
   Palette,
   Store,
   Calculator,
+  CreditCard,
+  Undo2,
 } from "lucide-react";
 
 import lazyWithRetry from "@/core/utils/lazyWithRetry";
@@ -70,9 +72,6 @@ const AdminWallet = React.lazy(() => import("../pages/AdminWallet"));
 const WithdrawalRequests = React.lazy(
   () => import("../pages/WithdrawalRequests"),
 );
-const SellerTransactions = React.lazy(
-  () => import("../pages/SellerTransactions"),
-);
 const CashCollection = React.lazy(() => import("../pages/CashCollection"));
 const CustomerManagement = React.lazy(
   () => import("../pages/CustomerManagement"),
@@ -108,6 +107,8 @@ const LegalPageEditor = React.lazy(() => import("../pages/LegalPageEditor"));
 const DeliveryPincodes = React.lazy(() => import("../pages/DeliveryPincodes"));
 const FinanceSettings = React.lazy(() => import("../pages/FinanceSettings"));
 const FinanceRequests = React.lazy(() => import("../pages/FinanceRequests"));
+const PaymentModes = React.lazy(() => import("../pages/PaymentModes"));
+const ReturnModes = React.lazy(() => import("../pages/ReturnModes"));
 
 const navItems = [
   // ── CORE MANAGEMENT ──
@@ -206,12 +207,6 @@ const navItems = [
     color: "cyan",
   },
   {
-    label: "Seller Ledger",
-    path: "/admin/seller-transactions",
-    icon: Receipt,
-    color: "orange",
-  },
-  {
     label: "Collect Cash",
     path: "/admin/cash-collection",
     icon: CircleDollarSign,
@@ -222,6 +217,18 @@ const navItems = [
     path: "/admin/billing",
     icon: RotateCcw,
     color: "red",
+  },
+  {
+    label: "Payment Modes",
+    path: "/admin/payment-modes",
+    icon: CreditCard,
+    color: "emerald",
+  },
+  {
+    label: "Return Modes",
+    path: "/admin/return-modes",
+    icon: Undo2,
+    color: "amber",
   },
   {
     label: "Settings",
@@ -312,7 +319,8 @@ export const adminRoutes = [
   { path: "sos-alerts", element: <SOSAlerts /> },
   { path: "wallet", element: <AdminWallet /> },
   { path: "withdrawals", element: <WithdrawalRequests /> },
-  { path: "seller-transactions", element: <SellerTransactions /> },
+  // the Seller Ledger page was removed (the Wallet page shows the totals); old links still land somewhere useful
+  { path: "seller-transactions", element: <Navigate to="/admin/wallet" replace /> },
   { path: "cash-collection", element: <CashCollection /> },
   { path: "employees", element: <EmployeeManagement /> },
   { path: "employees/:id", element: <EmployeeDetail /> },
@@ -326,6 +334,8 @@ export const adminRoutes = [
   { path: "returns", element: <Returns /> },
   { path: "returns/:group", element: <Returns /> },
   { path: "billing", element: <BillingCharges /> },
+  { path: "payment-modes", element: <PaymentModes /> },
+  { path: "return-modes", element: <ReturnModes /> },
   { path: "layout-branding", element: <LayoutBranding /> },
   { path: "settings", element: <AdminSettings /> },
   { path: "delivery-pincodes", element: <DeliveryPincodes /> },

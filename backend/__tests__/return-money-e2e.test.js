@@ -277,12 +277,14 @@ const RUN = process.env.RUN_E2E_TESTS === "true" && Boolean(process.env.MONGO_UR
   });
 
   describe("COD, idempotency and not-QC-passed", () => {
-    it("COD: no admin earning was booked, so none is taken back; customer and seller are settled the same way", async () => {
+    it("COD: the earning is counted at delivery like online, so the commission is taken back too; customer and seller are settled the same way", async () => {
       const o = await makeReturn({ paymentMode: "COD" });
       await refund(o);
-      expect(await ledger(o._id, "ADMIN_EARNING_REVERSED")).toHaveLength(0);
+      const rev = await ledger(o._id, "ADMIN_EARNING_REVERSED");
+      expect(rev).toHaveLength(1);
+      expect(rev[0].amount).toBe(100);
       expect((await wallet(OWNER_TYPE.CUSTOMER, customer._id)).availableBalance).toBe(1000);
-      expect((await reload(o)).returnFinance).toMatchObject({ adminCommission: 100, adminCommissionReversed: 0, sellerCharged: 900 });
+      expect((await reload(o)).returnFinance).toMatchObject({ adminCommission: 100, adminCommissionReversed: 100, sellerCharged: 900 });
     });
 
     it("running the refund twice pays the customer once and takes the money from the seller once", async () => {

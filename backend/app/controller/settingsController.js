@@ -8,6 +8,13 @@ import {
   normalizeProductApprovalConfig,
 } from "../services/productModerationService.js";
 import { getErrorStatus } from "../utils/httpError.js";
+import {
+  invalidatePlatformRulesCache,
+  normalizePaymentModes,
+  normalizeReturnWindows,
+  validatePaymentModes,
+  validateReturnWindows,
+} from "../services/platformRulesService.js";
 
 /** Allowed keys for settings update (strip unknown keys) */
 const ALLOWED_KEYS = [
@@ -242,7 +249,7 @@ export const getPublicSettings = async (req, res) => {
       async () => {
         const existing = await Setting.findOne(filter)
           .select(
-            "appName supportEmail supportPhone whatsappNumber currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor address facebook twitter instagram linkedin youtube playStoreLink appStoreLink footerMessage footerEmoji footerDescription footerQuickLinksTitle footerQuickLinks footerCategoriesTitle footerCategoriesLinks footerContactTitle footerCopyright footerPrivacyUrl footerTermsUrl footerBgColor footerEnabled returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled upiEnabled upiId upiDisplayName supportWhatsappNumber lowStockAlertsEnabled productApproval categoriesBanner deliveryBadgeText deliveryBadgeImage deliveryBadgeBg deliveryBadgeEnabled bestSellingTitle bestSellingCategoryIds categoryTopDeals createdAt",
+            "appName supportEmail supportPhone whatsappNumber currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor address facebook twitter instagram linkedin youtube playStoreLink appStoreLink footerMessage footerEmoji footerDescription footerQuickLinksTitle footerQuickLinks footerCategoriesTitle footerCategoriesLinks footerContactTitle footerCopyright footerPrivacyUrl footerTermsUrl footerBgColor footerEnabled returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled upiEnabled paymentModes returnWindows upiId upiDisplayName supportWhatsappNumber lowStockAlertsEnabled productApproval categoriesBanner deliveryBadgeText deliveryBadgeImage deliveryBadgeBg deliveryBadgeEnabled bestSellingTitle bestSellingCategoryIds categoryTopDeals createdAt",
           )
           .lean();
         return existing || null;
@@ -269,6 +276,10 @@ export const getPublicSettings = async (req, res) => {
         settings.whatsappNumber = "8209224481";
       }
       settings.productApproval = normalizeProductApprovalConfig(settings || {});
+
+    // The effective payment modes / return windows (stored values, else the old switches / env defaults).
+    settings.paymentModes = normalizePaymentModes(settings);
+    settings.returnWindows = normalizeReturnWindows(settings);
 
     return handleResponse(res, 200, "Settings fetched successfully", settings);
   } catch (error) {
@@ -361,6 +372,60 @@ export const updateSettings = async (req, res) => {
     }
 
     return handleResponse(res, 200, "Settings updated successfully", result);
+  } catch (err) {
+    return handleResponse(res, getErrorStatus(err), err.message);
+  }
+};
+
+/**
+ * PUT /api/settings/payment-modes (admin only)
+ * Body: { local: { cod, online, upiQr }, shiprocket: { online, upiQr } }  (all booleans)
+ * Shiprocket cash-on-delivery can never be switched on; at least one mode must stay on per delivery type.
+ */
+export const updatePaymentModes = async (req, res) => {
+  try {
+    const clean = validatePaymentModes(req.body || {});
+    const tenantId = req.tenantId ?? null;
+    const filter = tenantId
+      ? { tenantId }
+      : { $or: [{ tenantId: null }, { tenantId: { $exists: false } }] };
+    const settings = await Setting.findOneAndUpdate(
+      filter,
+      { $set: { paymentModes: clean } },
+      { new: true, upsert: true },
+    );
+    await invalidate("cache:platform:settings:*");
+    invalidatePlatformRulesCache();
+    return handleResponse(res, 200, "Payment modes saved", {
+      paymentModes: normalizePaymentModes(settings),
+    });
+  } catch (err) {
+    return handleResponse(res, getErrorStatus(err), err.message);
+  }
+};
+
+/**
+ * PUT /api/settings/return-windows (admin only)
+ * Body: { local: { value, unit }, shiprocket: { value, unit } }   unit = "hours" | "days"
+ * Only orders delivered AFTER the change get the new window.
+ */
+export const updateReturnWindows = async (req, res) => {
+  try {
+    const clean = validateReturnWindows(req.body || {});
+    const tenantId = req.tenantId ?? null;
+    const filter = tenantId
+      ? { tenantId }
+      : { $or: [{ tenantId: null }, { tenantId: { $exists: false } }] };
+    const settings = await Setting.findOneAndUpdate(
+      filter,
+      { $set: { returnWindows: clean } },
+      { new: true, upsert: true },
+    );
+    await invalidate("cache:platform:settings:*");
+    invalidatePlatformRulesCache();
+    return handleResponse(res, 200, "Return windows saved", {
+      returnWindows: normalizeReturnWindows(settings),
+    });
   } catch (err) {
     return handleResponse(res, getErrorStatus(err), err.message);
   }

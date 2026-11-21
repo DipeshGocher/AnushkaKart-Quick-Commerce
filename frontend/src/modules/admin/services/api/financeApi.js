@@ -26,8 +26,13 @@ export const adminFinanceApi = {
         axiosInstance.get('/admin/seller-withdrawals', { params }),
     getDeliveryWithdrawals: (params) =>
         axiosInstance.get('/admin/delivery-withdrawals', { params }),
-    getSellerTransactions: (params) =>
-        axiosInstance.get('/admin/seller-transactions', { params }),
+    // Customer refund money sent to the customer's bank / UPI
+    getCustomerWithdrawals: (params) =>
+        axiosInstance.get('/admin/customer-withdrawals', { params }),
+    payCustomerWithdrawal: (id, data) =>
+        axiosInstance.put(`/admin/customer-withdrawals/${id}/pay`, data),
+    rejectCustomerWithdrawal: (id, data) =>
+        axiosInstance.put(`/admin/customer-withdrawals/${id}/reject`, data),
     updateWithdrawalStatus: (id, data) =>
         axiosInstance.put(`/admin/withdrawals/${id}`, data),
 

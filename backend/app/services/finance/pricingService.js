@@ -452,7 +452,7 @@ export async function generateOrderPaymentBreakdown({
   const isShiprocket = fulfillmentType === "SHIPROCKET";
   const standardCourierFee = customCourierFee !== null && Number.isFinite(Number(customCourierFee))
     ? Math.max(0, Number(customCourierFee))
-    : Number(process.env.SHIPROCKET_DELIVERY_CHARGE || 49);
+    : Number(process.env.SHIPROCKET_DELIVERY_CHARGE || 99);
   // Auto-free delivery disabled: always charge standard/live courier fee unless overridden by explicit coupon
   const courierDeliveryFee = standardCourierFee;
 

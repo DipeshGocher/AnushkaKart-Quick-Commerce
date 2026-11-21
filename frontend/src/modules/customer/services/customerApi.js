@@ -15,6 +15,10 @@ export const customerApi = {
   deleteAccount: () => axiosInstance.delete("/customer/delete-account"),
   getWalletTransactions: (params) =>
     getWithDedupe("/customer/transactions", params),
+  // Wallet = refund money, withdrawable to the customer's bank / UPI (never spent at checkout)
+  getWallet: () => axiosInstance.get("/customer/wallet"),
+  saveWalletAccount: (data) => axiosInstance.put("/customer/wallet/account", data),
+  withdrawWallet: (data) => axiosInstance.post("/customer/wallet/withdraw", data),
   getCategories: async (params) => {
     const res = await getWithDedupe("/categories", params, { ttl: TTL.LONG });
     try {

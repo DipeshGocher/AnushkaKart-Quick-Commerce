@@ -81,10 +81,10 @@ describe("return money split", () => {
     expect(computeReturnMoney(o)).toMatchObject({ refundAmount: 100, sellerShare: 95, adminCommission: 5 });
   });
 
-  it("COD: the commission was never booked, so none is taken back", () => {
+  it("COD: the commission is counted when the order is delivered (like online), so it is taken back too", () => {
     const m = computeReturnMoney(order({ paymentMode: "COD", financeFlags: { adminEarningCredited: true } }));
     expect(m.adminCommission).toBe(100);
-    expect(m.adminCommissionReversed).toBe(0);
+    expect(m.adminCommissionReversed).toBe(100);
     expect(m.sellerShare).toBe(900);
   });
 

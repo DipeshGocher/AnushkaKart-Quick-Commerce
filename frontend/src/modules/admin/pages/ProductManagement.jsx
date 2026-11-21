@@ -224,7 +224,6 @@ const ProductManagement = () => {
         countryOfOrigin: '',
         fssaiLicense: '',
         isReturnable: true,
-        returnWindowDays: 7,
         returnPolicyNote: '',
         mainImage: null,
         galleryImages: [],
@@ -409,7 +408,6 @@ const ProductManagement = () => {
             data.append('countryOfOrigin', formData.countryOfOrigin);
             data.append('fssaiLicense', formData.fssaiLicense);
             data.append('isReturnable', String(formData.isReturnable ?? true));
-            data.append('returnWindowDays', String(Number(formData.returnWindowDays) || 7));
             data.append('returnPolicyNote', formData.returnPolicyNote || '');
             data.append('variants', JSON.stringify(vm.variants));
             data.append('variantOptions', vm.optionsJson);
@@ -577,7 +575,6 @@ const ProductManagement = () => {
                 countryOfOrigin: item.countryOfOrigin || '',
                 fssaiLicense: item.fssaiLicense || '',
                 isReturnable: item.isReturnable !== undefined ? item.isReturnable : true,
-                returnWindowDays: item.returnWindowDays !== undefined ? item.returnWindowDays : 7,
                 returnPolicyNote: item.returnPolicyNote || '',
                 mainImage: item.mainImage || null,
                 galleryImages: item.galleryImages || item.images || [],
@@ -604,7 +601,7 @@ const ProductManagement = () => {
                 header: '', categoryId: '', subcategoryId: '', status: 'active',
                 isFeatured: false, isTopDeal: false, deliveryMode: 'inherit', tags: '', weight: '', brand: '',
                 shelfLife: '', countryOfOrigin: '', fssaiLicense: '',
-                isReturnable: true, returnWindowDays: 7, returnPolicyNote: '',
+                isReturnable: true, returnPolicyNote: '',
                 mainImage: null, galleryImages: [],
                 highlights: [0, 1, 2, 3].map(() => ({ icon: "", label: "" })),
                 specifications: [],
@@ -1048,7 +1045,7 @@ const ProductManagement = () => {
                                                     </p>
                                                 </div>
 
-                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     <div className="space-y-1.5 flex flex-col">
                                                         <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Is Returnable?</label>
                                                         <select
@@ -1059,20 +1056,6 @@ const ProductManagement = () => {
                                                             <option value="true">✅ Yes (Returnable)</option>
                                                             <option value="false">❌ No (Non-Returnable)</option>
                                                         </select>
-                                                    </div>
-
-                                                    <div className="space-y-1.5 flex flex-col">
-                                                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Courier Return Window (Days)</label>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            max="30"
-                                                            disabled={!formData.isReturnable}
-                                                            value={formData.returnWindowDays}
-                                                            onChange={(e) => setFormData({ ...formData, returnWindowDays: Number(e.target.value) || 0 })}
-                                                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none ring-primary/5 focus:ring-2 disabled:bg-slate-100 disabled:opacity-60"
-                                                            placeholder="7"
-                                                        />
                                                     </div>
 
                                                     <div className="space-y-1.5 flex flex-col">

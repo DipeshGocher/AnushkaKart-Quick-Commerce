@@ -2,13 +2,17 @@
  * Who gets / gives how much when a return is accepted (QC passed). Pure: no database.
  *
  * Rules:
- *  - The CUSTOMER is refunded the price of the returned items (delivery / platform fees are not refunded).
+ *  - The CUSTOMER is refunded what they PAID for the returned items: the price minus the returned items'
+ *    share of any coupon discount (the coupon is paid by the platform, so the customer must not get
+ *    the discount back as cash). Delivery / platform fees are not refunded.
  *  - The ADMIN gives back the commission it earned on the returned items (online orders; on COD the
  *    commission was never booked, so there is nothing to take back).
  *  - The SELLER gives back what they had earned on the returned items (price minus that commission),
  *    NOT the full price. For a partial return only the returned items count.
- *  - The return PICKUP FEE (the rider's commission) is paid by the seller when the return is the
- *    seller's fault (wrong / damaged / not as described ...), otherwise by the platform.
+ *  - The return PICKUP FEE is the rider's commission for a local return, and the courier's REAL freight for
+ *    a courier (Shiprocket) return (0 until it is known; the admin / Shiprocket figure is applied later).
+ *    It is paid by the seller when the return is the seller's fault (wrong / damaged / not as described ...),
+ *    otherwise by the platform.
  *
  * Per-item numbers come from paymentBreakdown.lineItems (stored when the order was placed). Old orders
  * without them are split by price, so they still work.
@@ -39,7 +43,7 @@ export function computeReturnMoney(order) {
   const sellerPayoutTotal = num(order?.paymentBreakdown?.sellerPayoutTotal);
   const adminCommissionTotal = num(order?.paymentBreakdown?.adminProductCommissionTotal);
 
-  let refundAmount = 0;
+  let itemValue = 0; // price of the returned items, before any coupon
   let sellerShare = 0;
   let adminCommission = 0;
 
@@ -52,7 +56,7 @@ export function computeReturnMoney(order) {
     const qty = Math.min(num(r?.quantity) || orderedQty, orderedQty);
     const unitPrice = num(r?.price ?? original?.price);
     const value = round2(unitPrice * qty);
-    refundAmount += value;
+    itemValue += value;
 
     const line = findLine(lines, index, original);
     if (line && num(line.itemSubtotal) > 0) {
@@ -72,28 +76,43 @@ export function computeReturnMoney(order) {
     }
   }
 
-  refundAmount = round2(refundAmount);
-  sellerShare = round2(Math.min(sellerShare, refundAmount));
+  itemValue = round2(itemValue);
+  // The seller earned their share on the full price (the coupon never reduced their payout), so that
+  // is what they give back, whatever the customer paid.
+  sellerShare = round2(Math.min(sellerShare, itemValue));
+  // The returned items' share of the coupon discount (all of it when everything is returned).
+  const discountTotal = Math.max(0, num(order?.paymentBreakdown?.discountTotal));
+  const discountShare =
+    discountTotal > 0 && productSubtotal > 0
+      ? round2(Math.min(discountTotal, productSubtotal) * Math.min(1, itemValue / productSubtotal))
+      : 0;
+  const refundAmount = round2(Math.max(0, itemValue - discountShare));
   adminCommission = round2(adminCommission);
 
-  // The commission is only booked as admin earning for online orders, and only if it was booked.
-  const adminCredited = order?.paymentMode !== "COD" && Boolean(order?.financeFlags?.adminEarningCredited);
+  // The commission is counted as admin earning when the order is delivered (online and cash orders alike).
+  const adminCredited = Boolean(order?.financeFlags?.adminEarningCredited);
   const platformEarning = num(order?.paymentBreakdown?.platformTotalEarning);
   const adminCommissionReversed = adminCredited ? round2(Math.min(adminCommission, platformEarning || adminCommission)) : 0;
 
-  const pickupFee = round2(num(order?.returnDeliveryCommission));
+  const isCourier = order?.fulfillmentType === "SHIPROCKET";
+  const freightKnown = order?.returnFreightCharge !== null && order?.returnFreightCharge !== undefined;
+  const pickupFee = round2(isCourier ? (freightKnown ? num(order.returnFreightCharge) : 0) : num(order?.returnDeliveryCommission));
+  const freightPending = isCourier && !freightKnown;
   const fault = order?.returnFault || RETURN_FAULT.UNKNOWN;
   const pickupFeePayer = fault === RETURN_FAULT.SELLER ? "seller" : "platform";
   const sellerCharged = round2(sellerShare + (pickupFeePayer === "seller" ? pickupFee : 0));
 
   return {
     refundAmount,
+    itemValue,
+    discountShare,
     sellerShare,
     adminCommission,
     adminCommissionReversed,
     pickupFee,
     pickupFeePayer,
     sellerCharged,
+    freightPending,
     fault,
   };
 }
@@ -110,6 +129,8 @@ export function buildReturnMoneyView(order, { role = "admin" } = {}) {
   const view = {
     status: applied ? "applied" : ["qc_failed", "return_rejected"].includes(order.returnStatus) ? "not_refunded" : "if_qc_passes",
     refundAmount: round2(m.refundAmount),
+    itemValue: round2(m.itemValue ?? m.refundAmount),
+    discountShare: round2(m.discountShare || 0),
     sellerShare: round2(m.sellerShare),
     pickupFee: round2(m.pickupFee),
     pickupFeePayer: m.pickupFeePayer,
@@ -120,6 +141,8 @@ export function buildReturnMoneyView(order, { role = "admin" } = {}) {
     fromWallet: round2((applied && applied.fromWallet) || 0),
     owedBySeller: round2((applied && applied.owedBySeller) || 0),
     payoutAction: (applied && applied.payoutAction) || null,
+    freightPending: Boolean(planned.freightPending) && !applied,
+    freightLater: Boolean(planned.freightPending) && Boolean(applied) && planned.pickupFeePayer === "seller",
     fault: planned.fault,
   };
   if (role === "seller") {

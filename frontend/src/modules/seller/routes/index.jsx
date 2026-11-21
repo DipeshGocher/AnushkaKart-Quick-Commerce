@@ -11,8 +11,6 @@ import {
   HiOutlineUser,
   HiOutlineTruck,
   HiOutlineArchiveBox,
-  HiOutlineChartBarSquare,
-  HiOutlineCreditCard,
   HiOutlineMapPin,
 } from "react-icons/hi2";
 
@@ -29,8 +27,6 @@ const AddProduct = React.lazy(() => import("../pages/AddProduct"));
 // Note: Orders is imported eagerly above to avoid dynamic import issues
 const Returns = React.lazy(() => import("../pages/Returns"));
 const Earnings = React.lazy(() => import("../pages/Earnings"));
-const Analytics = React.lazy(() => import("../pages/Analytics"));
-const Transactions = React.lazy(() => import("../pages/Transactions"));
 const DeliveryTracking = React.lazy(() => import("../pages/DeliveryTracking"));
 const Profile = React.lazy(() => import("../pages/Profile"));
 const Withdrawals = React.lazy(() => import("../pages/Withdrawals"));
@@ -43,19 +39,9 @@ const navItems = [
   { label: "Returns", path: "/seller/returns", icon: HiOutlineArchiveBox },
   { label: "Track Orders", path: "/seller/tracking", icon: HiOutlineMapPin },
   {
-    label: "Sales Reports",
-    path: "/seller/analytics",
-    icon: HiOutlineChartBarSquare,
-  },
-  {
     label: "Money Request",
     path: "/seller/withdrawals",
     icon: HiOutlineCurrencyDollar,
-  },
-  {
-    label: "Payment History",
-    path: "/seller/transactions",
-    icon: HiOutlineCreditCard,
   },
   {
     label: "Earnings",
@@ -73,8 +59,9 @@ export const sellerRoutes = [
   { path: "orders", element: <Orders /> },
   { path: "returns", element: <Returns /> },
   { path: "tracking", element: <DeliveryTracking /> },
-  { path: "analytics", element: <Analytics /> },
-  { path: "transactions", element: <Transactions /> },
+  // the Sales Reports and Payment History pages were removed; old links still land somewhere useful
+  { path: "analytics", element: <Navigate to="/seller" replace /> },
+  { path: "transactions", element: <Navigate to="/seller/earnings" replace /> },
   { path: "earnings", element: <Earnings /> },
   { path: "withdrawals", element: <Withdrawals /> },
   { path: "profile", element: <Profile /> },

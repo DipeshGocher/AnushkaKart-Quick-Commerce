@@ -13,7 +13,7 @@ const payoutBatchJobHandler = async () => {
   
   try {
     const result = await bulkProcessPayouts({
-      limit: parseInt(process.env.PAYOUT_BATCH_LIMIT || "25", 10),
+      limit: parseInt(process.env.PAYOUT_BATCH_LIMIT || "100", 10),
       remarks: "Auto-batch payout job",
     });
     
@@ -46,7 +46,7 @@ const payoutBatchJobHandler = async () => {
 export default function startPayoutBatchJob() {
   // This function is now a no-op - the distributed scheduler handles registration
   // Kept for backward compatibility
-  if (process.env.ENABLE_PAYOUT_BATCH_JOB !== "true") {
+  if (!isPayoutBatchJobEnabled()) {
     return;
   }
   logger.warn('startPayoutBatchJob called directly - use distributed scheduler instead');
@@ -68,4 +68,6 @@ export const getPayoutBatchJobInterval = () => PAYOUT_BATCH_INTERVAL_MS();
  * Check if payout batch job is enabled
  * @returns {boolean}
  */
-export const isPayoutBatchJobEnabled = () => process.env.ENABLE_PAYOUT_BATCH_JOB === "true";
+// ON by default: delivered orders are paid out to sellers / delivery partners automatically (a seller's money
+// only after the return window); set ENABLE_PAYOUT_BATCH_JOB=false to switch it off.
+export const isPayoutBatchJobEnabled = () => String(process.env.ENABLE_PAYOUT_BATCH_JOB ?? "true").toLowerCase() !== "false";

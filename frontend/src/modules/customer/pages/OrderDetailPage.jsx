@@ -41,6 +41,7 @@ import {
 import QRCode from "react-qr-code";
 import { cn } from "@/lib/utils";
 import { useSettings } from "@core/context/SettingsContext";
+import { customerReturnLabel, customerReturnMinutes } from "@shared/utils/platformRules";
 import ReviewSubmissionModal from "../components/shared/ReviewSubmissionModal";
 import { customerApi } from "../services/customerApi";
 import { FALLBACK_RETURN_REASONS } from "@/shared/constants/returnReasons";
@@ -324,7 +325,7 @@ const OrderDetailPage = () => {
   const [handoffOtp, setHandoffOtp] = useState(null);
   const [clockTick, setClockTick] = useState(Date.now());
   const isShiprocketOrder = order?.fulfillmentType === "SHIPROCKET";
-  const returnWindowLabel = isShiprocketOrder ? "7 days" : "4 hours";
+  const returnWindowLabel = customerReturnLabel(settings, isShiprocketOrder, order);
   const routeOriginRef = useRef(null);
   const routeRequestRef = useRef({ phase: "", startedAt: 0 });
   const [returnCountdown, setReturnCountdown] = useState(null);
@@ -333,11 +334,11 @@ const OrderDetailPage = () => {
     if (returnDetails?.returnWindowExpiresAt) return new Date(returnDetails.returnWindowExpiresAt).getTime();
     if (order?.returnWindowExpiresAt) return new Date(order.returnWindowExpiresAt).getTime();
     if (order?.deliveredAt) {
-      const windowMs = isShiprocketOrder ? 7 * 24 * 60 * 60 * 1000 : 4 * 60 * 60 * 1000;
+      const windowMs = customerReturnMinutes(settings, isShiprocketOrder) * 60 * 1000;
       return new Date(order.deliveredAt).getTime() + windowMs;
     }
     return null;
-  }, [returnDetails?.returnWindowExpiresAt, order?.returnWindowExpiresAt, order?.deliveredAt, isShiprocketOrder]);
+  }, [returnDetails?.returnWindowExpiresAt, order?.returnWindowExpiresAt, order?.deliveredAt, isShiprocketOrder, settings]);
 
   useEffect(() => {
     if (!effectiveWindowExpiresAt) {
@@ -1325,15 +1326,24 @@ const OrderDetailPage = () => {
             </div>
 
             {/* The tracking number stays behind this button - customers don't need to read or copy it. */}
-            <a
-              href={order.shiprocket.trackingUrl || `https://shiprocket.co/tracking/${order.shiprocket.awb}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5"
-            >
-              <span>Track Package</span>
-              <ArrowRight size={13} />
-            </a>
+            {order.shiprocket.simulated ? (
+              <p
+                data-testid="courier-simulated-note"
+                className="w-full py-2.5 bg-fuchsia-50 text-fuchsia-700 rounded-2xl text-[11px] font-bold text-center"
+              >
+                Test shipment: no real courier is carrying this order
+              </p>
+            ) : (
+              <a
+                href={order.shiprocket.trackingUrl || `https://shiprocket.co/tracking/${order.shiprocket.awb}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+              >
+                <span>Track Package</span>
+                <ArrowRight size={13} />
+              </a>
+            )}
 
             {/* Event history timeline */}
             {Array.isArray(order.shiprocket?.history) && order.shiprocket.history.length > 0 && (
@@ -1991,14 +2001,16 @@ const OrderDetailPage = () => {
                     <div className="bg-brand-50 p-4 rounded-2xl border border-brand-100">
                       <p className="text-xs font-bold text-brand-800 uppercase tracking-wider mb-1">Refund Successful</p>
                       <p className="text-sm text-brand-700 font-medium">
-                        ₹{returnDetails.returnRefundAmount} has been credited to your wallet.
+                        ₹{returnDetails.returnRefundAmount} has been credited to your wallet. You can send it to your bank account or UPI from the{" "}
+                        <Link to="/wallet" className="underline font-bold">Wallet page</Link>.
                       </p>
                     </div>
                   )}
               </div>
             ) : (
               <p className="text-sm text-slate-500 mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                You can request a return within {returnWindowLabel} of delivery.
+                You can request a return within {returnWindowLabel} of delivery. Select every item you want to return in
+                one request: only one return request can be made for an order.
               </p>
             )}
 
@@ -2093,7 +2105,7 @@ const OrderDetailPage = () => {
               Request Return
             </h3>
             <p className="text-xs text-slate-500">
-              Select the items you want to return and tell us why.
+              Select every item you want to return and tell us why. Only one return request can be made for an order, so include all of them now.
             </p>
             <div className="max-h-48 overflow-y-auto space-y-3">
               {order.items.map((item, idx) => {

@@ -20,7 +20,7 @@ import {
 } from "../services/deliveryOtpService.js";
 import { emitToCustomer, emitToSeller, emitToOrder } from "../services/orderSocketEmitter.js";
 import { sendSmsIndiaHubOtp } from "../services/smsIndiaHubService.js";
-import { creditWallet } from "../services/finance/walletService.js";
+import { createReturnPickupRiderPayout } from "../services/finance/returnPickupPayoutService.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
 import { getErrorStatus } from "../utils/httpError.js";
@@ -373,39 +373,13 @@ export const verifyReturnPickupOtp = async (req, res) => {
       { path: "returnDeliveryBoy", select: "name phone" }
     ]);
 
-    // ── Credit rider commission on successful pickup (BACKGROUND) ────────────
-    setImmediate(async () => {
-      try {
-        const commission = order.returnDeliveryCommission || 0;
-        const alreadyPaid = order.financeFlags?.returnPickupCommissionPaid;
-        if (commission > 0 && order.returnDeliveryBoy && !alreadyPaid) {
-          await creditWallet({
-            ownerType: "DELIVERY_PARTNER",
-            ownerId: order.returnDeliveryBoy,
-            amount: commission,
-            bucket: "available",
-          });
-
-          await Transaction.create({
-            user: order.returnDeliveryBoy,
-            userModel: "Delivery",
-            order: order._id,
-            type: "Delivery Earning",
-            amount: commission,
-            status: "Settled",
-            reference: `RET-PICK-${order.orderId}`,
-            meta: { flow: "return_pickup_commission" },
-          });
-
-          await Order.updateOne(
-            { _id: order._id },
-            { $set: { "financeFlags.returnPickupCommissionPaid": true } },
-          );
-        }
-      } catch (commErr) {
-        console.error("[verifyReturnPickupOtp] Background commission credit failed:", commErr.message);
-      }
-    });
+    // The rider's commission for this pickup becomes a payout (one per order, with ledger rows); the payout
+    // job moves it into the rider's wallet. It never blocks or fails the pickup itself.
+    try {
+      await createReturnPickupRiderPayout(order);
+    } catch (commErr) {
+      console.error("[verifyReturnPickupOtp] return pickup commission payout failed:", commErr.message);
+    }
 
     return handleResponse(res, 200, "Return pickup verified. Navigate to seller now.", order);
   } catch (e) {

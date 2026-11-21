@@ -296,20 +296,12 @@ function planOne(group, ctx) {
   // ---- the optional extras
   const description = cleanParagraph(firstOf("description")?.cells.description ?? "", 5000);
   const brand = cleanText(firstOf("brand")?.cells.brand ?? "", 100);
-  const tags = splitList(firstOf("tags")?.cells.tags ?? "", { max: 20, itemMax: 50 });
   let isReturnable = true;
   const retRow = firstOf("returnable");
   if (retRow) {
     const yn = parseYesNo(retRow.cells.returnable);
     if (yn === null) warn(retRow.rowNumber, `Returnable "${toText(retRow.cells.returnable)}" is not Yes or No. Yes is used.`);
     else if (yn === false) isReturnable = false;
-  }
-  let returnWindowDays = 7;
-  const daysRow = firstOf("returnDays");
-  if (daysRow) {
-    const d = parseNumber(daysRow.cells.returnDays);
-    if (d === null || d < 0 || d > 365 || !Number.isInteger(d)) warn(daysRow.rowNumber, `Return Days "${toText(daysRow.cells.returnDays)}" is not valid. 7 is used.`);
-    else returnWindowDays = d;
   }
   const specifications = [];
   for (const i of [1, 2, 3]) {
@@ -355,7 +347,7 @@ function planOne(group, ctx) {
       axes: hasOptions ? axisNames.map((a) => ({ name: a.name, values: [...new Set(variantRows.map((v) => v.options[a.name]))], hasImages: false })) : [],
       variants: variantRows,
       parcel: parcel.complete ? parcel.value : parcel.partial,
-      description, brand, tags, isReturnable, returnWindowDays, specifications, shelfLife, countryOfOrigin, fssaiLicense,
+      description, brand, isReturnable, specifications, shelfLife, countryOfOrigin, fssaiLicense,
     },
   };
 }

@@ -1,3 +1,4 @@
+import { requestPartnerWithdrawal } from "../services/finance/partnerWithdrawalService.js";
 import Seller from "../models/seller.js";
 import Order from "../models/order.js";
 import Transaction from "../models/transaction.js";
@@ -100,57 +101,14 @@ export const requestWithdrawal = async (req, res) => {
       );
     }
 
-    // 2. Single source of truth available balance calculation
-    const transactions = await Transaction.find({
-      user: sellerId,
-      userModel: "Seller",
-    })
-      .select("status amount type order")
-      .populate("order", "paymentBreakdown")
-      .lean();
-
-    const settledEarnings = transactions
-      .filter((t) => t.type === "Order Payment" && t.status === "Settled")
-      .reduce(
-        (acc, t) =>
-          acc + (t.order?.paymentBreakdown?.sellerPayoutTotal || t.amount || 0),
-        0,
-      );
-
-    const settledWithdrawals = transactions
-      .filter((t) => t.type === "Withdrawal" && t.status === "Settled")
-      .reduce((acc, t) => acc + Math.abs(t.amount || 0), 0);
-
-    const pendingPayouts = transactions
-      .filter(
-        (t) =>
-          t.type === "Withdrawal" &&
-          (t.status === "Pending" || t.status === "Processing"),
-      )
-      .reduce((acc, t) => acc + Math.abs(t.amount || 0), 0);
-
-    const availableBalance = Math.max(
-      0,
-      settledEarnings - settledWithdrawals - pendingPayouts,
-    );
-
-    if (parsedAmount > availableBalance) {
-      return handleResponse(
-        res,
-        400,
-        `Insufficient balance. Available: ₹${availableBalance.toLocaleString()}`,
-      );
-    }
-
-    // 3. Create Withdrawal Transaction with bank details snapshot in meta
+    // 2. The money comes out of the seller's WALLET: only earnings whose return window has closed (and that
+    //    no return has taken back) are in it. The amount leaves the wallet right now.
     const maskedAcc = String(bankAccount).slice(-4);
-    const withdrawal = await Transaction.create({
-      user: sellerId,
+    const withdrawal = await requestPartnerWithdrawal({
       userModel: "Seller",
-      type: "Withdrawal",
-      amount: -Math.abs(parsedAmount),
-      status: "Pending",
-      reference: `WDR-${Date.now()}`,
+      userId: sellerId,
+      amount: parsedAmount,
+      referencePrefix: "WDR-",
       meta: {
         bankDetails: {
           bankName,
@@ -159,24 +117,9 @@ export const requestWithdrawal = async (req, res) => {
           accountHolderName: accountHolder,
           upiId: bank?.upiId || null,
         },
-        requestedAt: new Date(),
       },
       notes: `Withdrawal to ${bankName} (Acct Ending in **** ${maskedAcc})`,
     });
-
-    // 4. Sync Wallet document in MongoDB
-    const remainingAvailable = Math.max(0, availableBalance - parsedAmount);
-    const newPending = pendingPayouts + parsedAmount;
-    await Wallet.findOneAndUpdate(
-      { ownerType: "SELLER", ownerId: sellerId },
-      {
-        $set: {
-          availableBalance: remainingAvailable,
-          pendingBalance: newPending,
-        },
-      },
-      { upsert: true },
-    );
 
     return handleResponse(
       res,

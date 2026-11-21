@@ -421,6 +421,81 @@ function eventDefinition(eventType) {
           },
         ],
       };
+    case NOTIFICATION_EVENTS.RETURN_PICKUP_DELAYED:
+      return {
+        multi: true,
+        definitions: [
+          {
+            role: NOTIFICATION_ROLES.CUSTOMER,
+            recipientIds: (payload) => normalizeIdList(payload.customerId || payload.userId),
+            title: () => "Return pickup is delayed",
+            body: (payload) =>
+              `Your return for order #${payload.orderId || ""} is still approved. We could not start the pickup yet and are working on it. You do not need to do anything.`,
+          },
+          {
+            role: NOTIFICATION_ROLES.SELLER,
+            recipientIds: (payload) => normalizeIdList(payload.sellerId),
+            title: () => "Return pickup needs attention",
+            body: (payload) =>
+              `The pickup for the return of order #${payload.orderId || ""} has not started. ${truncateText(payload.data?.reason, 140)}`,
+          },
+          {
+            role: NOTIFICATION_ROLES.ADMIN,
+            recipientIds: (payload) => normalizeIdList(payload.adminIds),
+            title: () => "Return pickup not started",
+            body: (payload) =>
+              `Order #${payload.orderId || ""}: ${truncateText(payload.data?.reason, 160)}`,
+          },
+        ],
+      };
+    case NOTIFICATION_EVENTS.WEIGHT_DISCREPANCY_APPLIED:
+      return {
+        role: NOTIFICATION_ROLES.SELLER,
+        recipientIds: (payload) => normalizeIdList(payload.sellerId),
+        title: () => "Courier weight charge",
+        body: (payload) =>
+          `The courier charged ₹${payload.data?.amount ?? ""} extra for the parcel weight of order #${payload.orderId || ""}; it was taken from your payout. ${payload.data?.reason ? "Reason: " + truncateText(payload.data.reason, 100) : ""}`.trim(),
+      };
+    case NOTIFICATION_EVENTS.RETURN_REQUEST_REMINDER:
+      return {
+        role: NOTIFICATION_ROLES.SELLER,
+        recipientIds: (payload) => normalizeIdList(payload.sellerId),
+        title: () => "Return request waiting for you",
+        body: (payload) =>
+          `A customer asked to return order #${payload.orderId || ""}. Please approve or reject it. Until you do, the return cannot move and your payout stays on hold.`,
+      };
+    case NOTIFICATION_EVENTS.RETURN_REQUEST_ESCALATED:
+      return {
+        role: NOTIFICATION_ROLES.ADMIN,
+        recipientIds: (payload) => normalizeIdList(payload.adminIds),
+        title: () => "Seller has not answered a return request",
+        body: (payload) =>
+          `The seller has not answered the return request for order #${payload.orderId || ""} for ${payload.data?.hours ?? ""} hours. Please approve or reject it.`,
+      };
+    case NOTIFICATION_EVENTS.WALLET_WITHDRAWAL_REQUESTED:
+      return {
+        role: NOTIFICATION_ROLES.ADMIN,
+        recipientIds: (payload) => normalizeIdList(payload.adminIds),
+        title: () => "Customer refund payout requested",
+        body: (payload) =>
+          `A customer asked to withdraw ₹${payload.data?.amount ?? ""} of refund money to their ${payload.data?.method === "upi" ? "UPI" : "bank account"}.`,
+      };
+    case NOTIFICATION_EVENTS.WALLET_WITHDRAWAL_PAID:
+      return {
+        role: NOTIFICATION_ROLES.CUSTOMER,
+        recipientIds: (payload) => normalizeIdList(payload.userId || payload.customerId),
+        title: () => "Money sent to you",
+        body: (payload) =>
+          `₹${payload.data?.amount ?? ""} has been sent to your ${payload.data?.method === "upi" ? "UPI ID" : "bank account"}. Reference: ${payload.data?.reference || "-"}`,
+      };
+    case NOTIFICATION_EVENTS.WALLET_WITHDRAWAL_REJECTED:
+      return {
+        role: NOTIFICATION_ROLES.CUSTOMER,
+        recipientIds: (payload) => normalizeIdList(payload.userId || payload.customerId),
+        title: () => "Withdrawal could not be paid",
+        body: (payload) =>
+          `₹${payload.data?.amount ?? ""} is back in your wallet. Reason: ${truncateText(payload.data?.reason, 100)}`,
+      };
     case NOTIFICATION_EVENTS.RETURN_REFUND_FAILED:
       return {
         role: NOTIFICATION_ROLES.ADMIN,

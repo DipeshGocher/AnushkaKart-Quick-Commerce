@@ -22,12 +22,15 @@ import {
   updateShiprocketManualStatus,
   processShiprocketWebhook,
   isShiprocketConfigured,
+  isShiprocketSimulated,
   recordShiprocketWeightDiscrepancy,
   createShiprocketReversePickup,
   getShiprocketReverseLabel,
   updateShiprocketReverseStatus,
 } from "../services/shipping/shiprocketService.js";
 import { autoFulfillShiprocketOrder } from "../services/shipping/shiprocketAutomation.js";
+import { recordFreight } from "../services/finance/freightService.js";
+import { remitCourierCod } from "../services/finance/orderFinanceService.js";
 import { getErrorStatus } from "../utils/httpError.js";
 
 /**
@@ -380,8 +383,41 @@ export const shiprocketWebhookHandler = async (req, res) => {
 export const getShiprocketStatus = async (req, res) => {
   return handleResponse(res, 200, "Shiprocket configuration status", {
     configured: isShiprocketConfigured(),
+    // true = courier bookings are simulated (test mode): nothing real is booked
+    simulated: isShiprocketSimulated(),
     pickupLocation: process.env.SHIPROCKET_PICKUP_LOCATION || "Primary",
   });
+};
+
+/**
+ * Admin: type in the courier's real freight for a courier order.
+ * Body: { type: "forward" | "reverse", amount }. A return's freight is taken from the seller when the
+ * return was the seller's fault.
+ */
+/**
+ * Admin: the courier (Shiprocket) paid a courier-COD order's cash into the bank -> credit the admin wallet.
+ * Body: { amount?, reference? } (amount defaults to everything still pending).
+ */
+export const receiveCourierCod = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { amount, reference } = req.body || {};
+    const result = await remitCourierCod(orderId, { amount, reference, actorId: req.user?.id || null });
+    return handleResponse(res, 200, "Courier cash received", result);
+  } catch (error) {
+    return handleResponse(res, getErrorStatus(error), error.message);
+  }
+};
+
+export const recordShipmentFreight = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { type, amount } = req.body || {};
+    const result = await recordFreight(orderId, { type, amount, source: "admin" });
+    return handleResponse(res, 200, "Freight recorded", result);
+  } catch (error) {
+    return handleResponse(res, getErrorStatus(error), error.message);
+  }
 };
 
 /**

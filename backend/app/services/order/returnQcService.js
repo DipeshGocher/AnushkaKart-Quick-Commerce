@@ -195,6 +195,8 @@ export async function releaseSellerPayoutAfterQcFail(orderDocOrId) {
  * @param {"qc_passed"|"qc_failed"|"passed"|"failed"} p.qcStatus
  * @param {string} [p.note]
  * @param {string[]} [p.evidenceImages]  required (>=1) for a failed QC
+ * @param {boolean} [p.restock]        passed QC only: are the items fine to go back into stock? (default yes;
+ *                                     a QC nobody did - the system auto-pass - never restocks)
  * @param {Function} [p.completeRefund]  injected refund executor
  * @param {Date} [p.now]
  */
@@ -204,6 +206,7 @@ export async function completeQc({
   qcStatus,
   note,
   evidenceImages,
+  restock,
   completeRefund,
   now = new Date(),
 }) {
@@ -265,6 +268,7 @@ export async function completeQc({
     returnQcAutoPassed: role === "system",
   };
   if (role !== "system") set.returnQcBy = actor.id;
+  if (isPass) set.returnQcRestock = role === "system" ? false : restock !== false;
   if (trimmedNote) set.returnQcNote = trimmedNote;
   if (!isPass) {
     set.returnQcEvidenceImages = evidence;
@@ -387,6 +391,8 @@ export async function resolveDispute({
           "returnDispute.status": "overturned",
           returnStatus: "qc_passed",
           returnQcStatus: "passed",
+          // the seller judged the items bad and the admin sided with the customer: not fit for sale
+          returnQcRestock: false,
         },
       },
       { new: true },

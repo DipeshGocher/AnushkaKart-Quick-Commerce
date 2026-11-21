@@ -17,6 +17,8 @@ jest.unstable_mockModule("../app/utils/helper.js", () => ({
 jest.unstable_mockModule("../app/services/finance/orderFinanceService.js", () => ({
   handleCodOrderFinance: jest.fn(),
   reconcileCodCash: jest.fn(),
+  recordCourierCodCollected: jest.fn(),
+  remitCourierCod: jest.fn(),
   settleDeliveredOrder: jest.fn(),
   reverseOrderFinanceOnCancellation: jest.fn(),
   handleOnlineOrderFinance: jest.fn(),

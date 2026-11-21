@@ -54,6 +54,11 @@ import {
 } from "../controller/sosController.js";
 import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
 import {
+    getCustomerWithdrawals,
+    payCustomerWithdrawal,
+    rejectCustomerWithdrawal,
+} from "../controller/admin/customerWithdrawalController.js";
+import {
     adminBootstrapRateLimiter,
     authRouteRateLimiter,
     createContentLengthGuard,
@@ -228,6 +233,11 @@ router.get("/seller-withdrawals", verifyToken, allowRoles("admin"), getSellerWit
 router.get("/delivery-withdrawals", verifyToken, allowRoles("admin"), getDeliveryWithdrawals);
 router.get("/seller-transactions", verifyToken, allowRoles("admin"), getSellerTransactions);
 router.put("/withdrawals/:id", verifyToken, allowRoles("admin"), updateWithdrawalStatus);
+
+// Customer refund money (wallet) sent to the customer's bank / UPI
+router.get("/customer-withdrawals", verifyToken, allowRoles("admin"), getCustomerWithdrawals);
+router.put("/customer-withdrawals/:id/pay", verifyToken, allowRoles("admin"), payCustomerWithdrawal);
+router.put("/customer-withdrawals/:id/reject", verifyToken, allowRoles("admin"), rejectCustomerWithdrawal);
 
 // =======================
 // SOS ALERTS

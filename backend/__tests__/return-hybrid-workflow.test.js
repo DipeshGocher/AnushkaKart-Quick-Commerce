@@ -116,6 +116,7 @@ jest.unstable_mockModule("../app/services/finance/walletService.js", () => ({
 
 jest.unstable_mockModule("../app/services/finance/payoutService.js", () => ({
   cancelPendingPayoutForOrder: jest.fn(),
+  createPendingPayoutForOrder: jest.fn().mockResolvedValue(null),
   // no unpaid payout in these fixtures
   reducePendingPayoutForOrder: jest.fn().mockResolvedValue({ mode: null, reducedBy: 0, payout: null }),
 }));
@@ -151,25 +152,25 @@ describe("Hybrid Quick-Commerce & Pan-India Return Workflows", () => {
   });
 
   describe("1. Dynamic Return Window Calculation", () => {
-    it("should calculate 240 minutes (4 hours) return window for local quick-commerce orders", () => {
+    it("should calculate 240 minutes (4 hours) return window for local quick-commerce orders", async () => {
       const localOrder = { fulfillmentType: "LOCAL" };
-      const minutes = getReturnWindowMinutes(localOrder);
+      const minutes = await getReturnWindowMinutes(localOrder);
       expect(minutes).toBe(240);
     });
 
-    it("should calculate 10080 minutes (7 days) return window for Shiprocket courier orders", () => {
+    it("should calculate 10080 minutes (7 days) return window for Shiprocket courier orders", async () => {
       const courierOrder = { fulfillmentType: "SHIPROCKET" };
-      const minutes = getReturnWindowMinutes(courierOrder);
+      const minutes = await getReturnWindowMinutes(courierOrder);
       expect(minutes).toBe(10080);
     });
 
-    it("computeReturnWindowForOrder should format displayWindow as '4 hours' for local and '7 days' for courier", () => {
+    it("computeReturnWindowForOrder should format displayWindow as '4 hours' for local and '7 days' for courier", async () => {
       const now = new Date();
-      const localWindow = computeReturnWindowForOrder({ fulfillmentType: "LOCAL", deliveredAt: now });
+      const localWindow = await computeReturnWindowForOrder({ fulfillmentType: "LOCAL", deliveredAt: now });
       expect(localWindow.displayWindow).toBe("4 hours");
       expect(localWindow.windowMinutes).toBe(240);
 
-      const courierWindow = computeReturnWindowForOrder({ fulfillmentType: "SHIPROCKET", deliveredAt: now });
+      const courierWindow = await computeReturnWindowForOrder({ fulfillmentType: "SHIPROCKET", deliveredAt: now });
       expect(courierWindow.displayWindow).toBe("7 days");
       expect(courierWindow.windowMinutes).toBe(10080);
     });

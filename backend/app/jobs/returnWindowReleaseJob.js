@@ -19,11 +19,18 @@ const releaseExpiredSellerHolds = async () => {
   const startTime = Date.now();
   try {
     const now = new Date();
+    // Two kinds of order are waiting on a held seller payout:
+    //   - no return was asked for and the return window is over, and
+    //   - the return was REJECTED (by the seller / admin, or the courier cancelled the reverse
+    //     pickup). Nothing is going to come back, so the seller must not wait for the window:
+    //     before this was added such payouts stayed on HOLD forever.
     const candidates = await Order.find({
       status: "delivered",
-      returnStatus: "none",
-      returnWindowExpiresAt: { $lte: now },
       "settlementStatus.sellerPayout": "HOLD",
+      $or: [
+        { returnStatus: "none", returnWindowExpiresAt: { $lte: now } },
+        { returnStatus: "return_rejected" },
+      ],
     })
       .select("_id orderId")
       .lean();

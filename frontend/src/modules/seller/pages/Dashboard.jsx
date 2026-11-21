@@ -151,7 +151,7 @@ const Dashboard = () => {
       iconBg: "bg-purple-50",
       iconColor: "text-purple-600",
       description: deliveredCount > 0 ? `Based on ${deliveredCount} delivered order${deliveredCount > 1 ? 's' : ''}` : "Based on delivered orders",
-      path: "/seller/analytics",
+      path: "/seller/orders",
     },
     {
       label: "Pending Orders",

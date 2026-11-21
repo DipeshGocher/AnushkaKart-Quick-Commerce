@@ -101,6 +101,10 @@ export async function getOrCreateFinanceSettings({ session } = {}) {
 
 export async function updateDeliveryFinanceSettings(payload, { session } = {}) {
   const normalized = normalizeFinanceSettings(payload || {});
+  // Payment modes are managed on the admin "Payment Modes" page; saving delivery charges must not
+  // overwrite them (the old switches only matter until that page is saved).
+  delete normalized.codEnabled;
+  delete normalized.onlineEnabled;
   const query = {};
   const options = { upsert: true, new: true };
   if (session) options.session = session;

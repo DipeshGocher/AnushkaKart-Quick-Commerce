@@ -168,19 +168,30 @@ describe("single products", () => {
     expect(w({ weight: "heavy", weightUnit: "g" }).status).toBe("draft");
   });
   test("bad optional values never crash: they are ignored with a message", () => {
-    const p = planOf(sheet({ ...full, returnable: "maybe", returnDays: "x", length: "abc", spec1Name: "Fabric", image: "not a link", images: "ftp://x" })).products[0];
+    const p = planOf(sheet({ ...full, returnable: "maybe", length: "abc", spec1Name: "Fabric", image: "not a link", images: "ftp://x" })).products[0];
     expect(p.status).toBe("draft"); // bad length -> parcel incomplete, bad photo links -> no photo
     expect(p.draftReasons.sort()).toEqual(["parcel", "photo"]);
     expect(p.draft.isReturnable).toBe(true);
-    expect(p.draft.returnWindowDays).toBe(7);
-    expect(p.warnings.length).toBeGreaterThanOrEqual(4);
+    expect(p.warnings.length).toBeGreaterThanOrEqual(3);
     expect(p.draft.specifications).toEqual([]); // name without value is dropped
   });
   test("optional extras are read", () => {
-    const p = planOf(sheet({ ...full, brand: "India Gate", tags: "rice, basmati, rice", returnable: "No", returnDays: 10, spec1Name: "Type", spec1Value: "Basmati", shelfLife: "12 Months", country: "India", description: "<b>Good</b> rice" })).products[0];
-    expect(p.draft).toMatchObject({ brand: "India Gate", tags: ["rice", "basmati"], isReturnable: false, shelfLife: "12 Months", countryOfOrigin: "India", description: "Good rice" });
+    const p = planOf(sheet({ ...full, brand: "India Gate", returnable: "No", spec1Name: "Type", spec1Value: "Basmati", shelfLife: "12 Months", country: "India", description: "<b>Good</b> rice" })).products[0];
+    expect(p.draft).toMatchObject({ brand: "India Gate", isReturnable: false, shelfLife: "12 Months", countryOfOrigin: "India", description: "Good rice" });
     expect(p.draft.specifications).toEqual([{ key: "Type", value: "Basmati" }]);
-    expect(p.draft.returnWindowDays).toBe(10);
+  });
+  test("the template has only fields that exist in the Add / Edit Product form (no Return Days, no Tags)", () => {
+    const keys = COLUMNS.map((c) => c.key);
+    expect(keys).not.toContain("returnDays");
+    expect(keys).not.toContain("tags");
+    expect(keys).toContain("returnable");
+  });
+  test("an older template that still has Return Days / Tags columns is read without any error", () => {
+    const oldSheet = [[...HEADERS, "Tags", "Return Days"], [...toRow(full), "a, b", 10]];
+    const r = { products: planOf(oldSheet).products };
+    const p = r.products[0];
+    expect(p.draft.returnWindowDays).toBeUndefined();
+    expect(p.draft.tags).toBeUndefined();
   });
 });
 

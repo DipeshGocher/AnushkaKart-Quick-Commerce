@@ -1,6 +1,7 @@
 import Transaction from "../models/transaction.js";
 import {
   handleCodOrderFinance,
+  recordCourierCodCollected,
   settleDeliveredOrder,
 } from "./finance/orderFinanceService.js";
 
@@ -16,6 +17,11 @@ export async function applyDeliveredSettlement(order, orderIdString) {
     await handleCodOrderFinance(settled._id, {
       deliveryPartnerId: settled.deliveryBoy,
     });
+  }
+
+  // Courier (Shiprocket) COD: no rider, the courier holds the cash until it pays it out.
+  if (isCod && !settled.deliveryBoy && settled.fulfillmentType === "SHIPROCKET" && !settled.financeFlags?.codMarkedCollected) {
+    await recordCourierCodCollected(settled._id);
   }
 
   // Legacy transaction compatibility for existing seller/rider dashboards.
@@ -52,6 +58,12 @@ export async function applyDeliveredSettlement(order, orderIdString) {
     );
 
     if (isCod) {
+      // The cash the rider really holds for the platform: the order total minus his own commission, which he
+      // keeps (this is what he hands over, and what the admin's Collect Cash screen must show).
+      const Order = (await import("../models/order.js")).default;
+      const fresh = await Order.findById(settled._id).select("paymentBreakdown").lean();
+      const cashHeld = Number(fresh?.paymentBreakdown?.codCollectedAmount || 0) ||
+        Number(settled.paymentBreakdown?.grandTotal || settled.pricing?.total || 0);
       await Transaction.findOneAndUpdate(
         { reference: `CASH-COL-${orderIdString}` },
         {
@@ -60,7 +72,7 @@ export async function applyDeliveredSettlement(order, orderIdString) {
             userModel: "Delivery",
             order: settled._id,
             type: "Cash Collection",
-            amount: settled.paymentBreakdown?.grandTotal || settled.pricing?.total || 0,
+            amount: cashHeld,
             status: "Settled",
             reference: `CASH-COL-${orderIdString}`,
           },

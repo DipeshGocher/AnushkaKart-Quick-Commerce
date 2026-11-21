@@ -72,6 +72,11 @@ jest.unstable_mockModule("mongoose", () => ({
   },
 }));
 
+const mockTransactionCreate = jest.fn().mockResolvedValue([]);
+jest.unstable_mockModule("../app/models/transaction.js", () => ({
+  default: { create: mockTransactionCreate },
+}));
+
 jest.unstable_mockModule("../app/models/order.js", () => ({
   default: {
     findOne: mockOrderFindOne,
@@ -322,10 +327,11 @@ describe("finance order flow", () => {
     ).rejects.toThrow("Reconciliation amount exceeds COD pending amount");
   });
 
-  it("creates refund ledger movement on online cancellation reversal", async () => {
+  it("online cancellation: the customer's wallet gets the money back (the admin wallet is not touched)", async () => {
     currentOrder.paymentMode = "ONLINE";
     currentOrder.financeFlags = { onlinePaymentCaptured: true };
     currentOrder.paymentBreakdown.grandTotal = 180;
+    currentOrder.customer = "cust-1";
 
     const updated = await reverseOrderFinanceOnCancellation(
       { _id: "order-1" },
@@ -334,18 +340,32 @@ describe("finance order flow", () => {
 
     expect(updated.paymentStatus).toBe(ORDER_PAYMENT_STATUS.REFUNDED);
     expect(updated.settlementStatus.overall).toBe("CANCELLED");
-    expect(mockDebitWallet).toHaveBeenCalledWith(
+    expect(mockCreditWallet).toHaveBeenCalledWith(
       expect.objectContaining({
-        ownerType: "ADMIN",
+        ownerType: "CUSTOMER",
+        ownerId: "cust-1",
         amount: 180,
+        ledgerType: LEDGER_TRANSACTION_TYPE.WALLET_REFUND,
       }),
     );
-    expect(mockCreateLedgerEntry).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: LEDGER_TRANSACTION_TYPE.REFUND,
-        amount: 180,
-      }),
+    expect(mockDebitWallet).not.toHaveBeenCalled();
+    expect(mockTransactionCreate).toHaveBeenCalledWith(
+      [expect.objectContaining({ type: "Refund", amount: 180, userModel: "User" })],
       expect.any(Object),
     );
+  });
+
+  it("a UPI QR order that was paid and then cancelled is refunded the same way; an unpaid one is not", async () => {
+    currentOrder.paymentMode = "UPI_QR";
+    currentOrder.financeFlags = { onlinePaymentCaptured: true };
+    currentOrder.paymentBreakdown.grandTotal = 250;
+    currentOrder.customer = "cust-2";
+    await reverseOrderFinanceOnCancellation({ _id: "order-1" }, { reason: "x" });
+    expect(mockCreditWallet).toHaveBeenCalledWith(expect.objectContaining({ ownerId: "cust-2", amount: 250 }));
+
+    mockCreditWallet.mockClear();
+    currentOrder.financeFlags = { onlinePaymentCaptured: false };
+    await reverseOrderFinanceOnCancellation({ _id: "order-1" }, { reason: "x" });
+    expect(mockCreditWallet).not.toHaveBeenCalled();
   });
 });

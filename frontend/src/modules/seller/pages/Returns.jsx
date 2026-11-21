@@ -39,6 +39,7 @@ const Returns = () => {
     const [rejectReason, setRejectReason] = useState("");
     const [submittingReject, setSubmittingReject] = useState(false);
     const [isQcFailModalOpen, setIsQcFailModalOpen] = useState(false);
+    const [qcPassAsk, setQcPassAsk] = useState(null); // orderId waiting for "are the items fine?"
     const [qcFailNote, setQcFailNote] = useState("");
     const [qcFailImages, setQcFailImages] = useState([]);
     const [submittingQcFail, setSubmittingQcFail] = useState(false);
@@ -224,11 +225,12 @@ const Returns = () => {
         }
     };
 
-    const handleQcPass = async (orderId) => {
+    const handleQcPass = async (orderId, restock) => {
         try {
             await sellerApi.updateReturnQcStatus(orderId, {
                 qcStatus: "qc_passed",
                 note: "QC passed by seller inspection",
+                ...(restock === undefined ? {} : { restock }),
             });
             showToast("QC Passed & customer refund processed successfully", "success");
             setIsDetailsOpen(false);
@@ -965,7 +967,7 @@ const Returns = () => {
                                             </Button>
                                             <Button
                                                 className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
-                                                onClick={() => handleQcPass(selectedReturn.orderId)}
+                                                onClick={() => setQcPassAsk(selectedReturn.orderId)}
                                             >
                                                 QC Passed
                                             </Button>
@@ -977,6 +979,34 @@ const Returns = () => {
                     </div>
                 )}
             </AnimatePresence>
+            {qcPassAsk && (
+              <div className="fixed inset-0 z-[2020] flex items-center justify-center p-4" data-testid="qc-restock-dialog">
+                <div className="absolute inset-0 bg-slate-900/40" onClick={() => setQcPassAsk(null)} />
+                <div className="relative w-full max-w-md bg-white rounded-3xl p-6 space-y-4 shadow-xl">
+                  <h3 className="text-lg font-black text-slate-900">Are the returned items fine?</h3>
+                  <p className="text-sm text-slate-600">
+                    The customer is refunded either way. Choose whether the items go back into the sellable stock.
+                  </p>
+                  <div className="space-y-2">
+                    <button
+                      data-testid="qc-restock-yes"
+                      className="w-full text-left px-4 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold"
+                      onClick={() => { const id = qcPassAsk; setQcPassAsk(null); handleQcPass(id, true); }}
+                    >
+                      Items are fine: refund and add back to stock
+                    </button>
+                    <button
+                      data-testid="qc-restock-no"
+                      className="w-full text-left px-4 py-3 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-sm font-bold"
+                      onClick={() => { const id = qcPassAsk; setQcPassAsk(null); handleQcPass(id, false); }}
+                    >
+                      Items are damaged: refund, but do NOT add to stock
+                    </button>
+                    <button className="w-full px-4 py-2 text-xs font-bold text-slate-500" onClick={() => setQcPassAsk(null)}>Cancel</button>
+                  </div>
+                </div>
+              </div>
+            )}
             <AnimatePresence>
                 {canManageReturns && isRejectModalOpen && (
                     <div className="fixed inset-0 z-[2010] flex items-center justify-center p-4">

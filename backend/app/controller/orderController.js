@@ -736,21 +736,8 @@ export const updateOrderStatus = async (req, res) => {
       order.cancelledBy = role || "system";
       order.cancelReason = req.body?.reason || `Order cancelled by ${role}`;
 
-      // 1. Reverse Stock
-      for (const item of order.items) {
-        await Product.findByIdAndUpdate(item.product, {
-          $inc: { stock: item.quantity },
-        });
-
-        await StockHistory.create({
-          product: item.product,
-          seller: order.seller,
-          type: "Correction",
-          quantity: item.quantity,
-          note: `Order #${canonicalOrderId} Cancelled`,
-          order: order._id,
-        });
-      }
+      // 1. Stock is given back ONCE, inside compensateOrderCancellation (step 3). It knows variants
+      //    and marks the reservation RELEASED; doing it here as well used to add the stock twice.
 
       // 2. Update Transaction
       await Transaction.findOneAndUpdate(
@@ -925,7 +912,7 @@ export const rejectReturnRequest = async (req, res) => {
 export const updateReturnQcStatus = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { qcStatus, note, evidenceImages } = req.body || {};
+    const { qcStatus, note, evidenceImages, restock } = req.body || {};
     const { id: userId, role } = req.user;
 
     if (!["qc_passed", "qc_failed"].includes(qcStatus)) {
@@ -945,6 +932,7 @@ export const updateReturnQcStatus = async (req, res) => {
       qcStatus,
       note,
       evidenceImages,
+      restock: restock === undefined ? undefined : restock === true || restock === "true",
       completeRefund: completeReturnAndRefund,
     });
 

@@ -4,7 +4,7 @@ import Transaction from "../models/transaction.js";
 import Seller from "../models/seller.js";
 import Delivery from "../models/delivery.js";
 import handleResponse from "../utils/helper.js";
-import { getAdminFinanceSummary } from "../services/finance/walletService.js";
+import { getAdminFinanceSummary, getAdminMoneyOverview } from "../services/finance/walletService.js";
 import { getLedgerEntries } from "../services/finance/ledgerService.js";
 import { bulkProcessPayouts } from "../services/finance/payoutService.js";
 import { exportFinanceStatement } from "../services/finance/statementService.js";
@@ -28,7 +28,9 @@ import { getErrorStatus } from "../utils/httpError.js";
 export const getAdminFinanceSummaryController = async (req, res) => {
   try {
     const summary = await getAdminFinanceSummary();
-    return handleResponse(res, 200, "Admin finance summary fetched", summary);
+    // `overview` = the four plain numbers shown on the admin Wallet page
+    const overview = await getAdminMoneyOverview(summary);
+    return handleResponse(res, 200, "Admin finance summary fetched", { ...summary, overview });
   } catch (error) {
     return handleResponse(res, getErrorStatus(error), error.message);
   }
@@ -232,13 +234,10 @@ export const getRiderWalletSummaryController = async (req, res) => {
 
     const calculatedAvailable = Math.max(0, settledEarnings - settledWithdrawals - pendingWithdrawals);
 
-    const availableBalance = wallet && typeof wallet.availableBalance === "number" && wallet.availableBalance > 0
-      ? wallet.availableBalance
-      : calculatedAvailable;
-
-    const pendingBalance = wallet && typeof wallet.pendingBalance === "number" && wallet.pendingBalance > 0
-      ? wallet.pendingBalance
-      : pendingWithdrawals;
+    // The wallet (filled by the payout system) is the only source of what can be withdrawn.
+    const availableBalance = wallet && typeof wallet.availableBalance === "number" ? wallet.availableBalance : 0;
+    const pendingBalance = pendingWithdrawals;
+    void calculatedAvailable;
 
     return handleResponse(res, 200, "Rider wallet summary fetched", {
       availableBalance,

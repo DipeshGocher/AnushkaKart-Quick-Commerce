@@ -14,6 +14,7 @@ import {
     clearRiderPresence,
 } from "../services/firebaseService.js";
 import { applyDeliveredSettlement } from "../services/orderSettlement.js";
+import { requestPartnerWithdrawal } from "../services/finance/partnerWithdrawalService.js";
 import { roundCurrency } from "../utils/money.js";
 import logger from "../services/logger.js";
 import { shouldThrottle as throttleLocationUpdate } from "../services/delivery/locationThrottleService.js";
@@ -360,47 +361,13 @@ export const requestWithdrawal = async (req, res) => {
             return handleResponse(res, 400, "Please enter a valid amount");
         }
 
-        // 1. Calculate current available balance
-        const transactions = await Transaction.find({ user: deliveryBoyId, userModel: 'Delivery' });
-
-        const settledBalance = transactions
-            .filter(t => t.status === 'Settled')
-            .reduce((acc, t) => acc + t.amount, 0);
-
-        const pendingPayouts = transactions
-            .filter(t => (t.status === 'Pending' || t.status === 'Processing') && t.type === 'Withdrawal')
-            .reduce((acc, t) => acc + Math.abs(t.amount), 0);
-
-        const availableBalance = settledBalance - pendingPayouts;
-
-        if (amount > availableBalance) {
-            return handleResponse(res, 400, `Insufficient balance. Available: ₹${availableBalance}`);
-        }
-
-        // 2. Create Withdrawal Transaction
-        const withdrawal = await Transaction.create({
-            user: deliveryBoyId,
+        // The money comes out of the delivery partner's WALLET (filled by the payout system) and leaves it now.
+        const withdrawal = await requestPartnerWithdrawal({
             userModel: "Delivery",
-            type: "Withdrawal",
-            amount: -Math.abs(amount),
-            status: "Pending",
-            reference: `WDR-DL-${Date.now()}`
+            userId: deliveryBoyId,
+            amount,
+            referencePrefix: "WDR-DL-",
         });
-
-        // 3. Sync Wallet for DELIVERY_PARTNER
-        try {
-            const wallet = await Wallet.findOne({
-                ownerType: { $in: ["DELIVERY_PARTNER", "DELIVERY"] },
-                ownerId: deliveryBoyId,
-            });
-            if (wallet) {
-                wallet.availableBalance = Math.max(0, (wallet.availableBalance || 0) - Math.abs(amount));
-                wallet.pendingBalance = (wallet.pendingBalance || 0) + Math.abs(amount);
-                await wallet.save();
-            }
-        } catch (wErr) {
-            logger.warn("Wallet sync warning on delivery withdrawal request:", wErr?.message || wErr);
-        }
 
         return handleResponse(res, 201, "Withdrawal request submitted successfully", withdrawal);
     } catch (error) {
@@ -446,14 +413,10 @@ export const getDeliveryWithdrawals = async (req, res) => {
             ownerId: deliveryBoyId,
         }).lean();
 
-        // Available balance ready to withdraw
-        const calculatedAvailable = Math.max(0, settledEarnings - settledWithdrawals - pendingWithdrawals);
-        const availableBalance = wallet && typeof wallet.availableBalance === 'number' && wallet.availableBalance > 0
-            ? wallet.availableBalance
-            : calculatedAvailable;
-        const finalPendingWithdrawals = wallet && typeof wallet.pendingBalance === 'number' && wallet.pendingBalance > 0
-            ? wallet.pendingBalance
-            : pendingWithdrawals;
+        // Available balance ready to withdraw = the wallet (filled by the payout system). Cash-on-delivery
+        // commission is already kept out of the cash the rider hands over, so it is not in the wallet.
+        const availableBalance = wallet && typeof wallet.availableBalance === 'number' ? wallet.availableBalance : 0;
+        const finalPendingWithdrawals = pendingWithdrawals;
 
         // Withdrawal history list
         const history = allTransactions

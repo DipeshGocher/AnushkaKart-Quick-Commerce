@@ -8,7 +8,8 @@ import {
     getCustomerTransactions,
     deleteCustomerAccount,
 } from "../controller/customerAuthController.js";
-import { verifyToken } from "../middleware/authMiddleware.js";
+import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
+import { getMyWallet, saveMyPayoutAccount, withdrawMyWallet } from "../controller/customerWalletController.js";
 import {
     authRouteRateLimiter,
     createContentLengthGuard,
@@ -31,5 +32,9 @@ router.delete("/delete-account", verifyToken, deleteCustomerAccount);
 
 // Wallet
 router.get("/transactions", verifyToken, getCustomerTransactions);
+// The wallet only holds refund money. It can be sent to the customer's bank / UPI; it cannot be spent at checkout.
+router.get("/wallet", verifyToken, allowRoles("user", "customer"), getMyWallet);
+router.put("/wallet/account", verifyToken, allowRoles("user", "customer"), smallAuthPayload, saveMyPayoutAccount);
+router.post("/wallet/withdraw", verifyToken, allowRoles("user", "customer"), smallAuthPayload, withdrawMyWallet);
 
 export default router;

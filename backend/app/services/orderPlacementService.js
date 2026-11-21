@@ -44,6 +44,7 @@ import {
   validateIdempotencyKey,
 } from "./idempotencyService.js";
 import { buildCheckoutPricingSnapshot } from "./checkoutPricingService.js";
+import { assertPaymentModeAllowed, getPlatformRules } from "./platformRulesService.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
 import * as logger from "./logger.js";
@@ -404,6 +405,14 @@ export async function placeOrderAtomic({
       : null;
     const source = placementSource(normalizedPayload);
     const walletAmount = Math.max(0, Number(normalizedPayload.walletAmount || 0));
+    // The wallet only holds refund money that can be withdrawn to the customer's bank. It is no longer
+    // a way to pay for an order, so a request that tries to use it is refused (never silently ignored,
+    // which would charge the customer the full amount without telling them).
+    if (walletAmount > 0) {
+      const error = new Error("Wallet money cannot be used to pay for an order. You can withdraw it to your bank from the Wallet page.");
+      error.statusCode = 400;
+      throw error;
+    }
     const tipAmount = Math.max(0, Number(normalizedPayload.tipAmount || 0));
 
     // 1. Fetch user and validate wallet
@@ -484,6 +493,19 @@ export async function placeOrderAtomic({
       customerId,
       session,
     });
+
+    // The admin decides which payment modes work for local and for courier (Shiprocket) delivery.
+    // Checked on the server so a hidden button cannot be bypassed by editing the request. Nothing
+    // is reserved or written yet, so a refusal leaves no trace. (A fully wallet-paid order owes
+    // nothing, so there is no payment mode to check.)
+    if (Number(pricingSnapshot.aggregateBreakdown?.grandTotal || 0) > 0) {
+      const { paymentModes } = await getPlatformRules();
+      assertPaymentModeAllowed({
+        paymentMode,
+        fulfillmentTypes: pricingSnapshot.sellerBreakdownEntries.map((e) => e.fulfillmentType),
+        modes: paymentModes,
+      });
+    }
 
     const checkoutGroupId = await generateUniqueCheckoutGroupId({ session });
     const checkoutReservation = computeStockReservationWindow(paymentMode);

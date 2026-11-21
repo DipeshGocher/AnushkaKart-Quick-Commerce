@@ -34,6 +34,8 @@ export async function createPendingPayoutForOrder({
   amount,
   remarks = "Automatic payout creation on delivery.",
   metadata = {},
+  // "return_pickup" = the rider's commission for a return pickup (one per order, separate from the delivery one)
+  flow = null,
 }, { session: externalSession } = {}) {
   if (!order || !beneficiaryId || amount <= 0) return null;
 
@@ -44,11 +46,14 @@ export async function createPendingPayoutForOrder({
   if (ownsSession) session.startTransaction();
 
   try {
-    const existing = await Payout.findOne({
+    const existingQuery = {
       relatedOrderIds: order._id,
       payoutType,
       status: { $ne: PAYOUT_STATUS.CANCELLED },
-    }).session(session);
+    };
+    if (flow) existingQuery["metadata.flow"] = flow;
+    else existingQuery["metadata.flow"] = { $ne: "return_pickup" };
+    const existing = await Payout.findOne(existingQuery).session(session);
 
     if (existing) {
       if (ownsSession) await session.abortTransaction();
@@ -69,6 +74,7 @@ export async function createPendingPayoutForOrder({
           remarks,
           metadata: {
             ...metadata,
+            ...(flow ? { flow } : {}),
             orderId: order.orderId,
           },
         },
@@ -383,8 +389,16 @@ export const bulkProcessPayouts = async ({
       status: { $in: [PAYOUT_STATUS.PENDING, PAYOUT_STATUS.PROCESSING] },
     };
     if (payoutType) query.payoutType = payoutType;
+    // Payouts still inside the return window are released by the return-window job, not here. Leaving them
+    // out keeps them from filling the whole batch and starving everyone else's payouts.
+    const held = await Order.find({ "settlementStatus.sellerPayout": "HOLD" }).select("_id").lean();
+    // (Only the SELLER payout of such an order is held; the rider's payout for the same order is not.)
+    if (held.length) {
+      query.$or = [{ payoutType: { $ne: PAYOUT_TYPE.SELLER } }, { relatedOrderIds: { $nin: held.map((o) => o._id) } }];
+    }
+    // Payouts that failed last time (for example the platform balance was too low) go to the back of the line.
     const list = await Payout.find(query)
-      .sort({ createdAt: 1 })
+      .sort({ "metadata.lastFailedAt": 1, createdAt: 1 })
       .limit(Math.max(Math.min(Number(limit) || 50, 200), 1))
       .select("_id")
       .lean();
@@ -419,6 +433,7 @@ export const bulkProcessPayouts = async ({
         status: "COMPLETED",
       });
     } catch (error) {
+      await Payout.updateOne({ _id: id }, { $set: { "metadata.lastFailedAt": new Date() } }).catch(() => {});
       results.push({
         payoutId: String(id),
         status: "FAILED",

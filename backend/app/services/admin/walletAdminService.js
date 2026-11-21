@@ -1,3 +1,4 @@
+import { updatePartnerWithdrawalStatus } from "../finance/partnerWithdrawalService.js";
 import Transaction from "../../models/transaction.js";
 import Notification from "../../models/notification.js";
 import Wallet from "../../models/wallet.js";
@@ -244,6 +245,12 @@ export async function updateWithdrawalStatusById({ id, status, reason }) {
   if (!["Settled", "Failed", "Processing"].includes(status)) {
     throw new Error("Invalid status");
   }
+
+  // Withdrawals that were taken from the wallet when requested are settled / refused exactly once, with
+  // their ledger entries (see partnerWithdrawalService). Older requests fall through to the code below.
+  const handled = await updatePartnerWithdrawalStatus({ id, status, reason });
+  if (handled === null) return null;
+  if (!handled.legacy) return handled;
 
   const transaction = await Transaction.findById(id).populate("user", "name");
   if (!transaction) {

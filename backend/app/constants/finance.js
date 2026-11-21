@@ -87,6 +87,25 @@ export const LEDGER_TRANSACTION_TYPE = {
   // the `LedgerEntry` collection were both bypassed, leaving every
   // wallet-using customer in permanent drift between the two ledgers.
   WALLET_PAYMENT: "WALLET_PAYMENT",
+  // A customer's refund money is taken out of their wallet when they ask to withdraw it to their bank
+  // (WITHDRAWAL, customer side), paid by the admin (CUSTOMER_WITHDRAWAL_PAID, admin side: money leaves
+  // the platform) or put back when the admin rejects the request (CUSTOMER_WITHDRAWAL_REJECTED).
+  CUSTOMER_WITHDRAWAL_PAID: "CUSTOMER_WITHDRAWAL_PAID",
+  CUSTOMER_WITHDRAWAL_REJECTED: "CUSTOMER_WITHDRAWAL_REJECTED",
+  // The courier charged extra for parcel weight (the seller entered the weight): taken from the seller,
+  // or given back when the admin waives it.
+  // A seller's / delivery partner's withdrawal: paid by the admin (admin side) or refused (money back).
+  PARTNER_WITHDRAWAL_PAID: "PARTNER_WITHDRAWAL_PAID",
+  PARTNER_WITHDRAWAL_REJECTED: "PARTNER_WITHDRAWAL_REJECTED",
+  // Courier return freight taken from the seller when the return was the seller's fault (or given back).
+  SELLER_RETURN_FREIGHT: "SELLER_RETURN_FREIGHT",
+  SELLER_RETURN_FREIGHT_REVERSED: "SELLER_RETURN_FREIGHT_REVERSED",
+  // Money taken back from a seller's / partner's wallet (a returned order, a weight charge, return freight)
+  // goes back to the platform's wallet; the reverse when it is given back.
+  RECOVERY_RECEIVED: "RECOVERY_RECEIVED",
+  RECOVERY_GIVEN_BACK: "RECOVERY_GIVEN_BACK",
+  SELLER_WEIGHT_PENALTY: "SELLER_WEIGHT_PENALTY",
+  SELLER_WEIGHT_PENALTY_REVERSED: "SELLER_WEIGHT_PENALTY_REVERSED",
 };
 
 export const PAYOUT_TYPE = {
@@ -179,7 +198,9 @@ export function isWalletRedemptionReducesPayableEnabled() {
 // ignored at place-order) is preserved bit-for-bit so rollback is an
 // env flip. Default is OFF for production safety.
 export function isServerSideCouponEngineEnabled() {
-  return String(process.env.SERVER_SIDE_COUPON_ENGINE || "").toLowerCase() === "true";
+  // ON by default (coupons and free-delivery offers are worked out on the server); set the variable to
+  // "false" only to switch it off.
+  return String(process.env.SERVER_SIDE_COUPON_ENGINE ?? "true").toLowerCase() !== "false";
 }
 
 export const ALL_PAYMENT_MODES = Object.values(PAYMENT_MODE);

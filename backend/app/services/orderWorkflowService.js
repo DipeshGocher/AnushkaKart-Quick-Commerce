@@ -841,15 +841,17 @@ export async function processReturnPickupTimeoutJob({ orderId, attempt }) {
     });
   }
 
-  emitNotificationEvent(NOTIFICATION_EVENTS.RETURN_REJECTED, {
-    orderId: reverted.orderId,
-    sellerId: reverted.seller,
-    customerId: reverted.customer,
-    data: {
-      reason:
-        "No delivery partner was available for the return pickup. Please reassign manually.",
-    },
-  });
+  // The return is still APPROVED; only the pickup search ran out of partners. Tell people that (never "rejected").
+  try {
+    const { notifyReturnPickupDelayed } = await import("./order/returnPickupRecoveryService.js");
+    await notifyReturnPickupDelayed(
+      reverted,
+      "No delivery partner was available for the return pickup. Please assign one.",
+    );
+    await Order.updateOne({ _id: reverted._id }, { $set: { returnPickupStuckAt: new Date(), returnPickupAlertedAt: new Date() } });
+  } catch (e) {
+    logger.warn("processReturnPickupTimeoutJob notify failed", { scope: "processReturnPickupTimeoutJob", orderId, error: e.message });
+  }
 }
 
 export async function customerCancelV2(customerId, orderId, reason) {

@@ -224,7 +224,11 @@ const autoCancelExpiredOrders = async () => {
     // placed (it may have waited up to 48h for verification). Orders still waiting for
     // verification are handled by upiApprovalExpiryJob and must be left alone here.
     const staleBase = { $toDate: { $ifNull: ["$upiApprovedAt", "$createdAt"] } };
+    // Courier (Shiprocket) orders are NEVER cancelled here, however long the parcel is on the road: a courier
+    // delivery takes days. Only the admin or the seller cancels them by hand (or the courier itself reports
+    // the shipment cancelled / returned).
     const staleOrders = await Order.find({
+      fulfillmentType: { $ne: "SHIPROCKET" },
       status: { $nin: ["delivered", "cancelled"] },
       workflowStatus: { $nin: [WORKFLOW_STATUS.DELIVERED, WORKFLOW_STATUS.CANCELLED] },
       $nor: [{ upiApprovalExpiresAt: { $type: "date" } }],
