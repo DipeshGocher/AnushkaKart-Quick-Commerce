@@ -2,7 +2,7 @@ import Category from "../models/category.js";
 import Product from "../models/product.js";
 import handleResponse from "../utils/helper.js";
 import getPagination from "../utils/pagination.js";
-import { buildKey, getOrSet, getTTL, invalidate } from "../services/cacheService.js";
+import { buildKey, getOrSet, getTTL, invalidate, set as cacheSet } from "../services/cacheService.js";
 import { uploadToCloudinary } from "../services/mediaService.js";
 import mongoose from "mongoose";
 import { invalidateCategoryName } from "../services/entityNameCache.js";
@@ -121,9 +121,19 @@ export const getCategories = async (req, res) => {
           return rawCategories;
         };
 
-      const categories = (isAdmin || req.query._t)
+      let categories = (isAdmin || req.query._t)
         ? await fetchTreeCategories()
         : await getOrSet(cacheKey, fetchTreeCategories, getTTL("categories"));
+
+      // An EMPTY category list must never stay cached. It happens when the server was pointed at an empty
+      // (or wrong) database for a while: the empty answer used to be remembered for an hour, so the
+      // categories stayed missing even after the right database came back. Ask the database again, and
+      // cache only a non-empty answer.
+      if (Array.isArray(categories) && categories.length === 0 && !isAdmin && !req.query._t) {
+        categories = await fetchTreeCategories();
+        if (categories.length > 0) await cacheSet(cacheKey, categories, getTTL("categories"));
+        else await invalidate(cacheKey);
+      }
 
       return handleResponse(res, 200, "Category tree fetched", categories);
     }

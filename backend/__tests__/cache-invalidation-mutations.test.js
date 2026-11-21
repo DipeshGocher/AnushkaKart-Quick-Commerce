@@ -28,6 +28,7 @@ jest.unstable_mockModule("../app/services/cacheService.js", () => ({
   buildKey: jest.fn(),
   getOrSet: jest.fn(),
   getTTL: jest.fn(),
+  set: jest.fn(),
   invalidate: mockInvalidate,
 }));
 

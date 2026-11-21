@@ -13,7 +13,32 @@ import { incrementCounter } from "./metrics.js";
 // Configuration constants
 const CACHE_ENABLED = process.env.CACHE_ENABLED !== "false";
 const CACHE_INVALIDATION_CHANNEL = "cache:invalidate";
-const CACHE_KEY_VERSION = String(process.env.CACHE_KEY_VERSION || "").trim();
+/**
+ * Every cache key carries the name of the DATABASE the server is connected to (plus a short code of the
+ * database host), so switching the server to another database automatically uses a different set of keys.
+ * Without this, a shared Redis kept serving the previous database's categories / banners / settings for up
+ * to an hour after a switch. Nothing has to be changed by hand when the database changes.
+ *
+ *   CACHE_KEY_VERSION=v3        optional extra manual prefix (still works, e.g. to force a full refresh)
+ *   CACHE_DB_NAMESPACE=false    switch the automatic database prefix off (it is always off in tests)
+ */
+function databaseNamespace() {
+  if (process.env.NODE_ENV === "test" || String(process.env.CACHE_DB_NAMESPACE || "").toLowerCase() === "false") return "";
+  const uri = String(process.env.MONGO_URI || process.env.MONGODB_URI || process.env.DATABASE_URL || "").trim();
+  if (!uri) return "";
+  try {
+    const url = new URL(uri);
+    const db = decodeURIComponent(url.pathname.replace(/^\//, "")).replace(/[^A-Za-z0-9_-]/g, "") || "default";
+    let hash = 0;
+    for (const ch of url.host) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+    return `${db}.${hash.toString(36).slice(0, 5)}`;
+  } catch {
+    return "";
+  }
+}
+export const CACHE_NAMESPACE = databaseNamespace();
+// (no ":" inside, because keys are split on ":")
+const CACHE_KEY_VERSION = [CACHE_NAMESPACE, String(process.env.CACHE_KEY_VERSION || "").trim().replace(/:/g, "")].filter(Boolean).join(".");
 
 // TTL configuration (seconds)
 const TTL_CONFIG = {
