@@ -76,7 +76,7 @@ const ForYouProductsSection = React.memo(function ForYouProductsSection({ catego
     let isMounted = true;
 
     if (propCategories !== undefined) {
-      if (Array.isArray(propCategories) && propCategories.length > 0) {
+      if (Array.isArray(propCategories)) {
         const headers = propCategories
           .filter(
             (c) =>
@@ -88,10 +88,9 @@ const ForYouProductsSection = React.memo(function ForYouProductsSection({ catego
           )
           .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
-        if (headers.length > 0) {
-          setHeaderCategories(headers);
-          setDisplayHeaders(headers);
-        }
+        // also when there are no headers any more (an empty / switched store): the old tabs must go
+        setHeaderCategories(headers);
+        setDisplayHeaders(headers);
       }
       return;
     }

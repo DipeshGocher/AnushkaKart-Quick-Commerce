@@ -69,7 +69,10 @@ const EMPTY_HERO_CONFIG = {
 const homePageDataCache = new Map();
 const heroConfigMemoryCache = {};
 
-const HOME_PAGE_PERSISTENT_CACHE_KEY = "anushkakart:home_cache:v9";
+const HOME_PAGE_PERSISTENT_CACHE_KEY = "anushkakart:home_cache:v10";
+// older versions of the browser cache are thrown away once, so nobody keeps seeing another store's data
+const OLD_HOME_CACHE_KEYS = ["anushkakart:home_cache:v9"];
+try { OLD_HOME_CACHE_KEYS.forEach((k) => localStorage.removeItem(k)); } catch { /* storage not available */ }
 
 const readPersistentHomeCache = (key) => {
   try {
@@ -89,9 +92,15 @@ const readPersistentHomeCache = (key) => {
 
 const writePersistentHomeCache = (key, data) => {
   try {
-    if (!data || !data.categories || data.categories.length <= 1) return;
+    if (!data) return;
     const raw = localStorage.getItem(HOME_PAGE_PERSISTENT_CACHE_KEY);
     const store = raw ? JSON.parse(raw) : {};
+    if (!data.categories || data.categories.length <= 1) {
+      // The server now says there are no categories (an empty or switched store): forget what was saved
+      // before, instead of showing the old categories forever.
+      if (raw) localStorage.removeItem(HOME_PAGE_PERSISTENT_CACHE_KEY);
+      return;
+    }
     store[key] = {
       categories: data.categories,
       activeCategory: data.activeCategory,
@@ -425,7 +434,13 @@ const Home = () => {
         setIsLoading(false);
         applyHomePageData(partialHomeData, { cacheKey, persist: true });
       } else {
-        if (cached && cached.categories?.length > 1) {
+        if (catRes?.data?.success) {
+          // The server answered properly and says there are NO categories (a new or switched store).
+          // Forget the old saved copy instead of putting it back on the screen.
+          homePageDataCache.delete(cacheKey);
+          writePersistentHomeCache(cacheKey, partialHomeData); // an empty answer clears the saved copy
+        } else if (cached && cached.categories?.length > 1) {
+          // The request itself failed (offline / server starting): keep showing what was saved.
           applyHomePageData(cached, { cacheKey, persist: false });
         }
         setIsLoading(false);
@@ -451,13 +466,18 @@ const Home = () => {
   }, [currentLocation]);
 
   // Auto-retry if initial fetch happened while backend was still starting up (only "All" category present)
+  // (a few tries only: an empty store must not be asked again every 3 seconds forever)
+  const emptyRetriesRef = useRef(0);
   useEffect(() => {
-    if (categories.length <= 1 && !isLoading) {
+    if (categories.length > 1) { emptyRetriesRef.current = 0; return undefined; }
+    if (!isLoading && emptyRetriesRef.current < 4) {
       const timer = setTimeout(() => {
+        emptyRetriesRef.current += 1;
         fetchData({ forceRefresh: true });
       }, 3000);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [categories.length, isLoading]);
   const heroConfigCache = useRef(heroConfigMemoryCache);
 
