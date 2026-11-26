@@ -5,15 +5,20 @@ import axiosInstance from '@core/api/axios';
  * Per-domain split (P4.5).
  */
 export const adminSupportApi = {
-    // Tickets
-    getTickets: (params) => axiosInstance.get('/admin/tickets', { params }),
-    getTicketById: (id) => axiosInstance.get(`/admin/tickets/${id}`),
+    // Support Tickets (these are the routes the backend really has: /tickets/admin/all, /tickets/admin/status/:id, /tickets/reply/:id)
+    getTickets: (params) => axiosInstance.get('/tickets/admin/all', { params }),
     updateTicketStatus: (id, status) =>
-        axiosInstance.patch(`/admin/tickets/${id}/status`, { status }),
-    replyTicket: (id, message) =>
-        axiosInstance.post(`/admin/tickets/${id}/reply`, { message }),
-    assignTicket: (id, assignedTo) =>
-        axiosInstance.patch(`/admin/tickets/${id}/assign`, { assignedTo }),
+        axiosInstance.patch(`/tickets/admin/status/${id}`, { status }),
+    replyTicket: (id, text, options = {}) => {
+        const { mediaUrl = '', mediaType = '', mimeType = '' } = options || {};
+        return axiosInstance.post(`/tickets/reply/${id}`, {
+            text,
+            isAdmin: true,
+            mediaUrl,
+            mediaType,
+            mimeType,
+        });
+    },
 
     // FAQs
     getFaqs: (params) => axiosInstance.get('/admin/faqs', { params }),
@@ -22,15 +27,12 @@ export const adminSupportApi = {
     deleteFaq: (id) => axiosInstance.delete(`/admin/faqs/${id}`),
 
     // Notifications
-    getNotifications: (params) =>
-        axiosInstance.get('/notifications/history', { params }),
-    sendNotification: (data) =>
-        axiosInstance.post('/notifications/broadcast', data),
-    getNotificationStats: () =>
-        axiosInstance.get('/notifications/stats'),
-    getNotificationCampaigns: (params) =>
-        axiosInstance.get('/notifications/campaigns', { params }),
-    createNotificationCampaign: (data) =>
+    getNotifications: () => axiosInstance.get('/notifications'),
+    markNotificationRead: (id) =>
+        axiosInstance.put(`/notifications/${id}/read`),
+    markAllNotificationsRead: () =>
+        axiosInstance.put('/notifications/mark-all-read'),
+    broadcastNotification: (data) =>
         axiosInstance.post('/notifications/broadcast', data),
     getBroadcastAudienceStats: () =>
         axiosInstance.get('/notifications/broadcast/audience-stats'),

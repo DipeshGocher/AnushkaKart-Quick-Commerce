@@ -29,6 +29,7 @@ import mongoose from "mongoose";
 
 // Core domain models
 import "../models/admin.js";
+import "../models/adminRole.js";
 import "../models/cart.js";
 import "../models/category.js";
 import "../models/checkoutGroup.js";

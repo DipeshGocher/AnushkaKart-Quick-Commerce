@@ -54,6 +54,18 @@ import {
 } from "../controller/sosController.js";
 import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
 import {
+    getMyAccess,
+    listModules,
+    listRoles,
+    createRole,
+    updateRole,
+    deleteRole,
+    listStaff,
+    createStaff,
+    updateStaff,
+    deleteStaff,
+} from "../controller/admin/staffController.js";
+import {
     getCustomerWithdrawals,
     payCustomerWithdrawal,
     rejectCustomerWithdrawal,
@@ -245,6 +257,20 @@ router.put("/customer-withdrawals/:id/reject", verifyToken, allowRoles("admin"),
 router.get("/sos-alerts", verifyToken, allowRoles("admin"), getSOSAlerts);
 router.put("/sos-alerts/:id/acknowledge", verifyToken, allowRoles("admin"), acknowledgeSOSAlert);
 router.put("/sos-alerts/:id/resolve", verifyToken, allowRoles("admin"), resolveSOSAlert);
+
+// =======================
+// ROLES & STAFF (main admin only; verifyToken also refuses staff on /staff)
+// =======================
+router.get("/access", verifyToken, allowRoles("admin"), getMyAccess);
+router.get("/staff/modules", verifyToken, allowRoles("admin"), listModules);
+router.get("/staff/roles", verifyToken, allowRoles("admin"), listRoles);
+router.post("/staff/roles", verifyToken, allowRoles("admin"), createRole);
+router.put("/staff/roles/:id", verifyToken, allowRoles("admin"), updateRole);
+router.delete("/staff/roles/:id", verifyToken, allowRoles("admin"), deleteRole);
+router.get("/staff/members", verifyToken, allowRoles("admin"), listStaff);
+router.post("/staff/members", verifyToken, allowRoles("admin"), createStaff);
+router.put("/staff/members/:id", verifyToken, allowRoles("admin"), updateStaff);
+router.delete("/staff/members/:id", verifyToken, allowRoles("admin"), deleteStaff);
 
 // Protected admin route example
 router.get(

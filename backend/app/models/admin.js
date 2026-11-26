@@ -39,6 +39,24 @@ const adminSchema = new mongoose.Schema(
       default: true, // Internal admins might be verified by default or via admin code
     },
 
+    // Staff role (Manager, Support Employee ...). EMPTY = main admin with full access,
+    // so every admin created before roles existed keeps full access.
+    adminRole: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AdminRole",
+      default: null,
+    },
+    // The main admin can switch a staff login off. Missing means active (old admins).
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Admin",
+      default: null,
+    },
+
     lastLogin: Date,
   },
   { timestamps: true },

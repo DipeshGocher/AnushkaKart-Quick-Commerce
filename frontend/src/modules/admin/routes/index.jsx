@@ -32,9 +32,14 @@ import {
   Calculator,
   CreditCard,
   Undo2,
+  ShieldCheck,
 } from "lucide-react";
 
 import lazyWithRetry from "@/core/utils/lazyWithRetry";
+import { useAuth } from "@core/context/AuthContext";
+import { AdminAccessProvider, useAdminAccess } from "../context/AdminAccessContext";
+import { filterNavItems, firstAllowedPath, canOpenPath } from "../utils/adminAccess";
+import AccessDenied, { AccessLoadError } from "../components/AccessDenied";
 
 // Lazy so the panel shell (sidebar, topbar, icon sets) stays out of the
 // customer-facing main bundle.
@@ -109,11 +114,13 @@ const FinanceSettings = React.lazy(() => import("../pages/FinanceSettings"));
 const FinanceRequests = React.lazy(() => import("../pages/FinanceRequests"));
 const PaymentModes = React.lazy(() => import("../pages/PaymentModes"));
 const ReturnModes = React.lazy(() => import("../pages/ReturnModes"));
+const StaffAccess = React.lazy(() => import("../pages/StaffAccess"));
 
 const navItems = [
   // ── CORE MANAGEMENT ──
   {
     label: "Dashboard",
+    module: "dashboard",
     path: "/admin",
     icon: LayoutDashboard,
     color: "indigo",
@@ -121,6 +128,7 @@ const navItems = [
   },
   {
     label: "Categories",
+    module: "categories",
     icon: Tag,
     color: "rose",
     children: [
@@ -130,9 +138,10 @@ const navItems = [
       { label: "Sub-Categories", path: "/admin/categories/sub" },
     ],
   },
-  { label: "Products", path: "/admin/products", icon: Box, color: "amber" },
+  { label: "Products", path: "/admin/products", icon: Box, color: "amber", module: "products" },
   {
     label: "Orders",
+    module: "orders",
     icon: ClipboardList,
     color: "fuchsia",
     children: [
@@ -142,6 +151,7 @@ const navItems = [
   },
   {
     label: "Returns",
+    module: "returns",
     icon: RotateCcw,
     color: "orange",
     children: [
@@ -154,8 +164,8 @@ const navItems = [
     icon: Sparkles,
     color: "amber",
     children: [
-      { label: "Send Notifications", path: "/admin/notifications" },
-      { label: "Coupons & Promos", path: "/admin/coupons" },
+      { label: "Send Notifications", path: "/admin/notifications", module: "notifications" },
+      { label: "Coupons & Promos", path: "/admin/coupons", module: "coupons" },
     ],
   },
   {
@@ -163,12 +173,13 @@ const navItems = [
     icon: Receipt,
     color: "emerald",
     children: [
-      { label: "Help Tickets", path: "/admin/support-tickets" },
-      { label: "Review Content", path: "/admin/moderation" },
+      { label: "Help Tickets", path: "/admin/support-tickets", module: "support_tickets" },
+      { label: "Review Content", path: "/admin/moderation", module: "reviews" },
     ],
   },
   {
     label: "Sellers",
+    module: "sellers",
     icon: Building2,
     color: "blue",
     children: [
@@ -182,14 +193,15 @@ const navItems = [
     icon: Truck,
     color: "emerald",
     children: [
-      { label: "Active Drivers", path: "/admin/delivery-boys/active" },
-      { label: "Waiting for Review", path: "/admin/delivery-boys/pending" },
-      { label: "SOS Alerts", path: "/admin/sos-alerts" },
-      { label: "Delivery Pincodes", path: "/admin/delivery-pincodes" },
+      { label: "Active Drivers", path: "/admin/delivery-boys/active", module: "delivery_partners" },
+      { label: "Waiting for Review", path: "/admin/delivery-boys/pending", module: "delivery_partners" },
+      { label: "SOS Alerts", path: "/admin/sos-alerts", module: "sos_alerts" },
+      { label: "Delivery Pincodes", path: "/admin/delivery-pincodes", module: "delivery_pincodes" },
     ],
   },
   {
     label: "Finance (EMI)",
+    module: "emi",
     icon: Calculator,
     color: "blue",
     children: [
@@ -197,46 +209,59 @@ const navItems = [
       { label: "Quotation Requests", path: "/admin/emi/requests" },
     ],
   },
-  { label: "Customers", path: "/admin/customers", icon: Users, color: "sky" },
-  { label: "Employees", path: "/admin/employees", icon: UserCheck, color: "green" },
-  { label: "Wallet", path: "/admin/wallet", icon: Wallet, color: "violet" },
+  { label: "Customers", path: "/admin/customers", icon: Users, color: "sky", module: "customers" },
+  { label: "Employees", path: "/admin/employees", icon: UserCheck, color: "green", module: "employees" },
+  { label: "Wallet", path: "/admin/wallet", icon: Wallet, color: "violet", module: "wallet" },
   {
     label: "Money Requests",
+    module: "withdrawals",
     path: "/admin/withdrawals",
     icon: Banknote,
     color: "cyan",
   },
   {
     label: "Collect Cash",
+    module: "cash_collection",
     path: "/admin/cash-collection",
     icon: CircleDollarSign,
     color: "green",
   },
   {
     label: "Fees & Charges",
+    module: "billing",
     path: "/admin/billing",
     icon: RotateCcw,
     color: "red",
   },
   {
     label: "Payment Modes",
+    module: "payment_modes",
     path: "/admin/payment-modes",
     icon: CreditCard,
     color: "emerald",
   },
   {
     label: "Return Modes",
+    module: "return_modes",
     path: "/admin/return-modes",
     icon: Undo2,
     color: "amber",
   },
   {
     label: "Settings",
+    module: "settings",
     path: "/admin/settings",
     icon: Settings,
     color: "slate",
   },
   { label: "My Profile", path: "/admin/profile", icon: User, color: "indigo" },
+  {
+    label: "Staff & Roles",
+    path: "/admin/staff-access",
+    icon: ShieldCheck,
+    color: "violet",
+    superOnly: true,
+  },
 
   // ── SEPARATOR & ADMIN CMS ──
   {
@@ -246,6 +271,7 @@ const navItems = [
 
   {
     label: "Layout & Branding",
+    module: "layout_branding",
     path: "/admin/layout-branding",
     icon: Palette,
     color: "indigo",
@@ -254,6 +280,7 @@ const navItems = [
   // ── CMS PAGES (Banners, new banners, texts & content) ──
   {
     label: "Hero & Page Banners",
+    module: "hero_banners",
     path: "/admin/hero-categories",
     icon: ImageIcon,
     color: "violet",
@@ -262,6 +289,7 @@ const navItems = [
   },
   {
     label: "Seller Store Banners",
+    module: "store_banners",
     path: "/admin/store-banners",
     icon: Store,
     color: "blue",
@@ -270,12 +298,14 @@ const navItems = [
   },
   {
     label: "FAQs",
+    module: "faqs",
     path: "/admin/faqs",
     icon: HelpCircle,
     color: "pink",
   },
   {
     label: "Legal Pages",
+    module: "legal_pages",
     path: "/admin/legal-pages",
     icon: ScrollText,
     color: "slate",
@@ -336,6 +366,7 @@ export const adminRoutes = [
   { path: "billing", element: <BillingCharges /> },
   { path: "payment-modes", element: <PaymentModes /> },
   { path: "return-modes", element: <ReturnModes /> },
+  { path: "staff-access", element: <StaffAccess /> },
   { path: "layout-branding", element: <LayoutBranding /> },
   { path: "settings", element: <AdminSettings /> },
   { path: "delivery-pincodes", element: <DeliveryPincodes /> },
@@ -346,13 +377,21 @@ export const adminRoutes = [
   { path: "*", element: <NotFoundPage /> },
 ];
 
-const AdminRoutes = () => {
+const AdminRoutesContent = () => {
   useEffect(() => {
     setActiveRole(ROLES.ADMIN);
   }, []);
 
+  const { logout } = useAuth();
+  const adminAccess = useAdminAccess();
   const { totalUnread } = useSupportUnread();
   const { pathname } = useLocation();
+
+  // Role-based access: only the menu items this admin's role includes (the main admin sees all).
+  const visibleNavItems = React.useMemo(
+    () => filterNavItems(navItems, adminAccess?.access),
+    [adminAccess?.access],
+  );
 
   // What needs the admin right now (UPI approvals + new orders, return requests + QC + disputes).
   // Refreshed when the admin moves between pages and once a minute.
@@ -376,24 +415,51 @@ const AdminRoutes = () => {
     const support = Number.isFinite(totalUnread) ? totalUnread : 0;
     const orders = Number(navCounts?.ordersNeedAction) || 0;
     const returns = Number(navCounts?.returnsNeedAction) || 0;
-    if (support <= 0 && orders <= 0 && returns <= 0) return navItems;
-    return navItems.map((item) => {
+    if (support <= 0 && orders <= 0 && returns <= 0) return visibleNavItems;
+    return visibleNavItems.map((item) => {
       if (item?.label === "Customer Support" && support > 0) return { ...item, badgeCount: support };
       if (item?.label === "Orders" && orders > 0) return { ...item, badgeCount: orders };
       if (item?.label === "Returns" && returns > 0) return { ...item, badgeCount: returns };
       return item;
     });
-  }, [totalUnread, navCounts]);
+  }, [totalUnread, navCounts, visibleNavItems]);
+
+  if (adminAccess?.status === "loading" || !adminAccess) {
+    return <PageSkeleton variant="dashboard" />;
+  }
+  if (adminAccess.status === "error") {
+    return <AccessLoadError error={adminAccess.error} onLogout={logout} />;
+  }
+
+  const allowed = canOpenPath(pathname, adminAccess.access);
+  const landingPath = firstAllowedPath(visibleNavItems);
+  const isHome = /^\/admin\/?$/.test(pathname);
+
+  // A staff login without the Dashboard opens straight on its first page.
+  if (isHome && !allowed && landingPath) {
+    return <Navigate to={landingPath} replace />;
+  }
 
   return (
     <Suspense fallback={<PageSkeleton variant="dashboard" />}>
     <DashboardLayout navItems={navItemsWithBadges} title="Admin Center">
+      {adminAccess.readOnly && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+          View-only access{adminAccess.roleName ? ` (${adminAccess.roleName})` : ""}: you can open your pages but cannot change anything.
+        </div>
+      )}
       <Suspense fallback={<PageSkeleton variant="dashboard" />}>
-        <Outlet />
+        {allowed ? <Outlet /> : <AccessDenied landingPath={landingPath} />}
       </Suspense>
     </DashboardLayout>
     </Suspense>
   );
 };
+
+const AdminRoutes = () => (
+  <AdminAccessProvider>
+    <AdminRoutesContent />
+  </AdminAccessProvider>
+);
 
 export default AdminRoutes;
