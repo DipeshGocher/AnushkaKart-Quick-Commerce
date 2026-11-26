@@ -7,6 +7,7 @@ import {
   validateSchema,
 } from "../validation/adminAuthValidation.js";
 import { getErrorStatus } from "../utils/httpError.js";
+import { loadAdminAccess } from "../services/adminAccessService.js";
 
 const PUBLIC_ADMIN_SIGNUP_ENABLED = () =>
   process.env.ENABLE_PUBLIC_ADMIN_SIGNUP === "true";
@@ -18,9 +19,15 @@ function sanitizeAdmin(adminDoc) {
   return admin;
 }
 
+// Staff logins (Manager, Employee ...) carry `rid` = their role id, so the server knows to check the
+// role in the database on every request. A main admin token has no `rid`.
 const generateToken = (admin) =>
   jwt.sign(
-    { id: admin._id, role: "admin" },
+    {
+      id: admin._id,
+      role: "admin",
+      ...(admin.adminRole ? { rid: String(admin.adminRole) } : {}),
+    },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || "30d" },
   );
@@ -122,6 +129,16 @@ export const loginAdmin = async (req, res) => {
       return handleResponse(res, 401, "Invalid credentials");
     }
 
+    // Staff logins can be switched off (or their role) by the main admin.
+    const access = await loadAdminAccess(admin._id);
+    if (!access.ok) {
+      return handleResponse(
+        res,
+        403,
+        "Your admin account is switched off. Please contact the main admin.",
+      );
+    }
+
     admin.lastLogin = new Date();
     await admin.save();
 
@@ -129,6 +146,12 @@ export const loginAdmin = async (req, res) => {
     return handleResponse(res, 200, "Login successful", {
       token,
       admin: sanitizeAdmin(admin),
+      access: {
+        isMainAdmin: access.isSuper,
+        roleName: access.roleName,
+        accessType: access.accessType,
+        permissions: access.permissions,
+      },
     });
   } catch (error) {
     return handleResponse(res, getErrorStatus(error), error.message);

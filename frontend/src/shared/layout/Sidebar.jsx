@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@core/context/AuthContext";
 import { useSettings } from "@core/context/SettingsContext";
+import { useAdminAccess } from "@/modules/admin/context/AdminAccessContext";
 import { cn } from "@/lib/utils";
 import { HiChevronDown } from "react-icons/hi2";
 import { motion, AnimatePresence } from "framer-motion";
@@ -221,6 +222,9 @@ const SidebarItem = ({
 const SidebarContent = ({ items, title, onClose, openMenu, handleToggle, hoveredIdx, setHoveredIdx }) => {
   const { settings } = useSettings();
   const appName = settings?.appName || 'App';
+  const adminAccess = useAdminAccess(); // null outside the admin panel
+  // A staff login (Manager, Employee ...) shows its role name instead of "Super Admin".
+  const adminRoleLabel = adminAccess && !adminAccess.isMainAdmin ? (adminAccess.roleName || 'Staff') : 'Super Admin';
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -302,7 +306,7 @@ const SidebarContent = ({ items, title, onClose, openMenu, handleToggle, hovered
                 {title?.toLowerCase().includes('seller') ? 'Seller Console' : 'Admin Console'}
               </p>
               <p className="text-[9px] text-[#060606]/60 truncate font-black uppercase tracking-widest">
-                {title?.toLowerCase().includes('seller') ? 'Seller' : 'Super Admin'}
+                {title?.toLowerCase().includes('seller') ? 'Seller' : adminRoleLabel}
               </p>
             </div>
           </div>

@@ -6,6 +6,7 @@ import Topbar from './Topbar';
 import BottomNav from './BottomNav';
 import { sellerApi } from '@/modules/seller/services/sellerApi';
 import { useAuth } from "@core/context/AuthContext";
+import { useAdminAccess } from '@/modules/admin/context/AdminAccessContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BellRing, Check, X, Clock, Truck, AlertTriangle, Phone, MapPin, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
@@ -67,6 +68,8 @@ const DashboardLayout = ({ children, navItems, title }) => {
     const [sosAlert, setSOSAlert] = useState(null);
     const sosRingtoneRef = useRef(null);
     const { user, logout, role } = useAuth();
+    const adminAccess = useAdminAccess(); // null outside the admin panel
+    const canSeeSOS = !adminAccess || adminAccess.can('sos_alerts');
     const location = useLocation();
     const navigate = useNavigate();
 
@@ -389,9 +392,10 @@ const DashboardLayout = ({ children, navItems, title }) => {
         };
     }, [role]);
 
-    // Admin SOS socket listener
+    // Admin SOS socket listener (staff only get it when their role includes SOS Alerts)
     useEffect(() => {
         if (role !== 'admin') return undefined;
+        if (!canSeeSOS) return undefined;
         const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_ADMIN);
         getOrderSocket(getToken);
 
@@ -417,7 +421,7 @@ const DashboardLayout = ({ children, navItems, title }) => {
         return () => {
             unsubscribeSOS();
         };
-    }, [role]);
+    }, [role, canSeeSOS]);
 
     const dismissSOSAlert = () => {
         setSOSAlert(null);

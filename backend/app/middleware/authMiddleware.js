@@ -2,6 +2,8 @@ import jwt from "jsonwebtoken";
 import handleResponse from "../utils/helper.js";
 import Seller from "../models/seller.js";
 import Delivery from "../models/delivery.js";
+import { resolveAdminAccessFromToken } from "../services/adminAccessService.js";
+import { decideAdminAccess, ACCESS_DENIED_MESSAGES } from "../config/adminAccess.js";
 
 function extractJwtFromHeaders(req) {
   const authHeader = String(req.headers.authorization || "").trim();
@@ -29,7 +31,8 @@ function extractJwtFromHeaders(req) {
 /* ===============================
    Verify Token
 ================================ */
-export const verifyToken = (req, res, next) => {
+export const verifyToken = async (req, res, next) => {
+  let decoded;
   try {
     const token = extractJwtFromHeaders(req);
 
@@ -37,13 +40,41 @@ export const verifyToken = (req, res, next) => {
       return handleResponse(res, 401, "Unauthorized, token missing");
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    req.user = decoded; // { id, role }
-    next();
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
   } catch (error) {
     return handleResponse(res, 401, "Invalid or expired token");
   }
+
+  req.user = decoded; // { id, role }
+
+  // Admin panel role-based access. The main admin passes straight through; a staff admin
+  // (Manager / Employee ...) may only reach the modules its role includes.
+  if (decoded?.role === "admin") {
+    try {
+      const access = await resolveAdminAccessFromToken(decoded);
+      if (!access.ok) {
+        const message =
+          access.reason === "missing"
+            ? "Invalid or expired token"
+            : "Your admin account is switched off. Please contact the main admin.";
+        return handleResponse(res, access.reason === "missing" ? 401 : 403, message);
+      }
+
+      const decision = decideAdminAccess(access, req.method, req.originalUrl || req.url);
+      if (!decision.allowed) {
+        return handleResponse(
+          res,
+          403,
+          ACCESS_DENIED_MESSAGES[decision.reason] || "Access denied",
+        );
+      }
+      req.adminAccess = access;
+    } catch (error) {
+      return handleResponse(res, 500, "Unable to verify admin access");
+    }
+  }
+
+  return next();
 };
 
 /* ===============================

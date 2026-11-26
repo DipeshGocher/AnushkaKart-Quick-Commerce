@@ -4,6 +4,7 @@
 import { verifySocketToken } from "./socketAuth.js";
 import mongoose from "mongoose";
 import Ticket from "../models/ticket.js";
+import { resolveAdminAccessFromToken } from "../services/adminAccessService.js";
 
 let _io = null;
 
@@ -47,14 +48,30 @@ export const initSocket = (io) => {
     if (role === "customer" || role === "user") {
       socket.join(`customer:${userId}`);
     }
+    // Admin staff only get the live feeds of the modules their role includes
+    // (main admin gets everything). Loaded once per connection.
+    let adminAccessPromise = null;
     if (role === "admin") {
-      socket.join("admin:orders");
-      socket.join("admin:support");
-      socket.join("admin:sos");
-      // Per-admin room — used by the notification service to push
-      // `notification:new` deltas to the specific admin who owns the
-      // Notification row, so the topbar can refresh without polling.
-      socket.join(`admin:${userId}`);
+      adminAccessPromise = resolveAdminAccessFromToken(socket.user)
+        .then((access) => {
+          if (!access.ok) {
+            socket.disconnect(true);
+            return null;
+          }
+          const has = (...keys) => access.isSuper || keys.some((k) => access.permissions.includes(k));
+          if (has("orders", "returns")) socket.join("admin:orders");
+          if (has("support_tickets")) socket.join("admin:support");
+          if (has("sos_alerts")) socket.join("admin:sos");
+          // Per-admin room — used by the notification service to push
+          // `notification:new` deltas to the specific admin who owns the
+          // Notification row, so the topbar can refresh without polling.
+          socket.join(`admin:${userId}`);
+          return access;
+        })
+        .catch(() => {
+          socket.disconnect(true);
+          return null;
+        });
     }
 
     socket.on("join_order", (orderId) => {
@@ -72,7 +89,10 @@ export const initSocket = (io) => {
       if (!raw || !mongoose.Types.ObjectId.isValid(raw)) return;
 
       if (socket.user?.role === "admin") {
-        socket.join(`ticket:${raw}`);
+        const access = await adminAccessPromise;
+        if (access && (access.isSuper || access.permissions.includes("support_tickets"))) {
+          socket.join(`ticket:${raw}`);
+        }
         return;
       }
 
