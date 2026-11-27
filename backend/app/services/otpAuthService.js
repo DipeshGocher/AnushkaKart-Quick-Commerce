@@ -165,6 +165,16 @@ export async function issueCustomerOtp({
   if (phone === "+916268423925" || phone === "+919111966732" || phone === "+918982292201") {
     otp = "1234";
   }
+  // Keep what was there before, so a failed SMS does not leave the customer stuck in the resend cooldown.
+  const previousOtpState = {
+    otpHash: customer.otpHash,
+    otpExpiresAt: customer.otpExpiresAt,
+    otpFailedAttempts: customer.otpFailedAttempts,
+    otpLockedUntil: customer.otpLockedUntil,
+    otpLastSentAt: customer.otpLastSentAt,
+    otpSessionVersion: customer.otpSessionVersion,
+  };
+
   customer.otpHash = hashOtp(phone, otp);
   customer.otpExpiresAt = new Date(now.getTime() + OTP_EXPIRY_MINUTES() * 60 * 1000);
   customer.otpFailedAttempts = 0;
@@ -179,7 +189,24 @@ export async function issueCustomerOtp({
   await customer.save();
 
   if (useRealSMS()) {
-    await dispatchCustomerOtpSms({ phone, otp });
+    try {
+      await dispatchCustomerOtpSms({ phone, otp });
+    } catch (smsError) {
+      // The SMS was not sent: give the cooldown back (and the old code state) so the customer can try again at once.
+      try {
+        Object.assign(customer, previousOtpState);
+        await customer.save();
+      } catch (restoreError) {
+        console.error("Could not restore OTP state after SMS failure", restoreError?.message);
+      }
+      otpAuditLog("customer_otp_sms_failed", {
+        phone: maskPhone(phone),
+        flow,
+        ipAddress,
+        reason: String(smsError?.message || "unknown").slice(0, 120),
+      });
+      throw smsError;
+    }
     otpAuditLog("customer_otp_sms_dispatched", {
       phone: maskPhone(phone),
       flow,

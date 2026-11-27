@@ -38,7 +38,12 @@ const VerifyOtpPage = () => {
     const [otpDigits, setOtpDigits] = useState(['', '', '', '']);
     const [isLoading, setIsLoading] = useState(false);
     const [isResending, setIsResending] = useState(false);
-    const [timer, setTimer] = useState(30);
+    // The server lets a new OTP be sent once every 60 seconds, so the Resend button waits the same time
+    // (or what is left of it when the customer comes here from the form).
+    const [timer, setTimer] = useState(() => {
+        const left = Number(authData?.cooldown);
+        return Number.isFinite(left) && left > 0 ? Math.min(Math.ceil(left), 60) : 60;
+    });
 
     const inputRefs = useRef([]);
 
@@ -212,11 +217,14 @@ const VerifyOtpPage = () => {
                 await customerApi.sendSignupOtp({ name, phone });
             }
             toast.success(t('otpSentSuccess') || 'OTP sent successfully!');
-            setTimer(30);
+            setTimer(60);
             setOtpDigits(['', '', '', '']);
             inputRefs.current[0]?.focus();
         } catch (error) {
             const apiMessage = error?.response?.data?.message;
+            // "Please wait 27s before requesting another OTP": keep the countdown in step with the server.
+            const waitMatch = /waits+(d+)s*s/i.exec(apiMessage || '');
+            if (error?.response?.status === 429 && waitMatch) setTimer(Number(waitMatch[1]));
             toast.error(apiMessage || t('otpSendFailed') || 'Failed to resend OTP');
         } finally {
             setIsResending(false);

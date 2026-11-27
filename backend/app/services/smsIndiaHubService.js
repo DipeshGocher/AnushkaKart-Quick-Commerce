@@ -9,6 +9,8 @@ function getSmsIndiaConfig() {
     senderId: String(process.env.SMS_INDIA_HUB_SENDER_ID || "").trim(),
     dltTemplateId: String(process.env.SMS_INDIA_HUB_DLT_TEMPLATE_ID || "").trim(),
     gatewayId: String(process.env.SMS_INDIA_HUB_GWID || "2").trim(),
+    channel: String(process.env.SMS_INDIA_HUB_CHANNEL || "Trans").trim(),
+    route: String(process.env.SMS_INDIA_HUB_ROUTE || "").trim(),
     peId: String(process.env.SMS_INDIA_HUB_PE_ID || "").trim(),
     url: String(
       process.env.SMS_INDIA_HUB_URL ||
@@ -104,41 +106,67 @@ export async function sendSmsIndiaHubOtp({ phone, otp, message }) {
     throw error;
   }
 
+  const finalMessage = message || buildMessage(otp);
+  const isMtSendSmsEndpoint = /\/api\/mt\/SendSMS/i.test(config.url);
+  const params = isMtSendSmsEndpoint
+    ? {
+        APIKey: config.apiKey,
+        senderid: config.senderId,
+        channel: config.channel || "Trans",
+        DCS: "0",
+        flashsms: "0",
+        number: toIndianNumber(phone),
+        text: finalMessage,
+        ...(config.dltTemplateId ? { DLTTemplateId: config.dltTemplateId } : {}),
+        ...(config.route ? { route: config.route } : {}),
+        ...(config.peId ? { PEId: config.peId } : {}),
+      }
+    : {
+        APIKey: config.apiKey,
+        msisdn: toIndianNumber(phone),
+        sid: config.senderId,
+        msg: finalMessage,
+        fl: "0",
+        gwid: config.gatewayId,
+        ...(config.dltTemplateId
+          ? {
+              DLT_TE_ID: config.dltTemplateId,
+              TE_ID: config.dltTemplateId,
+            }
+          : {}),
+        ...(config.peId
+          ? {
+              PE_ID: config.peId,
+              EntityId: config.peId,
+            }
+          : {}),
+      };
+
   const response = await axios.get(config.url, {
-    params: {
-      APIKey: config.apiKey,
-      msisdn: toIndianNumber(phone),
-      sid: config.senderId,
-      msg: message || buildMessage(otp),
-      fl: "0",
-      gwid: config.gatewayId,
-      ...(config.dltTemplateId
-        ? {
-            DLT_TE_ID: config.dltTemplateId,
-            TE_ID: config.dltTemplateId,
-          }
-        : {}),
-      ...(config.peId
-        ? {
-            PE_ID: config.peId,
-            EntityId: config.peId,
-          }
-        : {}),
-    },
+    params,
     timeout: config.timeoutMs,
   });
 
   const body = response.data;
   const inlineErrorCode = body && typeof body === "object" ? body.ErrorCode : null;
+  const inlineErrorMessage =
+    body && typeof body === "object" ? String(body.ErrorMessage || "").trim() : "";
   const { code: providerCode, raw } = parseSmsIndiaResponse(body);
   const effectiveCode = inlineErrorCode || providerCode;
 
   if (effectiveCode !== SMS_INDIA_SUCCESS_CODE) {
     const error = mapSmsIndiaError(effectiveCode);
-    if (!error.isKnownProviderCode && raw) {
+    if (inlineErrorMessage) {
+      error.message = `${error.message} (${inlineErrorMessage})`;
+    } else if (!error.isKnownProviderCode && raw) {
       error.message = `${error.message}: ${providerSnippet(raw)}`;
     }
     error.providerRaw = raw;
+    console.error("[SMS India HUB Error]", {
+      code: effectiveCode,
+      url: config.url,
+      raw: providerSnippet(raw),
+    });
     throw error;
   }
 

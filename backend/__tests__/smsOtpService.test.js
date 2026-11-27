@@ -265,4 +265,44 @@ describe("sms OTP service", () => {
 
     expect(mockOtpDeleteOne).toHaveBeenCalledWith({ _id: "otp-session-id" });
   });
+
+  it("uses /api/mt/SendSMS parameters and preserves inline ErrorMessage on 006", async () => {
+    process.env.USE_MOCK_OTP = "false";
+    process.env.USE_REAL_SMS = "true";
+    process.env.SMS_INDIA_HUB_API_KEY = "api-key-123";
+    process.env.SMS_INDIA_HUB_SENDER_ID = "BGADPL";
+    process.env.SMS_INDIA_HUB_DLT_TEMPLATE_ID = "1077104580057767222";
+    process.env.SMS_INDIA_HUB_URL = "http://cloud.smsindiahub.in/api/mt/SendSMS";
+
+    mockCustomerFindOne.mockResolvedValue({ _id: "customer-1", phone: "9876543210" });
+    mockAxiosGet.mockResolvedValue({
+      data: { ErrorCode: "006", ErrorMessage: "Invalid PEId" },
+    });
+
+    await expect(
+      sendSmsOtp({
+        mobile: "9876543210",
+        userType: "Customer",
+        purpose: "LOGIN",
+      }),
+    ).rejects.toMatchObject({
+      message: "SMS India HUB DLT template mismatch (Invalid PEId)",
+      providerCode: "006",
+    });
+
+    expect(mockAxiosGet).toHaveBeenCalledWith(
+      "http://cloud.smsindiahub.in/api/mt/SendSMS",
+      expect.objectContaining({
+        params: expect.objectContaining({
+          APIKey: "api-key-123",
+          senderid: "BGADPL",
+          channel: "Trans",
+          DCS: "0",
+          flashsms: "0",
+          number: "919876543210",
+          DLTTemplateId: "1077104580057767222",
+        }),
+      }),
+    );
+  });
 });

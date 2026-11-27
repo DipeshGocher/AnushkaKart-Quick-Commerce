@@ -133,6 +133,24 @@ const CustomerAuth = () => {
             });
         } catch (error) {
             const apiMessage = error?.response?.data?.message;
+
+            // "Please wait 27s before requesting another OTP" means a code was sent to this number a moment ago
+            // (for example the customer went back to fix something). Take them to the code screen instead of an error.
+            const waitMatch = /waits+(d+)s*s/i.exec(apiMessage || '');
+            if (error?.response?.status === 429 && waitMatch) {
+                const pending = {
+                    phone: formData.phone,
+                    name: formData.name.trim(),
+                    isLogin,
+                    from: fromPath,
+                    cooldown: Number(waitMatch[1]),
+                };
+                sessionStorage.setItem('anushka_pending_auth', JSON.stringify(pending));
+                toast.info(t('otpAlreadySent') || 'An OTP was already sent to this number. Enter it below.');
+                navigate('/verify-otp', { state: pending });
+                return;
+            }
+
             toast.error(apiMessage || t('otpSendFailed') || 'Failed to send OTP');
         } finally {
             setIsLoading(false);
