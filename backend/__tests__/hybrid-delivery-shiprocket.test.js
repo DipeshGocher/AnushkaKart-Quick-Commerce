@@ -9,6 +9,8 @@ const mockOrderFindById = jest.fn();
 const mockOrderFindByIdAndUpdate = jest.fn();
 const mockCustomerFindById = jest.fn();
 const mockProductFind = jest.fn();
+const mockSellerFindById = jest.fn();
+const mockSellerUpdateOne = jest.fn().mockResolvedValue({ modifiedCount: 1 });
 
 jest.unstable_mockModule("../app/models/localPincode.js", () => ({
   default: {
@@ -32,6 +34,13 @@ jest.unstable_mockModule("../app/models/customer.js", () => ({
 
 jest.unstable_mockModule("../app/models/product.js", () => ({
   default: { find: mockProductFind },
+}));
+
+jest.unstable_mockModule("../app/models/seller.js", () => ({
+  default: {
+    findById: mockSellerFindById,
+    updateOne: mockSellerUpdateOne,
+  },
 }));
 
 const mockApplyDeliveredSettlement = jest.fn().mockResolvedValue(true);
@@ -215,6 +224,117 @@ describe("Hybrid Delivery Architecture - Local vs Shiprocket", () => {
           order_items: [expect.objectContaining({ sku: "WIRE-1", units: 2 })],
         }));
         expect(order.shiprocket).toEqual(expect.objectContaining({ shipmentId: "123", shiprocketOrderId: "765", awb: "AWB123" }));
+      } finally {
+        post.mockRestore();
+        if (previousEmail === undefined) delete process.env.SHIPROCKET_EMAIL;
+        else process.env.SHIPROCKET_EMAIL = previousEmail;
+        if (previousPassword === undefined) delete process.env.SHIPROCKET_PASSWORD;
+        else process.env.SHIPROCKET_PASSWORD = previousPassword;
+        if (previousContactEmail === undefined) delete process.env.SHIPROCKET_CONTACT_EMAIL;
+        else process.env.SHIPROCKET_CONTACT_EMAIL = previousContactEmail;
+      }
+    });
+
+    it("rejects HTTP 200 responses missing shipment_id instead of saving 'undefined'", async () => {
+      const previousEmail = process.env.SHIPROCKET_EMAIL;
+      const previousPassword = process.env.SHIPROCKET_PASSWORD;
+      const previousContactEmail = process.env.SHIPROCKET_CONTACT_EMAIL;
+      process.env.SHIPROCKET_EMAIL = "api@example.test";
+      process.env.SHIPROCKET_PASSWORD = "test-password";
+      process.env.SHIPROCKET_CONTACT_EMAIL = "store@example.test";
+      mockCustomerFindById.mockReturnValue({ select: () => ({ lean: async () => ({ email: "buyer@example.test" }) }) });
+      mockProductFind.mockReturnValue({ select: () => ({ lean: async () => [] }) });
+      const order = {
+        orderId: "ORD-LIVE-BAD-200",
+        fulfillmentType: "SHIPROCKET",
+        paymentMode: "COD",
+        customer: "507f1f77bcf86cd799439012",
+        address: { name: "Buyer", address: "Main Road", city: "Indore", state: "Madhya Pradesh", pincode: "452001", phone: "9876543210" },
+        items: [{ name: "Kettle", product: "507f1f77bcf86cd799439011", quantity: 1, price: 749 }],
+        paymentBreakdown: { productSubtotal: 749, deliveryFeeCharged: 0, handlingFeeCharged: 0, discountTotal: 0, walletAmount: 0 },
+        shiprocket: { shipmentId: "undefined" },
+        save: jest.fn().mockResolvedValue(true),
+      };
+      mockOrderFindOne.mockResolvedValue(order);
+      const post = jest.spyOn(axios, "post").mockImplementation(async (url) => {
+        if (url.endsWith("/auth/login")) return { data: { token: "test-token" } };
+        if (url.endsWith("/orders/create/adhoc")) return { data: { message: "Wrong Pickup location entered." } };
+        throw new Error(`Unexpected API route: ${url}`);
+      });
+      try {
+        await expect(processShiprocketOrder(order.orderId)).rejects.toThrow(/Wrong Pickup location entered/i);
+        expect(order.shiprocket.shipmentId).toBe("undefined");
+        expect(order.save).not.toHaveBeenCalled();
+      } finally {
+        post.mockRestore();
+        if (previousEmail === undefined) delete process.env.SHIPROCKET_EMAIL;
+        else process.env.SHIPROCKET_EMAIL = previousEmail;
+        if (previousPassword === undefined) delete process.env.SHIPROCKET_PASSWORD;
+        else process.env.SHIPROCKET_PASSWORD = previousPassword;
+        if (previousContactEmail === undefined) delete process.env.SHIPROCKET_CONTACT_EMAIL;
+        else process.env.SHIPROCKET_CONTACT_EMAIL = previousContactEmail;
+      }
+    });
+
+    it("auto-registers unverified seller pickup location before creating live Shiprocket order", async () => {
+      const previousEmail = process.env.SHIPROCKET_EMAIL;
+      const previousPassword = process.env.SHIPROCKET_PASSWORD;
+      const previousContactEmail = process.env.SHIPROCKET_CONTACT_EMAIL;
+      process.env.SHIPROCKET_EMAIL = "api@example.test";
+      process.env.SHIPROCKET_PASSWORD = "test-password";
+      process.env.SHIPROCKET_CONTACT_EMAIL = "store@example.test";
+      mockCustomerFindById.mockReturnValue({ select: () => ({ lean: async () => ({ email: "buyer@example.test" }) }) });
+      mockProductFind.mockReturnValue({ select: () => ({ lean: async () => [] }) });
+      mockSellerFindById.mockReturnValue({
+        select: () => ({
+          lean: async () => ({
+            _id: "507f1f77bcf86cd799439099",
+            name: "Harsh",
+            shopName: "Harsh Store",
+            phone: "9876543210",
+            address: "12 MG Road, Palasia",
+            city: "Indore",
+            state: "Madhya Pradesh",
+            pincode: "452001",
+            shiprocketPickupLocation: "Seller_99439099",
+            shiprocketPickupStatus: "mock",
+          }),
+        }),
+      });
+      const order = {
+        orderId: "ORD-LIVE-SYNC-1",
+        fulfillmentType: "SHIPROCKET",
+        paymentMode: "COD",
+        customer: "507f1f77bcf86cd799439012",
+        seller: "507f1f77bcf86cd799439099",
+        address: { name: "Buyer", address: "Main Road", city: "Bhopal", state: "Madhya Pradesh", pincode: "462001", phone: "9876543211" },
+        items: [{ name: "Kettle", product: "507f1f77bcf86cd799439011", quantity: 1, price: 749 }],
+        paymentBreakdown: { productSubtotal: 749, deliveryFeeCharged: 0, handlingFeeCharged: 0, discountTotal: 0, walletAmount: 0 },
+        save: jest.fn().mockResolvedValue(true),
+      };
+      mockOrderFindOne.mockResolvedValue(order);
+      const post = jest.spyOn(axios, "post").mockImplementation(async (url) => {
+        if (url.endsWith("/auth/login")) return { data: { token: "test-token" } };
+        if (url.endsWith("/settings/company/addpickup")) return { data: { success: true } };
+        if (url.endsWith("/orders/create/adhoc")) return { data: { order_id: 901, shipment_id: 902, status_code: 1 } };
+        if (url.endsWith("/courier/assign/awb")) return { data: { response: { data: { awb_code: "AWB902", courier_name: "Delhivery" } } } };
+        throw new Error(`Unexpected API route: ${url}`);
+      });
+      try {
+        const result = await processShiprocketOrder(order.orderId);
+        expect(result.success).toBe(true);
+        const addPickupCall = post.mock.calls.find(([url]) => url.endsWith("/settings/company/addpickup"));
+        expect(addPickupCall).toBeTruthy();
+        expect(addPickupCall[1]).toEqual(expect.objectContaining({
+          pickup_location: "Seller_99439099",
+          pin_code: 452001,
+        }));
+        const createCall = post.mock.calls.find(([url]) => url.endsWith("/orders/create/adhoc"));
+        expect(createCall[1].pickup_location).toBe("Seller_99439099");
+        expect(mockSellerUpdateOne).toHaveBeenCalledWith(
+          { _id: "507f1f77bcf86cd799439099" },
+          { $set: { shiprocketPickupLocation: "Seller_99439099", shiprocketPickupStatus: "verified" } },
+        );
       } finally {
         post.mockRestore();
         if (previousEmail === undefined) delete process.env.SHIPROCKET_EMAIL;

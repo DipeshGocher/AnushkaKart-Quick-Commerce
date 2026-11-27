@@ -28,6 +28,11 @@ import {
 
 const SHIPROCKET_BASE_URL = "https://apiv2.shiprocket.in/v1/external";
 
+function isValidShipmentId(id) {
+  const value = String(id ?? "").trim();
+  return Boolean(value && value !== "undefined" && value !== "null");
+}
+
 let cachedToken = null;
 let tokenExpiry = 0;
 let cachedCredentialFingerprint = null;
@@ -180,13 +185,24 @@ export async function syncSellerPickupLocationToShiprocket(seller) {
       response: res.data,
     };
   } catch (err) {
+    const errMsg = String(err.response?.data?.message || err.message || "");
+    if (/already\s+exists/i.test(errMsg)) {
+      seller.shiprocketPickupLocation = locationNickname;
+      seller.shiprocketPickupStatus = "verified";
+      return {
+        success: true,
+        mode: "LIVE",
+        pickup_location: locationNickname,
+        alreadyExists: true,
+      };
+    }
     console.warn("[Shiprocket] Add pickup location API warning:", err.response?.data || err.message);
     seller.shiprocketPickupLocation = locationNickname;
     seller.shiprocketPickupStatus = "pending";
     return {
       success: false,
       pickup_location: locationNickname,
-      error: err.response?.data?.message || err.message,
+      error: errMsg,
     };
   }
 }
@@ -310,7 +326,7 @@ export async function processShiprocketOrder(orderParam) {
     order.orderStatus = "confirmed";
     order.sellerAcceptedAt = new Date();
   }
-  if (order.shiprocket?.shipmentId) {
+  if (isValidShipmentId(order.shiprocket?.shipmentId)) {
     return { success: true, mode: "EXISTING", message: "Shiprocket shipment already exists", shipment: order.shiprocket };
   }
   if (!order.address?.pincode || !order.address?.phone || !order.address?.address || !order.address?.city || !order.address?.state) {
@@ -405,13 +421,42 @@ export async function processShiprocketOrder(orderParam) {
 
   let pickupLocation = process.env.SHIPROCKET_PICKUP_LOCATION || "Primary";
   if (order.seller) {
+    let sellerDoc = null;
     try {
-      const sellerDoc = await Seller.findById(order.seller).select("shiprocketPickupLocation pincode address city state").lean();
-      if (sellerDoc?.shiprocketPickupLocation) {
-        pickupLocation = sellerDoc.shiprocketPickupLocation;
-      }
+      sellerDoc = await Seller.findById(order.seller)
+        .select("name shopName email phone address locality pincode city state shiprocketPickupLocation shiprocketPickupStatus")
+        .lean();
     } catch (err) {
       console.warn("[Shiprocket] Error fetching seller for pickup location:", err.message);
+    }
+
+    if (sellerDoc) {
+      const hasVerifiedPickup =
+        Boolean(sellerDoc.shiprocketPickupLocation) &&
+        sellerDoc.shiprocketPickupStatus === "verified";
+      if (hasVerifiedPickup) {
+        pickupLocation = sellerDoc.shiprocketPickupLocation;
+      } else {
+        const syncRes = await syncSellerPickupLocationToShiprocket(sellerDoc);
+        if (syncRes?.success && syncRes.pickup_location) {
+          pickupLocation = syncRes.pickup_location;
+          await Seller.updateOne?.(
+            { _id: sellerDoc._id || order.seller },
+            {
+              $set: {
+                shiprocketPickupLocation: syncRes.pickup_location,
+                shiprocketPickupStatus: "verified",
+              },
+            },
+          )?.catch(() => {});
+        } else if (syncRes && !syncRes.reason && syncRes.error) {
+          const err = new Error(`Seller pickup address sync failed on Shiprocket: ${syncRes.error}`);
+          err.statusCode = 400;
+          throw err;
+        } else if (sellerDoc.shiprocketPickupLocation && sellerDoc.shiprocketPickupStatus !== "mock") {
+          pickupLocation = sellerDoc.shiprocketPickupLocation;
+        }
+      }
     }
   }
 
@@ -499,9 +544,14 @@ export async function processShiprocketOrder(orderParam) {
       timeout: 20000,
     });
 
-    const srData = createRes.data;
-    const shipmentId = srData.shipment_id;
-    const shiprocketOrderId = srData.order_id;
+    const srData = createRes.data || {};
+    const shipmentId = srData.shipment_id ?? srData.payload?.shipment_id ?? srData.data?.shipment_id;
+    const shiprocketOrderId = srData.order_id ?? srData.payload?.order_id ?? srData.data?.order_id;
+    if (!isValidShipmentId(shipmentId) || !isValidShipmentId(shiprocketOrderId)) {
+      const detail = srData.message || srData.errors || srData;
+      const msg = typeof detail === "object" ? JSON.stringify(detail) : String(detail || "Shiprocket did not return a shipment_id");
+      throw new Error(msg);
+    }
 
     // Try to auto-generate AWB
     let awbCode = null;
@@ -602,7 +652,7 @@ export async function assignShiprocketAwb(order, { attempts = 3, retryDelayMs = 
   if (order.shiprocket?.awb) return { awb: order.shiprocket.awb, alreadyAssigned: true };
 
   const shipmentId = order.shiprocket?.shipmentId;
-  if (!shipmentId) {
+  if (!isValidShipmentId(shipmentId)) {
     const err = new Error("Shipment has not been generated for this order yet");
     err.statusCode = 400;
     throw err;
@@ -690,7 +740,7 @@ export async function requestShiprocketPickup(orderParam) {
   }
 
   const shipmentId = order.shiprocket?.shipmentId;
-  if (!shipmentId) {
+  if (!isValidShipmentId(shipmentId)) {
     const err = new Error("Shipment has not been generated for this order yet");
     err.statusCode = 400;
     throw err;
@@ -799,7 +849,7 @@ export async function cancelShiprocketShipmentForOrder(order) {
   assertShipmentCancellable(order);
 
   const sr = order?.shiprocket;
-  if (!sr?.shipmentId && !sr?.shiprocketOrderId) {
+  if (!isValidShipmentId(sr?.shipmentId) && !isValidShipmentId(sr?.shiprocketOrderId)) {
     return { cancelled: false, reason: "NO_SHIPMENT" };
   }
   if (normalizeShipmentStatus(sr.currentStatus) === "CANCELLED") {
@@ -878,7 +928,7 @@ export async function getShiprocketLabel(orderParam) {
   }
 
   const shipmentId = order.shiprocket?.shipmentId;
-  if (!shipmentId) {
+  if (!isValidShipmentId(shipmentId)) {
     const err = new Error("No shipment exists for this order");
     err.statusCode = 400;
     throw err;
