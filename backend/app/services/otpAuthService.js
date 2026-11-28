@@ -249,7 +249,7 @@ export async function verifyCustomerOtpCode({
   }
 
   const customer = await Customer.findOne({ phone }).select(
-    "+otpHash +otpExpiresAt +otpFailedAttempts +otpLockedUntil +otpSessionVersion +otp +otpExpiry",
+    "+otpHash +otpExpiresAt +otpFailedAttempts +otpLockedUntil +otpLastSentAt +otpSessionVersion +otp +otpExpiry",
   );
   if (!customer) {
     const err = new Error("Invalid or expired OTP");
@@ -304,6 +304,9 @@ export async function verifyCustomerOtpCode({
   customer.otpExpiresAt = undefined;
   customer.otpFailedAttempts = 0;
   customer.otpLockedUntil = undefined;
+  // The code was used successfully, so the resend cooldown is over. Without this, logging out and logging in
+  // again within 60 seconds shows "Please wait Ns before requesting another OTP" for no good reason.
+  customer.otpLastSentAt = undefined;
   customer.otpSessionVersion = (customer.otpSessionVersion || 0) + 1;
   customer.otp = undefined;
   customer.otpExpiry = undefined;

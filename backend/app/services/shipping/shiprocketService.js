@@ -798,11 +798,27 @@ export async function requestShiprocketPickup(orderParam) {
   }
 
   const token = await getShiprocketAuthToken();
-  const res = await axios.post(
-    `${SHIPROCKET_BASE_URL}/courier/generate/pickup`,
-    { shipment_id: [shipmentId] },
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
+  let res;
+  try {
+    res = await axios.post(
+      `${SHIPROCKET_BASE_URL}/courier/generate/pickup`,
+      { shipment_id: [shipmentId] },
+      { headers: { Authorization: `Bearer ${token}` }, timeout: 20000 }
+    );
+  } catch (pickupErr) {
+    // axios only says "Request failed with status code 400"; Shiprocket's own answer holds the real reason
+    // (pickup address not verified, KYC pending, low wallet, already in the pickup queue, ...).
+    const body = pickupErr.response?.data;
+    const detail = body?.message || body?.errors || body?.response?.data?.pickup_status_message;
+    const text = detail ? (typeof detail === "object" ? JSON.stringify(detail) : String(detail)) : pickupErr.message;
+    console.error("[Shiprocket Pickup Failed]:", pickupErr.response?.status, body || pickupErr.message);
+    if (!/already.*(pickup|queue|scheduled)/i.test(text)) {
+      const err = new Error(`Shiprocket pickup request failed (${pickupErr.response?.status || "no response"}): ${text}`.slice(0, 300));
+      err.statusCode = pickupErr.response?.status === 400 ? 400 : 502;
+      throw err;
+    }
+    res = { data: body }; // Shiprocket already holds a pickup for this shipment: treat it as scheduled
+  }
 
   order.shiprocket.currentStatus = "PICKUP_SCHEDULED";
   order.shiprocket.pickupScheduledAt = new Date();

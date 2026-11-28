@@ -136,7 +136,7 @@ const CustomerAuth = () => {
 
             // "Please wait 27s before requesting another OTP" means a code was sent to this number a moment ago
             // (for example the customer went back to fix something). Take them to the code screen instead of an error.
-            const waitMatch = /waits+(d+)s*s/i.exec(apiMessage || '');
+            const waitMatch = /wait\s+(\d+)\s*s/i.exec(apiMessage || '');
             if (error?.response?.status === 429 && waitMatch) {
                 const pending = {
                     phone: formData.phone,

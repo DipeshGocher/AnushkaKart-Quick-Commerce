@@ -32,7 +32,7 @@ import ShimmerButton from '@/components/ui/shimmer-button';
 import { sellerApi } from '../services/sellerApi';
 import { useToast } from '@shared/components/ui/Toast';
 import { getLegacyStatusFromOrder, getStageLabel, getStatusOptions } from '@/shared/utils/orderStatus';
-import { Loader2, Package, Truck, Clock, Printer, ExternalLink, Copy, Check } from 'lucide-react';
+import { Loader2, Package, Truck, Printer, ExternalLink, Copy, Check } from 'lucide-react';
 import Pagination from '@shared/components/ui/Pagination';
 import { DatePicker } from "@/components/ui/date-picker";
 import { getOrderStatusVariant } from '../components/orders';
@@ -41,6 +41,7 @@ import { onOrderStatusUpdate } from '@/core/services/orderSocket';
 import { createSocketTokenReader } from '@core/utils/authStorage';
 import { STORAGE_KEYS } from '@core/utils/storage';
 import { parcelWarningText } from "@shared/utils/parcel";
+import { getCourierBookingView } from '@/shared/utils/courierBooking';
 
 /** The payment line shown to the seller, from the order's real payment mode and status. */
 const describePayment = (order) => {
@@ -89,7 +90,6 @@ const Orders = () => {
     const [pageSize, setPageSize] = useState(20);
     const [total, setTotal] = useState(0);
     const [isProcessingShiprocket, setIsProcessingShiprocket] = useState(false);
-    const [isSchedulingPickup, setIsSchedulingPickup] = useState(false);
     const [isFetchingLabel, setIsFetchingLabel] = useState(false);
     const [copiedAwb, setCopiedAwb] = useState(false);
     const hasMountedRef = useRef(false);
@@ -379,8 +379,9 @@ const Orders = () => {
             const res = await sellerApi.fulfillShiprocketOrder(orderId);
             if (res.data?.success) {
                 const result = res.data.result || {};
+                const reason = result.errors?.awb || result.errors?.pickup || result.errors?.label;
                 showToast(
-                    res.data.message || "Courier booking updated",
+                    result.complete || !reason ? (res.data.message || "Courier booking updated") : `Courier booking is not finished: ${reason}`,
                     result.complete ? "success" : "warning",
                 );
                 const shipmentData = result.shipment || null;
@@ -397,33 +398,6 @@ const Orders = () => {
             showToast(error.response?.data?.message || "Failed to process with Shiprocket", "error");
         } finally {
             setIsProcessingShiprocket(false);
-        }
-    };
-
-    const handleSchedulePickup = async (orderId) => {
-        try {
-            setIsSchedulingPickup(true);
-            const res = await sellerApi.scheduleShiprocketPickup(orderId);
-            if (res.data?.success) {
-                showToast(res.data.message || "Courier pickup scheduled successfully", "success");
-                if (selectedOrder && selectedOrder.id === orderId) {
-                    setSelectedOrder(prev => ({
-                        ...prev,
-                        status: 'packed',
-                        shiprocket: {
-                            ...(prev.shiprocket || {}),
-                            currentStatus: 'PICKUP_SCHEDULED',
-                            pickupScheduledAt: new Date().toISOString()
-                        }
-                    }));
-                }
-                fetchOrders(page, false, true);
-            }
-        } catch (error) {
-            console.error("Failed to schedule pickup:", error);
-            showToast(error.response?.data?.message || "Failed to schedule pickup", "error");
-        } finally {
-            setIsSchedulingPickup(false);
         }
     };
 
@@ -1144,110 +1118,64 @@ const Orders = () => {
                                                     </div>
                                                 </div>
 
-                                                {/* Automatic booking status */}
-                                                {selectedOrder.shiprocket?.automation?.state === "COMPLETE" && (
-                                                    <p className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
-                                                        Ready: AWB, pickup and label are done. Print the label, stick it on the parcel and hand it to the courier.
-                                                    </p>
-                                                )}
-                                                {["AWB_PENDING", "PICKUP_PENDING", "LABEL_PENDING"].includes(selectedOrder.shiprocket?.automation?.state) && (
-                                                    <p className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
-                                                        Courier booking is not finished: {selectedOrder.shiprocket.automation.lastError || selectedOrder.shiprocket.automation.state}.
-                                                        It is retried automatically every few minutes; press Retry to try right now.
-                                                    </p>
-                                                )}
-
-                                                {/* Action Controls */}
-                                                {!["cancelled", "delivered"].includes(selectedOrder.status) && (
-                                                    <div className="pt-1 flex flex-wrap items-center gap-2">
-                                                        {!selectedOrder.shiprocket?.awb ? (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleProcessShiprocket(selectedOrder.id)}
-                                                                disabled={isProcessingShiprocket}
-                                                                className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
-                                                            >
-                                                                {isProcessingShiprocket ? (
-                                                                    <>
-                                                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                                        <span>Booking courier...</span>
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <Package className="h-3.5 w-3.5" />
-                                                                        <span>{selectedOrder.shiprocket?.shipmentId ? "Retry AWB, Pickup & Label" : "Book Courier (AWB, Pickup & Label)"}</span>
-                                                                    </>
+                                                {/* Courier booking: one status line + one booking button (see courierBooking.js) */}
+                                                {(() => {
+                                                    const booking = getCourierBookingView(selectedOrder);
+                                                    if (!booking || booking.kind === "CLOSED") return null;
+                                                    const toneClass = {
+                                                        success: "text-emerald-700 bg-emerald-50 border-emerald-100",
+                                                        warning: "text-amber-800 bg-amber-50 border-amber-100",
+                                                        info: "text-sky-800 bg-sky-50 border-sky-100",
+                                                    }[booking.tone] || "text-slate-700 bg-slate-50 border-slate-100";
+                                                    return (
+                                                        <>
+                                                            {booking.message && (
+                                                                <p className={`text-[11px] font-bold border rounded-xl px-3 py-2 ${toneClass}`}>
+                                                                    {booking.message}
+                                                                </p>
+                                                            )}
+                                                            <div className="pt-1 flex flex-wrap items-center gap-2">
+                                                                {booking.showBookButton && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleProcessShiprocket(selectedOrder.id)}
+                                                                        disabled={isProcessingShiprocket}
+                                                                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
+                                                                    >
+                                                                        {isProcessingShiprocket ? (
+                                                                            <>
+                                                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                                                <span>Booking courier...</span>
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <Package className="h-3.5 w-3.5" />
+                                                                                <span>{booking.bookLabel}</span>
+                                                                            </>
+                                                                        )}
+                                                                    </button>
                                                                 )}
-                                                            </button>
-                                                        ) : (
-                                                            <>
-                                                                {(() => {
-                                                                    const selectedShiprocketStatus = String(selectedOrder.shiprocket?.currentStatus || "").toUpperCase();
-                                                                    const isSelectedPickupScheduled = Boolean(
-                                                                        selectedShiprocketStatus === "PICKUP_SCHEDULED" ||
-                                                                        selectedShiprocketStatus === "PICKUP_QUEUED" ||
-                                                                        selectedOrder.shiprocket?.pickupScheduledAt ||
-                                                                        selectedOrder.shiprocket?.history?.some(h => String(h.status || "").toUpperCase() === "PICKUP_SCHEDULED")
-                                                                    );
-                                                                    const isSelectedPastPickup = Boolean(
-                                                                        ["IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RTO_INITIATED", "RTO_DELIVERED", "RTO_ACKNOWLEDGED"].includes(selectedShiprocketStatus) ||
-                                                                        selectedOrder.shiprocket?.shippedAt ||
-                                                                        selectedOrder.shiprocket?.deliveredAt ||
-                                                                        ["shipped", "out_for_delivery", "delivered", "cancelled"].includes(String(selectedOrder.status || "").toLowerCase())
-                                                                    );
 
-                                                                    if (isSelectedPastPickup) return null;
-
-                                                                    return (
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => handleSchedulePickup(selectedOrder.id)}
-                                                                            disabled={isSchedulingPickup || isSelectedPickupScheduled}
-                                                                            className={cn(
-                                                                                "inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-sm",
-                                                                                isSelectedPickupScheduled
-                                                                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80 cursor-default select-none opacity-95"
-                                                                                    : "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer disabled:opacity-50"
-                                                                            )}
-                                                                        >
-                                                                            {isSchedulingPickup ? (
-                                                                                <>
-                                                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                                                    <span>Scheduling...</span>
-                                                                                </>
-                                                                            ) : isSelectedPickupScheduled ? (
-                                                                                <>
-                                                                                    <Check className="h-3.5 w-3.5 text-emerald-600 stroke-[2.5]" />
-                                                                                    <span>Pickup Scheduled</span>
-                                                                                </>
-                                                                            ) : (
-                                                                                <>
-                                                                                    <Clock className="h-3.5 w-3.5" />
-                                                                                    <span>Schedule Pickup</span>
-                                                                                </>
-                                                                            )}
-                                                                        </button>
-                                                                    );
-                                                                })()}
-
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleDownloadLabel(selectedOrder.id)}
-                                                                    disabled={isFetchingLabel}
-                                                                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
-                                                                >
-                                                                    {isFetchingLabel ? (
-                                                                        <>
-                                                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                                            <span>Opening...</span>
-                                                                        </>
-                                                                    ) : (
-                                                                        <>
-                                                                            <Printer className="h-3.5 w-3.5" />
-                                                                            <span>Print Label</span>
-                                                                        </>
-                                                                    )}
-                                                                </button>
+                                                                {booking.showPrintLabel && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleDownloadLabel(selectedOrder.id)}
+                                                                        disabled={isFetchingLabel}
+                                                                        className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
+                                                                    >
+                                                                        {isFetchingLabel ? (
+                                                                            <>
+                                                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                                                <span>Opening...</span>
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <Printer className="h-3.5 w-3.5" />
+                                                                                <span>Print Label</span>
+                                                                            </>
+                                                                        )}
+                                                                    </button>
+                                                                )}
 
                                                                 {selectedOrder.shiprocket?.awb && (
                                                                     <a
@@ -1260,10 +1188,10 @@ const Orders = () => {
                                                                         <ExternalLink className="h-3 w-3" />
                                                                     </a>
                                                                 )}
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                )}
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         )}
 

@@ -223,7 +223,7 @@ const VerifyOtpPage = () => {
         } catch (error) {
             const apiMessage = error?.response?.data?.message;
             // "Please wait 27s before requesting another OTP": keep the countdown in step with the server.
-            const waitMatch = /waits+(d+)s*s/i.exec(apiMessage || '');
+            const waitMatch = /wait\s+(\d+)\s*s/i.exec(apiMessage || '');
             if (error?.response?.status === 429 && waitMatch) setTimer(Number(waitMatch[1]));
             toast.error(apiMessage || t('otpSendFailed') || 'Failed to resend OTP');
         } finally {

@@ -20,6 +20,7 @@ import {
 import { createSocketTokenReader } from '@core/utils/authStorage';
 import { STORAGE_KEYS } from '@core/utils/storage';
 import { getStatusOptions } from '@/shared/utils/orderStatus';
+import { getCourierBookingView } from '@/shared/utils/courierBooking';
 import { returnGroupOfOrder } from '@/shared/utils/adminOrderViews';
 import {
     ChevronLeft,
@@ -90,7 +91,6 @@ const OrderDetail = () => {
 
     // Shiprocket fulfillment action states
     const [isProcessingShiprocket, setIsProcessingShiprocket] = useState(false);
-    const [isSchedulingPickup, setIsSchedulingPickup] = useState(false);
     const [courierCodAmount, setCourierCodAmount] = useState("");
     const [isReceivingCod, setIsReceivingCod] = useState(false);
     const [isFetchingLabel, setIsFetchingLabel] = useState(false);
@@ -153,13 +153,19 @@ const OrderDetail = () => {
     const handleProcessShiprocket = async () => {
         try {
             setIsProcessingShiprocket(true);
-            const res = await adminShippingApi.processShiprocketOrder(orderId);
+            // One call re-runs every courier step still missing (shipment, AWB, pickup, label).
+            const res = await adminShippingApi.fulfillShiprocketOrder(orderId);
             if (res.data?.success) {
-                showToast(res.data.message || "Shiprocket shipment created & AWB assigned", "success");
+                const result = res.data.result || {};
+                const reason = result.errors?.awb || result.errors?.pickup || result.errors?.label;
+                showToast(
+                    result.complete || !reason ? (res.data.message || "Courier booking updated") : `Courier booking is not finished: ${reason}`,
+                    result.complete ? "success" : "warning",
+                );
                 fetchDetail();
             }
         } catch (error) {
-            showToast(error.response?.data?.message || "Failed to process with Shiprocket", "error");
+            showToast(error.response?.data?.message || "Failed to book the courier", "error");
         } finally {
             setIsProcessingShiprocket(false);
         }
@@ -184,21 +190,6 @@ const OrderDetail = () => {
             showToast(error.response?.data?.message || "Could not record the courier cash", "error");
         } finally {
             setIsReceivingCod(false);
-        }
-    };
-
-    const handleSchedulePickup = async () => {
-        try {
-            setIsSchedulingPickup(true);
-            const res = await adminShippingApi.scheduleShiprocketPickup(orderId);
-            if (res.data?.success) {
-                showToast(res.data.message || "Courier pickup scheduled successfully", "success");
-                fetchDetail();
-            }
-        } catch (error) {
-            showToast(error.response?.data?.message || "Failed to schedule pickup", "error");
-        } finally {
-            setIsSchedulingPickup(false);
         }
     };
 
@@ -844,60 +835,36 @@ const OrderDetail = () => {
                                 </div>
                             </div>
 
-                            {/* Action Buttons */}
+                            {/* Courier booking: one status line + one booking button (see courierBooking.js) */}
                             {(() => {
-                                const shiprocketStatus = String(order.shiprocket?.currentStatus || "").toUpperCase();
-                                const isPickupScheduled = Boolean(
-                                    shiprocketStatus === "PICKUP_SCHEDULED" ||
-                                    shiprocketStatus === "PICKUP_QUEUED" ||
-                                    order.shiprocket?.pickupScheduledAt ||
-                                    order.shiprocket?.history?.some(h => String(h.status || "").toUpperCase() === "PICKUP_SCHEDULED")
-                                );
-                                const isPastPickup = Boolean(
-                                    ["IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "RTO_INITIATED", "RTO_DELIVERED", "RTO_ACKNOWLEDGED"].includes(shiprocketStatus) ||
-                                    order.shiprocket?.shippedAt ||
-                                    order.shiprocket?.deliveredAt ||
-                                    ["shipped", "out_for_delivery", "delivered", "cancelled"].includes(String(order.status || "").toLowerCase())
-                                );
-
-                                if (["delivered", "cancelled"].includes(String(order.status || "").toLowerCase())) return null;
+                                const booking = getCourierBookingView(order);
+                                if (!booking || booking.kind === "CLOSED") return null;
+                                const toneClass = {
+                                    success: "text-emerald-700 bg-emerald-50 border-emerald-100",
+                                    warning: "text-amber-800 bg-amber-50 border-amber-100",
+                                    info: "text-blue-800 bg-blue-50 border-blue-100",
+                                }[booking.tone] || "text-slate-700 bg-slate-50 border-slate-100";
                                 return (
-                                    <div className="pt-2 flex flex-wrap gap-2">
-                                        {!order.shiprocket?.awb ? (
-                                            <button
-                                                type="button"
-                                                onClick={handleProcessShiprocket}
-                                                disabled={isProcessingShiprocket}
-                                                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition disabled:opacity-50 cursor-pointer"
-                                            >
-                                                <Package size={14} />
-                                                <span>{isProcessingShiprocket ? "Processing..." : "Process Shipment & AWB"}</span>
-                                            </button>
-                                        ) : (
-                                            <>
-                                                {!isPastPickup && (
-                                                    isPickupScheduled ? (
-                                                        <button
-                                                            type="button"
-                                                            disabled={true}
-                                                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-xl text-xs font-bold cursor-default select-none shadow-xs"
-                                                        >
-                                                            <Check size={14} className="text-emerald-600 stroke-[2.5]" />
-                                                            <span>Pickup Scheduled</span>
-                                                        </button>
-                                                    ) : (
-                                                        <button
-                                                            type="button"
-                                                            onClick={handleSchedulePickup}
-                                                            disabled={isSchedulingPickup}
-                                                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 cursor-pointer shadow-xs"
-                                                        >
-                                                            <Clock size={14} />
-                                                            <span>{isSchedulingPickup ? "Scheduling..." : "Schedule Pickup"}</span>
-                                                        </button>
-                                                    )
-                                                )}
+                                    <>
+                                        {booking.message && (
+                                            <p className={`text-[11px] font-bold border rounded-xl px-3 py-2 ${toneClass}`}>
+                                                {booking.message}
+                                            </p>
+                                        )}
+                                        <div className="pt-2 flex flex-wrap gap-2">
+                                            {booking.showBookButton && (
+                                                <button
+                                                    type="button"
+                                                    onClick={handleProcessShiprocket}
+                                                    disabled={isProcessingShiprocket}
+                                                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition disabled:opacity-50 cursor-pointer"
+                                                >
+                                                    <Package size={14} />
+                                                    <span>{isProcessingShiprocket ? "Booking courier..." : booking.bookLabel}</span>
+                                                </button>
+                                            )}
 
+                                            {booking.showPrintLabel && (
                                                 <button
                                                     type="button"
                                                     onClick={handleDownloadLabel}
@@ -907,24 +874,24 @@ const OrderDetail = () => {
                                                     <Printer size={14} />
                                                     <span>Print Label</span>
                                                 </button>
-                                            </>
-                                        )}
+                                            )}
 
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setManualStatusData({
-                                                    status: order.shiprocket?.currentStatus || "IN_TRANSIT",
-                                                    remarks: "",
-                                                    location: order.address?.city || "",
-                                                });
-                                                setIsManualStatusModalOpen(true);
-                                            }}
-                                            className="px-3 py-2 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition cursor-pointer"
-                                        >
-                                            Manual Status Update
-                                        </button>
-                                    </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setManualStatusData({
+                                                        status: order.shiprocket?.currentStatus || "IN_TRANSIT",
+                                                        remarks: "",
+                                                        location: order.address?.city || "",
+                                                    });
+                                                    setIsManualStatusModalOpen(true);
+                                                }}
+                                                className="px-3 py-2 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition cursor-pointer"
+                                            >
+                                                Manual Status Update
+                                            </button>
+                                        </div>
+                                    </>
                                 );
                             })()}
 

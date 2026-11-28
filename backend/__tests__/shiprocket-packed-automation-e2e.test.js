@@ -80,7 +80,8 @@ const RUN = process.env.RUN_E2E_TESTS === "true" && Boolean(process.env.MONGO_UR
         return { data: { awb_assign_status: 1, response: { data: { awb_code: "AWB123456", courier_name: "Delhivery Surface", courier_company_id: 10 } } } };
       }
       if (u === "/courier/generate/pickup") {
-        if (fake.pickup === "fail") throw Object.assign(new Error("pickup failed"), { response: { data: { message: "Pickup slot unavailable" } } });
+        if (fake.pickup === "fail") throw Object.assign(new Error("Request failed with status code 400"), { response: { status: 400, data: { message: "Pickup slot unavailable" } } });
+        if (fake.pickup === "already") throw Object.assign(new Error("Request failed with status code 400"), { response: { status: 400, data: { message: "Pickup already scheduled for this shipment" } } });
         return { data: { pickup_status: 1 } };
       }
       if (u === "/courier/generate/label") {
@@ -264,7 +265,9 @@ const RUN = process.env.RUN_E2E_TESTS === "true" && Boolean(process.env.MONGO_UR
       expect(saved.shiprocket.labelUrl).toBe("https://label.test/7771.pdf");
       expect(saved.shiprocket.pickupScheduledAt).toBeFalsy();
       expect(saved.shiprocket.automation).toMatchObject({ state: "PICKUP_PENDING" });
-      expect(saved.shiprocket.automation.lastError).toMatch(/Pickup slot unavailable|pickup failed/i);
+      // the seller must see Shiprocket's own reason, never just "Request failed with status code 400"
+      expect(saved.shiprocket.automation.lastError).toMatch(/Pickup slot unavailable/);
+      expect(saved.shiprocket.automation.lastError).not.toBe("Request failed with status code 400");
 
       // too soon for the job (it waits a few minutes between tries)
       expect((await retryPendingShiprocketAutomation()).found).toBe(0);
@@ -276,6 +279,15 @@ const RUN = process.env.RUN_E2E_TESTS === "true" && Boolean(process.env.MONGO_UR
       expect(saved.shiprocket.currentStatus).toBe("PICKUP_SCHEDULED");
       expect(saved.shiprocket.automation.state).toBe("COMPLETE");
       expect(count("/orders/create/adhoc")).toBe(1);
+    });
+
+    it("Shiprocket says the pickup already exists: treated as scheduled, order completes (no stuck Retry)", async () => {
+      fake.pickup = "already";
+      const order = await makeOrder();
+      await pack(order);
+      const saved = await reload(order);
+      expect(saved.shiprocket.currentStatus).toBe("PICKUP_SCHEDULED");
+      expect(saved.shiprocket.automation.state).toBe("COMPLETE");
     });
 
     it("label fails: pickup is still booked, state LABEL_PENDING, and Print Label works once the service is back", async () => {
