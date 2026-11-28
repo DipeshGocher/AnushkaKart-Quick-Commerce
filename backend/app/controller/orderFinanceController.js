@@ -62,6 +62,12 @@ export const previewCheckoutFinance = async (req, res) => {
       pricingSnapshot.sellerBreakdownEntries.map((entry) => entry.fulfillmentType),
       paymentModes,
     );
+    // Shiprocket says no courier takes COD to this pincode: do not offer COD at all.
+    if (pricingSnapshot.sellerBreakdownEntries.some(
+      (entry) => entry.fulfillmentType === "SHIPROCKET" && entry.breakdown?.codServiceable === false,
+    )) {
+      allowedPaymentModes.COD = false;
+    }
 
     const distanceDebug = String(process.env.FINANCE_DEBUG_DISTANCE || "").toLowerCase() === "true"
       ? sellerBreakdowns.map((item) => ({

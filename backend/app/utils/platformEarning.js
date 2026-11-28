@@ -24,6 +24,8 @@ export function computePlatformEarning(order) {
   const commission = num(b.adminProductCommissionTotal);
   const deliveryFee = num(b.deliveryFeeCharged);
   const handlingFee = num(b.handlingFeeCharged);
+  // what the COD customer paid for Shiprocket's COD charge (it is part of the courier's freight)
+  const codFee = num(b.codFeeCharged);
   const couponCost = Math.max(0, num(b.discountTotal));
 
   let riderCost = 0;
@@ -34,18 +36,20 @@ export function computePlatformEarning(order) {
     if (known !== null && known !== undefined && Number.isFinite(Number(known))) {
       freightCost = num(known);
     } else {
-      freightCost = num(b.courierDeliveryFee ?? deliveryFee);
+      // estimate = the quoted courier rate, plus the COD charge when the customer paid by COD
+      freightCost = num(b.courierDeliveryFee ?? deliveryFee) + codFee;
       freightEstimated = true;
     }
   } else {
     riderCost = num(b.riderPayoutTotal);
   }
 
-  let net = commission + deliveryFee + handlingFee - riderCost - freightCost - couponCost;
+  let net = commission + deliveryFee + codFee + handlingFee - riderCost - freightCost - couponCost;
 
   const parts = {
     commission: round2(commission),
     deliveryFee: round2(deliveryFee),
+    codFee: round2(codFee),
     handlingFee: round2(handlingFee),
     riderCost: round2(-riderCost),
     freightCost: round2(-freightCost),

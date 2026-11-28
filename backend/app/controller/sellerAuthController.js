@@ -2,8 +2,6 @@ import Seller from "../models/seller.js";
 import jwt from "jsonwebtoken";
 import handleResponse from "../utils/helper.js";
 import {
-    issueSellerVerificationOtp,
-    verifySellerOtpCode,
     verifySellerVerificationToken,
     issueSellerResetOtp,
     verifySellerResetOtpCode,
@@ -88,8 +86,6 @@ export const signupSeller = async (req, res) => {
             email,
             phone,
             password,
-            emailVerificationToken,
-            phoneVerificationToken,
             shopName,
             category,
             description,
@@ -156,16 +152,14 @@ export const signupSeller = async (req, res) => {
             return handleResponse(res, 400, "A valid 6-digit Indian postal pincode is required");
         }
 
-        verifySellerVerificationToken({
-            channel: "email",
-            rawValue: email,
-            token: emailVerificationToken,
-        });
-        verifySellerVerificationToken({
-            channel: "phone",
-            rawValue: phone,
-            token: phoneVerificationToken,
-        });
+        // Seller signup has no OTP: email and phone are plain fields (stored as not verified) and the admin
+        // approves the application. They must at least look right.
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
+            return handleResponse(res, 400, "A valid email address is required");
+        }
+        if (!/^\d{10}$/.test(String(phone).trim())) {
+            return handleResponse(res, 400, "A valid 10-digit contact number is required");
+        }
 
         // Validate coordinates and radius if provided
         if (lat !== undefined && (!Number.isFinite(parsedLat) || parsedLat < -90 || parsedLat > 90)) {
@@ -217,8 +211,8 @@ export const signupSeller = async (req, res) => {
             documents: sellerDocuments,
             applicationStatus: "pending",
             isVerified: false,
-            emailVerified: true,
-            phoneVerified: true,
+            emailVerified: false,
+            phoneVerified: false,
             isActive: false,
         };
 
@@ -253,50 +247,13 @@ export const signupSeller = async (req, res) => {
     }
 };
 
-export const sendSellerSignupOtp = async (req, res) => {
-    try {
-        const { channel, email, phone, value } = req.body || {};
-        const targetValue =
-            channel === "email"
-                ? email || value
-                : channel === "phone"
-                    ? phone || value
-                    : value;
+// Seller signup has NO OTP (no SMS, no email): the application is approved by the admin. The two old
+// verification endpoints stay mounted but refuse every request, so nothing can send a message through them.
+const SIGNUP_OTP_NOT_USED = "OTP is not used for seller signup. Fill in the form and submit it for admin approval.";
 
-        const result = await issueSellerVerificationOtp({
-            channel,
-            rawValue: targetValue,
-            ipAddress: req.ip,
-        });
+export const sendSellerSignupOtp = async (req, res) => handleResponse(res, 400, SIGNUP_OTP_NOT_USED);
 
-        return handleResponse(res, 200, "OTP sent successfully", result);
-    } catch (error) {
-        return handleResponse(res, getErrorStatus(error), error.message);
-    }
-};
-
-export const verifySellerSignupOtp = async (req, res) => {
-    try {
-        const { channel, email, phone, value, otp } = req.body || {};
-        const targetValue =
-            channel === "email"
-                ? email || value
-                : channel === "phone"
-                    ? phone || value
-                    : value;
-
-        const result = await verifySellerOtpCode({
-            channel,
-            rawValue: targetValue,
-            otp,
-            ipAddress: req.ip,
-        });
-
-        return handleResponse(res, 200, "OTP verified successfully", result);
-    } catch (error) {
-        return handleResponse(res, getErrorStatus(error), error.message);
-    }
-};
+export const verifySellerSignupOtp = async (req, res) => handleResponse(res, 400, SIGNUP_OTP_NOT_USED);
 
 /* ===============================
    SELLER LOGIN

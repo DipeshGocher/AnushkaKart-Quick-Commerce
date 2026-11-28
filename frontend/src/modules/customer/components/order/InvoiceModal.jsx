@@ -101,6 +101,12 @@ const InvoiceModal = ({ isOpen, onClose, order }) => {
                                         <span>Delivery Fee</span>
                                         <span>₹{order.pricing?.deliveryFee || 0}</span>
                                     </div>
+                                    {(order.pricing?.codFee || 0) > 0 && (
+                                        <div className="flex justify-between text-sm text-slate-500">
+                                            <span>COD Fee</span>
+                                            <span>₹{order.pricing?.codFee}</span>
+                                        </div>
+                                    )}
                                     {(order.pricing?.packagingFee || 0) > 0 && (
                                         <div className="flex justify-between text-sm text-slate-500">
                                             <span>Packaging Fee</span>

@@ -433,6 +433,20 @@ html[data-perf="low"] .glass-card {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
-html[data-perf="low"] [class*="backdrop-blur"][class*="bg-white/"] {
+/* Only LIGHT glass (white at 40% or more) becomes nearly solid white. Dark glass - a barely-there white
+   tint such as bg-white/5, bg-white/10, bg-white/[0.04] over a dark page with white text - must stay as it
+   is: forcing it white made the text invisible (seller "application pending" card). */
+html[data-perf="low"] [class*="backdrop-blur"][class*="bg-white/40"],
+html[data-perf="low"] [class*="backdrop-blur"][class*="bg-white/45"],
+html[data-perf="low"] [class*="backdrop-blur"][class*="bg-white/50"],
+html[data-perf="low"] [class*="backdrop-blur"][class*="bg-white/55"],
+html[data-perf="low"] [class*="backdrop-blur"][class*="bg-white/60"],
+html[data-perf="low"] [class*="backdrop-blur"][class*="bg-white/65"],
+html[data-perf="low"] [class*="backdrop-blur"][class*="bg-white/70"],
+html[data-perf="low"] [class*="backdrop-blur"][class*="bg-white/75"],
+html[data-perf="low"] [class*="backdrop-blur"][class*="bg-white/80"],
+html[data-perf="low"] [class*="backdrop-blur"][class*="bg-white/85"],
+html[data-perf="low"] [class*="backdrop-blur"][class*="bg-white/90"],
+html[data-perf="low"] [class*="backdrop-blur"][class*="bg-white/95"] {
   background-color: rgba(255, 255, 255, 0.97) !important;
 }

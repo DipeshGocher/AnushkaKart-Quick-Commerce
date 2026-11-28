@@ -89,6 +89,10 @@ const checkoutGroupSchema = new mongoose.Schema(
         type: Number,
         default: 0,
       },
+      codFeeCharged: {
+        type: Number,
+        default: 0,
+      },
       tipTotal: {
         type: Number,
         default: 0,

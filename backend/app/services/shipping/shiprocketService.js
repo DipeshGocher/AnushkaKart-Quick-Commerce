@@ -219,6 +219,8 @@ export async function calculateShiprocketLiveRate({
   breadth = 10,
   height = 10,
   cod = 0,
+  // Also ask what Shiprocket adds for Cash on Delivery on this exact parcel (the checkout shows it as "COD fee").
+  includeCodFee = false,
 } = {}) {
   const normPickup = String(pickupPincode || "").trim();
   const normDrop = String(deliveryPincode || "").trim();
@@ -237,6 +239,7 @@ export async function calculateShiprocketLiveRate({
     const extraWeight = Math.max(0, billableWeight - 0.5);
     const extraBlocks = Math.ceil(extraWeight / 0.5);
     const extraFee = extraBlocks * 25;
+    const fallbackCodFee = Number(process.env.SHIPROCKET_COD_FEE);
     return {
       success: true,
       rate: Math.round(baseFee + extraFee),
@@ -244,6 +247,9 @@ export async function calculateShiprocketLiveRate({
       etd: "3-4 business days",
       billableWeightKg: Math.round(billableWeight * 100) / 100,
       mode: "FALLBACK_DYNAMIC_WEIGHT",
+      // no live answer from Shiprocket: the COD fee is unknown (0 unless SHIPROCKET_COD_FEE is set)
+      codFee: Number.isFinite(fallbackCodFee) && fallbackCodFee > 0 ? Math.round(fallbackCodFee) : 0,
+      codServiceable: null,
     };
   };
 
@@ -257,25 +263,39 @@ export async function calculateShiprocketLiveRate({
 
   try {
     const token = await getShiprocketAuthToken();
-    const res = await axios.get(`${SHIPROCKET_BASE_URL}/courier/serviceability/`, {
-      headers: { Authorization: `Bearer ${token}` },
-      params: {
-        pickup_postcode: normPickup,
-        delivery_postcode: normDrop,
-        weight: Math.round(billableWeight * 1000) / 1000,
-        cod: cod ? 1 : 0,
-        length: normLength,
-        breadth: normBreadth,
-        height: normHeight,
-      },
-      timeout: 12000,
-    });
+    const fetchCouriers = async (codFlag) => {
+      const res = await axios.get(`${SHIPROCKET_BASE_URL}/courier/serviceability/`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          pickup_postcode: normPickup,
+          delivery_postcode: normDrop,
+          weight: Math.round(billableWeight * 1000) / 1000,
+          cod: codFlag ? 1 : 0,
+          length: normLength,
+          breadth: normBreadth,
+          height: normHeight,
+        },
+        timeout: 12000,
+      });
+      const list = res.data?.data?.available_courier_companies;
+      return Array.isArray(list) ? list : [];
+    };
+    const cheapestOf = (list) => [...list].sort((a, b) => Number(a.rate || 9999) - Number(b.rate || 9999))[0];
 
-    const courierList = res.data?.data?.available_courier_companies;
-    if (Array.isArray(courierList) && courierList.length > 0) {
+    // base list: the fee on the basis asked for; cod list: the same parcel as Cash on Delivery
+    const [courierList, codList] = await Promise.all([
+      fetchCouriers(cod),
+      includeCodFee ? fetchCouriers(1).catch(() => null) : Promise.resolve(null),
+    ]);
+    if (courierList.length > 0) {
       // Pick cheapest reliable courier
-      const sorted = [...courierList].sort((a, b) => Number(a.rate || 9999) - Number(b.rate || 9999));
-      const best = sorted[0];
+      const best = cheapestOf(courierList);
+      // couriers that say they cannot take COD do not count for the COD price
+      const codCapable = Array.isArray(codList) ? codList.filter((c) => !(c.cod === 0 || c.cod === "0")) : null;
+      const codServiceable = codCapable ? codCapable.length > 0 : null;
+      const codFee = codCapable && codCapable.length > 0
+        ? Math.max(0, Math.ceil(Number(cheapestOf(codCapable).rate)) - Math.ceil(Number(best.rate)))
+        : 0;
       return {
         success: true,
         rate: Math.ceil(Number(best.rate)),
@@ -284,6 +304,8 @@ export async function calculateShiprocketLiveRate({
         courierCompanyId: best.courier_company_id,
         billableWeightKg: Math.round(billableWeight * 100) / 100,
         mode: "LIVE_SHIPROCKET",
+        codFee,
+        codServiceable,
       };
     }
 
@@ -292,6 +314,43 @@ export async function calculateShiprocketLiveRate({
     console.warn("[Shiprocket Serviceability Rate API Warning]:", error.response?.data || error.message);
     return computeFallbackRate();
   }
+}
+
+/**
+ * The courier the customer's checkout fee is based on: the cheapest one Shiprocket offers for this exact
+ * pickup pincode, delivery pincode, weight, box size and COD flag (same call the checkout makes).
+ * Returns { courierId, courierName, rate } or null when Shiprocket gave no live answer (never the flat fallback).
+ */
+async function pickQuotedCourier(params) {
+  try {
+    const quote = await calculateShiprocketLiveRate(params);
+    if (quote?.mode === "LIVE_SHIPROCKET" && quote.courierCompanyId) {
+      return { courierId: String(quote.courierCompanyId), courierName: quote.courierName, rate: quote.rate };
+    }
+  } catch (err) {
+    console.warn("[Shiprocket] Could not look up the quoted courier:", err.message);
+  }
+  return null;
+}
+
+/**
+ * Assigns the AWB, asking for the courier the customer's fee was quoted for. Without this Shiprocket picks
+ * its own default courier (often a dearer one), so the wallet is charged more than the customer paid.
+ * If that courier cannot take the parcel right now, Shiprocket chooses (a booking beats a perfect price).
+ */
+async function postAssignAwb(token, shipmentId, courierId, timeout = 15000) {
+  const url = `${SHIPROCKET_BASE_URL}/courier/assign/awb`;
+  const headers = { Authorization: `Bearer ${token}` };
+  if (courierId) {
+    try {
+      const res = await axios.post(url, { shipment_id: shipmentId, courier_id: Number(courierId) || courierId }, { headers, timeout });
+      if (res.data?.response?.data?.awb_code) return res;
+      console.warn("[Shiprocket] Quoted courier could not be assigned, letting Shiprocket choose:", res.data?.message || res.data?.awb_assign_error || "no AWB");
+    } catch (err) {
+      console.warn("[Shiprocket] Quoted courier was refused, letting Shiprocket choose:", err.response?.data?.message || err.message);
+    }
+  }
+  return axios.post(url, { shipment_id: shipmentId }, { headers, timeout });
 }
 
 /**
@@ -420,6 +479,7 @@ export async function processShiprocketOrder(orderParam) {
   }
 
   let pickupLocation = process.env.SHIPROCKET_PICKUP_LOCATION || "Primary";
+  let pickupPincode = process.env.SHIPROCKET_DEFAULT_PICKUP_PINCODE || "";
   if (order.seller) {
     let sellerDoc = null;
     try {
@@ -431,6 +491,7 @@ export async function processShiprocketOrder(orderParam) {
     }
 
     if (sellerDoc) {
+      if (sellerDoc.pincode) pickupPincode = String(sellerDoc.pincode);
       const hasVerifiedPickup =
         Boolean(sellerDoc.shiprocketPickupLocation) &&
         sellerDoc.shiprocketPickupStatus === "verified";
@@ -493,8 +554,10 @@ export async function processShiprocketOrder(orderParam) {
     total + Number(item.price || 0) * Number(item.quantity || 1), 0);
   const subtotal = Number(order.paymentBreakdown?.productSubtotal ?? order.pricing?.subtotal ?? itemSubtotal);
   const deliveryFee = Number(order.paymentBreakdown?.deliveryFeeCharged || 0);
+  // the COD fee is part of what the courier collects from the customer, so it goes in with the other charges
   const additionalCharges = Number(order.paymentBreakdown?.handlingFeeCharged || 0)
-    + Number(order.paymentBreakdown?.taxTotal || 0);
+    + Number(order.paymentBreakdown?.taxTotal || 0)
+    + Number(order.paymentBreakdown?.codFeeCharged || 0);
   const totalDiscount = Number(order.paymentBreakdown?.discountTotal || 0)
     + Number(order.paymentBreakdown?.walletAmount || 0);
   if (!Number.isFinite(subtotal) || subtotal <= 0 || !Number.isFinite(totalWeightKg)) {
@@ -538,6 +601,17 @@ export async function processShiprocketOrder(orderParam) {
     weight: Math.round(totalWeightKg * 1000) / 1000,
   };
 
+  // Book the same courier the checkout fee was quoted for (see postAssignAwb).
+  const quotedCourier = await pickQuotedCourier({
+    pickupPincode,
+    deliveryPincode: order.address.pincode,
+    weight: payload.weight,
+    length: finalLength,
+    breadth: finalBreadth,
+    height: finalHeight,
+    cod: order.paymentMode === "COD" ? 1 : 0,
+  });
+
   try {
     const createRes = await axios.post(`${SHIPROCKET_BASE_URL}/orders/create/adhoc`, payload, {
       headers: { Authorization: `Bearer ${token}` },
@@ -557,16 +631,16 @@ export async function processShiprocketOrder(orderParam) {
     let awbCode = null;
     let courierName = null;
     let freightCharge = null;
+    let assignedCourierId = null;
     try {
-      const awbRes = await axios.post(
-        `${SHIPROCKET_BASE_URL}/courier/assign/awb`,
-        { shipment_id: shipmentId },
-        { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 }
-      );
+      const awbRes = await postAssignAwb(token, shipmentId, quotedCourier?.courierId);
       if (awbRes.data?.response?.data?.awb_code) {
         awbCode = awbRes.data.response.data.awb_code;
         courierName = awbRes.data.response.data.courier_name;
         freightCharge = extractFreight(awbRes.data);
+        if (awbRes.data.response.data.courier_company_id) {
+          assignedCourierId = String(awbRes.data.response.data.courier_company_id);
+        }
       }
     } catch (awbErr) {
       console.warn("[Shiprocket] AWB auto-assignment deferred:", awbErr.response?.data || awbErr.message);
@@ -577,6 +651,8 @@ export async function processShiprocketOrder(orderParam) {
       shiprocketOrderId: String(shiprocketOrderId),
       awb: awbCode,
       courierName: courierName || "Shiprocket Courier Partner",
+      // the courier that really took the parcel; until an AWB exists, the one a later retry should ask for
+      courierId: assignedCourierId || quotedCourier?.courierId || null,
       currentStatus: awbCode ? "AWB_ASSIGNED" : "NEW",
       currentStatusCode: srData.status_code || 1,
       freightCharge,
@@ -685,11 +761,7 @@ export async function assignShiprocketAwb(order, { attempts = 3, retryDelayMs = 
   let lastReason = "no reason given";
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      const res = await axios.post(
-        `${SHIPROCKET_BASE_URL}/courier/assign/awb`,
-        { shipment_id: shipmentId },
-        { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 },
-      );
+      const res = await postAssignAwb(token, shipmentId, order.shiprocket?.courierId);
       const data = res.data?.response?.data;
       if (data?.awb_code) {
         const sr = order.shiprocket;

@@ -154,6 +154,8 @@ const orderSchema = new mongoose.Schema(
       subtotal: Number,
       deliveryFee: Number,
       platformFee: Number,
+      // Cash on Delivery fee (= Shiprocket's extra COD charge); 0 for prepaid orders
+      codFee: { type: Number, default: 0 },
       gst: Number,
       tip: {
         type: Number,
@@ -387,6 +389,8 @@ const orderSchema = new mongoose.Schema(
       productSubtotal: { type: Number, default: 0 },
       deliveryFeeCharged: { type: Number, default: 0 },
       handlingFeeCharged: { type: Number, default: 0 },
+      // Cash on Delivery fee taken from the customer = the extra Shiprocket charges for COD on this order
+      codFeeCharged: { type: Number, default: 0 },
       tipTotal: { type: Number, default: 0 },
       discountTotal: { type: Number, default: 0 },
       taxTotal: { type: Number, default: 0 },

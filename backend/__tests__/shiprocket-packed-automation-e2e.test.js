@@ -56,14 +56,20 @@ const RUN = process.env.RUN_E2E_TESTS === "true" && Boolean(process.env.MONGO_UR
   let fake;
   const resetFake = () => {
     calls = [];
-    fake = { create: "ok", awbFailures: 0, pickup: "ok", label: "ok" };
+    fake = { create: "ok", awbFailures: 0, pickup: "ok", label: "ok", couriers: null, refuseCourierId: false };
   };
   const urlOf = (u) => String(u).replace("https://apiv2.shiprocket.in/v1/external", "");
   const names = () => calls.map((c) => c.url);
   const count = (u) => names().filter((n) => n === u).length;
 
   function installFake() {
-    jest.spyOn(axios, "get").mockRejectedValue(new Error("offline (serviceability falls back to the flat rate)"));
+    jest.spyOn(axios, "get").mockImplementation(async (url, config) => {
+      if (fake.couriers && String(url).includes("/courier/serviceability/")) {
+        calls.push({ url: "/courier/serviceability/", params: config?.params });
+        return { data: { data: { available_courier_companies: fake.couriers } } };
+      }
+      throw new Error("offline (serviceability falls back to the flat rate)");
+    });
     jest.spyOn(axios, "post").mockImplementation(async (url, body) => {
       const u = urlOf(url);
       calls.push({ url: u, body });
@@ -73,11 +79,14 @@ const RUN = process.env.RUN_E2E_TESTS === "true" && Boolean(process.env.MONGO_UR
         return { data: { order_id: 5551, shipment_id: 7771, status_code: 1 } };
       }
       if (u === "/courier/assign/awb") {
+        if (body?.courier_id && fake.refuseCourierId) {
+          return { data: { awb_assign_status: 0, message: "Courier not serviceable right now" } };
+        }
         if (fake.awbFailures > 0) {
           fake.awbFailures -= 1;
           return { data: { awb_assign_status: 0, message: "Courier busy, try again" } };
         }
-        return { data: { awb_assign_status: 1, response: { data: { awb_code: "AWB123456", courier_name: "Delhivery Surface", courier_company_id: 10 } } } };
+        return { data: { awb_assign_status: 1, response: { data: { awb_code: "AWB123456", courier_name: "Delhivery Surface", courier_company_id: body?.courier_id || 10 } } } };
       }
       if (u === "/courier/generate/pickup") {
         if (fake.pickup === "fail") throw Object.assign(new Error("Request failed with status code 400"), { response: { status: 400, data: { message: "Pickup slot unavailable" } } });
@@ -279,6 +288,48 @@ const RUN = process.env.RUN_E2E_TESTS === "true" && Boolean(process.env.MONGO_UR
       expect(saved.shiprocket.currentStatus).toBe("PICKUP_SCHEDULED");
       expect(saved.shiprocket.automation.state).toBe("COMPLETE");
       expect(count("/orders/create/adhoc")).toBe(1);
+    });
+
+    describe("the courier booked is the one the checkout fee was quoted for", () => {
+      const couriers = [
+        { courier_company_id: 33, courier_name: "Delhivery Air", rate: 118 },
+        { courier_company_id: 12, courier_name: "Ekart Surface", rate: 56 },
+        { courier_company_id: 44, courier_name: "Xpressbees", rate: 71 },
+      ];
+
+      it("asks Shiprocket for the cheapest courier (what checkout charged) and keeps its id for retries", async () => {
+        fake.couriers = couriers;
+        const order = await makeOrder();
+        await pack(order);
+        const assign = calls.find((c) => c.url === "/courier/assign/awb");
+        expect(assign.body).toMatchObject({ shipment_id: 7771, courier_id: 12 });
+        const quote = calls.find((c) => c.url === "/courier/serviceability/");
+        expect(quote.params).toMatchObject({ pickup_postcode: "284204", delivery_postcode: "411001", cod: 1 }); // COD order, seller pincode
+        const saved = await reload(order);
+        expect(saved.shiprocket.awb).toBe("AWB123456");
+        expect(saved.shiprocket.courierId).toBe("12");
+        expect(saved.shiprocket.automation.state).toBe("COMPLETE");
+      });
+
+      it("the courier is refused: Shiprocket chooses, the order is still booked", async () => {
+        fake.couriers = couriers;
+        fake.refuseCourierId = true;
+        const order = await makeOrder();
+        await pack(order);
+        const assigns = calls.filter((c) => c.url === "/courier/assign/awb");
+        expect(assigns).toHaveLength(2);
+        expect(assigns[0].body.courier_id).toBe(12);
+        expect(assigns[1].body.courier_id).toBeUndefined();
+        expect((await reload(order)).shiprocket.awb).toBe("AWB123456");
+      });
+
+      it("no live rate (Shiprocket offline): books exactly as before, no courier asked for", async () => {
+        const order = await makeOrder();
+        await pack(order);
+        const assign = calls.find((c) => c.url === "/courier/assign/awb");
+        expect(assign.body.courier_id).toBeUndefined();
+        expect((await reload(order)).shiprocket.awb).toBe("AWB123456");
+      });
     });
 
     it("Shiprocket says the pickup already exists: treated as scheduled, order completes (no stuck Retry)", async () => {

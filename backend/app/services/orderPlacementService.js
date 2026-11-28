@@ -491,8 +491,23 @@ export async function placeOrderAtomic({
       couponCode: normalizedPayload.couponCode || null,
       couponId: normalizedPayload.couponId || null,
       customerId,
+      // COD adds the courier's COD fee to the total (see applyCodFeeToSellerBreakdowns)
+      paymentMode,
       session,
     });
+
+    // Shiprocket answered that no courier takes Cash on Delivery to this pincode: refuse COD here instead of
+    // failing the courier booking later.
+    if (
+      paymentMode === "COD" &&
+      pricingSnapshot.sellerBreakdownEntries.some(
+        (e) => e.fulfillmentType === "SHIPROCKET" && e.breakdown?.codServiceable === false,
+      )
+    ) {
+      const codErr = new Error("Cash on Delivery is not available for this delivery pincode. Please pay online or by UPI QR.");
+      codErr.statusCode = 400;
+      throw codErr;
+    }
 
     // The admin decides which payment modes work for local and for courier (Shiprocket) delivery.
     // Checked on the server so a hidden button cannot be bypassed by editing the request. Nothing
@@ -625,6 +640,7 @@ export async function placeOrderAtomic({
         pricing: {
           ...entry.breakdown, // This might overwrite fields, be careful
           tip: entry.breakdown.tipTotal,
+          codFee: entry.breakdown.codFeeCharged || 0,
           total: entry.breakdown.grandTotal,
           walletAmount: proportionateWallet,
         },

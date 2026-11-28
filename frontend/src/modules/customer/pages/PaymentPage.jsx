@@ -33,6 +33,7 @@ import CheckoutOrderSuccess from "./checkout/components/CheckoutOrderSuccess";
 import { createSocketTokenReader } from "@core/utils/authStorage";
 import { STORAGE_KEYS } from "@core/utils/storage";
 import { getOrderSocket, joinOrderRoom } from "@/core/services/orderSocket";
+import { getCodFeeView } from "@/shared/utils/codFee";
 
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
@@ -200,6 +201,11 @@ const PaymentPage = () => {
     : [];
 
   const orderAddress = rawOrderAddress || rawCurrentAddress;
+
+  // COD fee (Flipkart-style "COD charges"): what the courier charges extra for Cash on Delivery on this
+  // parcel. It is quoted by the server with the preview and shows up only while Cash on Delivery is the
+  // selected option; the server adds the same amount when the order is placed as COD.
+  const { codFee, payableAmount } = getCodFeeView({ pricingPreview, selectedMode: openAccordion, finalAmountToPay });
 
   // Cheap string building; computed inline because this runs after the early
   // return above, where hooks are not allowed.
@@ -538,7 +544,7 @@ const PaymentPage = () => {
               )}
             </div>
             <span className="text-[17px] font-black text-blue-700 tracking-tight">
-              ₹{finalAmountToPay}
+              ₹{payableAmount}
             </span>
           </button>
 
@@ -587,9 +593,15 @@ const PaymentPage = () => {
                   <span>₹{fee.amount}</span>
                 </div>
               ))}
+              {codFee > 0 && (
+                <div className="flex justify-between text-slate-600" data-testid="cod-fee-row">
+                  <span>COD FEE</span>
+                  <span>₹{codFee}</span>
+                </div>
+              )}
               <div className="flex justify-between font-bold text-slate-900 pt-1 border-t border-blue-200/50">
                 <span>TOTAL PAYABLE</span>
-                <span>₹{finalAmountToPay}</span>
+                <span>₹{payableAmount}</span>
               </div>
             </div>
           )}
@@ -733,6 +745,24 @@ const PaymentPage = () => {
                 <div className="p-3 bg-slate-50 rounded-xl text-[12px] text-slate-600 leading-relaxed border border-slate-200/60">
                   Pay with cash or UPI at the time of delivery at your doorstep.
                 </div>
+
+                {codFee > 0 && (
+                  <div className="text-[12.5px] space-y-1.5" data-testid="cod-fee-panel">
+                    <div className="flex justify-between text-slate-600">
+                      <span>Order amount</span>
+                      <span>₹{finalAmountToPay}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-900 font-medium">
+                      <span>COD fee</span>
+                      <span>+ ₹{codFee}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-slate-900 pt-1 border-t border-slate-200">
+                      <span>Pay at delivery</span>
+                      <span>₹{payableAmount}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">Pay online or by UPI QR to avoid the COD fee.</p>
+                  </div>
+                )}
 
                 <button
                   type="button"

@@ -44,7 +44,9 @@ const ApplicationPending = () => {
           initial={{ opacity: 0, y: 20, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.4 }}
-          className="w-full rounded-3xl border border-white/10 bg-white/[0.04] p-6 md:p-10 shadow-2xl backdrop-blur-xl"
+          // A solid dark card (no translucent white / backdrop blur): on phones and PCs where blur is switched
+          // off the translucent version turned white, and its white text vanished.
+          className="w-full rounded-3xl border border-slate-700 bg-slate-900 p-6 md:p-10 shadow-2xl"
         >
           <div className="mb-8 flex items-center justify-between gap-4">
             <div className="inline-flex items-center gap-3 rounded-xl border border-white/15 bg-white/5 px-4 py-2">

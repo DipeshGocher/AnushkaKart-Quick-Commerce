@@ -129,6 +129,10 @@ function buildAggregateBreakdown(sellerBreakdowns = []) {
     productSubtotal: sumField(sellerBreakdowns, "productSubtotal"),
     deliveryFeeCharged: sumField(sellerBreakdowns, "deliveryFeeCharged"),
     handlingFeeCharged: sumField(sellerBreakdowns, "handlingFeeCharged"),
+    // COD fee: `codFeeQuote` is what Shiprocket would add if the customer pays by COD (shown on the payment
+    // page); `codFeeCharged` is what is really in the total (only when the order is placed as COD).
+    codFeeQuote: sumField(sellerBreakdowns, "codFeeQuote"),
+    codFeeCharged: sumField(sellerBreakdowns, "codFeeCharged"),
     tipTotal: sumField(sellerBreakdowns, "tipTotal"),
     discountTotal: sumField(sellerBreakdowns, "discountTotal"),
     taxTotal: sumField(sellerBreakdowns, "taxTotal"),
@@ -349,6 +353,26 @@ function applyFreeDeliveryToSellerBreakdowns(sellerBreakdownEntries = []) {
   }
 }
 
+// COD fee (the "COD charges" line of Flipkart-style checkouts). Shiprocket charges extra for Cash on Delivery;
+// the customer who picks COD pays exactly that extra, so the platform is not out of pocket. It is added only
+// when the order is really placed as COD (paymentMode === "COD"), on the courier shipment that carries it, and
+// it runs before tip / wallet allocation so they clamp against the final payable amount.
+function applyCodFeeToSellerBreakdowns(sellerBreakdownEntries = [], paymentMode = null) {
+  for (const entry of sellerBreakdownEntries) {
+    const breakdown = entry?.breakdown;
+    if (!breakdown) continue;
+    const quote = round2(Number(breakdown.codFeeQuote || 0));
+    const fee = paymentMode === "COD" && entry.fulfillmentType === "SHIPROCKET" ? quote : 0;
+    breakdown.codFeeCharged = fee;
+    if (fee <= 0) continue;
+    breakdown.grossTotal = round2(Number(breakdown.grossTotal || 0) + fee);
+    breakdown.grandTotal = round2(Number(breakdown.grandTotal || 0) + fee);
+    breakdown.payableAmount = breakdown.grandTotal;
+    breakdown.platformLogisticsMargin = round2(Number(breakdown.platformLogisticsMargin || 0) + fee);
+    breakdown.platformTotalEarning = round2(Number(breakdown.platformTotalEarning || 0) + fee);
+  }
+}
+
 // Audit Phase 4 (C-1): allocate the checkout-group-level walletAmount
 // across sellers proportionately by their post-tip grandTotal, then
 // subtract it from each seller's grandTotal. Runs AFTER tip allocation
@@ -421,6 +445,9 @@ export async function buildCheckoutPricingSnapshot({
   couponCode = null,
   couponId = null,
   customerId = null,
+  // "COD" adds the courier's COD fee to the total. The preview leaves it out (the customer has not chosen a
+  // payment mode yet) and only reports `codFeeQuote`; place-order passes the chosen mode.
+  paymentMode = null,
   session = null,
 }) {
   const hydratedItems = await hydrateOrderItems(orderItems, {
@@ -591,11 +618,13 @@ export async function buildCheckoutPricingSnapshot({
       liveRateMeta = await calculateShiprocketLiveRate({
         pickupPincode,
         deliveryPincode: address?.pincode,
-        weight: Math.max(0.1, totalWeight || 0.5),
+        // same 0.5 kg minimum the booking uses, so the quoted fee and the real freight are for the same parcel
+        weight: Math.max(0.5, totalWeight || 0.5),
         length: Math.max(5, Math.min(100, maxLength)),
         breadth: Math.max(5, Math.min(100, maxBreadth)),
         height: Math.max(5, Math.min(100, totalHeight || 10)),
         cod: 0,
+        includeCodFee: true,
       });
       if (liveRateMeta?.success && Number.isFinite(liveRateMeta.rate)) {
         liveCourierFee = liveRateMeta.rate;
@@ -611,6 +640,11 @@ export async function buildCheckoutPricingSnapshot({
       fulfillmentType: sellerFulfillmentType,
       courierDeliveryFee: liveCourierFee,
     });
+    // what Cash on Delivery would add for this courier shipment (0 for local delivery)
+    breakdown.codFeeQuote = sellerHasShiprocket ? round2(Number(liveRateMeta?.codFee || 0)) : 0;
+    breakdown.codFeeCharged = 0;
+    // false = Shiprocket says no courier can take COD to this pincode
+    breakdown.codServiceable = sellerHasShiprocket ? (liveRateMeta?.codServiceable ?? null) : null;
 
     sellerBreakdownEntries.push({
       sellerId,
@@ -647,6 +681,7 @@ export async function buildCheckoutPricingSnapshot({
   if (applyFreeDelivery) {
     applyFreeDeliveryToSellerBreakdowns(sellerBreakdownEntries);
   }
+  applyCodFeeToSellerBreakdowns(sellerBreakdownEntries, paymentMode);
   allocateCheckoutTipToSellerBreakdowns(sellerBreakdownEntries, tipAmount);
   // Audit Phase 4 (C-1): subtract wallet redemption from each seller's
   // grandTotal proportionate to their share. No-op when the flag is off.
