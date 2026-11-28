@@ -12,6 +12,16 @@ const mockDeliveryFindOne = jest.fn();
 
 const mockAxiosGet = jest.fn();
 const mockJwtSign = jest.fn();
+const mockResolve4 = jest.fn().mockResolvedValue(["46.202.138.157"]);
+
+jest.unstable_mockModule("node:dns/promises", () => ({
+  Resolver: class {
+    setServers() {}
+    resolve4(host) {
+      return mockResolve4(host);
+    }
+  },
+}));
 
 jest.unstable_mockModule("../app/modules/otp/otp.model.js", () => ({
   default: {
@@ -304,5 +314,61 @@ describe("sms OTP service", () => {
         }),
       }),
     );
+  });
+
+  it("retries transient EAI_AGAIN DNS errors and succeeds if a retry connects", async () => {
+    process.env.USE_MOCK_OTP = "false";
+    process.env.USE_REAL_SMS = "true";
+    process.env.SMS_INDIA_HUB_API_KEY = "api-key-123";
+    process.env.SMS_INDIA_HUB_SENDER_ID = "BGADPL";
+    process.env.SMS_INDIA_HUB_DLT_TEMPLATE_ID = "1077104580057767222";
+    process.env.SMS_INDIA_HUB_URL = "http://cloud.smsindiahub.in/api/mt/SendSMS";
+
+    mockCustomerFindOne.mockResolvedValue({ _id: "customer-1", phone: "9876543210" });
+    const dnsErr = Object.assign(new Error("getaddrinfo EAI_AGAIN cloud.smsindiahub.in"), {
+      code: "EAI_AGAIN",
+    });
+    mockAxiosGet
+      .mockRejectedValueOnce(dnsErr)
+      .mockResolvedValueOnce({ data: { ErrorCode: "000", ErrorMessage: "Done" } });
+
+    const result = await sendSmsOtp({
+      mobile: "9876543210",
+      userType: "Customer",
+      purpose: "LOGIN",
+    });
+
+    expect(result.sent).toBe(true);
+    expect(mockAxiosGet).toHaveBeenCalledTimes(2);
+  });
+
+  it("bypasses persistent OS DNS EAI_AGAIN failures using public DNS fallback IP with Host header", async () => {
+    process.env.USE_MOCK_OTP = "false";
+    process.env.USE_REAL_SMS = "true";
+    process.env.SMS_INDIA_HUB_API_KEY = "api-key-123";
+    process.env.SMS_INDIA_HUB_SENDER_ID = "BGADPL";
+    process.env.SMS_INDIA_HUB_DLT_TEMPLATE_ID = "1077104580057767222";
+    process.env.SMS_INDIA_HUB_URL = "http://cloud.smsindiahub.in/api/mt/SendSMS";
+
+    mockCustomerFindOne.mockResolvedValue({ _id: "customer-1", phone: "9876543210" });
+    const dnsErr = Object.assign(new Error("getaddrinfo EAI_AGAIN cloud.smsindiahub.in"), {
+      code: "EAI_AGAIN",
+    });
+    mockAxiosGet
+      .mockRejectedValueOnce(dnsErr)
+      .mockRejectedValueOnce(dnsErr)
+      .mockResolvedValueOnce({ data: { ErrorCode: "000", ErrorMessage: "Done" } });
+
+    const result = await sendSmsOtp({
+      mobile: "9876543210",
+      userType: "Customer",
+      purpose: "LOGIN",
+    });
+
+    expect(result.sent).toBe(true);
+    expect(mockAxiosGet).toHaveBeenCalledTimes(3);
+    const [fallbackUrl, fallbackConfig] = mockAxiosGet.mock.calls[2];
+    expect(fallbackUrl).toMatch(/^http:\/\/\d+\.\d+\.\d+\.\d+\/api\/mt\/SendSMS$/);
+    expect(fallbackConfig.headers).toEqual(expect.objectContaining({ Host: "cloud.smsindiahub.in" }));
   });
 });

@@ -1,7 +1,139 @@
 import axios from "axios";
+import { Resolver } from "node:dns/promises";
+import https from "node:https";
+import net from "node:net";
 import { buildMessage, toIndianNumber } from "../utils/smsHelpers.js";
 
 const SMS_INDIA_SUCCESS_CODE = "000";
+const DNS_CACHE_TTL_MS = 10 * 60 * 1000;
+const PUBLIC_DNS_SERVERS = ["8.8.8.8", "1.1.1.1", "8.8.4.4"];
+const TRANSIENT_NETWORK_CODES = new Set([
+  "EAI_AGAIN",
+  "ENOTFOUND",
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+  "ESOCKETTIMEDOUT",
+]);
+const DNS_FAILURE_CODES = new Set(["EAI_AGAIN", "ENOTFOUND"]);
+const resolvedIpCache = new Map(); // hostname -> { ip, expiresAt }
+
+function isTransientNetworkError(err) {
+  if (!err || err.response) return false;
+  return TRANSIENT_NETWORK_CODES.has(String(err.code || "").toUpperCase());
+}
+
+function isDnsError(err) {
+  if (!err || err.response) return false;
+  return DNS_FAILURE_CODES.has(String(err.code || "").toUpperCase());
+}
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function resolveIpv4ViaPublicDns(hostname) {
+  if (!hostname || net.isIP(hostname)) return null;
+  const now = Date.now();
+  const cached = resolvedIpCache.get(hostname);
+  if (cached && cached.expiresAt > now) {
+    return cached.ip;
+  }
+
+  try {
+    const resolver = new Resolver();
+    const envServers = String(process.env.PUBLIC_DNS_SERVERS || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    resolver.setServers(envServers.length > 0 ? envServers : PUBLIC_DNS_SERVERS);
+    let timeoutId;
+    const ips = await Promise.race([
+      resolver.resolve4(hostname),
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error("DNS resolve timeout")), 3000);
+        timeoutId.unref?.();
+      }),
+    ]).finally(() => {
+      if (timeoutId) clearTimeout(timeoutId);
+    });
+    if (Array.isArray(ips) && ips.length > 0 && net.isIPv4(ips[0])) {
+      resolvedIpCache.set(hostname, { ip: ips[0], expiresAt: now + DNS_CACHE_TTL_MS });
+      return ips[0];
+    }
+  } catch (dnsErr) {
+    console.warn("[SMS India HUB DNS Fallback Failed]", dnsErr.message);
+  }
+
+  if (cached?.ip) return cached.ip;
+  const envFallbackIp = String(process.env.SMS_INDIA_HUB_FALLBACK_IP || "").trim();
+  return net.isIPv4(envFallbackIp) ? envFallbackIp : null;
+}
+
+function buildDirectIpRequest(url, ip, baseConfig) {
+  const parsed = new URL(url);
+  const direct = new URL(url);
+  direct.hostname = ip;
+  const nextConfig = {
+    ...baseConfig,
+    headers: {
+      ...(baseConfig.headers || {}),
+      Host: parsed.host,
+    },
+  };
+  if (parsed.protocol === "https:") {
+    nextConfig.httpsAgent = new https.Agent({ servername: parsed.hostname });
+  }
+  return { url: direct.toString(), config: nextConfig };
+}
+
+async function requestSmsGateway(url, { params, timeout }) {
+  const baseConfig = { params, timeout, family: 4 };
+  let parsedUrl = null;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    parsedUrl = null;
+  }
+
+  let lastError;
+  // Attempts 1-2 use the normal URL; if OS DNS fails with EAI_AGAIN/ENOTFOUND,
+  // attempt 3+ resolves the IPv4 address via public DNS (8.8.8.8/1.1.1.1) and connects directly.
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      return await axios.get(url, baseConfig);
+    } catch (err) {
+      lastError = err;
+      if (!isTransientNetworkError(err)) throw err;
+      if (attempt < 2) await wait(200);
+    }
+  }
+
+  if (isDnsError(lastError) && parsedUrl?.hostname) {
+    const fallbackIp = await resolveIpv4ViaPublicDns(parsedUrl.hostname);
+    if (fallbackIp) {
+      const direct = buildDirectIpRequest(url, fallbackIp, baseConfig);
+      try {
+        return await axios.get(direct.url, direct.config);
+      } catch (err) {
+        lastError = err;
+        if (!isTransientNetworkError(err)) throw err;
+      }
+    }
+  }
+
+  if (isTransientNetworkError(lastError)) {
+    console.error("[SMS India HUB Network Error]", {
+      code: lastError.code,
+      message: lastError.message,
+      url,
+    });
+    const error = new Error("SMS gateway is temporarily unreachable. Please try again in a few seconds.");
+    error.statusCode = 503;
+    error.providerCode = lastError.code;
+    throw error;
+  }
+
+  throw lastError;
+}
 
 function getSmsIndiaConfig() {
   return {
@@ -142,7 +274,7 @@ export async function sendSmsIndiaHubOtp({ phone, otp, message }) {
           : {}),
       };
 
-  const response = await axios.get(config.url, {
+  const response = await requestSmsGateway(config.url, {
     params,
     timeout: config.timeoutMs,
   });

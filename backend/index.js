@@ -87,6 +87,10 @@ function maybeForcePublicDnsResolvers() {
   logger.info("Using custom DNS resolvers for SRV lookups", { servers });
 }
 
+if (typeof dns.setDefaultResultOrder === "function") {
+  dns.setDefaultResultOrder("ipv4first");
+}
+
 maybeForcePublicDnsResolvers();
 
 /**
